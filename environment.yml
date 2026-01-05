@@ -1,0 +1,17 @@
+name: env-baselode
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - folium
+  - numpy
+  - pandas
+  - pip
+  - pymssql
+  - pyodbc
+  - shapely
+  - unixodbc
+  - pip:
+      - dotenv
+      - fastapi
+      - uvicorn

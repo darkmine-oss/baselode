@@ -1,0 +1,4 @@
+.env
+.venv
+
+frontend/app/node_modules/
