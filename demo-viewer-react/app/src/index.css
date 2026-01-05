@@ -1,0 +1,30 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+/*
+ * Copyright (C) 2026 Tamara Vasey
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+}
+
+:root {
+  --accent: #8b1e3f;
+  --accent-strong: #751833;
+  --accent-light: #a8324f;
+  --accent-glow: rgba(139, 30, 63, 0.25);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}

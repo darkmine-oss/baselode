@@ -1,0 +1,183 @@
+/*
+ * Copyright (C) 2026 Tamara Vasey
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+.drillhole2d-container {
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+  box-sizing: border-box;
+  padding-left: 220px;
+}
+
+.drillhole2d-header {
+  background: white;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.drillhole2d-header h1 {
+  margin: 0 0 15px 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.drillhole2d-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.file-input-wrapper {
+  position: relative;
+}
+
+.file-input-label {
+  display: inline-block;
+  padding: 10px 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.file-input-label:hover {
+  background: var(--accent-strong);
+}
+
+.file-input-label input {
+  display: none;
+}
+
+.select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.select-wrapper label {
+  font-size: 14px;
+  color: #555;
+  font-weight: 500;
+}
+
+.select-wrapper select {
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  min-width: 180px;
+}
+
+.select-wrapper select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.drillhole-info {
+  font-size: 13px;
+  color: #666;
+  margin-left: auto;
+}
+
+.error-text {
+  color: #dc2626;
+  font-size: 13px;
+}
+
+.plots-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 12px 16px 12px;
+  overflow: auto;
+}
+
+.plot-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+}
+
+.plot-card.empty {
+  justify-content: center;
+  color: #888;
+  font-size: 13px;
+}
+
+.plot-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.plot-controls.column {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.plot-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.plot-control-row {
+  display: flex;
+  gap: 6px;
+}
+
+.plot-select {
+  padding: 6px 10px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 12px;
+  background: white;
+  cursor: pointer;
+}
+
+.plot-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.plotly-chart {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+.placeholder {
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}

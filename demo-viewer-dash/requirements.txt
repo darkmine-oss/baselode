@@ -1,0 +1,8 @@
+dash>=2.18
+plotly>=5.0
+pandas>=1.5
+numpy>=1.23
+geopandas>=0.13
+pyproj>=3.4
+uvicorn>=0.30
+asgiref>=3.8
