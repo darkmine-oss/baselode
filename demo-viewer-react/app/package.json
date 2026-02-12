@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "baselode": "*",
+    "baselode": "file:../../javascript/packages/baselode",
     "maplibre-gl": "^5.16.0",
     "papaparse": "^5.4.1",
     "plotly.js-dist-min": "^2.32.0",
@@ -16,6 +16,7 @@
     "three-viewport-gizmo": "^2.2.0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
@@ -23,6 +24,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:local": "concurrently -k -n LIB,APP -c cyan,green \"npm --prefix ../../javascript/packages/baselode run dev\" \"vite\"",
     "build": "vite build",
     "preview": "vite preview"
   }

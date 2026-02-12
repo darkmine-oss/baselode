@@ -31,13 +31,6 @@
     "three": ">=0.150.0",
     "three-viewport-gizmo": ">=2.0.0"
   },
-  "peerDependenciesMeta": {
-    "react": { "optional": true },
-    "react-dom": { "optional": true },
-    "three": { "optional": true },
-    "three-viewport-gizmo": { "optional": true },
-    "plotly.js-dist-min": { "optional": true }
-  },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
     "vite": "^5.0.8"

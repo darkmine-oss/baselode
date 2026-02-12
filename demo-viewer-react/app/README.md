@@ -17,6 +17,38 @@ A React-based web application for visualizing geological data.
 npm install
 ```
 
+### Use Local `baselode` Package
+
+The app is configured to use the local package at `../../javascript/packages/baselode` via a `file:` dependency.
+
+Build the package before running the app:
+
+```bash
+cd ../../javascript/packages/baselode
+npm install
+npm run build
+```
+
+Then run the viewer:
+
+```bash
+cd ../../demo-viewer-react/app
+npm install
+npm run dev
+```
+
+For active local development (watch `baselode` + run app together):
+
+```bash
+cd ../../demo-viewer-react/app
+npm install
+npm run dev:local
+```
+
+This runs:
+- `baselode` library build in watch mode
+- Vite dev server for the demo app
+
 ### Run Development Server
 
 ```bash
