@@ -11,9 +11,10 @@ import {
   loadAssayMetadata,
   loadCachedAssayState,
   reorderHoleIds,
-  saveAssayCache
-} from '../lib/assayDataLoader.js';
-import { buildIntervalPoints, buildPlotConfig } from '../lib/drillholeViz.js';
+  saveAssayCache,
+  buildIntervalPoints,
+  buildPlotConfig
+} from 'baselode';
 import './Drillhole2D.css';
 import { useDrillConfig } from '../context/DrillConfigContext.jsx';
 
@@ -53,6 +54,38 @@ function Drillhole2D() {
       applyAssayState(cachedState);
     }
   }, [focusedHoleId]);
+
+  // Auto-load canonical GSWA assays if no cached data
+  useEffect(() => {
+    if (holes.length > 0 || fileRef) return;
+    fetch('/data/gswa/demo_gswa_sample_assays.csv')
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.text();
+      })
+      .then((csvText) => {
+        if (!csvText) return;
+        // Create a synthetic file ref for lazy loading
+        const blob = new Blob([csvText], { type: 'text/csv' });
+        const syntheticFile = new File([blob], 'gswa_assays.csv', { type: 'text/csv' });
+        setFileRef(syntheticFile);
+        return loadAssayMetadata(syntheticFile, drillConfig);
+      })
+      .then((ids) => {
+        if (!ids) return;
+        const uniqueIds = Array.from(new Map(ids.map((h) => [h.holeId, h])).values());
+        setHoleIds(uniqueIds);
+        const ordered = reorderHoleIds(uniqueIds.map((h) => h.holeId), focusedHoleId);
+        setTraceConfigs(Array.from({ length: 4 }).map((_, idx) => ({
+          holeId: ordered[idx] || uniqueIds[idx]?.holeId || '',
+          property: '',
+          chartType: 'markers+line'
+        })));
+      })
+      .catch((err) => {
+        console.info('Auto-load of GSWA assays skipped:', err.message);
+      });
+  }, [holes.length, fileRef]);
 
   useEffect(() => {
     const holeIdFromNav = location.state?.holeId;

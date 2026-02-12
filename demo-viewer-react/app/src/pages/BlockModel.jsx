@@ -3,9 +3,13 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { useEffect, useRef, useState } from 'react';
-import { parseBlockModelCSV, calculatePropertyStats } from '../lib/blockModelLoader';
-import Baselode3DScene from '../lib/baselode3dScene';
-import Baselode3DControls from '../components/Baselode3DControls';
+import {
+  parseBlockModelCSV,
+  calculatePropertyStats,
+  Baselode3DScene,
+  Baselode3DControls
+} from 'baselode';
+import 'baselode/style.css';
 import './BlockModel.css';
 
 function BlockModel() {

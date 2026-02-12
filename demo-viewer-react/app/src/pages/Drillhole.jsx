@@ -3,11 +3,19 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Baselode3DScene from '../lib/baselode3dScene.js';
-import { loadCachedCollars, loadCachedDesurveyed, saveCachedDesurveyed, saveCachedSurvey, parseSurveyCSV, desurveyTraces } from '../lib/desurvey.js';
+import {
+  Baselode3DScene,
+  Baselode3DControls,
+  loadCachedCollars,
+  loadCachedDesurveyed,
+  saveCachedDesurveyed,
+  saveCachedSurvey,
+  parseSurveyCSV,
+  desurveyTraces
+} from 'baselode';
+import 'baselode/style.css';
 import proj4 from 'proj4';
 import './Drillhole.css';
-import Baselode3DControls from '../components/Baselode3DControls.jsx';
 import { useDrillConfig } from '../context/DrillConfigContext.jsx';
 
 function Drillhole() {
@@ -43,6 +51,27 @@ function Drillhole() {
     }
   }, []);
 
+  // Auto-load canonical GSWA survey if no cached data
+  useEffect(() => {
+    if (holes || !collars.length) return;
+    fetch('/data/gswa/demo_gswa_sample_survey.csv')
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.text();
+      })
+      .then((csvText) => {
+        if (!csvText) return;
+        return parseSurveyCSV(csvText, drillConfig);
+      })
+      .then((surveyRows) => {
+        if (!surveyRows || !surveyRows.length) return;
+        processAndSetHoles(surveyRows);
+      })
+      .catch((err) => {
+        console.info('Auto-load of GSWA survey skipped:', err.message);
+      });
+  }, [holes, collars]);
+
   // Initialize shared 3D scene
   useEffect(() => {
     if (!containerRef.current) return;
@@ -73,6 +102,76 @@ function Drillhole() {
     }
   }, [holes]);
 
+  const processAndSetHoles = (surveyRows) => {
+    if (!collars.length) {
+      setError('No cached collars found. Load collars on Home first.');
+      return;
+    }
+    const desurveyed = desurveyTraces(collars, surveyRows, drillConfig);
+    if (!desurveyed.length) {
+      setError('No matching holes found between survey and cached collars.');
+      return;
+    }
+    const renderable = desurveyed.filter((h) => (h.points || []).length >= 2);
+    if (!renderable.length) {
+      setError('Desurveying produced no lines with 2+ points.');
+      return;
+    }
+    saveCachedSurvey(surveyRows);
+
+    const projectedCollars = collars.map((c) => ({
+      id: c.holeId || c.hole_id || c.id,
+      lat: c.lat,
+      lng: c.lng,
+      zone50: projectTo28350(c.lat, c.lng)
+    }));
+
+    const centroid = projectedCollars.reduce(
+      (acc, c) => {
+        acc.x += c.zone50.x;
+        acc.y += c.zone50.y;
+        return acc;
+      },
+      { x: 0, y: 0 }
+    );
+    centroid.x /= projectedCollars.length;
+    centroid.y /= projectedCollars.length;
+
+    const linestrings = desurveyed.map((h) => {
+      const pts = h.points
+        .map((p) => {
+          const proj = projectTo28350(p.lat ?? 0, p.lng ?? 0);
+          const offset = { x: proj.x - centroid.x, y: proj.y - centroid.y };
+          if (!Number.isFinite(offset.x) || !Number.isFinite(offset.y) || !Number.isFinite(p.z)) return null;
+          return {
+            ...p,
+            zone50: proj,
+            offset
+          };
+        })
+        .filter(Boolean);
+      return { id: h.id, project: h.project, points: pts };
+    });
+
+    const shiftedHoles = linestrings.map((h) => ({
+      id: h.id,
+      project: h.project,
+      points: h.points.map((p) => ({ x: p.offset.x, y: p.offset.y, z: p.z }))
+    }));
+
+    const filteredHoles = shiftedHoles.filter((h) => (h.points || []).length >= 2);
+    if (!filteredHoles.length) {
+      setError('No renderable drillholes after projection.');
+      return;
+    }
+
+    setHoles(filteredHoles);
+    saveCachedDesurveyed(filteredHoles);
+    if (sceneRef.current) {
+      sceneRef.current.setDrillholes(filteredHoles);
+    }
+  };
+
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -80,119 +179,7 @@ function Drillhole() {
 
     parseSurveyCSV(file, drillConfig)
       .then((surveyRows) => {
-        if (!collars.length) {
-          throw new Error('No cached collars found. Load collars on Home first.');
-        }
-        const desurveyed = desurveyTraces(collars, surveyRows, drillConfig);
-        if (!desurveyed.length) {
-          throw new Error('No matching holes found between survey and cached collars.');
-        }
-        const renderable = desurveyed.filter((h) => (h.points || []).length >= 2);
-        if (!renderable.length) {
-          throw new Error('Desurveying produced no lines with 2+ points.');
-        }
-        saveCachedSurvey(surveyRows);
-        const matchingIds = desurveyed.slice(0, 3).map((h) => h.id);
-        const projectedCollars = collars.map((c) => ({
-          id: c.holeId || c.hole_id || c.id,
-          lat: c.lat,
-          lng: c.lng,
-          zone50: projectTo28350(c.lat, c.lng)
-        }));
-
-        const centroid = projectedCollars.reduce(
-          (acc, c) => {
-            acc.x += c.zone50.x;
-            acc.y += c.zone50.y;
-            return acc;
-          },
-          { x: 0, y: 0 }
-        );
-        centroid.x /= projectedCollars.length;
-        centroid.y /= projectedCollars.length;
-
-        const offsetCollars = projectedCollars.map((c) => ({
-          ...c,
-          offset: { x: c.zone50.x - centroid.x, y: c.zone50.y - centroid.y }
-        }));
-
-        const linestrings = desurveyed.map((h) => {
-          const pts = h.points
-            .map((p) => {
-              const proj = projectTo28350(p.lat ?? 0, p.lng ?? 0);
-              const offset = { x: proj.x - centroid.x, y: proj.y - centroid.y };
-              if (!Number.isFinite(offset.x) || !Number.isFinite(offset.y) || !Number.isFinite(p.z)) return null;
-              return {
-                ...p,
-                zone50: proj,
-                offset
-              };
-            })
-            .filter(Boolean);
-          return { id: h.id, project: h.project, points: pts };
-        });
-
-        const shiftedHoles = linestrings.map((h) => ({
-          id: h.id,
-          project: h.project,
-          points: h.points.map((p) => ({ x: p.offset.x, y: p.offset.y, z: p.z }))
-        }));
-
-        const filteredHoles = shiftedHoles.filter((h) => (h.points || []).length >= 2);
-        if (!filteredHoles.length) {
-          throw new Error('No renderable drillholes after projection.');
-        }
-
-        const extent = filteredHoles.reduce(
-          (acc, h) => {
-            h.points.forEach((p) => {
-              acc.minX = Math.min(acc.minX, p.x);
-              acc.maxX = Math.max(acc.maxX, p.x);
-              acc.minY = Math.min(acc.minY, p.y);
-              acc.maxY = Math.max(acc.maxY, p.y);
-              acc.minZ = Math.min(acc.minZ, p.z);
-              acc.maxZ = Math.max(acc.maxZ, p.z);
-            });
-            acc.pointCounts.push(h.points.length);
-            return acc;
-          },
-          {
-            minX: Infinity,
-            maxX: -Infinity,
-            minY: Infinity,
-            maxY: -Infinity,
-            minZ: Infinity,
-            maxZ: -Infinity,
-            pointCounts: []
-          }
-        );
-
-        const surveySample = surveyRows.slice(0, 5);
-
-        console.info('Desurvey debug', {
-          matchingHoleIds: matchingIds,
-          collarsLatLon: projectedCollars.map((c) => ({ id: c.id, lat: c.lat, lng: c.lng })).slice(0, 5),
-          collarsZone50: projectedCollars.slice(0, 5),
-          collarsOffsetZone50: offsetCollars.slice(0, 5),
-          surveySample,
-          linestringsZone50Sample: linestrings.slice(0, 3),
-          renderableHoles: filteredHoles.length,
-          pointCounts: extent.pointCounts,
-          extent: {
-            minX: extent.minX,
-            maxX: extent.maxX,
-            minY: extent.minY,
-            maxY: extent.maxY,
-            minZ: extent.minZ,
-            maxZ: extent.maxZ
-          }
-        });
-
-        setHoles(filteredHoles);
-        saveCachedDesurveyed(filteredHoles);
-        if (sceneRef.current) {
-          sceneRef.current.setDrillholes(filteredHoles);
-        }
+        processAndSetHoles(surveyRows);
       })
       .catch((err) => {
         console.error('Error desurveying:', err);
@@ -253,39 +240,3 @@ function Drillhole() {
 }
 
 export default Drillhole;
-
-function collarsToHoles(collars) {
-  if (!collars.length) return [];
-  const def = '+proj=utm +zone=50 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
-  proj4.defs('EPSG:28350', def);
-  const project = (lat, lon) => {
-    try {
-      const [x, y] = proj4('EPSG:4326', 'EPSG:28350', [lon, lat]);
-      return { x, y };
-    } catch (e) {
-      console.warn('Projection failed', e);
-      return { x: 0, y: 0 };
-    }
-  };
-
-  const projected = collars.map((c) => {
-    const { x, y } = project(c.lat, c.lng);
-    return { ...c, projX: x, projY: y };
-  });
-
-  const centroid = projected.reduce(
-    (acc, c) => {
-      acc.x += c.projX;
-      acc.y += c.projY;
-      return acc;
-    },
-    { x: 0, y: 0 }
-  );
-  centroid.x /= projected.length;
-  centroid.y /= projected.length;
-
-  return projected.map((c) => ({
-    id: c.holeId || c.hole_id || c.id || 'unknown',
-    points: [{ x: c.projX - centroid.x, y: c.projY - centroid.y, z: 0 }]
-  }));
-}

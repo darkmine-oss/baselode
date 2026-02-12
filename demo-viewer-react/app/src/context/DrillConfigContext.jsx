@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { primaryFieldFromConfig } from '../lib/keying.js';
+import { primaryFieldFromConfig } from 'baselode';
 
 const STORAGE_KEY = 'baselode-drill-config-v1';
 const defaultConfig = { primaryKey: 'companyHoleId', customKey: '' };

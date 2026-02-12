@@ -17,10 +17,11 @@ import {
   loadAssayFile,
   loadCachedAssayMeta,
   loadCachedAssayState,
-  saveAssayCache
-} from '../lib/assayDataLoader.js';
-import { buildIntervalPoints, buildPlotConfig } from '../lib/drillholeViz.js';
-import { resolvePrimaryId } from '../lib/keying.js';
+  saveAssayCache,
+  buildIntervalPoints,
+  buildPlotConfig,
+  resolvePrimaryId
+} from 'baselode';
 
 
 function Home() {
@@ -90,73 +91,9 @@ function Home() {
 
   const hasCenteredRef = useRef(initialView.fromStorage);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(cacheKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        const valid = parsed.filter((p) =>
-          Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.project && p.holeId
-        );
-        if (valid.length) {
-          setCollars(valid);
-          console.info('Loaded collars from cache', { cachedRows: valid.length });
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load collars cache', e);
-    }
-  }, [cacheKey]);
-
-  useEffect(() => {
-    setCollars((prev) => prev.map((c) => {
-      if (c.primaryId) return c;
-      const normalized = {};
-      Object.entries(c || {}).forEach(([key, value]) => {
-        if (!key) return;
-        normalized[key.toString().trim().toLowerCase()] = value;
-      });
-      const primaryId = resolvePrimaryId(normalized, primaryField);
-      return primaryId ? { ...c, primaryId } : c;
-    }));
-  }, [primaryField]);
-
-  useEffect(() => {
-    try {
-      const pref = localStorage.getItem(assayPreferenceKey);
-      if (pref === 'page') {
-        setOpenInPopup(false);
-      }
-    } catch (e) {
-      console.warn('Failed to read map open preference', e);
-    }
-
-    const cachedState = loadCachedAssayState();
-    if (cachedState) {
-      setAssayState(cachedState);
-      setPopupProperty((prev) => prev || cachedState.defaultProp || '');
-    } else {
-      const meta = loadCachedAssayMeta();
-      if (meta) setAssayMeta(meta);
-    }
-  }, [assayPreferenceKey]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(assayPreferenceKey, openInPopup ? 'popup' : 'page');
-    } catch (e) {
-      console.warn('Failed to persist map open preference', e);
-    }
-  }, [assayPreferenceKey, openInPopup]);
-
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setError('');
-    console.info('Starting collar CSV parse', { fileName: file.name, size: file.size });
-    Papa.parse(file, {
+  // Helper to parse collar CSV text (shared between file upload and auto-load)
+  const parseCollarCSV = (csvText, sourceName) => {
+    Papa.parse(csvText, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
@@ -213,6 +150,7 @@ function Home() {
           setCollars([]);
           setError('No valid rows found. Ensure columns include latitude, longitude, project_code, and hole_id. Lat/Lon must be in degrees.');
           console.warn('Collar CSV parsed with zero valid rows.', {
+            source: sourceName,
             totalRows,
             detectedColumns: Array.from(detectedColumns),
             skippedInvalidCoords
@@ -221,7 +159,7 @@ function Home() {
         }
 
         console.info('Collar CSV loaded', {
-          fileName: file.name,
+          source: sourceName,
           totalRows,
           parsedRows: parsed.length,
           detectedColumns: Array.from(detectedColumns),
@@ -237,10 +175,97 @@ function Home() {
         }
       },
       error: (err) => {
-        setError(`Failed to read file: ${err.message}`);
+        setError(`Failed to read ${sourceName}: ${err.message}`);
         console.error('Collar CSV failed to parse', err);
       }
     });
+  };
+
+  // Load collars from cache on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        const valid = parsed.filter((p) =>
+          Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.project && p.holeId
+        );
+        if (valid.length) {
+          setCollars(valid);
+          console.info('Loaded collars from cache', { cachedRows: valid.length });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load collars cache', e);
+    }
+  }, [cacheKey]);
+
+  // Auto-load canonical GSWA collars if cache is empty
+  useEffect(() => {
+    if (collars.length > 0) return;
+    fetch('/data/gswa/demo_gswa_sample_collars.csv')
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.text();
+      })
+      .then((csvText) => {
+        if (!csvText) return;
+        parseCollarCSV(csvText, 'demo_gswa_sample_collars.csv (auto)');
+      })
+      .catch((err) => {
+        console.info('Auto-load of GSWA collars skipped:', err.message);
+      });
+  }, [collars.length]);
+
+  useEffect(() => {
+    setCollars((prev) => prev.map((c) => {
+      if (c.primaryId) return c;
+      const normalized = {};
+      Object.entries(c || {}).forEach(([key, value]) => {
+        if (!key) return;
+        normalized[key.toString().trim().toLowerCase()] = value;
+      });
+      const primaryId = resolvePrimaryId(normalized, primaryField);
+      return primaryId ? { ...c, primaryId } : c;
+    }));
+  }, [primaryField]);
+
+  useEffect(() => {
+    try {
+      const pref = localStorage.getItem(assayPreferenceKey);
+      if (pref === 'page') {
+        setOpenInPopup(false);
+      }
+    } catch (e) {
+      console.warn('Failed to read map open preference', e);
+    }
+
+    const cachedState = loadCachedAssayState();
+    if (cachedState) {
+      setAssayState(cachedState);
+      setPopupProperty((prev) => prev || cachedState.defaultProp || '');
+    } else {
+      const meta = loadCachedAssayMeta();
+      if (meta) setAssayMeta(meta);
+    }
+  }, [assayPreferenceKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(assayPreferenceKey, openInPopup ? 'popup' : 'page');
+    } catch (e) {
+      console.warn('Failed to persist map open preference', e);
+    }
+  }, [assayPreferenceKey, openInPopup]);
+
+  const handleFileChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setError('');
+    console.info('Starting collar CSV parse', { fileName: file.name, size: file.size });
+    file.text().then((csvText) => parseCollarCSV(csvText, file.name));
   };
 
   const handleClearCache = () => {
