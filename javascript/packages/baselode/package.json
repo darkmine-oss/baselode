@@ -1,0 +1,45 @@
+{
+  "name": "baselode",
+  "version": "0.1.0",
+  "description": "Geoscience drillhole data processing and visualization toolkit",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "main": "./dist/baselode.js",
+  "module": "./dist/baselode.js",
+  "exports": {
+    ".": {
+      "import": "./dist/baselode.js"
+    },
+    "./style.css": "./dist/style.css"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "peerDependencies": {
+    "papaparse": ">=5.0.0",
+    "plotly.js-dist-min": ">=2.0.0",
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "three": ">=0.150.0",
+    "three-viewport-gizmo": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": true },
+    "react-dom": { "optional": true },
+    "three": { "optional": true },
+    "three-viewport-gizmo": { "optional": true },
+    "plotly.js-dist-min": { "optional": true }
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.0.8"
+  }
+}
