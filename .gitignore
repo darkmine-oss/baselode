@@ -5,9 +5,9 @@ dist
 
 demo-viewer-react/app/node_modules/
 
-src/baselode/__pycache__/
-src/baselode/drill/__pycache__/
-src/baselode.egg-info/
+python/src/baselode/__pycache__/
+python/src/baselode/drill/__pycache__/
+python/src/baselode.egg-info/
 
 .claude
 AI_CONTEXT.md
