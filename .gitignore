@@ -1,9 +1,11 @@
 .env
 .venv
+.vscode
 
-dist
-
+demo-viewer-react/app/dist/
 demo-viewer-react/app/node_modules/
+
+javascript/packages/baselode/dist/
 
 python/src/baselode/__pycache__/
 python/src/baselode/drill/__pycache__/

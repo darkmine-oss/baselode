@@ -1,0 +1,211 @@
+/*
+ * Copyright (C) 2026 Tamara Vasey
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+.block-model-container {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #f5f5f5;
+  box-sizing: border-box;
+  padding-left: 220px; /* offset for overlay sidebar so controls stay visible */
+  position: relative;
+}
+
+.block-model-header {
+  background: white;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.block-model-header h1 {
+  margin: 0 0 15px 0;
+  font-size: 24px;
+  color: #333;
+}
+
+.controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.file-input-wrapper {
+  position: relative;
+}
+
+.file-input-label {
+  display: inline-block;
+  padding: 10px 20px;
+  background: var(--accent);
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.file-input-label:hover {
+  background: var(--accent-strong);
+}
+
+.file-input-label input {
+  display: none;
+}
+
+.select-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.select-wrapper label {
+  font-size: 14px;
+  color: #555;
+  font-weight: 500;
+}
+
+.select-wrapper select {
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  min-width: 200px;
+}
+
+.select-wrapper select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.info-text {
+  font-size: 13px;
+  color: #666;
+  margin-left: auto;
+}
+
+.canvas-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas-container canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.placeholder-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #999;
+}
+
+.placeholder-message .icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.placeholder-message p {
+  font-size: 18px;
+  margin: 0;
+}
+
+.legend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.legend h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #333;
+  font-weight: 600;
+}
+
+.legend-content {
+  font-size: 12px;
+  color: #666;
+}
+
+.legend-gradient {
+  height: 150px;
+  width: 30px;
+  margin: 10px 0;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.legend-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 150px;
+  margin-left: 10px;
+}
+
+.legend-item {
+  padding: 4px 8px;
+  margin: 2px 0;
+  background: #f0f0f0;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid #ddd;
+}
+
+.controls-help {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 12px;
+  color: #555;
+  pointer-events: auto;
+  z-index: 10;
+}
+
+.controls-help h4 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  color: #333;
+  font-weight: 600;
+}
+
+.controls-help ul {
+  margin: 0;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+
+.controls-help li {
+  margin: 4px 0;
+}

@@ -1,0 +1,123 @@
+/*
+ * Copyright (C) 2026 Tamara Vasey
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+.config-page {
+  padding: 24px;
+  padding-left: 220px; /* offset for overlay sidebar */
+  max-width: 960px;
+  box-sizing: border-box;
+}
+
+.config-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+}
+
+.config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.config-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.config-subtitle {
+  margin: 4px 0 0 0;
+  color: #475569;
+  font-size: 14px;
+}
+
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.config-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.config-label {
+  font-weight: 600;
+  color: #111827;
+  font-size: 14px;
+}
+
+.config-select,
+.config-input {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.config-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.config-button {
+  background: #111827;
+  color: #fff;
+  border: 1px solid #0f172a;
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.config-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.config-hint {
+  color: #475569;
+  font-size: 13px;
+  margin: 0;
+}
+
+.config-status {
+  font-size: 13px;
+  color: #059669;
+  font-weight: 600;
+}
+
+.config-error {
+  font-size: 13px;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.config-summary {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-top: 8px;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+@media (max-width: 768px) {
+  .config-page {
+    padding: 16px;
+    padding-left: 16px;
+  }
+}
