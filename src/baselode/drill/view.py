@@ -1,3 +1,22 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Copyright (C) 2026 Darkmine Pty Ltd
+
+# This file is part of baselode.
+
+# baselode is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# baselode is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with baselode.  If not, see <https://www.gnu.org/licenses/>.
+
 """Assay interval visualization helpers (Plotly) akin to the Drillhole 2D viewer.
 
 Functions here mirror the JS behavior: numeric assays plot at interval mid-depths
@@ -5,6 +24,8 @@ with asymmetric error bars spanning from/to, while categorical assays render
 banded rectangles. All plots keep depth increasing downward.
 
 """
+
+import math
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -374,4 +395,138 @@ def plot_drillhole_traces(df,
 
     fig.update_yaxes(title_text="Depth (m)", autorange="reversed")
     fig.update_layout(height=height, width=width_per * len(value_cols), showlegend=False, margin=dict(l=40, r=10, t=10, b=40))
+    return fig
+
+
+def plot_strip_log(df,
+    from_col="from",
+    to_col="to",
+    label_col="lithology",
+    palette=None,
+    height=400,
+    width=220):
+    """Render a simple strip log (categorical intervals) as colored bands."""
+    if df.empty:
+        return go.Figure()
+    palette = palette or [
+        "#1f77b4",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd",
+        "#8c564b",
+        "#e377c2",
+        "#7f7f7f",
+        "#bcbd22",
+    ]
+    records = []
+    for _, row in df.iterrows():
+        try:
+            f = float(row[from_col])
+            t = float(row[to_col])
+        except (TypeError, ValueError, KeyError):
+            continue
+        if t <= f:
+            continue
+        records.append((f, t, str(row.get(label_col, ""))))
+    if not records:
+        return go.Figure()
+    records = sorted(records, key=lambda r: r[0], reverse=True)
+    shapes = []
+    texts = []
+    y_text = []
+    for idx, (f, t, label) in enumerate(records):
+        shapes.append(dict(type="rect", xref="x", yref="y", x0=0, x1=1, y0=f, y1=t, fillcolor=palette[idx % len(palette)], line=dict(width=0)))
+        y_text.append(0.5 * (f + t))
+        texts.append(label)
+
+    text_trace = go.Scatter(
+        x=[0.5] * len(texts),
+        y=y_text,
+        mode="text",
+        text=texts,
+        textposition="middle center",
+        showlegend=False,
+        hoverinfo="text",
+    )
+    fig = go.Figure(data=[text_trace])
+    fig.update_layout(
+        height=height,
+        width=width,
+        margin=dict(l=40, r=10, t=10, b=40),
+        xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
+        yaxis=dict(title="Depth (m)", autorange="reversed"),
+        shapes=shapes,
+        showlegend=False,
+    )
+    return fig
+
+
+def plot_tadpole_log(df,
+    md_col="md",
+    dip_col="dip",
+    az_col="azimuth",
+    size_col=None,
+    tail_scale=0.2,
+    height=400,
+    width=220):
+    """Plot a tadpole log for structural measurements.
+
+    Each measurement renders a circle at the measured depth with a "tail" pointing
+    toward the dip direction. Tail length scales with dip magnitude and tail_scale.
+    """
+    if df.empty or md_col not in df.columns or dip_col not in df.columns or az_col not in df.columns:
+        return go.Figure()
+
+    safe = df[[md_col, dip_col, az_col] + ([size_col] if size_col else [])].dropna(subset=[md_col, dip_col, az_col])
+    if safe.empty:
+        return go.Figure()
+
+    base_x = 0.0
+    xs = []
+    ys = []
+    sizes = []
+    tail_x0 = []
+    tail_y0 = []
+    tail_x1 = []
+    tail_y1 = []
+
+    for _, row in safe.iterrows():
+        depth = float(row[md_col])
+        dip = float(row[dip_col])
+        az = float(row[az_col])
+        size = float(row[size_col]) if size_col and not pd.isna(row[size_col]) else 8.0
+        xs.append(base_x)
+        ys.append(depth)
+        sizes.append(size)
+        az_rad = math.radians(az)
+        length = tail_scale * (abs(dip) / 90.0)
+        dx = math.sin(az_rad) * length
+        dy = math.cos(az_rad) * length
+        tail_x0.append(base_x)
+        tail_y0.append(depth)
+        tail_x1.append(base_x + dx)
+        tail_y1.append(depth + dy)
+
+    head_trace = go.Scatter(
+        x=xs,
+        y=ys,
+        mode="markers",
+        marker=dict(size=sizes, color="#0f172a"),
+        showlegend=False,
+        hovertemplate="Depth: %{y}<br>Dip: %{customdata[0]}<br>Az: %{customdata[1]}<extra></extra>",
+        customdata=list(zip(safe[dip_col], safe[az_col])),
+    )
+
+    fig = go.Figure(data=[head_trace])
+    for x0, y0, x1, y1 in zip(tail_x0, tail_y0, tail_x1, tail_y1):
+        fig.add_shape(type="line", x0=x0, y0=y0, x1=x1, y1=y1, line=dict(color="#0f172a", width=2))
+
+    fig.update_layout(
+        height=height,
+        width=width,
+        margin=dict(l=40, r=10, t=10, b=40),
+        xaxis=dict(range=[-0.5, 0.5], visible=False, fixedrange=True),
+        yaxis=dict(title="Depth (m)", autorange="reversed"),
+        showlegend=False,
+    )
     return fig

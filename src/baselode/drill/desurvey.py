@@ -1,8 +1,32 @@
-"""Desurveying utilities using minimum curvature.
+# SPDX-License-Identifier: GPL-3.0-or-later
 
-Outputs a trace table with x, y, z coordinates at chosen step size, plus
-measured depth and azimuth/dip per vertex. This keeps dependencies to pandas
-and numpy for easy portability.
+# Copyright (C) 2026 Darkmine Pty Ltd
+
+# This file is part of baselode.
+
+# baselode is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# baselode is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with baselode.  If not, see <https://www.gnu.org/licenses/>.
+
+"""Desurveying utilities.
+
+Supports multiple methods that trade simplicity for accuracy:
+- minimum_curvature (default): standard industry approach.
+- tangential: keeps the initial station orientation through the segment.
+- balanced_tangential: averages start/end orientations per segment.
+
+All methods output a trace table with x, y, z coordinates at chosen step size,
+plus measured depth and azimuth/dip per vertex. Dependencies are limited to
+pandas and numpy for portability.
 """
 
 import math
@@ -26,7 +50,29 @@ def _direction_cosines(azimuth, dip):
     return ca, cb, cc
 
 
-def minimum_curvature_desurvey(collars, surveys, step=1.0, hole_id_col=None):
+def _segment_displacement(delta_md, az0, dip0, az1, dip1, method="minimum_curvature"):
+    ca0, cb0, cc0 = _direction_cosines(az0, dip0)
+    ca1, cb1, cc1 = _direction_cosines(az1, dip1)
+    if method == "tangential":
+        return delta_md * ca0, delta_md * cb0, delta_md * cc0, az0, dip0
+    if method == "balanced_tangential":
+        az_avg = 0.5 * (az0 + az1)
+        dip_avg = 0.5 * (dip0 + dip1)
+        ca_avg, cb_avg, cc_avg = _direction_cosines(az_avg, dip_avg)
+        return delta_md * ca_avg, delta_md * cb_avg, delta_md * cc_avg, az_avg, dip_avg
+
+    # Minimum curvature (default)
+    dogleg = math.acos(max(-1.0, min(1.0, ca0 * ca1 + cb0 * cb1 + cc0 * cc1)))
+    rf = 1.0
+    if dogleg > 1e-6:
+        rf = 2 * math.tan(dogleg / 2) / dogleg
+    dx = 0.5 * delta_md * (ca0 + ca1) * rf
+    dy = 0.5 * delta_md * (cb0 + cb1) * rf
+    dz = 0.5 * delta_md * (cc0 + cc1) * rf
+    return dx, dy, dz, az1, dip1
+
+
+def _desurvey(collars, surveys, step=1.0, hole_id_col=None, method="minimum_curvature"):
     collars = data._canonicalize_hole_id(data._frame(collars), hole_id_col=hole_id_col)
     surveys = data._canonicalize_hole_id(data._frame(surveys), hole_id_col=hole_id_col)
     alias_col = collars.attrs.get("hole_id_col", hole_id_col or "hole_id")
@@ -58,34 +104,54 @@ def minimum_curvature_desurvey(collars, surveys, step=1.0, hole_id_col=None):
                 continue
             az0, dip0 = float(s0["azimuth"]), float(s0["dip"])
             az1, dip1 = float(s1["azimuth"]), float(s1["dip"])
-            ca0, cb0, cc0 = _direction_cosines(az0, dip0)
-            ca1, cb1, cc1 = _direction_cosines(az1, dip1)
-            dogleg = math.acos(max(-1.0, min(1.0, ca0 * ca1 + cb0 * cb1 + cc0 * cc1)))
-            rf = 1.0
-            if dogleg > 1e-6:
-                rf = 2 * math.tan(dogleg / 2) / dogleg
 
             segment_steps = max(1, int(math.ceil(delta_md / step)))
             md_increment = delta_md / segment_steps
-            for _ in range(segment_steps):
+            for step_idx in range(segment_steps):
                 md_cursor += md_increment
                 weight = (md_cursor - md0) / delta_md
                 az_interp = az0 + weight * (az1 - az0)
                 dip_interp = dip0 + weight * (dip1 - dip0)
-                ca, cb, cc = _direction_cosines(az_interp, dip_interp)
-                dx = 0.5 * delta_md * (ca0 + ca1) * rf / segment_steps
-                dy = 0.5 * delta_md * (cb0 + cb1) * rf / segment_steps
-                dz = 0.5 * delta_md * (cc0 + cc1) * rf / segment_steps
+                dx, dy, dz, az_for_record, dip_for_record = _segment_displacement(
+                    md_increment,
+                    az0=az0,
+                    dip0=dip0,
+                    az1=az1,
+                    dip1=dip1,
+                    method=method,
+                )
                 x += dx
                 y += dy
                 z += dz
-                record = {"hole_id": hole_id, "md": md_cursor, "x": x, "y": y, "z": z, "azimuth": az_interp, "dip": dip_interp}
+                record = {
+                    "hole_id": hole_id,
+                    "md": md_cursor,
+                    "x": x,
+                    "y": y,
+                    "z": z,
+                    "azimuth": az_interp if method == "minimum_curvature" else az_for_record,
+                    "dip": dip_interp if method == "minimum_curvature" else dip_for_record,
+                }
                 if alias_col != "hole_id" and alias_col in collar_row:
                     record[alias_col] = collar_row[alias_col]
                 traces.append(record)
     out = pd.DataFrame(traces)
     out.attrs["hole_id_col"] = alias_col
     return out
+
+
+def minimum_curvature_desurvey(collars, surveys, step=1.0, hole_id_col=None):
+    return _desurvey(collars=collars, surveys=surveys, step=step, hole_id_col=hole_id_col, method="minimum_curvature")
+
+
+def tangential_desurvey(collars, surveys, step=1.0, hole_id_col=None):
+    """Simpler desurvey: uses the starting station orientation for each segment."""
+    return _desurvey(collars=collars, surveys=surveys, step=step, hole_id_col=hole_id_col, method="tangential")
+
+
+def balanced_tangential_desurvey(collars, surveys, step=1.0, hole_id_col=None):
+    """Balanced tangential desurvey using the average of start/end orientations per segment."""
+    return _desurvey(collars=collars, surveys=surveys, step=step, hole_id_col=hole_id_col, method="balanced_tangential")
 
 
 def attach_assay_positions(assays, traces, hole_id_col=None):
