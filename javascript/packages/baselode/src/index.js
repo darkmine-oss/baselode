@@ -60,8 +60,29 @@ export {
 } from './data/desurvey.js';
 
 export {
+  minimumCurvatureDesurvey,
+  tangentialDesurvey,
+  balancedTangentialDesurvey,
+  attachAssayPositions,
+  buildTraces
+} from './data/desurveyMethods.js';
+
+export {
   parseDrillholesCSV
 } from './data/drillholeLoader.js';
+
+export {
+  DEFAULT_COLUMN_MAP,
+  standardizeColumns,
+  loadTable,
+  loadCollars,
+  loadSurveys,
+  loadAssays,
+  joinAssaysToTraces,
+  filterByProject,
+  coerceNumeric,
+  assembleDataset
+} from './data/datasetLoader.js';
 
 export {
   parseBlockModelCSV,
@@ -88,6 +109,19 @@ export {
   getEqualRangeBinIndex,
   getEqualRangeColor
 } from './viz/assayColorScale.js';
+
+export {
+  projectTraceToSection,
+  sectionWindow,
+  planView,
+  sectionView
+} from './viz/view2d.js';
+
+export {
+  tracesAsSegments,
+  intervalsAsTubes,
+  annotationsFromIntervals
+} from './viz/view3dPayload.js';
 
 export {
   buildViewSignature,

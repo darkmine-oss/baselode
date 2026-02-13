@@ -1,0 +1,92 @@
+{
+  "version": "2026-02-13",
+  "capabilities": [
+    {
+      "name": "data_loading",
+      "jsExports": [
+        "DEFAULT_COLUMN_MAP",
+        "standardizeColumns",
+        "loadTable",
+        "loadCollars",
+        "loadSurveys",
+        "loadAssays",
+        "joinAssaysToTraces",
+        "filterByProject",
+        "coerceNumeric",
+        "assembleDataset"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.data", "DEFAULT_COLUMN_MAP"],
+        ["baselode.drill.data", "standardize_columns"],
+        ["baselode.drill.data", "load_table"],
+        ["baselode.drill.data", "load_collars"],
+        ["baselode.drill.data", "load_surveys"],
+        ["baselode.drill.data", "load_assays"],
+        ["baselode.drill.data", "join_assays_to_traces"],
+        ["baselode.drill.data", "filter_by_project"],
+        ["baselode.drill.data", "coerce_numeric"],
+        ["baselode.drill.data", "assemble_dataset"]
+      ]
+    },
+    {
+      "name": "desurvey",
+      "jsExports": [
+        "minimumCurvatureDesurvey",
+        "tangentialDesurvey",
+        "balancedTangentialDesurvey",
+        "attachAssayPositions",
+        "buildTraces"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.desurvey", "minimum_curvature_desurvey"],
+        ["baselode.drill.desurvey", "tangential_desurvey"],
+        ["baselode.drill.desurvey", "balanced_tangential_desurvey"],
+        ["baselode.drill.desurvey", "attach_assay_positions"],
+        ["baselode.drill.desurvey", "build_traces"]
+      ]
+    },
+    {
+      "name": "strip_log_1d",
+      "jsExports": [
+        "buildIntervalPoints",
+        "buildPlotConfig"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.view", "compute_interval_points"],
+        ["baselode.drill.view", "plot_drillhole_trace"],
+        ["baselode.drill.view", "plot_drillhole_traces"],
+        ["baselode.drill.view", "plot_strip_log"]
+      ]
+    },
+    {
+      "name": "mapping_2d",
+      "jsExports": [
+        "projectTraceToSection",
+        "sectionWindow",
+        "planView",
+        "sectionView"
+      ],
+      "pythonSymbols": [
+        ["baselode.map", "map_collar_points"],
+        ["baselode.map", "plan_view"],
+        ["baselode.map", "section_view"],
+        ["baselode.map", "project_trace_to_section"],
+        ["baselode.map", "section_window"]
+      ]
+    },
+    {
+      "name": "scene_3d",
+      "jsExports": [
+        "Baselode3DScene",
+        "tracesAsSegments",
+        "intervalsAsTubes",
+        "annotationsFromIntervals"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.view_3d", "traces_as_segments"],
+        ["baselode.drill.view_3d", "intervals_as_tubes"],
+        ["baselode.drill.view_3d", "annotations_from_intervals"]
+      ]
+    }
+  ]
+}
