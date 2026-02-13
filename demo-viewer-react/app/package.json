@@ -25,6 +25,7 @@
   "scripts": {
     "dev": "vite",
     "dev:local": "concurrently -k -n LIB,APP -c cyan,green \"npm --prefix ../../javascript/packages/baselode run dev\" \"vite\"",
+    "generate:precomputed-desurvey": "node scripts/generate_precomputed_desurvey.mjs",
     "build": "vite build",
     "preview": "vite preview"
   }

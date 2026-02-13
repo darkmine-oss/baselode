@@ -14,7 +14,6 @@ function Sidebar() {
     { path: '/', label: 'Map' },
     { path: '/drillhole', label: 'Drillhole' },
     { path: '/drillhole-2d', label: 'Drillhole 2D' },
-    { path: '/block-model', label: 'Block Model' },
     { path: '/config', label: 'Config' }
   ];
 

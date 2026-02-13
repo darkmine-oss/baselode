@@ -19,6 +19,22 @@ export {
 } from './data/assayLoader.js';
 
 export {
+  normalizeCsvRow,
+  pickFirstPresent
+} from './data/csvRowUtils.js';
+
+export {
+  toError,
+  withDataErrorContext,
+  logDataWarning,
+  logDataInfo
+} from './data/dataErrorUtils.js';
+
+export {
+  ASSAY_NON_VALUE_FIELDS
+} from './data/assayFieldSets.js';
+
+export {
   ASSAY_CACHE_KEY,
   ASSAY_CACHE_META_KEY,
   reorderHoleIds,
@@ -58,9 +74,34 @@ export {
   NUMERIC_LINE_COLOR,
   NUMERIC_MARKER_COLOR,
   ERROR_COLOR,
+  holeHasData,
   buildIntervalPoints,
   buildPlotConfig
 } from './viz/drillholeViz.js';
+
+export { default as TracePlot } from './viz/TracePlot.jsx';
+export { default as useDrillholeTraceGrid } from './viz/useDrillholeTraceGrid.jsx';
+
+export {
+  ASSAY_COLOR_PALETTE_10,
+  buildEqualRangeColorScale,
+  getEqualRangeBinIndex,
+  getEqualRangeColor
+} from './viz/assayColorScale.js';
+
+export {
+  buildViewSignature,
+  getViewState,
+  setViewState,
+  emitViewChangeIfNeeded,
+  fitCameraToBounds,
+  recenterCameraToOrigin,
+  lookDown,
+  pan,
+  dolly,
+  focusOnLastBounds,
+  setControlMode
+} from './viz/baselode3dCameraControls.js';
 
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';

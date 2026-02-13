@@ -2,63 +2,22 @@
  * Copyright (C) 2026 Tamara Vasey
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import Papa from 'papaparse';
 import { parseAssayHole, parseAssayHoleIdsWithAssays, parseAssaysCSV } from './assayLoader.js';
+import { ASSAY_NON_VALUE_FIELDS } from './assayFieldSets.js';
+import { logDataInfo, logDataWarning } from './dataErrorUtils.js';
+import { buildTraceConfigsForHoleIds, reorderHoleIds } from './traceGridConfig.js';
 
 export const ASSAY_CACHE_KEY = 'baselode-assays-cache-v1';
 export const ASSAY_CACHE_META_KEY = 'baselode-assays-meta-v1';
 let cacheDisabled = false;
-
-export function reorderHoleIds(ids = [], focusId = '') {
-  if (!ids.length) return [];
-  if (!focusId) return ids;
-  const matchIdx = ids.findIndex((id) => id === focusId);
-  if (matchIdx === -1) return ids;
-  const selected = ids[matchIdx];
-  const rest = ids.filter((_, idx) => idx !== matchIdx);
-  return [selected, ...rest];
-}
+export { reorderHoleIds };
 
 export function deriveAssayProps(holes = []) {
-  const exclude = new Set([
-    'hole_id',
-    'holeid',
-    'id',
-    'holeId',
-    'project_code',
-    'project',
-    'latitude',
-    'longitude',
-    'lat',
-    'lng',
-    'elevation',
-    'dip',
-    'azimuth',
-    'holetype',
-    'shape',
-    'anumber',
-    'collarid',
-    'companyholeid',
-    'company_hole_id',
-    'samp_from',
-    'samp_to',
-    'sample_from',
-    'sample_to',
-    'from',
-    'to',
-    'depth_from',
-    'depth_to',
-    'fromdepth',
-    'todepth',
-    'comment',
-    'z'
-  ]);
-
   const points = holes.flatMap((h) => h.points || []);
   const candidates = new Set();
   points.forEach((p) => {
     Object.keys(p || {}).forEach((k) => {
-      if (!exclude.has(k)) candidates.add(k);
+      if (!ASSAY_NON_VALUE_FIELDS.has(k)) candidates.add(k);
     });
   });
 
@@ -99,21 +58,18 @@ export async function loadAssayHole(file, holeId, config) {
   return hole;
 }
 
-function buildInitialTraceConfigs(holes = [], defaultProp = '', categoricalProps = [], focusedHoleId = '') {
-  const holeIds = holes.map((h) => h.id || h.holeId).filter(Boolean);
-  const ordered = reorderHoleIds(holeIds, focusedHoleId).slice(0, 4);
-  const defaultChartType = defaultProp && categoricalProps.includes(defaultProp) ? 'categorical' : 'line';
-  return Array.from({ length: 4 }).map((_, idx) => ({
-    holeId: ordered[idx] || holeIds[idx] || '',
-    property: defaultProp,
-    chartType: defaultChartType
-  }));
-}
-
 export function buildAssayState(holes = [], focusedHoleId = '') {
   if (!holes.length) return null;
   const { numericProps, categoricalProps, defaultProp } = deriveAssayProps(holes);
-  const traceConfigs = buildInitialTraceConfigs(holes, defaultProp, categoricalProps, focusedHoleId);
+  const holeIds = holes.map((h) => h.id || h.holeId).filter(Boolean);
+  const traceConfigs = buildTraceConfigsForHoleIds({
+    holeIds,
+    focusedHoleId,
+    plotCount: 4,
+    defaultProp,
+    categoricalProps,
+    numericDefaultChartType: 'line'
+  });
   return {
     holes,
     numericProps,
@@ -138,7 +94,7 @@ export function loadCachedAssayState(focusedHoleId = '') {
     const state = buildAssayState(Array.isArray(cachedHoles) ? cachedHoles : [], focusedHoleId);
     return state;
   } catch (e) {
-    console.warn('Failed to load cached assays', e);
+    logDataWarning('Failed to load cached assays', e);
     return null;
   }
 }
@@ -152,7 +108,7 @@ export function loadCachedAssayMeta() {
     const { numericProps = [], categoricalProps = [], defaultProp = '', holeCount = 0, updatedAt = 0 } = parsed;
     return { numericProps, categoricalProps, defaultProp, holeCount, updatedAt };
   } catch (e) {
-    console.warn('Failed to load cached assay meta', e);
+    logDataWarning('Failed to load cached assay meta', e);
     return null;
   }
 }
@@ -175,7 +131,7 @@ export function saveAssayCache(holes = [], meta = null, options = {}) {
     return true;
   } catch (e) {
     if (e?.name === 'QuotaExceededError') {
-      console.info('Assay cache skipped due to storage quota. Popup will still work this session.');
+      logDataInfo('Assay cache skipped due to storage quota. Popup will still work this session.');
       if (fallbackToMetaOnly && meta) {
         try {
           const payload = {
@@ -187,12 +143,12 @@ export function saveAssayCache(holes = [], meta = null, options = {}) {
           };
           localStorage.setItem(ASSAY_CACHE_META_KEY, JSON.stringify(payload));
         } catch (metaErr) {
-          console.warn('Assay meta cache also failed due to quota', metaErr);
+          logDataWarning('Assay meta cache also failed due to quota', metaErr);
         }
       }
       // Do not permanently disable caching; allow retry after user clears storage.
     } else {
-      console.warn('Failed to cache assays', e);
+      logDataWarning('Failed to cache assays', e);
     }
     return false;
   }
@@ -203,6 +159,6 @@ export function clearAssayCache() {
     localStorage.removeItem(ASSAY_CACHE_KEY);
     localStorage.removeItem(ASSAY_CACHE_META_KEY);
   } catch (e) {
-    console.warn('Failed to clear assay cache', e);
+    logDataWarning('Failed to clear assay cache', e);
   }
 }

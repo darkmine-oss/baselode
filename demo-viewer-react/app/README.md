@@ -1,13 +1,14 @@
 # Baselode Viewer
 
-A React-based web application for visualizing geological data.
+A React-based web application for demonstrating the visualisation capabilities of the `baselode` javascript module.
 
-## Features
+## Features of baselode
 
-- 🗺️ Interactive Leaflet map on landing page
-- 🔍 Drillhole visualization (placeholder)
-- 📦 Block Model visualization (placeholder)
-- Translucent sidebar navigation
+* Drill hole data loading
+* Desurvey
+* Map-based collar view and inspection
+* Interactive strip logs for numeric variables (line, bar, marker, etc), categorical variables (stacked bar), and structural variables (tadpole) 
+* 3D drillhole viewer with numeric and categorical coloring
 
 ## Getting Started
 
@@ -83,7 +84,6 @@ frontend/app/
         ├── Home.jsx
         ├── Home.css
         ├── Drillhole.jsx
-        ├── BlockModel.jsx
         └── Placeholder.css
 ```
 

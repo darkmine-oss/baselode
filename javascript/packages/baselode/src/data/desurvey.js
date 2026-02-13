@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
+import { normalizeCsvRow, pickFirstPresent } from './csvRowUtils.js';
+import { logDataWarning, withDataErrorContext } from './dataErrorUtils.js';
 import { primaryFieldFromConfig, resolvePrimaryId } from './keying.js';
 
 const COLLAR_CACHE_KEY = 'baselode-collars-cache-v1';
@@ -19,7 +21,7 @@ export function loadCachedCollars() {
       Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.project && p.holeId
     );
   } catch (e) {
-    console.warn('Failed to read cached collars', e);
+    logDataWarning('Failed to read cached collars', e);
     return [];
   }
 }
@@ -28,7 +30,7 @@ export function saveCachedSurvey(rows) {
   try {
     localStorage.setItem(SURVEY_CACHE_KEY, JSON.stringify(rows || []));
   } catch (e) {
-    console.warn('Failed to cache survey', e);
+    logDataWarning('Failed to cache survey', e);
   }
 }
 
@@ -39,7 +41,7 @@ export function loadCachedSurvey() {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.warn('Failed to read cached survey', e);
+    logDataWarning('Failed to read cached survey', e);
     return [];
   }
 }
@@ -48,7 +50,7 @@ export function saveCachedDesurveyed(holes) {
   try {
     localStorage.setItem(DESURVEY_CACHE_KEY, JSON.stringify(holes || []));
   } catch (e) {
-    console.warn('Failed to cache desurveyed holes', e);
+    logDataWarning('Failed to cache desurveyed holes', e);
   }
 }
 
@@ -59,7 +61,7 @@ export function loadCachedDesurveyed() {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    console.warn('Failed to read cached desurveyed holes', e);
+    logDataWarning('Failed to read cached desurveyed holes', e);
     return [];
   }
 }
@@ -76,25 +78,20 @@ export function parseSurveyCSV(file, config) {
           .filter((row) => row.hole_id && Number.isFinite(row.surveydepth) && Number.isFinite(row.dip) && Number.isFinite(row.azimuth));
         resolve(rows);
       },
-      error: (err) => reject(err)
+      error: (err) => reject(withDataErrorContext('parseSurveyCSV', err))
     });
   });
 }
 
 function normalizeRow(row, config) {
-  const norm = {};
-  Object.entries(row || {}).forEach(([key, value]) => {
-    if (!key) return;
-    const k = key.trim().toLowerCase();
-    norm[k] = value;
-  });
+  const norm = normalizeCsvRow(row);
 
   const primaryField = primaryFieldFromConfig(config);
   const primaryId = resolvePrimaryId(norm, primaryField);
-  const holeId = pick(norm, ['hole_id', 'holeid', 'id']);
-  const project = pick(norm, ['project_code', 'project']);
-  const lat = toNumber(pick(norm, ['latitude', 'lat']));
-  const lng = toNumber(pick(norm, ['longitude', 'lon', 'lng']));
+  const holeId = pickFirstPresent(norm, ['hole_id', 'holeid', 'id']);
+  const project = pickFirstPresent(norm, ['project_code', 'project']);
+  const lat = toNumber(pickFirstPresent(norm, ['latitude', 'lat']));
+  const lng = toNumber(pickFirstPresent(norm, ['longitude', 'lon', 'lng']));
   const surveyDepth = toNumber(norm.surveydepth ?? norm.depth);
   const dip = toNumber(norm.dip);
   const azimuth = toNumber(norm.azimuth);
@@ -113,13 +110,6 @@ function normalizeRow(row, config) {
     maxdepth: maxDepth
   };
 }
-
-const pick = (obj, keys) => {
-  for (const key of keys) {
-    if (obj[key] !== undefined && obj[key] !== null && `${obj[key]}`.trim() !== '') return obj[key];
-  }
-  return undefined;
-};
 
 const toNumber = (v) => {
   const n = Number(v);

@@ -3,27 +3,14 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
+import { ASSAY_NON_VALUE_FIELDS } from './assayFieldSets.js';
+import { normalizeCsvRow, pickFirstPresent } from './csvRowUtils.js';
+import { withDataErrorContext } from './dataErrorUtils.js';
 import { primaryFieldFromConfig } from './keying.js';
 
 // Shared helpers for parsing assay CSVs with varying column names.
-function normalizeRow(row) {
-  const normalized = {};
-  Object.entries(row || {}).forEach(([key, value]) => {
-    if (!key) return;
-    const normKey = key.trim().toLowerCase().replace(/\s+/g, '_');
-    normalized[normKey] = value;
-  });
-  return normalized;
-}
-
-function pick(normalized, keys) {
-  for (const key of keys) {
-    if (normalized[key] !== undefined && normalized[key] !== null && `${normalized[key]}`.trim() !== '') {
-      return normalized[key];
-    }
-  }
-  return undefined;
-}
+const normalizeRow = normalizeCsvRow;
+const pick = (normalized, keys) => pickFirstPresent(normalized, keys, undefined);
 
 function deriveHoleId(row, config) {
   const primaryField = primaryFieldFromConfig(config);
@@ -96,48 +83,14 @@ export function parseAssayHoleIds(file, config) {
         }
       },
       complete: () => resolve(Array.from(holeIds)),
-      error: (error) => reject(error)
+      error: (error) => reject(withDataErrorContext('parseAssayHoleIds', error))
     });
   });
 }
 
 function hasAssayValue(row) {
-  const exclude = new Set([
-    'hole_id',
-    'holeid',
-    'id',
-    'holeid',
-    'holeId',
-    'project_code',
-    'project',
-    'latitude',
-    'longitude',
-    'lat',
-    'lng',
-    'elevation',
-    'dip',
-    'azimuth',
-    'holetype',
-    'shape',
-    'anumber',
-    'collarid',
-    'companyholeid',
-    'company_hole_id',
-    'samp_from',
-    'samp_to',
-    'sample_from',
-    'sample_to',
-    'from',
-    'to',
-    'depth_from',
-    'depth_to',
-    'fromdepth',
-    'todepth',
-    'comment',
-    'z'
-  ]);
   return Object.entries(row || {}).some(([k, v]) => {
-    if (exclude.has(k)) return false;
+    if (ASSAY_NON_VALUE_FIELDS.has(k)) return false;
     if (v === undefined || v === null) return false;
     if (typeof v === 'string' && v.trim() === '') return false;
     return true;
@@ -173,7 +126,7 @@ export function parseAssayHoleIdsWithAssays(file, config) {
         }
       },
       complete: () => resolve(Array.from(byHole.values())),
-      error: (error) => reject(error)
+      error: (error) => reject(withDataErrorContext('parseAssayHoleIdsWithAssays', error))
     });
   });
 }
@@ -183,7 +136,7 @@ export function parseAssayHole(file, holeId, config) {
   return new Promise((resolve, reject) => {
     const wanted = `${holeId}`.trim();
     if (!wanted) {
-      reject(new Error('Missing hole id'));
+      reject(withDataErrorContext('parseAssayHole', new Error('Missing hole id')));
       return;
     }
     const intervals = [];
@@ -206,7 +159,7 @@ export function parseAssayHole(file, holeId, config) {
         const hole = intervalsToHole(wanted, intervals);
         resolve(hole);
       },
-      error: (error) => reject(error)
+      error: (error) => reject(withDataErrorContext('parseAssayHole', error))
     });
   });
 }
@@ -231,7 +184,7 @@ export function parseAssaysCSV(file, config) {
         const holes = Array.from(byHole.entries()).map(([hid, intervals]) => intervalsToHole(hid, intervals));
         resolve({ holes });
       },
-      error: (error) => reject(error)
+      error: (error) => reject(withDataErrorContext('parseAssaysCSV', error))
     });
   });
 }

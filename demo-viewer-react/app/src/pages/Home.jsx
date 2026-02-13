@@ -13,7 +13,6 @@ import './Home.css';
 import { useZoomContext } from '../context/ZoomContext.jsx';
 import { useDrillConfig } from '../context/DrillConfigContext.jsx';
 import {
-  clearAssayCache,
   loadAssayFile,
   loadCachedAssayMeta,
   loadCachedAssayState,
@@ -91,7 +90,7 @@ function Home() {
 
   const hasCenteredRef = useRef(initialView.fromStorage);
 
-  // Helper to parse collar CSV text (shared between file upload and auto-load)
+  // Helper to parse collar CSV text for demo auto-load
   const parseCollarCSV = (csvText, sourceName) => {
     Papa.parse(csvText, {
       header: true,
@@ -259,31 +258,22 @@ function Home() {
     }
   }, [assayPreferenceKey, openInPopup]);
 
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setError('');
-    console.info('Starting collar CSV parse', { fileName: file.name, size: file.size });
-    file.text().then((csvText) => parseCollarCSV(csvText, file.name));
-  };
-
-  const handleClearCache = () => {
-    localStorage.removeItem(cacheKey);
-    setCollars([]);
-    setError('');
-    setSearchError('');
-    setSearchTerm('');
-    setFilteredCollars(null);
-    hasCenteredRef.current = false;
-  };
-
-  const handleAssayFileChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  useEffect(() => {
+    if (assayState || assayLoading) return;
     setAssayLoading(true);
     setAssayError('');
-    loadAssayFile(file, '', drillConfig)
+    fetch('/data/gswa/demo_gswa_sample_assays.csv')
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.text();
+      })
+      .then((csvText) => {
+        const blob = new Blob([csvText], { type: 'text/csv' });
+        const demoGswaAssayFile = new File([blob], 'demo_gswa_sample_assays.csv', { type: 'text/csv' });
+        return loadAssayFile(demoGswaAssayFile, '', drillConfig);
+      })
       .then((state) => {
         setAssayState(state);
         setAssayMeta({
@@ -297,19 +287,10 @@ function Home() {
         saveAssayCache(state.holes, state, { fallbackToMetaOnly: true });
       })
       .catch((err) => {
-        console.error('Assay load failed', err);
-        setAssayError(err?.message || 'Failed to load assays CSV.');
+        console.info('Auto-load of GSWA assays skipped:', err.message);
       })
       .finally(() => setAssayLoading(false));
-  };
-
-  const handleClearAssays = () => {
-    clearAssayCache();
-    setAssayState(null);
-    setAssayMeta(null);
-    setPopupProperty('');
-    setAssayError('');
-  };
+  }, [assayState, assayLoading, drillConfig]);
 
   const runSearch = (term, sourceCollars = collars) => {
     const query = term.trim().toLowerCase();
@@ -346,7 +327,7 @@ function Home() {
     if (openInPopup) {
       setPopupHoleId(holeId);
       if (!assayState?.holes?.some((h) => (h.id || h.holeId) === holeId)) {
-        setAssayError((prev) => prev || 'Load assays CSV to view this hole in the popup viewer.');
+        setAssayError((prev) => prev || 'Assay data is loading for popup viewer.');
       }
     } else {
       navigate('/drillhole-2d', { state: { holeId } });
@@ -668,14 +649,9 @@ function Home() {
       <div className="status-banner small">
         Primary key: <strong>{primaryLabel}</strong> — <Link to="/config">edit in Config</Link>
       </div>
-
-      <label className="file-input small">
-        <span>Load collars CSV</span>
-        <input type="file" accept=".csv" onChange={handleFileChange} />
-      </label>
-      <button className="ghost-button small" type="button" onClick={handleClearCache}>
-        Clear cached collars
-      </button>
+      <div className="status-banner small">
+        Data source: demo_gswa_sample_collars.csv + demo_gswa_sample_assays.csv (cached)
+      </div>
 
       <label className="checkbox-row">
         <input
@@ -686,13 +662,6 @@ function Home() {
         <span>Open hole in popup viewer</span>
       </label>
 
-      <label className="file-input small">
-        <span>{assayLoading ? 'Loading assays...' : 'Load assays CSV (for popup)'}</span>
-        <input type="file" accept=".csv" onChange={handleAssayFileChange} />
-      </label>
-      <button className="ghost-button small" type="button" onClick={handleClearAssays}>
-        Clear cached assays
-      </button>
       {assayError && <div className="error-banner small">{assayError}</div>}
       {!assayError && (assayState || assayMeta) && (
         <div className="status-banner small">
@@ -763,7 +732,7 @@ function Home() {
               </div>
             ) : (
               <div className="hole-popup-placeholder">
-                Load assays CSV to view this hole in the popup viewer.
+                Assay data is loading for this hole.
               </div>
             )}
           </div>

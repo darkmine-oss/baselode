@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
+import { withDataErrorContext } from './dataErrorUtils.js';
 
 export function parseBlockModelCSV(file) {
   return new Promise((resolve, reject) => {
@@ -24,7 +25,7 @@ export function parseBlockModelCSV(file) {
         resolve({ data, properties: propertyColumns });
       },
       error: (error) => {
-        reject(error);
+        reject(withDataErrorContext('parseBlockModelCSV', error));
       }
     });
   });

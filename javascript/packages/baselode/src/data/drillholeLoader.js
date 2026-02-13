@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
+import { normalizeCsvRow, pickFirstPresent } from './csvRowUtils.js';
+import { withDataErrorContext } from './dataErrorUtils.js';
 
 // Expect CSV columns: hole_id / holeID / HoleId (case-insensitive), project_code, x, y, z, order (optional) plus any attributes per point
 export function parseDrillholesCSV(file) {
@@ -12,34 +14,15 @@ export function parseDrillholesCSV(file) {
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const normalizeRow = (row) => {
-          const normalized = {};
-          Object.entries(row || {}).forEach(([key, value]) => {
-            if (!key) return;
-            const normKey = key.trim().toLowerCase().replace(/\s+/g, '_');
-            normalized[normKey] = value;
-          });
-          return normalized;
-        };
-
-        const pick = (normalized, keys, fallback) => {
-          for (const key of keys) {
-            if (normalized[key] !== undefined && normalized[key] !== null && `${normalized[key]}`.trim() !== '') {
-              return normalized[key];
-            }
-          }
-          return fallback;
-        };
-
         const byHole = new Map();
         results.data.forEach((rawRow, idx) => {
-          const row = normalizeRow(rawRow);
-          const holeIdRaw = pick(row, ['hole_id', 'holeid', 'holeid', 'id'], undefined);
+          const row = normalizeCsvRow(rawRow);
+          const holeIdRaw = pickFirstPresent(row, ['hole_id', 'holeid', 'id'], undefined);
           const holeId = holeIdRaw !== undefined ? `${holeIdRaw}`.trim() : '';
-          const x = pick(row, ['x'], null);
-          const y = pick(row, ['y'], null);
-          const z = pick(row, ['z'], null);
-          const order = pick(row, ['order'], idx);
+          const x = pickFirstPresent(row, ['x'], null);
+          const y = pickFirstPresent(row, ['y'], null);
+          const z = pickFirstPresent(row, ['z'], null);
+          const order = pickFirstPresent(row, ['order'], idx);
 
           if (!holeId || x === null || y === null || z === null) return;
 
@@ -68,7 +51,7 @@ export function parseDrillholesCSV(file) {
 
         resolve({ holes });
       },
-      error: (error) => reject(error)
+      error: (error) => reject(withDataErrorContext('parseDrillholesCSV', error))
     });
   });
 }

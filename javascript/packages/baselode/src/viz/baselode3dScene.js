@@ -7,6 +7,91 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { FlyControls } from 'three/examples/jsm/controls/FlyControls';
 import { ViewportGizmo } from 'three-viewport-gizmo';
 import { getColorForValue } from '../data/blockModelLoader.js';
+import { buildEqualRangeColorScale, getEqualRangeBinIndex, getEqualRangeColor } from './assayColorScale.js';
+import {
+  buildViewSignature,
+  emitViewChangeIfNeeded,
+  fitCameraToBounds,
+  focusOnLastBounds,
+  getViewState,
+  lookDown,
+  pan,
+  dolly,
+  recenterCameraToOrigin,
+  setControlMode,
+  setViewState
+} from './baselode3dCameraControls.js';
+
+const LOW_ASSAY_GREY = '#9ca3af';
+
+function getMeasuredDepthRange(p1, p2) {
+  const md1 = Number(p1?.md);
+  const md2 = Number(p2?.md);
+  if (!Number.isFinite(md1) || !Number.isFinite(md2)) return null;
+  const segStart = Math.min(md1, md2);
+  const segEnd = Math.max(md1, md2);
+  if (segEnd <= segStart) return null;
+  return { segStart, segEnd };
+}
+
+function getWeightedIntervalValue(assayIntervals, segStart, segEnd) {
+  let weightedSum = 0;
+  let weightTotal = 0;
+
+  for (let i = 0; i < assayIntervals.length; i += 1) {
+    const candidate = assayIntervals[i];
+    const from = Number(candidate?.from);
+    const to = Number(candidate?.to);
+    const value = Number(candidate?.value);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || !Number.isFinite(value) || to <= from) continue;
+    const overlapStart = Math.max(segStart, from);
+    const overlapEnd = Math.min(segEnd, to);
+    const overlap = overlapEnd - overlapStart;
+    if (overlap <= 0) continue;
+    weightedSum += value * overlap;
+    weightTotal += overlap;
+  }
+
+  if (weightTotal <= 0) return null;
+  const value = weightedSum / weightTotal;
+  return Number.isFinite(value) ? value : null;
+}
+
+function getAssaySegmentColor(value, assayScale) {
+  if (!Number.isFinite(value) || value <= 0) return new THREE.Color(LOW_ASSAY_GREY);
+  const binIndex = getEqualRangeBinIndex(value, assayScale);
+  if (binIndex <= 0) return new THREE.Color(LOW_ASSAY_GREY);
+  const colorHex = getEqualRangeColor(value, assayScale, LOW_ASSAY_GREY);
+  return new THREE.Color(colorHex);
+}
+
+function normalizeDrillholeRenderOptions(options = {}) {
+  return {
+    preserveView: Boolean(options.preserveView),
+    assayIntervalsByHole: options.assayIntervalsByHole || null,
+    selectedAssayVariable: options.selectedAssayVariable || ''
+  };
+}
+
+function collectAssayValues(assayIntervalsByHole, selectedAssayVariable) {
+  if (!assayIntervalsByHole || !selectedAssayVariable) return [];
+  const allAssayValues = [];
+  Object.values(assayIntervalsByHole).forEach((intervals) => {
+    (intervals || []).forEach((interval) => {
+      const value = Number(interval?.value);
+      if (Number.isFinite(value)) allAssayValues.push(value);
+    });
+  });
+  return allAssayValues;
+}
+
+function buildHoleUserData(hole) {
+  return {
+    holeId: hole.id,
+    project: hole.project,
+    companyHoleId: hole.companyHoleId || hole.id
+  };
+}
 
 class Baselode3DScene {
   constructor() {
@@ -28,6 +113,9 @@ class Baselode3DScene {
     this.drillholeClickHandler = null;
     this.controlMode = 'orbit';
     this._tmpDir = new THREE.Vector3();
+    this.viewChangeHandler = null;
+    this._lastViewSignature = '';
+    this._lastViewEmitMs = 0;
   }
 
   init(container) {
@@ -43,7 +131,7 @@ class Baselode3DScene {
 
     // Camera
     // Lower near plane to allow ultra-close zoom without clipping
-    this.camera = new THREE.PerspectiveCamera(75, width / height, 0.001, 100000);
+    this.camera = new THREE.PerspectiveCamera(28, width / height, 0.001, 100000);
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(50, 50, 50);
     this.camera.lookAt(0, 0, 0);
@@ -63,11 +151,7 @@ class Baselode3DScene {
     directionalLight.position.set(10, 10, 5);
     this.scene.add(directionalLight);
 
-    // Grid and axes
-    const gridHelper = new THREE.GridHelper(5000, 100, 0xcccccc, 0xe0e0e0);
-    gridHelper.rotation.x = Math.PI / 2;
-    this.scene.add(gridHelper);
-
+    // Axes helper
     const axesHelper = new THREE.AxesHelper(20);
     this.scene.add(axesHelper);
 
@@ -120,10 +204,31 @@ class Baselode3DScene {
       } else if (this.controls) {
         this.controls.update();
       }
+      this._emitViewChangeIfNeeded();
       this.renderer.render(this.scene, this.camera);
       if (this.gizmo) this.gizmo.render();
     };
     animate();
+  }
+
+  setViewChangeHandler(handler) {
+    this.viewChangeHandler = typeof handler === 'function' ? handler : null;
+  }
+
+  getViewState() {
+    return getViewState(this);
+  }
+
+  setViewState(viewState) {
+    return setViewState(this, viewState);
+  }
+
+  _buildViewSignature(viewState) {
+    return buildViewSignature(viewState);
+  }
+
+  _emitViewChangeIfNeeded() {
+    emitViewChangeIfNeeded(this);
   }
 
   _attachCanvasClickHandler() {
@@ -163,7 +268,7 @@ class Baselode3DScene {
       const holeId = obj?.userData?.holeId;
       const project = obj?.userData?.project;
       if (holeId && this.drillholeClickHandler) {
-        this.drillholeClickHandler({ holeId, project });
+        this.drillholeClickHandler({ holeId, project, companyHoleId: obj?.userData?.companyHoleId });
       }
     };
 
@@ -225,15 +330,19 @@ class Baselode3DScene {
 
     if (this.camera && this.controls) {
       this.lastBounds = { minX, maxX, minY, maxY, minZ, maxZ };
-      this._fitCameraToBounds({ minX, maxX, minY, maxY, minZ, maxZ });
+      fitCameraToBounds(this, { minX, maxX, minY, maxY, minZ, maxZ });
     }
   }
 
-  setDrillholes(holes) {
+  setDrillholes(holes, options = {}) {
     if (!this.scene) return;
 
     this._clearDrillholes();
     if (!holes || holes.length === 0) return;
+
+    const { preserveView, assayIntervalsByHole, selectedAssayVariable } = normalizeDrillholeRenderOptions(options);
+    const allAssayValues = collectAssayValues(assayIntervalsByHole, selectedAssayVariable);
+    const assayScale = buildEqualRangeColorScale(allAssayValues);
 
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
@@ -243,7 +352,7 @@ class Baselode3DScene {
     const up = new THREE.Vector3(0, 1, 0); // cylinder default axis
 
     holes.forEach((hole, idx) => {
-      const color = new THREE.Color().setHSL((idx / holes.length), 0.6, 0.45);
+      const defaultColor = new THREE.Color().setHSL((idx / holes.length), 0.6, 0.45);
       const points = (hole.points || []).map((p) => {
         minX = Math.min(minX, p.x);
         maxX = Math.max(maxX, p.x);
@@ -251,16 +360,18 @@ class Baselode3DScene {
         maxY = Math.max(maxY, p.y);
         minZ = Math.min(minZ, p.z);
         maxZ = Math.max(maxZ, p.z);
-        return new THREE.Vector3(p.x, p.y, p.z);
+        const point = new THREE.Vector3(p.x, p.y, p.z);
+        point.md = p.md;
+        return point;
       });
 
       if (points.length < 2) {
         if (points.length === 1) {
           const sphereGeom = new THREE.SphereGeometry(5, 16, 16);
-          const sphereMat = new THREE.MeshStandardMaterial({ color });
+          const sphereMat = new THREE.MeshStandardMaterial({ color: defaultColor });
           const sphere = new THREE.Mesh(sphereGeom, sphereMat);
           sphere.position.copy(points[0]);
-          sphere.userData = { holeId: hole.id, project: hole.project };
+          sphere.userData = buildHoleUserData(hole);
           this.scene.add(sphere);
           this.drillLines.push(sphere);
           this.drillMeshes.push(sphere);
@@ -269,7 +380,10 @@ class Baselode3DScene {
       }
 
       const group = new THREE.Group();
-      group.userData = { holeId: hole.id, project: hole.project };
+      group.userData = buildHoleUserData(hole);
+      const assayIntervals = selectedAssayVariable
+        ? this._resolveAssayIntervalsForHole(hole, assayIntervalsByHole)
+        : [];
 
       for (let i = 0; i < points.length - 1; i += 1) {
         const p1 = points[i];
@@ -279,11 +393,20 @@ class Baselode3DScene {
         if (len <= 0.001) continue;
         const radius = 2.5;
         const cylinderGeom = new THREE.CylinderGeometry(radius, radius, len, 10, 1, false);
-        const cylinderMat = new THREE.MeshStandardMaterial({ color });
+        const segmentColor = this._getSegmentColor({
+          selectedAssayVariable,
+          assayIntervals,
+          assayScale,
+          holeId: hole.id,
+          segmentIndex: i,
+          p1,
+          p2
+        });
+        const cylinderMat = new THREE.MeshStandardMaterial({ color: segmentColor });
         const mesh = new THREE.Mesh(cylinderGeom, cylinderMat);
         mesh.position.copy(p1.clone().addScaledVector(dir, 0.5));
         mesh.quaternion.setFromUnitVectors(up, dir.clone().normalize());
-        mesh.userData = { holeId: hole.id, project: hole.project };
+        mesh.userData = buildHoleUserData(hole);
         group.add(mesh);
         this.drillMeshes.push(mesh);
       }
@@ -294,79 +417,69 @@ class Baselode3DScene {
 
     if (this.camera && this.controls) {
       this.lastBounds = { minX, maxX, minY, maxY, minZ, maxZ };
-      this._fitCameraToBounds({ minX, maxX, minY, maxY, minZ, maxZ });
+      if (!preserveView) {
+        fitCameraToBounds(this, { minX, maxX, minY, maxY, minZ, maxZ });
+      }
     }
+  }
+
+  _getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, holeId, segmentIndex, p1, p2 }) {
+    if (!selectedAssayVariable) {
+      return randomSegmentColor(holeId, segmentIndex);
+    }
+    if (!assayIntervals?.length) return new THREE.Color(LOW_ASSAY_GREY);
+    const depthRange = getMeasuredDepthRange(p1, p2);
+    if (!depthRange) return new THREE.Color(LOW_ASSAY_GREY);
+    const value = getWeightedIntervalValue(assayIntervals, depthRange.segStart, depthRange.segEnd);
+    return getAssaySegmentColor(value, assayScale);
+  }
+
+  _resolveAssayIntervalsForHole(hole, assayIntervalsByHole) {
+    if (!assayIntervalsByHole || !hole) return [];
+    const candidates = [
+      hole.id,
+      hole.primaryId,
+      hole.holeId,
+      hole.companyHoleId,
+      hole.collarId
+    ];
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const raw = candidates[i];
+      if (raw === undefined || raw === null) continue;
+      const exact = assayIntervalsByHole[raw];
+      if (Array.isArray(exact) && exact.length) return exact;
+
+      const normalized = normalizeHoleKey(raw);
+      if (!normalized) continue;
+      const byNormalized = assayIntervalsByHole[normalized];
+      if (Array.isArray(byNormalized) && byNormalized.length) return byNormalized;
+    }
+    return [];
   }
 
   _fitCameraToBounds({ minX, maxX, minY, maxY, minZ, maxZ }) {
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-    const sizeX = maxX - minX;
-    const sizeY = maxY - minY;
-    const sizeZ = maxZ - minZ;
-    const maxDim = Math.max(sizeX, sizeY, sizeZ, 1);
-    const distance = maxDim * 2;
-
-    this.controls.target.set(centerX, centerY, centerZ);
-    this.camera.position.set(centerX + distance, centerY + distance, centerZ + distance);
-    this.camera.lookAt(centerX, centerY, centerZ);
-    this.controls.update();
+    fitCameraToBounds(this, { minX, maxX, minY, maxY, minZ, maxZ });
   }
 
   recenterCameraToOrigin(distance = 1000) {
-    if (!this.camera || !this.controls) return;
-    this.controls.target.set(0, 0, 0);
-    this.camera.position.set(distance, distance, distance);
-    this.camera.lookAt(0, 0, 0);
-    this.controls.update();
+    recenterCameraToOrigin(this, distance);
   }
 
   lookDown(distance = 2000) {
-    if (!this.camera || !this.controls) return;
-    this.controls.target.set(0, 0, 0);
-    this.camera.position.set(0, 0, distance);
-    this.camera.up.set(0, 1, 0);
-    this.camera.lookAt(0, 0, 0);
-    this.controls.update();
+    lookDown(this, distance);
   }
 
   pan(dx = 0, dy = 0) {
-    if (!this.controls) return;
-    // pan in screen space units (positive x: right, positive y: up)
-    if (typeof this.controls.pan === 'function') {
-      this.controls.pan(dx, dy);
-      this.controls.update();
-    }
+    pan(this, dx, dy);
   }
 
   dolly(scale = 1.1) {
-    if (!this.controls || typeof this.controls.dollyIn !== 'function' || typeof this.controls.dollyOut !== 'function') return;
-    if (scale > 1) {
-      this.controls.dollyOut(scale);
-    } else {
-      this.controls.dollyIn(1 / scale);
-    }
-    this.controls.update();
+    dolly(this, scale);
   }
 
   focusOnLastBounds(padding = 1.2) {
-    if (!this.lastBounds) return;
-    const {
-      minX, maxX, minY, maxY, minZ, maxZ
-    } = this.lastBounds;
-    const sizeX = (maxX - minX) * padding;
-    const sizeY = (maxY - minY) * padding;
-    const sizeZ = (maxZ - minZ) * padding;
-    const centerX = (minX + maxX) / 2;
-    const centerY = (minY + maxY) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-    const maxDim = Math.max(sizeX, sizeY, sizeZ, 1);
-    const distance = maxDim * 2;
-    this.controls.target.set(centerX, centerY, centerZ);
-    this.camera.position.set(centerX + distance, centerY + distance, centerZ + distance);
-    this.camera.lookAt(centerX, centerY, centerZ);
-    this.controls.update();
+    focusOnLastBounds(this, padding);
   }
 
   _clearBlocks() {
@@ -408,6 +521,8 @@ class Baselode3DScene {
       this.gizmo = null;
     }
 
+    this.viewChangeHandler = null;
+
     this._clearBlocks();
     this._clearDrillholes();
 
@@ -426,22 +541,32 @@ class Baselode3DScene {
   }
 
   setControlMode(mode = 'orbit') {
-    this.controlMode = mode === 'fly' ? 'fly' : 'orbit';
-    if (this.controlMode === 'fly') {
-      if (this.controls) this.controls.enabled = false;
-      if (this.flyControls) this.flyControls.enabled = true;
-    } else {
-      if (this.flyControls) this.flyControls.enabled = false;
-      if (this.controls) {
-        this.controls.enabled = true;
-        // Align orbit target with current camera forward to avoid jumps when toggling back
-        this.camera.getWorldDirection(this._tmpDir);
-        const target = this.camera.position.clone().addScaledVector(this._tmpDir, 10);
-        this.controls.target.copy(target);
-        this.controls.update();
-      }
-    }
+    setControlMode(this, mode);
   }
 }
 
 export default Baselode3DScene;
+
+function normalizeHoleKey(value) {
+  return `${value ?? ''}`.trim().toLowerCase();
+}
+
+function randomSegmentColor(holeId, segmentIndex) {
+  const seed = `${holeId ?? ''}:${segmentIndex ?? 0}`;
+  const base = seededUnit(seed);
+  const band = ((segmentIndex ?? 0) % 14) / 14;
+  const hue = (base * 0.15 + band * 0.85) % 1;
+  const color = new THREE.Color();
+  color.setHSL(hue, 1.0, 0.5);
+  return color;
+}
+
+function seededUnit(input) {
+  const text = `${input ?? ''}`;
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967295;
+}

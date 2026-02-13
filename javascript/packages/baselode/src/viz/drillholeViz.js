@@ -9,6 +9,18 @@ export const NUMERIC_LINE_COLOR = '#8b1e3f';
 export const NUMERIC_MARKER_COLOR = '#a8324f';
 export const ERROR_COLOR = '#6b7280';
 
+export function holeHasData(hole, property) {
+  if (!hole || !property) return false;
+  const pts = hole.points || [];
+  for (let i = 0; i < pts.length; i += 1) {
+    const value = pts[i]?.[property];
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'number' && Number.isFinite(value)) return true;
+    if (typeof value === 'string' && value.trim() !== '') return true;
+  }
+  return false;
+}
+
 export function buildIntervalPoints(hole, property, isCategorical) {
   if (!hole || !property) return [];
   const rawPoints = hole?.points || [];
@@ -33,11 +45,7 @@ export function buildIntervalPoints(hole, property, isCategorical) {
     );
     const rawVal = p?.[property];
     if (!Number.isFinite(fromVal) || !Number.isFinite(toVal) || toVal <= fromVal) return;
-    if (isCategorical) {
-      if (rawVal === undefined || rawVal === null || rawVal === '') return;
-    } else {
-      if (rawVal === undefined || rawVal === null || rawVal === '') return;
-    }
+    if (rawVal === undefined || rawVal === null || rawVal === '') return;
     const key = `${property}:${fromVal}-${toVal}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -113,7 +121,6 @@ function buildNumericConfig(points, property, chartType) {
   const isBar = chartType === 'bar';
   const isMarkersOnly = chartType === 'markers';
   const isLineOnly = chartType === 'line';
-  const isMarkersAndLine = chartType === 'markers+line' || (!isBar && !isMarkersOnly && !isLineOnly);
 
   const baseTrace = {
     x: points.map((p) => p.val),

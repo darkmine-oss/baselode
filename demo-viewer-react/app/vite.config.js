@@ -8,6 +8,6 @@ export default defineConfig({
     open: true
   },
   optimizeDeps: {
-    include: ['baselode']
+    exclude: ['baselode']
   }
 });
