@@ -30,6 +30,7 @@ export const DEFAULT_COLUMN_MAP = {
   easting: 'x',
   northing: 'y',
   surveydepth: 'from',
+  depth: 'from',
   latitude: 'lat',
   lat: 'lat',
   longitude: 'lon',

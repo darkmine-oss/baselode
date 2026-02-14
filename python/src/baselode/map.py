@@ -2,14 +2,30 @@
 
 # Copyright (C) 2026 Darkmine Pty Ltd
 
-"""Top-level mapping helpers for plan and section workflows.
+# This file is part of baselode.
 
-This module provides stable entry points that wrap the lower-level drill
-projection helpers, so users can import map-oriented functions from
-`baselode.map` directly.
-"""
+# baselode is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
 
-from .drill.view_2d import plan_view, section_view, project_trace_to_section, section_window
+# baselode is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with baselode.  If not, see <https://www.gnu.org/licenses/>.
+
+import folium
+
+def create_leaflet_map(center=None, zoom_start=2):
+    """Create a Leaflet map with OpenStreetMap tiles."""
+
+    if center is None:
+        center = [0, 0]  # Default to (lat, lon) at the equator
+    m = folium.Map(location=center, zoom_start=zoom_start, tiles="OpenStreetMap")
+    return m
 
 
 def map_collar_points(collars, color_by=None):
@@ -35,11 +51,3 @@ def map_collar_points(collars, color_by=None):
         out["color_value"] = out[color_by]
     return out
 
-
-__all__ = [
-    "map_collar_points",
-    "plan_view",
-    "section_view",
-    "project_trace_to_section",
-    "section_window",
-]

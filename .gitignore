@@ -2,6 +2,8 @@
 .venv
 .vscode
 
+demo-viewer-dash/__pycache__/
+
 demo-viewer-react/app/dist/
 demo-viewer-react/app/node_modules/
 
@@ -11,6 +13,9 @@ javascript/packages/baselode/node_modules/
 python/src/baselode/__pycache__/
 python/src/baselode/drill/__pycache__/
 python/src/baselode.egg-info/
+python/src/build/
+
+test/__pycache__/
 
 .claude
 AI_CONTEXT.md
