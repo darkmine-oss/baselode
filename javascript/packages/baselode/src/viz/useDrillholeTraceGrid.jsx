@@ -18,7 +18,6 @@ import {
 import { buildIntervalPoints, holeHasData } from './drillholeViz.js';
 
 export default function useDrillholeTraceGrid({
-  drillConfig,
   initialFocusedHoleId = '',
   sourceFile = null,
   plotCount = 4
@@ -38,10 +37,7 @@ export default function useDrillholeTraceGrid({
     setError('');
     setHoles(state.holes || []);
     setHoleIds((state.holes || []).map((h) => ({
-      holeId: h.id || h.holeId || h.primaryId,
-      primaryId: h.id || h.holeId || h.primaryId,
-      collarId: h.collarId,
-      companyHoleId: h.companyHoleId
+      holeId: h.id || h.holeId
     })).filter((h) => h.holeId));
     setNumericProps(state.numericProps || []);
     setCategoricalProps(state.categoricalProps || []);
@@ -58,7 +54,7 @@ export default function useDrillholeTraceGrid({
 
   useEffect(() => {
     if (!sourceFile || holeIds.length > 0) return;
-    loadAssayMetadata(sourceFile, drillConfig)
+    loadAssayMetadata(sourceFile)
       .then((ids) => {
         if (!ids) return;
         const uniqueIds = Array.from(new Map(ids.map((h) => [h.holeId, h])).values());
@@ -75,7 +71,7 @@ export default function useDrillholeTraceGrid({
       .catch((err) => {
         console.info('Assay metadata load skipped:', err.message);
       });
-  }, [sourceFile, holeIds.length, drillConfig, focusedHoleId, plotCount, categoricalProps]);
+  }, [sourceFile, holeIds.length, focusedHoleId, plotCount, categoricalProps]);
 
   useEffect(() => {
     setError((prev) => (prev && prev.startsWith('Loading assays for hole') ? prev : ''));
@@ -112,7 +108,7 @@ export default function useDrillholeTraceGrid({
       const loading = loadingHoles.includes(holeId);
       if (already || loading) return;
       setLoadingHoles((prev) => [...prev, holeId]);
-      loadAssayHole(sourceFile, holeId, drillConfig)
+      loadAssayHole(sourceFile, holeId)
         .then((hole) => {
           setLoadingHoles((prev) => prev.filter((id) => id !== holeId));
           if (!hole) return;
@@ -152,23 +148,15 @@ export default function useDrillholeTraceGrid({
           setError(err.message || `Error loading hole ${holeId}`);
         });
     });
-  }, [traceConfigs, sourceFile, holes, loadingHoles, defaultProp, drillConfig]);
+  }, [traceConfigs, sourceFile, holes, loadingHoles, defaultProp]);
 
   const propertyOptions = useMemo(() => [...numericProps, ...categoricalProps], [numericProps, categoricalProps]);
 
-  const labelForHole = (holeId) => {
-    const meta = holeIds.find((h) => h.holeId === holeId);
-    if (!meta) return holeId;
-    if (meta.primaryId) return meta.primaryId;
-    if (drillConfig?.primaryKey === 'collarId' && meta.collarId) return meta.collarId;
-    if (drillConfig?.primaryKey === 'companyHoleId' && meta.companyHoleId) return meta.companyHoleId;
-    if (drillConfig?.primaryKey === 'holeId' && meta.holeId) return meta.holeId;
-    return meta.holeId || meta.companyHoleId || meta.collarId || holeId;
-  };
-
   const labeledHoleOptions = useMemo(
-    () => holeIds.map((h) => ({ holeId: h.holeId, label: labelForHole(h.holeId) })),
-    [holeIds, drillConfig?.primaryKey]
+    () => holeIds
+      .map((h) => ({ holeId: h.holeId, label: h.holeId }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [holeIds]
   );
 
   const traceGraphs = useMemo(() => {
@@ -190,10 +178,10 @@ export default function useDrillholeTraceGrid({
         loading: loadingHoles.includes(cfg.holeId),
         isCategorical,
         points,
-        label: labelForHole(holeId)
+        label: holeId
       };
     });
-  }, [traceConfigs, holes, defaultProp, categoricalProps, loadingHoles, holeIds, drillConfig?.primaryKey, plotCount, numericProps]);
+  }, [traceConfigs, holes, defaultProp, categoricalProps, loadingHoles, plotCount, numericProps]);
 
   const handleConfigChange = (index, patch) => {
     setTraceConfigs((prev) => {

@@ -48,13 +48,13 @@ export function deriveAssayProps(holes = []) {
   return { numericProps, categoricalProps, defaultProp };
 }
 
-export async function loadAssayMetadata(file, config) {
-  const holeIds = await parseAssayHoleIdsWithAssays(file, config);
+export async function loadAssayMetadata(file, config = null) {
+  const holeIds = await parseAssayHoleIdsWithAssays(file);
   return holeIds;
 }
 
-export async function loadAssayHole(file, holeId, config) {
-  const hole = await parseAssayHole(file, holeId, config);
+export async function loadAssayHole(file, holeId, config = null) {
+  const hole = await parseAssayHole(file, holeId);
   return hole;
 }
 
@@ -79,8 +79,8 @@ export function buildAssayState(holes = [], focusedHoleId = '') {
   };
 }
 
-export async function loadAssayFile(file, focusedHoleId = '', config) {
-  const { holes } = await parseAssaysCSV(file, config);
+export async function loadAssayFile(file, focusedHoleId = '', sourceColumnMap = null) {
+  const { holes } = await parseAssaysCSV(file, sourceColumnMap);
   const state = buildAssayState(holes, focusedHoleId);
   if (!state) throw new Error('No valid assay intervals found.');
   return state;

@@ -19,7 +19,6 @@ import {
 import 'baselode/style.css';
 import proj4 from 'proj4';
 import './Drillhole.css';
-import { useDrillConfig } from '../context/DrillConfigContext.jsx';
 import {
   loadDemoGswaAssayFile,
   loadDemoPrecomputedDesurveyFile,
@@ -59,7 +58,6 @@ function Drillhole() {
   const [colorByVariable, setColorByVariable] = useState('None');
   const [precomputedAttempted, setPrecomputedAttempted] = useState(false);
   const [usingPrecomputed, setUsingPrecomputed] = useState(false);
-  const { config: drillConfig } = useDrillConfig();
 
   const selectedAssayIntervalsByHole = useMemo(() => {
     if (colorByVariable === 'None') return null;
@@ -114,7 +112,6 @@ function Drillhole() {
         if (!renderable.length) return;
         const normalized = renderable.map((hole) => ({
           id: hole.id,
-          companyHoleId: hole.points?.[0]?.company_hole_id || hole.points?.[0]?.companyholeid || hole.id,
           project: hole.points?.[0]?.project || '',
           points: (hole.points || []).map((point) => ({
             x: Number(point.x),
@@ -149,7 +146,7 @@ function Drillhole() {
 
   useEffect(() => {
     loadDemoGswaAssayFile()
-      .then((demoGswaAssayFile) => loadAssayFile(demoGswaAssayFile, '', drillConfig))
+      .then((demoGswaAssayFile) => loadAssayFile(demoGswaAssayFile, ''))
       .then((state) => {
         const numeric = (state?.numericProps || []).filter(Boolean);
         setAssayVariables(numeric);
@@ -158,7 +155,7 @@ function Drillhole() {
       .catch((err) => {
         console.info('Auto-load of GSWA assays for 3D coloring skipped:', err.message);
       });
-  }, [drillConfig]);
+  }, []);
 
   // Auto-load canonical GSWA survey if no cached data
   useEffect(() => {
@@ -173,7 +170,7 @@ function Drillhole() {
     }
 
     loadDemoSurveyCsvText()
-      .then((csvText) => parseSurveyCSV(csvText, drillConfig))
+      .then((csvText) => parseSurveyCSV(csvText))
       .then((surveyRows) => {
         if (!surveyRows || !surveyRows.length) return;
         processAndSetHoles(surveyRows);
@@ -181,7 +178,7 @@ function Drillhole() {
       .catch((err) => {
         console.info('Auto-load of GSWA survey skipped:', err.message);
       });
-  }, [holes, collars, drillConfig, precomputedAttempted, usingPrecomputed]);
+  }, [holes, collars, precomputedAttempted, usingPrecomputed]);
 
   // Initialize shared 3D scene
   useEffect(() => {
@@ -244,7 +241,7 @@ function Drillhole() {
       return;
     }
     const start = performance.now();
-    const desurveyed = desurveyTraces(collars, surveyRows, drillConfig);
+    const desurveyed = desurveyTraces(collars, surveyRows);
     const elapsedMs = performance.now() - start;
     setDesurveyMs(elapsedMs);
     console.info('Desurvey profiling', {
@@ -298,7 +295,6 @@ function Drillhole() {
         .filter(Boolean);
       return {
         id: h.id,
-        companyHoleId: h.collar?.companyHoleId || h.id,
         project: h.project,
         points: pts
       };
@@ -306,7 +302,6 @@ function Drillhole() {
 
     const shiftedHoles = linestrings.map((h) => ({
       id: h.id,
-      companyHoleId: h.companyHoleId || h.id,
       project: h.project,
       points: h.points.map((p) => ({ x: p.offset.x, y: p.offset.y, z: p.z, md: p.md }))
     }));
@@ -401,7 +396,6 @@ function Drillhole() {
             <div className="selection-header">Drillhole selected</div>
             <div className="selection-body">
               <div><strong>Hole ID:</strong> {selectedHole.holeId}</div>
-              <div><strong>Company Hole ID:</strong> {selectedHole.companyHoleId || selectedHole.holeId || 'N/A'}</div>
               <div><strong>Project:</strong> {selectedHole.project || 'N/A'}</div>
             </div>
             <button className="ghost-button" type="button" onClick={() => setSelectedHole(null)}>
@@ -461,10 +455,6 @@ function buildAssayIntervalsByHole(assayHoles) {
         normalizeHoleKey(holeId),
         normalizeHoleKey(sorted[0]?.values?.hole_id),
         normalizeHoleKey(sorted[0]?.values?.holeid),
-        normalizeHoleKey(sorted[0]?.values?.collarid),
-        normalizeHoleKey(sorted[0]?.values?.collar_id),
-        normalizeHoleKey(sorted[0]?.values?.companyholeid),
-        normalizeHoleKey(sorted[0]?.values?.company_hole_id),
         normalizeHoleKey(sorted[0]?.values?.anumber),
         normalizeHoleKey(sorted[0]?.values?.id)
       ]);
@@ -572,7 +562,7 @@ function normalizeHoleKey(value) {
 }
 
 function isFfCompanyHole(hole) {
-  const candidate = `${hole?.companyHoleId || hole?.id || ''}`.trim().toUpperCase();
+  const candidate = `${hole?.id || ''}`.trim().toUpperCase();
   return candidate.startsWith('FF');
 }
 

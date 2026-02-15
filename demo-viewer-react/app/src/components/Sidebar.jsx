@@ -13,8 +13,7 @@ function Sidebar() {
   const menuItems = [
     { path: '/', label: 'Map' },
     { path: '/drillhole', label: 'Drillhole' },
-    { path: '/drillhole-2d', label: 'Drillhole 2D' },
-    { path: '/config', label: 'Config' }
+    { path: '/drillhole-2d', label: 'Drillhole 2D' }
   ];
 
   return (

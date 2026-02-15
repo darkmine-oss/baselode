@@ -1,14 +1,35 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+
+// --- Data model ---
+export {
+  HOLE_ID,
+  LATITUDE,
+  LONGITUDE,
+  ELEVATION,
+  AZIMUTH,
+  DIP,
+  FROM,
+  TO,
+  MID,
+  PROJECT_ID,
+  EASTING,
+  NORTHING,
+  CRS,
+  DEPTH,
+  BASELODE_DATA_MODEL_DRILL_COLLAR,
+  BASELODE_DATA_MODEL_DRILL_SURVEY,
+  BASELODE_DATA_MODEL_DRILL_ASSAY,
+  DEFAULT_COLUMN_MAP
+} from './data/datamodel.js';
 
 // --- Data layer ---
 export {
   normalizeFieldName,
-  primaryFieldFromConfig,
-  resolvePrimaryId,
-  buildPrimaryKeyedRow
+  standardizeColumns,
+  standardizeRowArray
 } from './data/keying.js';
 
 export {
@@ -72,8 +93,6 @@ export {
 } from './data/drillholeLoader.js';
 
 export {
-  DEFAULT_COLUMN_MAP,
-  standardizeColumns,
   loadTable,
   loadCollars,
   loadSurveys,

@@ -5,20 +5,17 @@
 import Sidebar from './Sidebar.jsx';
 import '../App.css';
 import { ZoomProvider } from '../context/ZoomContext.jsx';
-import { DrillConfigProvider } from '../context/DrillConfigContext.jsx';
 
 function Layout({ children }) {
   return (
-    <DrillConfigProvider>
-      <ZoomProvider>
-        <div className="app-container">
-          <Sidebar />
-          <main className="main-content">
-            {children}
-          </main>
-        </div>
-      </ZoomProvider>
-    </DrillConfigProvider>
+    <ZoomProvider>
+      <div className="app-container">
+        <Sidebar />
+        <main className="main-content">
+          {children}
+        </main>
+      </div>
+    </ZoomProvider>
   );
 }
 

@@ -11,7 +11,6 @@ import Plotly from 'plotly.js-dist-min';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './Home.css';
 import { useZoomContext } from '../context/ZoomContext.jsx';
-import { useDrillConfig } from '../context/DrillConfigContext.jsx';
 import {
   loadAssayFile,
   loadCachedAssayMeta,
@@ -19,7 +18,8 @@ import {
   saveAssayCache,
   buildIntervalPoints,
   buildPlotConfig,
-  resolvePrimaryId
+  standardizeColumns,
+  HOLE_ID
 } from 'baselode';
 
 
@@ -38,19 +38,9 @@ function Home() {
   const [popupProperty, setPopupProperty] = useState('');
   const [assayState, setAssayState] = useState(null);
   const [assayMeta, setAssayMeta] = useState(null);
-  const [assayError, setAssayError] = useState('');
   const [assayLoading, setAssayLoading] = useState(false);
   const navigate = useNavigate();
   const { zoomLevel, setZoomLevel } = useZoomContext();
-  const { config: drillConfig, primaryField } = useDrillConfig();
-
-  const primaryLabel = useMemo(() => {
-    if (drillConfig.primaryKey === 'holeId') return 'Hole ID';
-    if (drillConfig.primaryKey === 'collarId') return 'Collar ID';
-    if (drillConfig.primaryKey === 'anumber') return 'Anumber';
-    if (drillConfig.primaryKey === 'custom') return drillConfig.customKey || 'Custom key';
-    return 'Company Hole ID';
-  }, [drillConfig]);
 
   const cacheKey = 'baselode-collars-cache-v1';
   const mapRef = useRef(null);
@@ -58,11 +48,6 @@ function Home() {
   const popupRef = useRef(null);
   const popupPlotRef = useRef(null);
   const handleHoleClickRef = useRef(null);
-  const primaryLabelRef = useRef(primaryLabel);
-
-  useEffect(() => {
-    primaryLabelRef.current = primaryLabel;
-  }, [primaryLabel]);
   const initialView = useMemo(() => {
     const fallback = {
       center: [defaultPosition[1], defaultPosition[0]],
@@ -112,34 +97,22 @@ function Home() {
         };
 
         results.data.forEach((row) => {
-          const normalized = {};
-          Object.entries(row).forEach(([key, value]) => {
-            normalized[key.trim().toLowerCase()] = value;
-            detectedColumns.add(key.trim().toLowerCase());
-          });
-
-          const lat = parseFloat(pick(normalized, ['latitude', 'lat']));
-          const lng = parseFloat(pick(normalized, ['longitude', 'lon', 'lng']));
-          const project = (pick(normalized, ['project_code', 'project', 'projectcode']) ?? '').toString().trim();
-          const collarId = (pick(normalized, ['collarid', 'collar_id']) ?? '').toString().trim();
-          const companyHoleId = (pick(normalized, ['companyholeid', 'company_hole_id']) ?? '').toString().trim();
-          const holeId = (pick(normalized, [
-            'hole_id',
-            'holeid',
-            'hole id'
-          ]) ?? '').toString().trim();
-          const primaryId = resolvePrimaryId(normalized, primaryField);
+          const standardized = standardizeColumns(row);
+          const lat = parseFloat(standardized.latitude);
+          const lng = parseFloat(standardized.longitude);
+          const project = (standardized.project_id || standardized.dataset || '').toString().trim();
+          const holeId = (standardized[HOLE_ID] || '').toString().trim();
 
           const hasValidLatLng = Number.isFinite(lat) && Number.isFinite(lng);
           const latLngInRange = hasValidLatLng && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
 
-          if (!primaryId) {
+          if (!holeId) {
             skippedMissingKey += 1;
             return;
           }
 
           if (hasValidLatLng && latLngInRange && project && holeId) {
-            parsed.push({ lat, lng, project, holeId, companyHoleId, collarId, primaryId });
+            parsed.push({ lat, lng, project, holeId });
           } else if (!latLngInRange || !hasValidLatLng) {
             skippedInvalidCoords += 1;
           }
@@ -218,19 +191,6 @@ function Home() {
   }, [collars.length]);
 
   useEffect(() => {
-    setCollars((prev) => prev.map((c) => {
-      if (c.primaryId) return c;
-      const normalized = {};
-      Object.entries(c || {}).forEach(([key, value]) => {
-        if (!key) return;
-        normalized[key.toString().trim().toLowerCase()] = value;
-      });
-      const primaryId = resolvePrimaryId(normalized, primaryField);
-      return primaryId ? { ...c, primaryId } : c;
-    }));
-  }, [primaryField]);
-
-  useEffect(() => {
     try {
       const pref = localStorage.getItem(assayPreferenceKey);
       if (pref === 'page') {
@@ -261,7 +221,6 @@ function Home() {
   useEffect(() => {
     if (assayState || assayLoading) return;
     setAssayLoading(true);
-    setAssayError('');
     fetch('/data/gswa/demo_gswa_sample_assays.csv')
       .then((res) => {
         if (!res.ok) {
@@ -272,7 +231,7 @@ function Home() {
       .then((csvText) => {
         const blob = new Blob([csvText], { type: 'text/csv' });
         const demoGswaAssayFile = new File([blob], 'demo_gswa_sample_assays.csv', { type: 'text/csv' });
-        return loadAssayFile(demoGswaAssayFile, '', drillConfig);
+        return loadAssayFile(demoGswaAssayFile, '');
       })
       .then((state) => {
         setAssayState(state);
@@ -290,7 +249,7 @@ function Home() {
         console.info('Auto-load of GSWA assays skipped:', err.message);
       })
       .finally(() => setAssayLoading(false));
-  }, [assayState, assayLoading, drillConfig]);
+  }, [assayState, assayLoading]);
 
   const runSearch = (term, sourceCollars = collars) => {
     const query = term.trim().toLowerCase();
@@ -300,10 +259,10 @@ function Home() {
       return;
     }
 
-    const matches = sourceCollars.filter((c) => (c.primaryId || '').toLowerCase().includes(query));
+    const matches = sourceCollars.filter((c) => (c.holeId || '').toLowerCase().includes(query));
 
     if (!matches.length) {
-      setSearchError(`No matching ${primaryLabel}`);
+      setSearchError('No matching Hole ID');
       setFilteredCollars(null);
       return;
     }
@@ -326,9 +285,6 @@ function Home() {
     if (!holeId) return;
     if (openInPopup) {
       setPopupHoleId(holeId);
-      if (!assayState?.holes?.some((h) => (h.id || h.holeId) === holeId)) {
-        setAssayError((prev) => prev || 'Assay data is loading for popup viewer.');
-      }
     } else {
       navigate('/drillhole-2d', { state: { holeId } });
     }
@@ -342,7 +298,7 @@ function Home() {
     if (searchTerm) {
       runSearch(searchTerm, collars);
     }
-  }, [collars, primaryField]);
+  }, [collars, searchTerm]);
 
   const mapCenter = useMemo(() => {
     if (!collars.length) return defaultPosition;
@@ -364,7 +320,11 @@ function Home() {
 
   const popupHole = useMemo(() => {
     if (!popupHoleId || !assayState?.holes) return null;
-    return assayState.holes.find((h) => (h.id || h.holeId) === popupHoleId) || null;
+    const searchId = `${popupHoleId}`.toLowerCase();
+    return assayState.holes.find((h) => {
+      const hId = h.id || h.holeId;
+      return hId && `${hId}`.toLowerCase() === searchId;
+    }) || null;
   }, [assayState, popupHoleId]);
 
   useEffect(() => {
@@ -385,11 +345,9 @@ function Home() {
       geometry: { type: 'Point', coordinates: [c.lng, c.lat] },
       properties: {
         id: idx,
-        primaryId: c.primaryId || c.holeId || '',
+        [HOLE_ID]: c.holeId || '',
         project: c.project || '',
-        holeId: c.holeId || '',
-        companyHoleId: c.companyHoleId || '',
-        collarId: c.collarId || ''
+        holeId: c.holeId || ''
       }
     }))
   }), [renderedCollars]);
@@ -564,7 +522,7 @@ function Home() {
 
       map.on('click', 'collars-unclustered', (e) => {
         const feature = e.features && e.features[0];
-        const holeId = feature?.properties?.primaryId || feature?.properties?.holeId;
+        const holeId = feature?.properties?.[HOLE_ID] || feature?.properties?.holeId;
         if (holeId) {
           handleHoleClickRef.current?.(holeId);
         }
@@ -576,14 +534,11 @@ function Home() {
         if (!feature || !popupRef.current) return;
         const coords = feature.geometry.coordinates.slice();
         const props = feature.properties || {};
-        const primaryValue = props.primaryId || props.companyHoleId || props.holeId || props.collarId || '—';
+        const holeIdValue = props[HOLE_ID] || props.holeId || '—';
         const html = `
           <div class="collar-tooltip">
-            <div><strong>${primaryLabelRef.current}:</strong> ${primaryValue}</div>
+            <div><strong>Hole ID:</strong> ${holeIdValue}</div>
             <div><strong>Project:</strong> ${props.project || '—'}</div>
-            <div><strong>Company Hole ID:</strong> ${props.companyHoleId || '—'}</div>
-            <div><strong>Hole ID:</strong> ${props.holeId || '—'}</div>
-            <div><strong>Collar ID:</strong> ${props.collarId || '—'}</div>
           </div>`;
         popupRef.current.setLngLat(coords).setHTML(html).addTo(map);
       });
@@ -640,15 +595,12 @@ function Home() {
         <input
           className="search-input"
           type="text"
-          placeholder={`Search ${primaryLabel}`}
+          placeholder="Search Hole ID"
           value={searchTerm}
           onChange={(e) => handleSearchChange(e.target.value)}
         />
       </form>
       {searchError && <div className="error-banner inline small">{searchError}</div>}
-      <div className="status-banner small">
-        Primary key: <strong>{primaryLabel}</strong> — <Link to="/config">edit in Config</Link>
-      </div>
       <div className="status-banner small">
         Data source: demo_gswa_sample_collars.csv + demo_gswa_sample_assays.csv (cached)
       </div>
@@ -662,12 +614,6 @@ function Home() {
         <span>Open hole in popup viewer</span>
       </label>
 
-      {assayError && <div className="error-banner small">{assayError}</div>}
-      {!assayError && (assayState || assayMeta) && (
-        <div className="status-banner small">
-          Assays cached for {assayState?.holes?.length || assayMeta?.holeCount || 0} holes
-        </div>
-      )}
       {error && <div className="error-banner small">{error}</div>}
       {!error && collars.length > 0 && (
         <div className="status-banner small">Loaded {collars.length} collars</div>
@@ -709,8 +655,6 @@ function Home() {
               </div>
             </div>
 
-            {assayError && <div className="error-banner small">{assayError}</div>}
-
             {popupHole ? (
               <div className="hole-popup-body">
                 <div className="popup-row">
@@ -732,7 +676,7 @@ function Home() {
               </div>
             ) : (
               <div className="hole-popup-placeholder">
-                Assay data is loading for this hole.
+                No assay data found for hole {popupHoleId}.
               </div>
             )}
           </div>

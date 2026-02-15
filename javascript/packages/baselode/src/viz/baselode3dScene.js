@@ -88,8 +88,7 @@ function collectAssayValues(assayIntervalsByHole, selectedAssayVariable) {
 function buildHoleUserData(hole) {
   return {
     holeId: hole.id,
-    project: hole.project,
-    companyHoleId: hole.companyHoleId || hole.id
+    project: hole.project
   };
 }
 
@@ -268,7 +267,7 @@ class Baselode3DScene {
       const holeId = obj?.userData?.holeId;
       const project = obj?.userData?.project;
       if (holeId && this.drillholeClickHandler) {
-        this.drillholeClickHandler({ holeId, project, companyHoleId: obj?.userData?.companyHoleId });
+        this.drillholeClickHandler({ holeId, project });
       }
     };
 
@@ -436,25 +435,20 @@ class Baselode3DScene {
 
   _resolveAssayIntervalsForHole(hole, assayIntervalsByHole) {
     if (!assayIntervalsByHole || !hole) return [];
-    const candidates = [
-      hole.id,
-      hole.primaryId,
-      hole.holeId,
-      hole.companyHoleId,
-      hole.collarId
-    ];
+    const holeId = hole.id || hole.holeId;
+    if (!holeId) return [];
 
-    for (let i = 0; i < candidates.length; i += 1) {
-      const raw = candidates[i];
-      if (raw === undefined || raw === null) continue;
-      const exact = assayIntervalsByHole[raw];
-      if (Array.isArray(exact) && exact.length) return exact;
+    // Try exact match first
+    const exact = assayIntervalsByHole[holeId];
+    if (Array.isArray(exact) && exact.length) return exact;
 
-      const normalized = normalizeHoleKey(raw);
-      if (!normalized) continue;
+    // Try normalized (case-insensitive) match
+    const normalized = normalizeHoleKey(holeId);
+    if (normalized) {
       const byNormalized = assayIntervalsByHole[normalized];
       if (Array.isArray(byNormalized) && byNormalized.length) return byNormalized;
     }
+
     return [];
   }
 

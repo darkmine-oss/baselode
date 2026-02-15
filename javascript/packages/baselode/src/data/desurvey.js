@@ -1,11 +1,11 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
-import { normalizeCsvRow, pickFirstPresent } from './csvRowUtils.js';
+import { standardizeColumns } from './keying.js';
 import { logDataWarning, withDataErrorContext } from './dataErrorUtils.js';
-import { primaryFieldFromConfig, resolvePrimaryId } from './keying.js';
+import { HOLE_ID, LATITUDE, LONGITUDE, AZIMUTH, DIP, DEPTH, PROJECT_ID } from './datamodel.js';
 
 const COLLAR_CACHE_KEY = 'baselode-collars-cache-v1';
 const SURVEY_CACHE_KEY = 'baselode-survey-cache-v1';
@@ -66,7 +66,7 @@ export function loadCachedDesurveyed() {
   }
 }
 
-export function parseSurveyCSV(file, config) {
+export function parseSurveyCSV(file, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
@@ -74,8 +74,8 @@ export function parseSurveyCSV(file, config) {
       skipEmptyLines: true,
       complete: (results) => {
         const rows = results.data
-          .map((row) => normalizeRow(row, config))
-          .filter((row) => row.hole_id && Number.isFinite(row.surveydepth) && Number.isFinite(row.dip) && Number.isFinite(row.azimuth));
+          .map((row) => normalizeRow(row, sourceColumnMap))
+          .filter((row) => row[HOLE_ID] && Number.isFinite(row[DEPTH]) && Number.isFinite(row[DIP]) && Number.isFinite(row[AZIMUTH]));
         resolve(rows);
       },
       error: (err) => reject(withDataErrorContext('parseSurveyCSV', err))
@@ -83,31 +83,33 @@ export function parseSurveyCSV(file, config) {
   });
 }
 
-function normalizeRow(row, config) {
-  const norm = normalizeCsvRow(row);
+function normalizeRow(row, sourceColumnMap = null) {
+  const norm = standardizeColumns(row, null, sourceColumnMap);
 
-  const primaryField = primaryFieldFromConfig(config);
-  const primaryId = resolvePrimaryId(norm, primaryField);
-  const holeId = pickFirstPresent(norm, ['hole_id', 'holeid', 'id']);
-  const project = pickFirstPresent(norm, ['project_code', 'project']);
-  const lat = toNumber(pickFirstPresent(norm, ['latitude', 'lat']));
-  const lng = toNumber(pickFirstPresent(norm, ['longitude', 'lon', 'lng']));
-  const surveyDepth = toNumber(norm.surveydepth ?? norm.depth);
-  const dip = toNumber(norm.dip);
-  const azimuth = toNumber(norm.azimuth);
+  const holeId = norm[HOLE_ID];
+  const project = norm[PROJECT_ID] || norm.project || norm.project_code;
+  const lat = toNumber(norm[LATITUDE]);
+  const lng = toNumber(norm[LONGITUDE]);
+  const surveyDepth = toNumber(norm[DEPTH]);
+  const dip = toNumber(norm[DIP]);
+  const azimuth = toNumber(norm[AZIMUTH]);
   const maxDepth = toNumber(norm.maxdepth);
 
   return {
     raw: norm,
-    hole_id: holeId,
-    primary_id: primaryId,
+    [HOLE_ID]: holeId,
+    [PROJECT_ID]: project,
+    [LATITUDE]: lat,
+    [LONGITUDE]: lng,
+    [DEPTH]: surveyDepth,
+    [DIP]: dip,
+    [AZIMUTH]: azimuth,
+    maxdepth: maxDepth,
+    // Legacy field names for backwards compatibility
     project_code: project,
     latitude: lat,
     longitude: lng,
-    surveydepth: surveyDepth,
-    dip,
-    azimuth,
-    maxdepth: maxDepth
+    surveydepth: surveyDepth
   };
 }
 
@@ -117,28 +119,29 @@ const toNumber = (v) => {
 };
 
 // Minimum curvature desurvey; returns array of {id, project, points:[{x,y,z,md,azimuth,dip}...]}
-export function desurveyTraces(collars, surveys, config) {
-  const primaryField = primaryFieldFromConfig(config);
+export function desurveyTraces(collars, surveys) {
   const collarByKey = new Map();
   collars.forEach((c) => {
-    const primaryId = (c.primaryId || c.holeId || c.id || '').toString().trim().toLowerCase();
-    if (!primaryId) return;
-    if (!collarByKey.has(primaryId)) {
-      collarByKey.set(primaryId, c);
+    const holeId = (c[HOLE_ID] || c.holeId || c.id || '').toString().trim();
+    if (!holeId) return;
+    const key = holeId.toLowerCase();
+    if (!collarByKey.has(key)) {
+      collarByKey.set(key, c);
     }
   });
 
-  const refLat = collars[0]?.lat ?? 0;
-  const refLng = collars[0]?.lng ?? 0;
+  const refLat = collars[0]?.lat ?? collars[0]?.[LATITUDE] ?? 0;
+  const refLng = collars[0]?.lng ?? collars[0]?.[LONGITUDE] ?? 0;
   const refMetersPerDegLat = 111132;
   const refMetersPerDegLon = 111320 * Math.cos((refLat * Math.PI) / 180);
 
   const grouped = new Map();
   surveys.forEach((s) => {
-    const primaryId = (s.primary_id || s.hole_id || '').toString().trim().toLowerCase();
-    if (!primaryId) return;
-    if (!grouped.has(primaryId)) grouped.set(primaryId, []);
-    grouped.get(primaryId).push(s);
+    const holeId = (s[HOLE_ID] || '').toString().trim();
+    if (!holeId) return;
+    const key = holeId.toLowerCase();
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(s);
   });
 
   const holes = [];
@@ -146,12 +149,12 @@ export function desurveyTraces(collars, surveys, config) {
     const collar = collarByKey.get(key);
     if (!collar) return;
     const sorted = stations
-      .filter((s) => Number.isFinite(s.surveydepth))
-      .sort((a, b) => a.surveydepth - b.surveydepth);
+      .filter((s) => Number.isFinite(s[DEPTH] ?? s.surveydepth))
+      .sort((a, b) => (a[DEPTH] ?? a.surveydepth) - (b[DEPTH] ?? b.surveydepth));
     if (!sorted.length) return;
 
-    const lat0 = collar.lat;
-    const lng0 = collar.lng;
+    const lat0 = collar.lat ?? collar[LATITUDE];
+    const lng0 = collar.lng ?? collar[LONGITUDE];
     const metersPerDegLat = 111132;
     const metersPerDegLon = 111320 * Math.cos((lat0 * Math.PI) / 180);
     const baseX = (lng0 - refLng) * refMetersPerDegLon;
@@ -165,25 +168,33 @@ export function desurveyTraces(collars, surveys, config) {
     for (let i = 0; i < sorted.length; i += 1) {
       const curr = sorted[i];
       const prev = sorted[i - 1];
+      const currDepth = curr[DEPTH] ?? curr.surveydepth;
+      const currAzimuth = curr[AZIMUTH] ?? curr.azimuth;
+      const currDip = curr[DIP] ?? curr.dip;
+      
       if (!prev) {
         points.push({
           x: baseX + accX,
           y: baseY + accY,
           z: 0,
-          md: curr.surveydepth,
-          azimuth: curr.azimuth,
-          dip: curr.dip
+          md: currDepth,
+          azimuth: currAzimuth,
+          dip: currDip
         });
         continue;
       }
 
-      const deltaMD = curr.surveydepth - prev.surveydepth;
+      const prevDepth = prev[DEPTH] ?? prev.surveydepth;
+      const prevAzimuth = prev[AZIMUTH] ?? prev.azimuth;
+      const prevDip = prev[DIP] ?? prev.dip;
+      
+      const deltaMD = currDepth - prevDepth;
       if (deltaMD <= 0) continue;
 
-      const inc1 = toInclination(prev.dip);
-      const inc2 = toInclination(curr.dip);
-      const az1 = degToRad(prev.azimuth);
-      const az2 = degToRad(curr.azimuth);
+      const inc1 = toInclination(prevDip);
+      const inc2 = toInclination(currDip);
+      const az1 = degToRad(prevAzimuth);
+      const az2 = degToRad(currAzimuth);
 
       const beta = Math.acos(
         Math.sin(inc1) * Math.sin(inc2) * Math.cos(az1 - az2) +
@@ -204,9 +215,9 @@ export function desurveyTraces(collars, surveys, config) {
         x: baseX + accX,
         y: baseY + accY,
         z: -accZ, // render with z up; depth down
-        md: curr.surveydepth,
-        azimuth: curr.azimuth,
-        dip: curr.dip
+        md: currDepth,
+        azimuth: currAzimuth,
+        dip: currDip
       });
     }
 
@@ -218,7 +229,7 @@ export function desurveyTraces(collars, surveys, config) {
     }));
 
     holes.push({
-      id: collar.primaryId || collar.holeId || key,
+      id: collar[HOLE_ID] || collar.holeId || key,
       project: collar.project,
       points: pointsWithGeo,
       collar

@@ -1,46 +1,32 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
 import { withDataErrorContext } from './dataErrorUtils.js';
-import { normalizeFieldName } from './keying.js';
+import { standardizeColumns as standardizeRow } from './keying.js';
+import {
+  HOLE_ID,
+  LATITUDE,
+  LONGITUDE,
+  ELEVATION,
+  AZIMUTH,
+  DIP,
+  FROM,
+  TO,
+  MID,
+  PROJECT_ID,
+  EASTING,
+  NORTHING,
+  CRS,
+  DEPTH,
+  BASELODE_DATA_MODEL_DRILL_COLLAR,
+  BASELODE_DATA_MODEL_DRILL_SURVEY,
+  BASELODE_DATA_MODEL_DRILL_ASSAY
+} from './datamodel.js';
 
-export const DEFAULT_COLUMN_MAP = {
-  holeid: 'hole_id',
-  hole_id: 'hole_id',
-  collarid: 'collar_id',
-  collar_id: 'collar_id',
-  companyholeid: 'company_hole_id',
-  company_hole_id: 'company_hole_id',
-  project: 'project_id',
-  projectid: 'project_id',
-  project_id: 'project_id',
-  project_code: 'project_code',
-  from: 'from',
-  to: 'to',
-  depth_from: 'from',
-  depth_to: 'to',
-  fromdepth: 'from',
-  todepth: 'to',
-  samp_from: 'from',
-  samp_to: 'to',
-  sample_from: 'from',
-  sample_to: 'to',
-  easting: 'x',
-  northing: 'y',
-  surveydepth: 'from',
-  depth: 'from',
-  latitude: 'lat',
-  lat: 'lat',
-  longitude: 'lon',
-  lon: 'lon',
-  elevation: 'z',
-  rl: 'z',
-  azimuth: 'azimuth',
-  dip: 'dip',
-  declination: 'declination'
-};
+// Re-export for backwards compatibility
+export { DEFAULT_COLUMN_MAP } from './datamodel.js';
 
 function toArray(source) {
   if (!source) return [];
@@ -84,34 +70,22 @@ function parseCsv(source, papaParseConfig = {}) {
   });
 }
 
-function resolveHoleIdColumn(rows = [], requestedHoleIdCol = 'hole_id') {
-  const requested = normalizeFieldName(requestedHoleIdCol || 'hole_id');
-  const alias = DEFAULT_COLUMN_MAP[requested] || requested;
-  const columns = new Set(rows.flatMap((row) => Object.keys(row || {})));
-
-  if (columns.has(requested)) return requested;
-  if (columns.has(alias)) return alias;
-  if (columns.has('hole_id')) return 'hole_id';
-
-  throw new Error(`hole id column '${requestedHoleIdCol}' not found; available: ${Array.from(columns).join(', ')}`);
-}
-
-export function standardizeColumns(rows = [], columnMap = DEFAULT_COLUMN_MAP) {
-  return rows.map((row) => {
-    const standardized = {};
-    Object.entries(row || {}).forEach(([key, value]) => {
-      const normalized = normalizeFieldName(key);
-      const renamed = columnMap?.[normalized] || normalized;
-      standardized[renamed] = value;
-    });
-    return standardized;
-  });
+/**
+ * Standardize column names in an array of rows using the baselode data model
+ * @param {Array<Object>} rows - Array of row objects
+ * @param {Object} [columnMap] - Optional column map (unused, for backwards compatibility)
+ * @param {Object} [sourceColumnMap] - Optional source column map for user-provided mappings
+ * @returns {Array<Object>} - Array of rows with standardized column names
+ */
+export function standardizeColumns(rows = [], columnMap = null, sourceColumnMap = null) {
+  return rows.map((row) => standardizeRow(row, columnMap, sourceColumnMap));
 }
 
 export async function loadTable(source, options = {}) {
   const {
     kind = 'csv',
-    columnMap = DEFAULT_COLUMN_MAP,
+    columnMap = null,
+    sourceColumnMap = null,
     papaParseConfig = {}
   } = options;
 
@@ -126,114 +100,184 @@ export async function loadTable(source, options = {}) {
     throw withDataErrorContext('loadTable', new Error(`Unsupported kind: ${kind}`));
   }
 
-  return standardizeColumns(rows, columnMap);
-}
-
-function canonicalizeHoleId(rows = [], holeIdCol = 'hole_id') {
-  const resolvedHoleIdCol = resolveHoleIdColumn(rows, holeIdCol);
-  const withHoleId = rows.map((row) => {
-    const value = row?.[resolvedHoleIdCol];
-    return {
-      ...row,
-      hole_id: value === undefined || value === null ? '' : `${value}`.trim()
-    };
-  });
-  return { rows: withHoleId, holeIdCol: resolvedHoleIdCol };
+  return standardizeColumns(rows, columnMap, sourceColumnMap);
 }
 
 export async function loadCollars(source, options = {}) {
   const {
-    holeIdCol = null,
+    crs = null,
+    sourceColumnMap = null,
+    keepAll = true,
     ...tableOptions
   } = options;
-  const standardized = await loadTable(source, tableOptions);
-  const { rows } = canonicalizeHoleId(standardized, holeIdCol || 'hole_id');
+  
+  const standardized = await loadTable(source, { ...tableOptions, sourceColumnMap });
 
-  const normalized = rows.map((row) => {
-    const lat = toNumber(row.lat);
-    const lon = toNumber(row.lon);
-    const x = toNumber(row.x ?? lon);
-    const y = toNumber(row.y ?? lat);
-    return {
-      ...row,
-      lat,
-      lon,
-      x,
-      y
-    };
-  });
+  // Check for hole_id
+  const hasHoleId = standardized.some(row => HOLE_ID in row);
+  if (!hasHoleId) {
+    throw withDataErrorContext('loadCollars', new Error(`Collar table missing column: ${HOLE_ID}`));
+  }
 
-  const required = ['hole_id', 'x', 'y'];
-  required.forEach((col) => {
-    const missing = normalized.some((row) => {
-      if (col === 'hole_id') return !row.hole_id;
-      return !Number.isFinite(row[col]);
-    });
-    if (missing) {
-      throw withDataErrorContext('loadCollars', new Error(`Collar table missing column: ${col}`));
+  // Check for required coordinate columns
+  const hasXY = standardized.some(row => EASTING in row && NORTHING in row);
+  const hasLatLon = standardized.some(row => LATITUDE in row && LONGITUDE in row);
+
+  if (!hasXY && !hasLatLon) {
+    throw withDataErrorContext('loadCollars', new Error('Collar table missing coordinate columns (need easting/northing or latitude/longitude)'));
+  }
+
+  const normalized = standardized.map((row) => {
+    const result = { ...row };
+    
+    // Ensure hole_id is a string
+    if (HOLE_ID in result) {
+      const val = result[HOLE_ID];
+      result[HOLE_ID] = val === undefined || val === null ? '' : `${val}`.trim();
     }
+    
+    // Convert coordinates to numbers
+    if (LATITUDE in result) result[LATITUDE] = toNumber(result[LATITUDE]);
+    if (LONGITUDE in result) result[LONGITUDE] = toNumber(result[LONGITUDE]);
+    if (ELEVATION in result) result[ELEVATION] = toNumber(result[ELEVATION]);
+    if (EASTING in result) result[EASTING] = toNumber(result[EASTING]);
+    if (NORTHING in result) result[NORTHING] = toNumber(result[NORTHING]);
+
+    // If datasource_hole_id is missing, copy from hole_id
+    if (!('datasource_hole_id' in result) && HOLE_ID in result) {
+      result.datasource_hole_id = result[HOLE_ID];
+    }
+
+    return result;
   });
+
+  // Validate required fields
+  const required = normalized.every((row) => {
+    if (!row[HOLE_ID]) return false;
+    if (hasLatLon && (!Number.isFinite(row[LATITUDE]) || !Number.isFinite(row[LONGITUDE]))) {
+      return false;
+    }
+    if (hasXY && !hasLatLon && (!Number.isFinite(row[EASTING]) || !Number.isFinite(row[NORTHING]))) {
+      return false;
+    }
+    return true;
+  });
+
+  if (!required) {
+    throw withDataErrorContext('loadCollars', new Error('Collar table has missing required values'));
+  }
 
   return normalized;
 }
 
 export async function loadSurveys(source, options = {}) {
   const {
-    holeIdCol = null,
+    sourceColumnMap = null,
+    keepAll = true,
     ...tableOptions
   } = options;
-  const standardized = await loadTable(source, tableOptions);
-  const { rows } = canonicalizeHoleId(standardized, holeIdCol || 'hole_id');
-  const normalized = rows.map((row) => ({
-    ...row,
-    from: toNumber(row.from),
-    azimuth: toNumber(row.azimuth),
-    dip: toNumber(row.dip)
-  }));
+  
+  const standardized = await loadTable(source, { ...tableOptions, sourceColumnMap });
 
-  const required = ['hole_id', 'from', 'azimuth', 'dip'];
-  required.forEach((col) => {
-    const missing = normalized.some((row) => {
-      if (col === 'hole_id') return !row.hole_id;
-      return !Number.isFinite(row[col]);
-    });
-    if (missing) {
+  // Validate required columns
+  const required = [HOLE_ID, DEPTH, AZIMUTH, DIP];
+  for (const col of required) {
+    const hasColumn = standardized.some(row => col in row);
+    if (!hasColumn) {
       throw withDataErrorContext('loadSurveys', new Error(`Survey table missing column: ${col}`));
     }
+  }
+
+  const normalized = standardized.map((row) => {
+    const result = { ...row };
+    
+    // Ensure hole_id is a string
+    if (HOLE_ID in result) {
+      const val = result[HOLE_ID];
+      result[HOLE_ID] = val === undefined || val === null ? '' : `${val}`.trim();
+    }
+    
+    // Convert numeric fields
+    if (DEPTH in result) result[DEPTH] = toNumber(result[DEPTH]);
+    if (TO in result) result[TO] = toNumber(result[TO]);
+    if (AZIMUTH in result) result[AZIMUTH] = toNumber(result[AZIMUTH]);
+    if (DIP in result) result[DIP] = toNumber(result[DIP]);
+    
+    return result;
   });
 
-  return sortByColumns(normalized, ['hole_id', 'from']);
+  // Validate required values
+  const allValid = normalized.every((row) => {
+    if (!row[HOLE_ID]) return false;
+    if (!Number.isFinite(row[DEPTH])) return false;
+    if (!Number.isFinite(row[AZIMUTH])) return false;
+    if (!Number.isFinite(row[DIP])) return false;
+    return true;
+  });
+
+  if (!allValid) {
+    throw withDataErrorContext('loadSurveys', new Error('Survey table has missing required values'));
+  }
+
+  return sortByColumns(normalized, [HOLE_ID, DEPTH]);
 }
 
 export async function loadAssays(source, options = {}) {
   const {
-    holeIdCol = null,
+    sourceColumnMap = null,
+    keepAll = true,
     ...tableOptions
   } = options;
-  const standardized = await loadTable(source, tableOptions);
-  const { rows } = canonicalizeHoleId(standardized, holeIdCol || 'hole_id');
-  const normalized = rows.map((row) => ({
-    ...row,
-    from: toNumber(row.from),
-    to: toNumber(row.to)
-  }));
+  
+  const standardized = await loadTable(source, { ...tableOptions, sourceColumnMap });
 
-  const required = ['hole_id', 'from', 'to'];
-  required.forEach((col) => {
-    const missing = normalized.some((row) => {
-      if (col === 'hole_id') return !row.hole_id;
-      return !Number.isFinite(row[col]);
-    });
-    if (missing) {
+  // Validate required columns
+  const required = [HOLE_ID, FROM, TO];
+  for (const col of required) {
+    const hasColumn = standardized.some(row => col in row);
+    if (!hasColumn) {
       throw withDataErrorContext('loadAssays', new Error(`Assay table missing column: ${col}`));
     }
+  }
+
+  const normalized = standardized.map((row) => {
+    const result = { ...row };
+    
+    // Ensure hole_id is a string
+    if (HOLE_ID in result) {
+      const val = result[HOLE_ID];
+      result[HOLE_ID] = val === undefined || val === null ? '' : `${val}`.trim();
+    }
+    
+    // Convert numeric fields
+    if (FROM in result) result[FROM] = toNumber(result[FROM]);
+    if (TO in result) result[TO] = toNumber(result[TO]);
+    
+    // Calculate midpoint
+    if (FROM in result && TO in result && Number.isFinite(result[FROM]) && Number.isFinite(result[TO])) {
+      result[MID] = 0.5 * (result[FROM] + result[TO]);
+    }
+    
+    return result;
   });
 
-  return sortByColumns(normalized, ['hole_id', 'from', 'to']);
+  // Validate required values
+  const allValid = normalized.every((row) => {
+    if (!row[HOLE_ID]) return false;
+    if (!Number.isFinite(row[FROM])) return false;
+    if (!Number.isFinite(row[TO])) return false;
+    return true;
+  });
+
+  if (!allValid) {
+    throw withDataErrorContext('loadAssays', new Error('Assay table has missing required values'));
+  }
+
+  return sortByColumns(normalized, [HOLE_ID, FROM, TO]);
 }
 
 export function joinAssaysToTraces(assays = [], traces = [], options = {}) {
-  const onCols = Array.isArray(options.onCols) && options.onCols.length ? options.onCols : ['hole_id'];
+  const onCols = Array.isArray(options.onCols) && options.onCols.length ? options.onCols : [HOLE_ID];
   if (!traces.length) return [...assays];
 
   const keyOf = (row) => onCols.map((col) => `${row?.[col] ?? ''}`).join('|');
@@ -260,7 +304,13 @@ export function joinAssaysToTraces(assays = [], traces = [], options = {}) {
 
 export function filterByProject(rows = [], projectId = null) {
   if (projectId === null || projectId === undefined) return [...rows];
-  return rows.filter((row) => row?.project_id === projectId);
+  if (!rows.length) return [];
+  
+  // Check if rows have project_id column
+  const hasProjectId = rows.some(row => PROJECT_ID in row);
+  if (!hasProjectId) return [...rows];
+  
+  return rows.filter((row) => row?.[PROJECT_ID] === projectId);
 }
 
 export function coerceNumeric(rows = [], columns = []) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { useEffect, useState } from 'react';
@@ -9,12 +9,10 @@ import {
   useDrillholeTraceGrid
 } from 'baselode';
 import './Drillhole2D.css';
-import { useDrillConfig } from '../context/DrillConfigContext.jsx';
 import { loadDemoGswaAssayFile } from '../data/demoGswaData.js';
 
 function Drillhole2D() {
   const location = useLocation();
-  const { config: drillConfig } = useDrillConfig();
   const [demoGswaAssayFile, setDemoGswaAssayFile] = useState(null);
 
   useEffect(() => {
@@ -41,7 +39,6 @@ function Drillhole2D() {
     traceGraphs,
     handleConfigChange
   } = useDrillholeTraceGrid({
-    drillConfig,
     initialFocusedHoleId: location.state?.holeId || '',
     sourceFile: demoGswaAssayFile,
     plotCount: 4

@@ -1,50 +1,29 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
 import { ASSAY_NON_VALUE_FIELDS } from './assayFieldSets.js';
-import { normalizeCsvRow, pickFirstPresent } from './csvRowUtils.js';
+import { standardizeColumns } from './keying.js';
 import { withDataErrorContext } from './dataErrorUtils.js';
-import { primaryFieldFromConfig } from './keying.js';
+import { HOLE_ID, FROM, TO, PROJECT_ID } from './datamodel.js';
 
 // Shared helpers for parsing assay CSVs with varying column names.
-const normalizeRow = normalizeCsvRow;
-const pick = (normalized, keys) => pickFirstPresent(normalized, keys, undefined);
+const normalizeRow = (rawRow, sourceColumnMap = null) => standardizeColumns(rawRow, null, sourceColumnMap);
 
-function deriveHoleId(row, config) {
-  const primaryField = primaryFieldFromConfig(config);
-  const primary = row[primaryField];
-  if (primary !== undefined && primary !== null && `${primary}`.trim() !== '') {
-    return primary;
-  }
-  return pick(row, [
-    'collarid',
-    'collar_id',
-    'companyholeid',
-    'company_hole_id',
-    'hole_id',
-    'holeid',
-    'anumber',
-    'id'
-  ]);
+function extractIdFields(row) {
+  const holeId = row[HOLE_ID];
+  return { holeId };
 }
 
-function extractIdFields(row, config) {
-  const collarId = pick(row, ['collarid', 'collar_id']);
-  const companyHoleId = pick(row, ['companyholeid', 'company_hole_id']);
-  const preferred = deriveHoleId(row, config);
-  return { holeId: preferred, collarId, companyHoleId };
-}
-
-function extractInterval(row, config) {
-  const holeIdRaw = deriveHoleId(row, config);
+function extractInterval(row, sourceColumnMap = null) {
+  const holeIdRaw = row[HOLE_ID];
   const holeId = holeIdRaw !== undefined ? `${holeIdRaw}`.trim() : '';
   if (!holeId) return null;
 
-  const project = pick(row, ['project_code', 'project']);
-  const from = Number(pick(row, ['samp_from', 'sample_from', 'from', 'depth_from', 'fromdepth', 'from_depth']));
-  const to = Number(pick(row, ['samp_to', 'sample_to', 'to', 'depth_to', 'todepth', 'to_depth']));
+  const project = row[PROJECT_ID] || row.project || row.project_code;
+  const from = Number(row[FROM]);
+  const to = Number(row[TO]);
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
 
   return {
@@ -61,14 +40,22 @@ function intervalsToHole(holeId, intervals) {
   const points = [];
   sorted.forEach((iv) => {
     const { from, to, project, ...rest } = iv;
-    points.push({ z: from, from, to, hole_id: holeId, project_code: project, ...rest });
-    points.push({ z: to, from, to, hole_id: holeId, project_code: project, ...rest });
+    const pointData = {
+      z: from,
+      from,
+      to,
+      [HOLE_ID]: holeId,
+      [PROJECT_ID]: project,
+      ...rest
+    };
+    points.push(pointData);
+    points.push({ ...pointData, z: to });
   });
   return { id: holeId, project: sorted[0]?.project, points };
 }
 
 // Quick pass: collect unique hole IDs (collars) without materializing all intervals.
-export function parseAssayHoleIds(file, config) {
+export function parseAssayHoleIds(file, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     const holeIds = new Set();
     Papa.parse(file, {
@@ -76,8 +63,8 @@ export function parseAssayHoleIds(file, config) {
       dynamicTyping: true,
       skipEmptyLines: true,
       step: (results) => {
-        const row = normalizeRow(results.data);
-        const hid = deriveHoleId(row, config);
+        const row = normalizeRow(results.data, sourceColumnMap);
+        const hid = row[HOLE_ID];
         if (hid !== undefined && `${hid}`.trim() !== '') {
           holeIds.add(`${hid}`.trim());
         }
@@ -98,7 +85,7 @@ function hasAssayValue(row) {
 }
 
 // Quick pass: hole IDs that have at least one non-null assay value.
-export function parseAssayHoleIdsWithAssays(file, config) {
+export function parseAssayHoleIdsWithAssays(file, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     const byHole = new Map();
     Papa.parse(file, {
@@ -106,22 +93,16 @@ export function parseAssayHoleIdsWithAssays(file, config) {
       dynamicTyping: true,
       skipEmptyLines: true,
       step: (results) => {
-        const row = normalizeRow(results.data);
+        const row = normalizeRow(results.data, sourceColumnMap);
         if (!hasAssayValue(row)) return;
-        const ids = extractIdFields(row, config);
+        const ids = extractIdFields(row);
         const hid = ids.holeId;
         if (hid !== undefined && `${hid}`.trim() !== '') {
           const key = `${hid}`.trim();
           if (!byHole.has(key)) {
             byHole.set(key, {
-              holeId: key,
-              collarId: ids.collarId ? `${ids.collarId}`.trim() : undefined,
-              companyHoleId: ids.companyHoleId ? `${ids.companyHoleId}`.trim() : undefined
+              holeId: key
             });
-          } else {
-            const curr = byHole.get(key);
-            if (!curr.collarId && ids.collarId) curr.collarId = `${ids.collarId}`.trim();
-            if (!curr.companyHoleId && ids.companyHoleId) curr.companyHoleId = `${ids.companyHoleId}`.trim();
           }
         }
       },
@@ -132,7 +113,7 @@ export function parseAssayHoleIdsWithAssays(file, config) {
 }
 
 // Parse assay CSV with intervals for a single holeId.
-export function parseAssayHole(file, holeId, config) {
+export function parseAssayHole(file, holeId, config = null, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     const wanted = `${holeId}`.trim();
     if (!wanted) {
@@ -145,8 +126,8 @@ export function parseAssayHole(file, holeId, config) {
       dynamicTyping: true,
       skipEmptyLines: true,
       step: (results) => {
-        const row = normalizeRow(results.data);
-        const interval = extractInterval(row, config);
+        const row = normalizeRow(results.data, sourceColumnMap);
+        const interval = extractInterval(row, sourceColumnMap);
         if (!interval) return;
         if (`${interval.holeId}`.trim() !== wanted) return;
         intervals.push(interval);
@@ -165,7 +146,7 @@ export function parseAssayHole(file, holeId, config) {
 }
 
 // Parse assay CSV with intervals for all holes (eager load).
-export function parseAssaysCSV(file, config) {
+export function parseAssaysCSV(file, config = null, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
@@ -174,8 +155,8 @@ export function parseAssaysCSV(file, config) {
       complete: (results) => {
         const byHole = new Map();
         results.data.forEach((rawRow) => {
-          const row = normalizeRow(rawRow);
-          const interval = extractInterval(row, config);
+          const row = normalizeRow(rawRow, sourceColumnMap);
+          const interval = extractInterval(row, sourceColumnMap);
           if (!interval) return;
           if (!byHole.has(interval.holeId)) byHole.set(interval.holeId, []);
           byHole.get(interval.holeId).push(interval);

@@ -1,13 +1,20 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import Papa from 'papaparse';
-import { normalizeCsvRow, pickFirstPresent } from './csvRowUtils.js';
+import { standardizeColumns } from './keying.js';
 import { withDataErrorContext } from './dataErrorUtils.js';
+import { HOLE_ID, EASTING, NORTHING, ELEVATION } from './datamodel.js';
 
-// Expect CSV columns: hole_id / holeID / HoleId (case-insensitive), project_code, x, y, z, order (optional) plus any attributes per point
-export function parseDrillholesCSV(file) {
+/**
+ * Parse drillholes CSV with desurveyed trace points
+ * Expect CSV columns: hole_id, x (easting), y (northing), z (elevation), order (optional) plus any attributes per point
+ * @param {File|Blob|string} file - CSV file or data
+ * @param {Object} [sourceColumnMap] - Optional user-provided column mappings
+ * @returns {Promise<{holes: Array}>} - Parsed drillhole data
+ */
+export function parseDrillholesCSV(file, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
       header: true,
@@ -16,15 +23,16 @@ export function parseDrillholesCSV(file) {
       complete: (results) => {
         const byHole = new Map();
         results.data.forEach((rawRow, idx) => {
-          const row = normalizeCsvRow(rawRow);
-          const holeIdRaw = pickFirstPresent(row, ['hole_id', 'holeid', 'id'], undefined);
+          const row = standardizeColumns(rawRow, null, sourceColumnMap);
+          
+          const holeIdRaw = row[HOLE_ID];
           const holeId = holeIdRaw !== undefined ? `${holeIdRaw}`.trim() : '';
-          const x = pickFirstPresent(row, ['x'], null);
-          const y = pickFirstPresent(row, ['y'], null);
-          const z = pickFirstPresent(row, ['z'], null);
-          const order = pickFirstPresent(row, ['order'], idx);
+          const x = row[EASTING] ?? row.x;
+          const y = row[NORTHING] ?? row.y;
+          const z = row[ELEVATION] ?? row.z;
+          const order = row.order ?? idx;
 
-          if (!holeId || x === null || y === null || z === null) return;
+          if (!holeId || x === null || x === undefined || y === null || y === undefined || z === null || z === undefined) return;
 
           if (!byHole.has(holeId)) byHole.set(holeId, []);
           byHole.get(holeId).push({

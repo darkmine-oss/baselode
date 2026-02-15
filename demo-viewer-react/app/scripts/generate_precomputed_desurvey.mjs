@@ -3,7 +3,8 @@ import path from 'node:path';
 import Papa from 'papaparse';
 import proj4 from 'proj4';
 import { desurveyTraces } from '../../../javascript/packages/baselode/src/data/desurvey.js';
-import { resolvePrimaryId } from '../../../javascript/packages/baselode/src/data/keying.js';
+import { standardizeColumns } from '../../../javascript/packages/baselode/src/data/keying.js';
+import { HOLE_ID, LATITUDE, LONGITUDE, DEPTH, AZIMUTH, DIP, PROJECT_ID } from '../../../javascript/packages/baselode/src/data/datamodel.js';
 
 const appRoot = path.resolve(process.cwd(), 'demo-viewer-react/app');
 const collarsPath = path.join(appRoot, 'public/data/gswa/demo_gswa_sample_collars.csv');
@@ -17,53 +18,45 @@ const parseCsv = (text) => Papa.parse(text, { header: true, dynamicTyping: true,
 const collarRows = parseCsv(collarsCsv);
 const surveyRowsRaw = parseCsv(surveyCsv);
 
-const pick = (obj, keys) => {
-  for (const key of keys) {
-    if (obj[key] !== undefined && obj[key] !== null && `${obj[key]}`.trim() !== '') return obj[key];
-  }
-  return undefined;
-};
-
+// Use the new data model standardization
 const collars = collarRows
   .map((row) => {
-    const n = {};
-    Object.entries(row || {}).forEach(([k, v]) => {
-      if (!k) return;
-      n[k.trim().toLowerCase()] = v;
-    });
-    const lat = Number(pick(n, ['latitude', 'lat']));
-    const lng = Number(pick(n, ['longitude', 'lon', 'lng']));
-    const project = String(pick(n, ['project_code', 'project']) ?? '').trim();
-    const holeId = String(pick(n, ['hole_id', 'holeid', 'id']) ?? '').trim();
-    const companyHoleId = String(pick(n, ['companyholeid', 'company_hole_id']) ?? '').trim();
-    const collarId = String(pick(n, ['collarid', 'collar_id']) ?? '').trim();
-    const primaryId = resolvePrimaryId(n, 'collarid');
+    const standardized = standardizeColumns(row);
+    const lat = Number(standardized[LATITUDE]);
+    const lng = Number(standardized[LONGITUDE]);
+    const project = String(standardized[PROJECT_ID] || standardized.dataset || '').trim();
+    const holeId = String(standardized[HOLE_ID] || '').trim();
+    const companyHoleId = String(standardized.company_hole_id || standardized.companyholeid || '').trim();
+    const collarId = companyHoleId || holeId;
+    const primaryId = collarId.toLowerCase();
     return { lat, lng, project, holeId, companyHoleId, collarId, primaryId };
   })
-  .filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lng) && r.project && r.holeId && r.primaryId);
+  .filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lng) && r.holeId && r.primaryId);
 
 const surveyRows = surveyRowsRaw
   .map((row) => {
-    const n = {};
-    Object.entries(row || {}).forEach(([k, v]) => {
-      if (!k) return;
-      n[k.trim().toLowerCase()] = v;
-    });
-    const depth = Number(n.surveydepth ?? n.depth);
-    const dip = Number(n.dip);
-    const azimuth = Number(n.azimuth);
-    const primaryId = resolvePrimaryId(n, 'collarid');
-    const holeId = pick(n, ['hole_id', 'holeid', 'id']);
+    const standardized = standardizeColumns(row);
+    const depth = Number(standardized[DEPTH]);
+    const dip = Number(standardized[DIP]);
+    const azimuth = Number(standardized[AZIMUTH]);
+    const holeId = String(standardized[HOLE_ID] || '').trim();
+    const companyHoleId = String(standardized.company_hole_id || standardized.companyholeid || '').trim();
+    const primaryId = (companyHoleId || holeId).toLowerCase();
     return {
-      raw: n,
-      hole_id: holeId,
+      raw: standardized,
+      [HOLE_ID]: holeId,
       primary_id: primaryId,
-      surveydepth: depth,
+      [DEPTH]: depth,
+      surveydepth: depth, // legacy field for compatibility
+      [DIP]: dip,
       dip,
+      [AZIMUTH]: azimuth,
       azimuth
     };
   })
-  .filter((r) => r.primary_id && Number.isFinite(r.surveydepth) && Number.isFinite(r.dip) && Number.isFinite(r.azimuth));
+  .filter((r) => r.primary_id && Number.isFinite(r[DEPTH]) && Number.isFinite(r[DIP]) && Number.isFinite(r[AZIMUTH]));
+
+console.log(`Loaded ${collars.length} collars and ${surveyRows.length} survey records`);
 
 const desurveyed = desurveyTraces(collars, surveyRows, { primaryKey: 'collarId', customKey: '' });
 

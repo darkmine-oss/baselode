@@ -16,7 +16,7 @@ function normalizeHoleIdValue(value) {
 
 function canonicalizeHoleIdRows(rows = [], holeIdCol = null) {
   const preferred = holeIdCol || 'hole_id';
-  const candidates = [preferred, 'hole_id', 'holeId', 'id', 'primary_id'];
+  const candidates = [preferred, 'hole_id', 'holeId', 'id'];
   const resolved = candidates.find((col) => rows.some((row) => normalizeHoleIdValue(row?.[col])));
   if (!resolved) {
     throw withDataErrorContext('canonicalizeHoleIdRows', new Error(`hole id column '${preferred}' not found`));
