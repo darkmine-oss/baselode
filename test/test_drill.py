@@ -31,7 +31,7 @@ def _sample_collars_surveys():
     })
     surveys = pd.DataFrame({
         "hole_id": ["A", "A", "A"],
-        "from": [0.0, 50.0, 100.0],
+        "depth": [0.0, 50.0, 100.0],
         "azimuth": [0.0, 10.0, 20.0],
         "dip": [-60.0, -65.0, -70.0],
     })

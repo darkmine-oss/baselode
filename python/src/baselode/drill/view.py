@@ -31,6 +31,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from baselode.datamodel import MID
+
 
 def _first_present(row, candidates):
     for key in candidates:
@@ -41,8 +43,8 @@ def _first_present(row, candidates):
 
 def compute_interval_points(df,
     value_col,
-    from_cols=("samp_from", "sample_from", "from", "depth_from", "SampFrom", "FromDepth", "mid_md"),
-    to_cols=("samp_to", "sample_to", "to", "depth_to", "SampTo", "ToDepth", "mid_md"),
+    from_cols=("samp_from", "sample_from", "from", "depth_from", "SampFrom", "FromDepth", "mid"),
+    to_cols=("samp_to", "sample_to", "to", "depth_to", "SampTo", "ToDepth", "mid"),
     drop_null_values=True):
     """Convert assay rows into midpoint-based interval points.
 
@@ -256,15 +258,15 @@ def plot_drillhole_trace(df,
     resolved_chart = chart_type or ("categorical" if is_cat else numeric_chart)
 
     if use_mid:
-        if "mid_md" not in df.columns:
+        if MID not in df.columns:
             return go.Figure()
-        tmp = df[["mid_md", value_col]].copy()
-        tmp = tmp.dropna(subset=["mid_md", value_col])
+        tmp = df[[MID, value_col]].copy()
+        tmp = tmp.dropna(subset=[MID, value_col])
         interval_df = pd.DataFrame({
-            "z": tmp["mid_md"],
+            "z": tmp[MID],
             "val": tmp[value_col],
-            "from_val": tmp["mid_md"],
-            "to_val": tmp["mid_md"],
+            "from_val": tmp[MID],
+            "to_val": tmp[MID],
             "err_plus": 0,
             "err_minus": 0,
         }).sort_values("z", ascending=False)
@@ -323,14 +325,14 @@ def plot_drillhole_traces_subplots(df,
         subset = df[df[hole_id_col] == hid]
         resolved_chart = "categorical" if value_col in categorical_props else chart_type
         if use_mid:
-            if "mid_md" not in subset.columns:
+            if MID not in subset.columns:
                 continue
-            tmp = subset[["mid_md", value_col]].dropna(subset=["mid_md", value_col])
+            tmp = subset[[MID, value_col]].dropna(subset=[MID, value_col])
             interval_df = pd.DataFrame({
-                "z": tmp["mid_md"],
+                "z": tmp[MID],
                 "val": tmp[value_col],
-                "from_val": tmp["mid_md"],
-                "to_val": tmp["mid_md"],
+                "from_val": tmp[MID],
+                "to_val": tmp[MID],
                 "err_plus": 0,
                 "err_minus": 0,
             }).sort_values("z", ascending=False)
@@ -374,14 +376,14 @@ def plot_drillhole_traces(df,
     for idx, col in enumerate(value_cols):
         resolved_chart = "categorical" if col in categorical_props else chart_type
         if use_mid:
-            if "mid_md" not in subset.columns:
+            if MID not in subset.columns:
                 continue
-            tmp = subset[["mid_md", col]].dropna(subset=["mid_md", col])
+            tmp = subset[[MID, col]].dropna(subset=[MID, col])
             interval_df = pd.DataFrame({
-                "z": tmp["mid_md"],
+                "z": tmp[MID],
                 "val": tmp[col],
-                "from_val": tmp["mid_md"],
-                "to_val": tmp["mid_md"],
+                "from_val": tmp[MID],
+                "to_val": tmp[MID],
                 "err_plus": 0,
                 "err_minus": 0,
             }).sort_values("z", ascending=False)

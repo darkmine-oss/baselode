@@ -27,7 +27,7 @@ so downstream functions can expect consistent keys.
 import pandas as pd
 import geopandas as gpd
 
-from baselode.datamodel import ( HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, AZIMUTH, DIP, FROM, TO, PROJECT_ID, EASTING, NORTHING, CRS )
+from baselode.datamodel import ( HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, AZIMUTH, DIP, FROM, TO, MID, PROJECT_ID, EASTING, NORTHING, CRS, DEPTH )
 
 
 """
@@ -65,7 +65,7 @@ BASELODE_DATA_MODEL_DRILL_SURVEY = {
     # The unique hole id that maps to the collar and any other data tables
     HOLE_ID: str,
     # The depth along the hole where the survey measurement was taken / started
-    FROM: float,
+    DEPTH: float,
     # The depth along the hole where the survey measurement ended, if applicable (some surveys are point measurements and may not have a 'to' depth)
     TO: float,
     # The azimuth of the hole at the survey depth, in degrees from north
@@ -81,6 +81,8 @@ BASELODE_DATA_MODEL_DRILL_ASSAY = {
     FROM: float,
     # The depth along the hole where the assay interval ends
     TO: float,
+    # The midpoint depth of the assay interval
+    MID: float,
     # assay value columns are variable and not standardized here. 
     # Assays may be flattened (one column per assay type) or long (one row per assay type with an additional 'assay_type' column)
 }
@@ -92,44 +94,30 @@ BASELODE_DATA_MODEL_DRILL_ASSAY = {
 # this dictionary is stored for human readability,then pivoted to make lookup quicker in code.
 # Be cautious of not mapping a source column to multiple baselode columns, as this can lead to unpredictable results. 
 DEFAULT_COLUMN_MAP = {
-    "ids":
-    {
-        HOLE_ID: ["hole_id", "holeid", "hole id", "hole-id"],
-        "datasource_hole_id": ["datasource_hole_id", "datasourceholeid", "datasource hole id", "datasource-hole-id", "company_hole_id", "companyholeid", "company hole id", "company-hole-id"],
-        PROJECT_ID: ["project_id", "projectid", "project id", "project-id", "project_code", "projectcode", "project code", "project-code", "companyId", "company_id", "companyid", "company id", "company-id"],
-    },
-    "collar":
-    {
-        LATITUDE: ["latitude", "lat"],
-        LONGITUDE: ["longitude", "lon"],
-        ELEVATION: ["elevation", "rl", "elev", "z"],
-        EASTING: ["easting", "x"],
-        NORTHING: ["northing", "y"],
-        CRS: ["crs", "epsg", "projection"],
-    },
-    "survey":
-    {
-        FROM: ["from", "depth_from", "from_depth", "todepth", "to_depth", "samp_from", "sample_from", "sampfrom", "survey_depth", "surveydepth", "depth"],
-        TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto"],
-        AZIMUTH: ["azimuth", "az", "dipdir", "dip_direction"],
-        DIP: ["dip"],
-        "declination": ["declination", "dec"],
-    },
-    "assay":
-    {
-        FROM: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
-        TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
-    }
+    HOLE_ID: ["hole_id", "holeid", "hole id", "hole-id"],
+    "datasource_hole_id": ["datasource_hole_id", "datasourceholeid", "datasource hole id", "datasource-hole-id", "company_hole_id", "companyholeid", "company hole id", "company-hole-id"],
+    PROJECT_ID: ["project_id", "projectid", "project id", "project-id", "project_code", "projectcode", "project code", "project-code", "companyId", "company_id", "companyid", "company id", "company-id"],
+    LATITUDE: ["latitude", "lat"],
+    LONGITUDE: ["longitude", "lon"],
+    ELEVATION: ["elevation", "rl", "elev", "z"],
+    EASTING: ["easting", "x"],
+    NORTHING: ["northing", "y"],
+    CRS: ["crs", "epsg", "projection"],
+    FROM: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
+    TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
+    AZIMUTH: ["azimuth", "az", "dipdir", "dip_direction"],
+    DIP: ["dip"],
+    "declination": ["declination", "dec"],
+    DEPTH: ["depth", "survey_depth", "surveydepth"]
 }
 
 # Pivot the DEFAULT_COLUMN_MAP for efficient reverse lookup
 # Maps normalized column names -> standardized baselode column names
 _COLUMN_LOOKUP = {}
-for category, mappings in DEFAULT_COLUMN_MAP.items():
-    for standard_col, variations in mappings.items():
-        for variation in variations:
-            normalized = variation.lower().strip()
-            _COLUMN_LOOKUP[normalized] = standard_col
+for standard_col, variations in DEFAULT_COLUMN_MAP.items():
+    for variation in variations:
+        normalized = variation.lower().strip()
+        _COLUMN_LOOKUP[normalized] = standard_col
 
 
 def _frame(df):
@@ -228,7 +216,7 @@ def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
     if TO not in df.columns:
         required_cols -= {TO}
 
-    required = [HOLE_ID, FROM, AZIMUTH, DIP]
+    required = [HOLE_ID, DEPTH, AZIMUTH, DIP]
     for col in required:
         if col not in df.columns:
             raise ValueError(f"Survey table missing column: {col}")
@@ -236,7 +224,7 @@ def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
     if not keep_all:
         df = df[[col for col in BASELODE_DATA_MODEL_DRILL_SURVEY.keys() if col in required_cols]]
 
-    return df.sort_values([HOLE_ID, FROM])
+    return df.sort_values([HOLE_ID, DEPTH])
 
 
 def load_assays(source, source_column_map=None, keep_all=True, **kwargs):
@@ -247,6 +235,9 @@ def load_assays(source, source_column_map=None, keep_all=True, **kwargs):
     for col in required:
         if col not in df.columns:
             raise ValueError(f"Assay table missing column: {col}")
+
+    # Calculate midpoint depth
+    df[MID] = 0.5 * (df[FROM] + df[TO])
 
     if not keep_all:
         df = df[[col for col in BASELODE_DATA_MODEL_DRILL_ASSAY.keys() if col in required_cols]]

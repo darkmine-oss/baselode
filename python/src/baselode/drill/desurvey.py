@@ -32,7 +32,7 @@ pandas and numpy for portability.
 import math
 import pandas as pd
 
-from baselode.datamodel import HOLE_ID, AZIMUTH, DIP, FROM, TO, EASTING, NORTHING, ELEVATION
+from baselode.datamodel import HOLE_ID, AZIMUTH, DIP, FROM, TO, EASTING, NORTHING, ELEVATION, DEPTH, MID
 
 
 def _direction_cosines(azimuth, dip):
@@ -73,11 +73,11 @@ def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
     traces = []
     for hole_id, collar in collars.groupby(HOLE_ID):
         collar_row = collar.iloc[0]
-        hole_surveys = surveys[surveys[HOLE_ID] == hole_id].sort_values(FROM)
+        hole_surveys = surveys[surveys[HOLE_ID] == hole_id].sort_values(DEPTH)
         if hole_surveys.empty:
             continue
         x, y, z = float(collar_row.get(EASTING, 0)), float(collar_row.get(NORTHING, 0)), float(collar_row.get(ELEVATION, 0))
-        md_cursor = float(hole_surveys.iloc[0][FROM])
+        md_cursor = float(hole_surveys.iloc[0][DEPTH])
         az_prev = float(hole_surveys.iloc[0][AZIMUTH])
         dip_prev = float(hole_surveys.iloc[0][DIP])
         first_record = {HOLE_ID: hole_id, "md": md_cursor, EASTING: x, NORTHING: y, ELEVATION: z, AZIMUTH: az_prev, DIP: dip_prev}
@@ -86,8 +86,8 @@ def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
         for idx in range(len(hole_surveys) - 1):
             s0 = hole_surveys.iloc[idx]
             s1 = hole_surveys.iloc[idx + 1]
-            md0 = float(s0[FROM])
-            md1 = float(s1[FROM])
+            md0 = float(s0[DEPTH])
+            md1 = float(s1[DEPTH])
             delta_md = md1 - md0
             if delta_md <= 0:
                 continue
@@ -155,8 +155,10 @@ def attach_assay_positions(assays, traces):
     assays_sorted["to"] = pd.to_numeric(assays_sorted[TO], errors="coerce")
     assays_sorted = assays_sorted[assays_sorted[HOLE_ID].notna()]
     assays_sorted = assays_sorted.sort_values([HOLE_ID, FROM, TO], kind="mergesort")
-    assays_sorted["mid_md"] = 0.5 * (assays_sorted[FROM] + assays_sorted[TO])
-    assays_sorted = assays_sorted[assays_sorted["mid_md"].notna()]
+    # Calculate midpoint if not already present (typically added by load_assays)
+    if MID not in assays_sorted.columns:
+        assays_sorted[MID] = 0.5 * (assays_sorted[FROM] + assays_sorted[TO])
+    assays_sorted = assays_sorted[assays_sorted[MID].notna()]
 
     merged_groups = []
     for hid, group in assays_sorted.groupby(HOLE_ID, sort=False):
@@ -167,9 +169,9 @@ def attach_assay_positions(assays, traces):
         pos_cols = [c for c in ["md", EASTING, NORTHING, ELEVATION, AZIMUTH, DIP] if c in tgroup.columns]
         tgroup_use = tgroup[[HOLE_ID] + pos_cols].sort_values("md", kind="mergesort")
         merged = pd.merge_asof(
-            group.sort_values("mid_md", kind="mergesort"),
+            group.sort_values(MID, kind="mergesort"),
             tgroup_use,
-            left_on="mid_md",
+            left_on=MID,
             right_on="md",
             by=HOLE_ID,
             direction="nearest",
