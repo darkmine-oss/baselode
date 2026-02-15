@@ -51,26 +51,19 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv):
     (hole_id, from, to, mid, lat, lon, etc.) via DEFAULT_COLUMN_MAP.
     For GSWA data, we just need to map their specific column names.
     """
-    # Map GSWA-specific column names to standard baselode columns
-    gswa_collar_map = {"CollarId": "hole_id"}
-    gswa_survey_map = {"CollarId": "hole_id"}
-    gswa_assay_map = {"ANumber": "hole_id"}
 
     # Load data - library handles column standardization
     collars = baselode.drill.data.load_collars(
         collars_csv, 
-        kind="csv",
-        source_column_map=gswa_collar_map
+        kind="csv"
     )
     surveys = baselode.drill.data.load_surveys(
         survey_csv, 
-        kind="csv",
-        source_column_map=gswa_survey_map
+        kind="csv"
     )
     assays = baselode.drill.data.load_assays(
         assays_csv, 
-        kind="csv",
-        source_column_map=gswa_assay_map
+        kind="csv"
     )
 
     # Drop geometry column for simpler DataFrame handling

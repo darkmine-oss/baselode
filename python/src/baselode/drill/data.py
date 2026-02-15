@@ -96,7 +96,7 @@ BASELODE_DATA_MODEL_DRILL_ASSAY = {
 DEFAULT_COLUMN_MAP = {
     HOLE_ID: ["hole_id", "holeid", "hole id", "hole-id"],
     "datasource_hole_id": ["datasource_hole_id", "datasourceholeid", "datasource hole id", "datasource-hole-id", "company_hole_id", "companyholeid", "company hole id", "company-hole-id"],
-    PROJECT_ID: ["project_id", "projectid", "project id", "project-id", "project_code", "projectcode", "project code", "project-code", "companyId", "company_id", "companyid", "company id", "company-id"],
+    PROJECT_ID: ["project_id", "projectid", "project id", "project-id", "project_code", "projectcode", "project code", "project-code", "companyId", "company_id", "companyid", "company id", "company-id", "dataset", "project"],
     LATITUDE: ["latitude", "lat"],
     LONGITUDE: ["longitude", "lon"],
     ELEVATION: ["elevation", "rl", "elev", "z"],

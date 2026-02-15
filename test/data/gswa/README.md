@@ -30,7 +30,7 @@ All sample data was extracted using the below lat/lon bounding box to filter for
     [-32.329994174232176, 118.77253985070098]
     [-32.75139434476367, 119.74208332736906]
 
-The CompanyHoleId is used as primary key (assumed globally unique within this subset).
+The GSWA HoleId is used as primary key (assumed globally unique) and all datasets are sorted by this field. The CompanyHoleId and Dataset are kept for informational purposes.
 
 * `gswa_sample_collars.csv` filters on collar location after joining tables `dbo.Collar` and `dbo.CollarElevation`
 * `gswa_sample_survey.csv` using the collars above, uses `dbo.DHSurvey` and takes only the latest survey results when there are duplicates
