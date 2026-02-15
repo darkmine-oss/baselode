@@ -4,7 +4,6 @@
 from pathlib import Path
 
 from dash import Dash, dcc, html, Input, Output, State, callback_context, no_update
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -19,95 +18,80 @@ COLLARS_CSV = DATA_DIR / "demo_gswa_sample_collars.csv"
 SURVEY_CSV = DATA_DIR / "demo_gswa_sample_survey.csv"
 ASSAYS_CSV = DATA_DIR / "demo_gswa_sample_assays.csv"
 
-DEFAULT_CONFIG = {"primary_key": "companyHoleId", "custom_key": ""}
-KEY_MAP = {
-    "companyHoleId": "company_hole_id",
-    "holeId": "hole_id",
-    "collarId": "collar_id",
-    "anumber": "anumber",
-}
+# Non-value fields for assay data (metadata and structural columns)
 ASSAY_NON_VALUE_FIELDS = {
     "hole_id",
-    "company_hole_id",
-    "collar_id",
+    "datasource_hole_id",
     "project_id",
-    "project_code",
     "from",
     "to",
-    "mid_md",
+    "mid",
     "x",
     "y",
     "z",
     "lat",
     "lon",
-    "longitude",
+    "easting",
+    "northing",
+    "elevation",
     "latitude",
+    "longitude",
     "azimuth",
     "dip",
-    "declination",
-    "sample_id",
-    "id",
-    "anumber",
+    "depth",
+    "md",
 }
 CHART_TYPES = ["markers+line", "markers", "line", "bar", "categorical"]
 
 
-def detect_table_key(table_df, preferred_keys):
-    for key in preferred_keys:
-        if key in table_df.columns:
-            return key
-    return ""
+def load_demo_dataset(collars_csv, survey_csv, assays_csv):
+    """Load demo dataset using library's standardization.
+    
+    The library automatically maps common column name variations to standard names
+    (hole_id, from, to, mid, lat, lon, etc.) via DEFAULT_COLUMN_MAP.
+    For GSWA data, we just need to map their specific column names.
+    """
+    # Map GSWA-specific column names to standard baselode columns
+    gswa_collar_map = {"CollarId": "hole_id"}
+    gswa_survey_map = {"CollarId": "hole_id"}
+    gswa_assay_map = {"ANumber": "hole_id"}
 
-
-def detect_shared_join_key(collars_df, surveys_df, assays_df):
-    preferred = ["company_hole_id", "hole_id", "collar_id", "anumber"]
-    for key in preferred:
-        if key in collars_df.columns and key in surveys_df.columns:
-            return key
-
-    fallback = detect_table_key(collars_df, preferred)
-    if fallback:
-        return fallback
-
-    raise ValueError(
-        f"No compatible drillhole key found. Collars columns: {list(collars_df.columns)}; "
-        f"Survey columns: {list(surveys_df.columns)}; Assay columns: {list(assays_df.columns)}"
+    # Load data - library handles column standardization
+    collars = baselode.drill.data.load_collars(
+        collars_csv, 
+        kind="csv",
+        source_column_map=gswa_collar_map
+    )
+    surveys = baselode.drill.data.load_surveys(
+        survey_csv, 
+        kind="csv",
+        source_column_map=gswa_survey_map
+    )
+    assays = baselode.drill.data.load_assays(
+        assays_csv, 
+        kind="csv",
+        source_column_map=gswa_assay_map
     )
 
-
-def load_demo_dataset(collars_csv, survey_csv, assays_csv):
-    collars_raw = baselode.drill.data.load_table(collars_csv, kind="csv")
-    surveys_raw = baselode.drill.data.load_table(survey_csv, kind="csv")
-    assays_raw = baselode.drill.data.load_table(assays_csv, kind="csv")
-
-    shared_key = detect_shared_join_key(collars_raw, surveys_raw, assays_raw)
-    assay_key = detect_table_key(assays_raw, [shared_key, "company_hole_id", "hole_id", "collar_id", "anumber"])
-    if not assay_key:
-        assay_key = "hole_id"
-
-    collars = baselode.drill.data.load_collars(collars_csv, kind="csv", hole_id_col=shared_key)
-    surveys = baselode.drill.data.load_surveys(survey_csv, kind="csv", hole_id_col=shared_key)
-    assays = baselode.drill.data.load_assays(assays_csv, kind="csv", hole_id_col=assay_key)
-
+    # Drop geometry column for simpler DataFrame handling
     collars = collars.drop(columns=["geometry"], errors="ignore")
-    collars = collars.copy()
-    surveys = surveys.copy()
-    assays = assays.copy()
-
+    
+    # Clean string columns
     for frame in [collars, surveys, assays]:
-        for col in ["hole_id", "company_hole_id", "collar_id", "anumber", "project_code"]:
-            if col in frame.columns:
-                frame[col] = frame[col].astype(str).str.strip()
+        if "hole_id" in frame.columns:
+            frame["hole_id"] = frame["hole_id"].astype(str).str.strip()
 
+    # Desurvey to create 3D traces
     traces = baselode.drill.desurvey.minimum_curvature_desurvey(collars, surveys, step=5.0)
+    
+    # Attach spatial positions to assays for 3D visualization
+    assays_with_positions = baselode.drill.desurvey.attach_assay_positions(assays, traces)
 
     return {
         "collars": collars,
         "surveys": surveys,
-        "assays": assays,
+        "assays": assays_with_positions,
         "traces": traces,
-        "shared_key": shared_key,
-        "assay_key": assay_key,
     }
 
 
@@ -129,49 +113,17 @@ def infer_property_lists(df):
     }
 
 
-def primary_field_from_config(config):
-    config = config or DEFAULT_CONFIG
-    key = config.get("primary_key", "companyHoleId")
-    if key == "custom":
-        custom = (config.get("custom_key") or "").strip().lower()
-        return custom or "company_hole_id"
-    return KEY_MAP.get(key, "company_hole_id")
 
-
-def with_primary_id(df, config):
-    if df is None or df.empty:
-        out = df.copy()
-        out["primary_id"] = ""
-        return out
-
-    primary_field = primary_field_from_config(config)
-    out = df.copy()
-
-    if primary_field not in out.columns:
-        out[primary_field] = ""
-
-    candidates = [
-        primary_field,
-        "company_hole_id",
-        "hole_id",
-        "collar_id",
-        "anumber",
-    ]
-    available = [c for c in candidates if c in out.columns]
-
-    out["primary_id"] = ""
-    for col in available:
-        values = out[col].fillna("").astype(str).str.strip()
-        out["primary_id"] = np.where((out["primary_id"] == "") & (values != ""), values, out["primary_id"])
-
-    return out
 
 
 def build_map_figure(collars_df, search_value):
+    """Build map figure with collar locations."""
     frame = collars_df.copy()
+    
+    # Filter by search if provided
     if search_value:
         q = str(search_value).strip().lower()
-        frame = frame[frame["primary_id"].str.lower().str.contains(q, na=False)]
+        frame = frame[frame["hole_id"].str.lower().str.contains(q, na=False)]
 
     if frame.empty:
         fig = go.Figure()
@@ -179,16 +131,17 @@ def build_map_figure(collars_df, search_value):
         fig.add_annotation(text="No matching collars", showarrow=False, x=0.5, y=0.5, xref="paper", yref="paper")
         return fig
 
-    lat_col = "lat" if "lat" in frame.columns else "y"
-    lon_col = "lon" if "lon" in frame.columns else "x"
-    hover_candidates = ["project_code", "project_id", "hole_id", "company_hole_id", "collar_id", "anumber"]
-    hover_data = {col: True for col in hover_candidates if col in frame.columns}
+    # Use standard column names from library
+    lat_col = "latitude" if "latitude" in frame.columns else "y"
+    lon_col = "longitude" if "longitude" in frame.columns else "x"
+    
+    hover_data = {col: True for col in ["datasource_hole_id", "project_id"] if col in frame.columns}
 
     fig = px.scatter_map(
         frame,
         lat=lat_col,
         lon=lon_col,
-        hover_name="primary_id",
+        hover_name="hole_id",
         hover_data=hover_data,
         zoom=5,
         height=640,
@@ -198,9 +151,9 @@ def build_map_figure(collars_df, search_value):
     return fig
 
 
-def hole_options(assays_df, config):
-    frame = with_primary_id(assays_df, config)
-    vals = sorted([v for v in frame["primary_id"].dropna().astype(str).unique().tolist() if v])
+def hole_options(assays_df):
+    """Get unique hole IDs from assays for dropdown options."""
+    vals = sorted([v for v in assays_df["hole_id"].dropna().astype(str).unique().tolist() if v])
     return [{"label": v, "value": v} for v in vals]
 
 
@@ -211,12 +164,13 @@ def build_trace_figure(
     chart_type,
     categorical_props,
 ):
+    """Build a single drillhole trace figure using library's plot function."""
     if not selected_hole or not selected_property:
         fig = go.Figure()
         fig.update_layout(template="plotly_white", margin=dict(l=40, r=10, t=20, b=30), height=280)
         return fig
 
-    subset = assays_df[assays_df["primary_id"] == selected_hole].copy()
+    subset = assays_df[assays_df["hole_id"] == selected_hole].copy()
     if subset.empty or selected_property not in subset.columns:
         fig = go.Figure()
         fig.update_layout(template="plotly_white", margin=dict(l=40, r=10, t=20, b=30), height=280)
@@ -224,6 +178,8 @@ def build_trace_figure(
 
     is_cat = selected_property in categorical_props
     resolved_type = "categorical" if (is_cat and chart_type != "bar") else chart_type
+    
+    # Use library's visualization function
     fig = baselode.drill.view.plot_drillhole_trace(
         df=subset,
         value_col=selected_property,
@@ -235,22 +191,24 @@ def build_trace_figure(
 
 
 def build_popup_figure(assays_df, selected_hole, selected_property, categorical_props):
+    """Build popup figure for quick preview."""
     if not selected_hole or not selected_property:
         return go.Figure()
-    subset = assays_df[assays_df["primary_id"] == selected_hole].copy()
+    subset = assays_df[assays_df["hole_id"] == selected_hole].copy()
     if subset.empty:
         return go.Figure()
-    chart = "line"
+    
     fig = baselode.drill.view.plot_drillhole_trace(
         df=subset,
         value_col=selected_property,
-        chart_type=chart,
+        chart_type="line",
         categorical_props=[],
     )
     fig.update_layout(height=420, template="plotly_white", margin=dict(l=45, r=10, t=20, b=30))
     return fig
 
 
+# Initialize app with demo data
 DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV)
 PROPERTY_INFO = infer_property_lists(DATASET["assays"])
 DEFAULT_PROPERTY = (PROPERTY_INFO["numeric"] + PROPERTY_INFO["categorical"] + [""])[0]
@@ -266,7 +224,6 @@ app.layout = html.Div(
     className="app-shell",
     children=[
         dcc.Location(id="url", refresh=False),
-        dcc.Store(id="config-store", storage_type="local", data=DEFAULT_CONFIG),
         dcc.Store(id="selected-hole-store", storage_type="session", data=""),
         dcc.Store(id="popup-hole-store", storage_type="memory", data=""),
         dcc.Store(id="open-mode-store", storage_type="local", data={"open_in_popup": True}),
@@ -278,7 +235,6 @@ app.layout = html.Div(
                 sidebar_link("Map", "/"),
                 sidebar_link("Drillhole", "/drillhole"),
                 sidebar_link("Drillhole 2D", "/drillhole-2d"),
-                sidebar_link("Config", "/config"),
                 html.Div(id="sidebar-panel", className="sidebar-panel"),
                 html.Div(id="sidebar-zoom", className="sidebar-footer"),
             ],
@@ -290,8 +246,8 @@ app.layout = html.Div(
 )
 
 
-@app.callback(Output("page-content", "children"), Input("url", "pathname"), State("config-store", "data"), State("selected-hole-store", "data"))
-def render_page(pathname, config, selected_hole):
+@app.callback(Output("page-content", "children"), Input("url", "pathname"), State("selected-hole-store", "data"))
+def render_page(pathname, selected_hole):
     if pathname == "/drillhole":
         hole_count = len(DATASET["traces"]["hole_id"].unique()) if not DATASET["traces"].empty else 0
         return html.Div(
@@ -317,13 +273,12 @@ def render_page(pathname, config, selected_hole):
         )
 
     if pathname == "/drillhole-2d":
-        options_holes = hole_options(DATASET["assays"], config)
+        options_holes = hole_options(DATASET["assays"])
         first_hole = selected_hole or (options_holes[0]["value"] if options_holes else "")
         property_options = [{"label": p, "value": p} for p in PROPERTY_INFO["all"]]
-        assays_with_primary = with_primary_id(DATASET["assays"], config)
         initial_chart = "markers+line"
         initial_figure = build_trace_figure(
-            assays_with_primary,
+            DATASET["assays"],
             first_hole,
             DEFAULT_PROPERTY,
             initial_chart,
@@ -368,52 +323,13 @@ def render_page(pathname, config, selected_hole):
             ],
         )
 
-    if pathname == "/config":
-        cfg = config or DEFAULT_CONFIG
-        return html.Div(
-            className="page",
-            children=[
-                html.Div(className="page-header", children=[html.H1("Drillhole Key Config")]),
-                html.Div(
-                    className="card",
-                    children=[
-                        html.Label("Primary key", className="label"),
-                        dcc.Dropdown(
-                            id="config-primary-key",
-                            options=[
-                                {"label": "CompanyHoleId (default)", "value": "companyHoleId"},
-                                {"label": "HoleId", "value": "holeId"},
-                                {"label": "CollarId", "value": "collarId"},
-                                {"label": "Anumber", "value": "anumber"},
-                                {"label": "Custom", "value": "custom"},
-                            ],
-                            value=cfg.get("primary_key", "companyHoleId"),
-                        ),
-                        html.Label("Custom column name", className="label"),
-                        dcc.Input(
-                            id="config-custom-key",
-                            type="text",
-                            value=cfg.get("custom_key", ""),
-                            placeholder="e.g. collar_uid",
-                            className="text-input",
-                        ),
-                        html.Button("Save", id="config-save", n_clicks=0, className="btn"),
-                        html.Div(id="config-status", className="meta"),
-                    ],
-                ),
-            ],
-        )
-
-    cfg = config or DEFAULT_CONFIG
-    collars = with_primary_id(DATASET["collars"], cfg)
-    primary_label = primary_field_from_config(cfg)
-
+    # Default: Map page
     return html.Div(
         className="page map-page",
         children=[
             dcc.Graph(
                 id="collar-map",
-                figure=build_map_figure(collars, ""),
+                figure=build_map_figure(DATASET["collars"], ""),
                 config={"displayModeBar": True, "responsive": True},
                 className="map-graph",
                 style={"height": "100vh"},
@@ -441,24 +357,10 @@ def render_page(pathname, config, selected_hole):
     prevent_initial_call=True,
 )
 def update_iframe_src(url):
+    """Update 3D iframe source URL."""
     if not url:
         return no_update
     return url
-
-
-@app.callback(
-    Output("config-store", "data"),
-    Output("config-status", "children"),
-    Input("config-save", "n_clicks"),
-    State("config-primary-key", "value"),
-    State("config-custom-key", "value"),
-    prevent_initial_call=True,
-)
-def save_config(n_clicks, primary_key, custom_key):
-    if primary_key == "custom" and not (custom_key or "").strip():
-        return no_update, "Enter a custom column name."
-    config = {"primary_key": primary_key or "companyHoleId", "custom_key": (custom_key or "").strip()}
-    return config, "Saved. This will be used across map and drillhole viewers."
 
 
 @app.callback(
@@ -467,17 +369,17 @@ def save_config(n_clicks, primary_key, custom_key):
     prevent_initial_call=True,
 )
 def update_open_mode(values):
+    """Update whether to open holes in popup or navigate to page."""
     return {"open_in_popup": "popup" in (values or [])}
 
 
 @app.callback(
     Output("collar-map", "figure"),
     Input("map-search", "value"),
-    State("config-store", "data"),
 )
-def update_map(search_value, config):
-    collars = with_primary_id(DATASET["collars"], config)
-    return build_map_figure(collars, search_value)
+def update_map(search_value):
+    """Update map based on search filter."""
+    return build_map_figure(DATASET["collars"], search_value)
 
 
 @app.callback(
@@ -488,11 +390,11 @@ def update_map(search_value, config):
     Input("popup-close", "n_clicks"),
     Input("popup-open-page", "n_clicks"),
     State("open-mode-store", "data"),
-    State("config-store", "data"),
     State("popup-hole-store", "data"),
     prevent_initial_call=True,
 )
-def handle_map_click_or_popup(click_data, close_clicks, open_page_clicks, open_mode, config, popup_hole):
+def handle_map_click_or_popup(click_data, close_clicks, open_page_clicks, open_mode, popup_hole):
+    """Handle map marker clicks and popup interactions."""
     trigger = callback_context.triggered[0]["prop_id"].split(".")[0]
 
     if trigger == "popup-close":
@@ -506,20 +408,25 @@ def handle_map_click_or_popup(click_data, close_clicks, open_page_clicks, open_m
     if trigger != "collar-map" or not click_data:
         return no_update, no_update, no_update
 
+    # Extract clicked point
     point = (click_data.get("points") or [{}])[0]
     lat = point.get("lat")
     lon = point.get("lon")
     if lat is None or lon is None:
         return no_update, no_update, no_update
 
-    collars = with_primary_id(DATASET["collars"], config)
-    dlat = (collars["lat"] - float(lat)).abs() if "lat" in collars.columns else (collars["y"] - float(lat)).abs()
-    dlon = (collars["lon"] - float(lon)).abs() if "lon" in collars.columns else (collars["x"] - float(lon)).abs()
+    # Find nearest collar
+    collars = DATASET["collars"]
+    lat_col = "latitude" if "latitude" in collars.columns else "y"
+    lon_col = "longitude" if "longitude" in collars.columns else "x"
+    dlat = (collars[lat_col] - float(lat)).abs()
+    dlon = (collars[lon_col] - float(lon)).abs()
     nearest = collars.loc[(dlat + dlon).idxmin()]
-    hole_id = nearest.get("primary_id", "")
+    hole_id = nearest.get("hole_id", "")
     if not hole_id:
         return no_update, no_update, no_update
 
+    # Open in popup or navigate to page
     is_popup = bool((open_mode or {}).get("open_in_popup", True))
     if is_popup:
         return hole_id, no_update, no_update
@@ -532,15 +439,15 @@ def handle_map_click_or_popup(click_data, close_clicks, open_page_clicks, open_m
     Output("popup-graph", "figure"),
     Input("popup-hole-store", "data"),
     Input("popup-property", "value"),
-    Input("config-store", "data"),
 )
-def update_popup(hole_id, selected_property, config):
+def update_popup(hole_id, selected_property):
+    """Update popup with selected hole's data."""
     if not hole_id:
         return "popup hidden", "", go.Figure()
-    assays = with_primary_id(DATASET["assays"], config)
+    
     default_numeric = PROPERTY_INFO["numeric"][0] if PROPERTY_INFO["numeric"] else ""
     prop = selected_property or default_numeric
-    fig = build_popup_figure(assays, hole_id, prop, PROPERTY_INFO["categorical"])
+    fig = build_popup_figure(DATASET["assays"], hole_id, prop, PROPERTY_INFO["categorical"])
     return "popup", f"Hole {hole_id} — 2D assay preview", fig
 
 
@@ -561,7 +468,6 @@ def update_popup(hole_id, selected_property, config):
     Input("trace-hole-3", "value"),
     Input("trace-prop-3", "value"),
     Input("trace-chart-3", "value"),
-    Input("config-store", "data"),
 )
 def update_traces(
     hole0,
@@ -576,9 +482,9 @@ def update_traces(
     hole3,
     prop3,
     chart3,
-    config,
 ):
-    assays = with_primary_id(DATASET["assays"], config)
+    """Update all four trace figures."""
+    assays = DATASET["assays"]
     figs = [
         build_trace_figure(assays, hole0, prop0, chart0, PROPERTY_INFO["categorical"]),
         build_trace_figure(assays, hole1, prop1, chart1, PROPERTY_INFO["categorical"]),
@@ -590,6 +496,7 @@ def update_traces(
 
 @app.callback(Output("sidebar-zoom", "children"), Input("url", "pathname"))
 def update_sidebar_footer(pathname):
+    """Display current page in sidebar footer."""
     return f"Page: {pathname or '/'}"
 
 
@@ -598,28 +505,25 @@ def update_sidebar_footer(pathname):
     Output("sidebar", "className"),
     Output("main-content", "className"),
     Input("url", "pathname"),
-    Input("config-store", "data"),
     Input("open-mode-store", "data"),
 )
-def update_sidebar_panel(pathname, config, open_mode):
+def update_sidebar_panel(pathname, open_mode):
+    """Update sidebar panel content based on current page."""
     if pathname != "/":
         return [], "sidebar", "main-content content-main"
 
-    cfg = config or DEFAULT_CONFIG
-    collars = with_primary_id(DATASET["collars"], cfg)
-    primary_label = primary_field_from_config(cfg)
+    collars = DATASET["collars"]
     open_in_popup = bool((open_mode or {}).get("open_in_popup", True))
 
     panel = [
         html.Div("Map Controls", className="controls-title"),
-        dcc.Input(id="map-search", type="text", placeholder=f"Search {primary_label}", className="text-input"),
+        dcc.Input(id="map-search", type="text", placeholder="Search hole_id", className="text-input"),
         dcc.Checklist(
             id="open-mode-check",
             options=[{"label": "Open hole in popup viewer", "value": "popup"}],
             value=["popup"] if open_in_popup else [],
             className="checklist",
         ),
-        html.Div(f"Primary key: {primary_label}", className="meta"),
         html.Div("Data source: demo_gswa_sample_collars.csv + demo_gswa_sample_assays.csv", className="meta"),
         html.Div(f"Loaded {len(collars)} collars", className="meta"),
     ]
