@@ -3,17 +3,27 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { withDataErrorContext } from './dataErrorUtils.js';
-
-function toNumber(value, fallback = undefined) {
+/**
+ * Convert value to number with optional fallback
+ * @private
+ */function toNumber(value, fallback = undefined) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
 }
 
+/**
+ * Normalize hole ID value to trimmed string
+ * @private
+ */
 function normalizeHoleIdValue(value) {
   if (value === undefined || value === null) return '';
   return `${value}`.trim();
 }
 
+/**
+ * Canonicalize hole ID column across rows with varying column names
+ * @private
+ */
 function canonicalizeHoleIdRows(rows = [], holeIdCol = null) {
   const preferred = holeIdCol || 'hole_id';
   const candidates = [preferred, 'hole_id', 'holeId', 'id'];
@@ -30,10 +40,18 @@ function canonicalizeHoleIdRows(rows = [], holeIdCol = null) {
   };
 }
 
+/**
+ * Convert degrees to radians
+ * @private
+ */
 function degToRad(angle) {
   return (Number(angle) * Math.PI) / 180;
 }
 
+/**
+ * Calculate direction cosines from azimuth and dip
+ * @private
+ */
 function directionCosines(azimuth, dip) {
   const azRad = degToRad(azimuth);
   const dipRad = degToRad(dip);
@@ -43,6 +61,10 @@ function directionCosines(azimuth, dip) {
   return { ca, cb, cc };
 }
 
+/**
+ * Calculate displacement vector for a survey segment using specified method
+ * @private
+ */
 function segmentDisplacement(deltaMd, az0, dip0, az1, dip1, method = 'minimum_curvature') {
   const dc0 = directionCosines(az0, dip0);
   const dc1 = directionCosines(az1, dip1);
@@ -192,22 +214,54 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
   return out;
 }
 
+/**
+ * Desurvey drillholes using minimum curvature method
+ * @param {Array<Object>} collars - Collar data with hole_id, lat, lng
+ * @param {Array<Object>} surveys - Survey data with hole_id, depth, azimuth, dip
+ * @param {Object} options - Desurvey options
+ * @returns {Array<Object>} Desurveyed trace points with x, y, z, md coordinates
+ */
 export function minimumCurvatureDesurvey(collars, surveys, options = {}) {
   return desurvey(collars, surveys, { ...options, method: 'minimum_curvature' });
 }
 
+/**
+ * Desurvey drillholes using tangential method
+ * @param {Array<Object>} collars - Collar data
+ * @param {Array<Object>} surveys - Survey data
+ * @param {Object} options - Desurvey options
+ * @returns {Array<Object>} Desurveyed trace points
+ */
 export function tangentialDesurvey(collars, surveys, options = {}) {
   return desurvey(collars, surveys, { ...options, method: 'tangential' });
 }
 
+/**
+ * Desurvey drillholes using balanced tangential method
+ * @param {Array<Object>} collars - Collar data
+ * @param {Array<Object>} surveys - Survey data
+ * @param {Object} options - Desurvey options
+ * @returns {Array<Object>} Desurveyed trace points
+ */
 export function balancedTangentialDesurvey(collars, surveys, options = {}) {
   return desurvey(collars, surveys, { ...options, method: 'balanced_tangential' });
 }
 
+/**
+ * Build desurveyed traces using minimum curvature method (alias for minimumCurvatureDesurvey)
+ * @param {Array<Object>} collars - Collar data
+ * @param {Array<Object>} surveys - Survey data
+ * @param {Object} options - Desurvey options
+ * @returns {Array<Object>} Desurveyed trace points
+ */
 export function buildTraces(collars, surveys, options = {}) {
   return minimumCurvatureDesurvey(collars, surveys, options);
 }
 
+/**
+ * Find nearest trace point by measured depth
+ * @private
+ */
 function nearestByMeasuredDepth(traceRows, midMd) {
   if (!traceRows.length || !Number.isFinite(midMd)) return null;
   let best = null;
@@ -225,6 +279,15 @@ function nearestByMeasuredDepth(traceRows, midMd) {
   return best;
 }
 
+/**
+ * Attach 3D position data from desurveyed traces to assay intervals
+ * Finds nearest trace point by mid-depth of each assay interval
+ * @param {Array<Object>} assays - Assay data with hole_id, from, to
+ * @param {Array<Object>} traces - Desurveyed trace data with hole_id, md, x, y, z
+ * @param {Object} options - Options
+ * @param {string} options.holeIdCol - Hole ID column name (default: 'hole_id')
+ * @returns {Array<Object>} Assay rows enriched with x, y, z, md, azimuth, dip from nearest trace point
+ */
 export function attachAssayPositions(assays = [], traces = [], options = {}) {
   const holeIdCol = options.holeIdCol || 'hole_id';
   const assaysCanonical = canonicalizeHoleIdRows(assays, holeIdCol);

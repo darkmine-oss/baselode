@@ -15,11 +15,26 @@ const NUMERIC_CHART_OPTIONS = [
   { value: 'line', label: 'Line only' }
 ];
 
+/**
+ * Resolve chart type from available options
+ * @private
+ */
 function resolveChartType(chartOptions, requestedChartType) {
   if (chartOptions.some((opt) => opt.value === requestedChartType)) return requestedChartType;
   return chartOptions[0]?.value || DEFAULT_NUMERIC_CHART_TYPE;
 }
 
+/**
+ * Plotly-based trace plot component for drillhole assay data
+ * Renders 1D strip log or 2D trace with configurable chart types
+ * @param {Object} props - Component props
+ * @param {Object} props.config - Plot configuration {holeId, property, chartType}
+ * @param {Object} props.graph - Graph data {hole, points, isCategorical, loading}
+ * @param {Array} props.holeOptions - Available holes for dropdown
+ * @param {Array} props.propertyOptions - Available properties for dropdown
+ * @param {Function} props.onConfigChange - Handler for configuration changes
+ * @returns {JSX.Element} Trace plot component
+ */
 function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onConfigChange }) {
   const containerRef = useRef(null);
   const hole = graph?.hole;

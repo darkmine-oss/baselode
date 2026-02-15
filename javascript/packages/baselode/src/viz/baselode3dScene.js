@@ -22,8 +22,13 @@ import {
   setViewState
 } from './baselode3dCameraControls.js';
 
+/** Default color for low or zero assay values */
 const LOW_ASSAY_GREY = '#9ca3af';
 
+/**
+ * Get measured depth range for a segment between  two points
+ * @private
+ */
 function getMeasuredDepthRange(p1, p2) {
   const md1 = Number(p1?.md);
   const md2 = Number(p2?.md);
@@ -34,6 +39,10 @@ function getMeasuredDepthRange(p1, p2) {
   return { segStart, segEnd };
 }
 
+/**
+ * Calculate weighted average assay value for a segment overlapping with assay intervals
+ * @private
+ */
 function getWeightedIntervalValue(assayIntervals, segStart, segEnd) {
   let weightedSum = 0;
   let weightTotal = 0;
@@ -57,6 +66,10 @@ function getWeightedIntervalValue(assayIntervals, segStart, segEnd) {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Get THREE.Color for an assay value based on color scale
+ * @private
+ */
 function getAssaySegmentColor(value, assayScale) {
   if (!Number.isFinite(value) || value <= 0) return new THREE.Color(LOW_ASSAY_GREY);
   const binIndex = getEqualRangeBinIndex(value, assayScale);
@@ -65,6 +78,10 @@ function getAssaySegmentColor(value, assayScale) {
   return new THREE.Color(colorHex);
 }
 
+/**
+ * Normalize drillhole rendering options with defaults
+ * @private
+ */
 function normalizeDrillholeRenderOptions(options = {}) {
   return {
     preserveView: Boolean(options.preserveView),
@@ -73,6 +90,10 @@ function normalizeDrillholeRenderOptions(options = {}) {
   };
 }
 
+/**
+ * Collect all numeric assay values from interval data
+ * @private
+ */
 function collectAssayValues(assayIntervalsByHole, selectedAssayVariable) {
   if (!assayIntervalsByHole || !selectedAssayVariable) return [];
   const allAssayValues = [];
@@ -85,6 +106,10 @@ function collectAssayValues(assayIntervalsByHole, selectedAssayVariable) {
   return allAssayValues;
 }
 
+/**
+ * Build user data object for drillhole mesh
+ * @private
+ */
 function buildHoleUserData(hole) {
   return {
     holeId: hole.id,
@@ -92,6 +117,11 @@ function buildHoleUserData(hole) {
   };
 }
 
+/**
+ * Baselode 3D Scene Manager
+ * Manages THREE.js scene for rendering drillholes and block models in 3D
+ * Supports orbit and fly camera controls, assay coloring, and interactive selection
+ */
 class Baselode3DScene {
   constructor() {
     this.container = null;

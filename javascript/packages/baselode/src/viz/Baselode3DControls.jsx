@@ -4,6 +4,17 @@
  */
 import './Baselode3DControls.css';
 
+/**
+ * 3D scene control buttons component
+ * Provides UI controls for camera manipulation in the 3D drillhole viewer
+ * @param {Object} props - Component props
+ * @param {string} props.controlMode - Current control mode ('orbit' or 'fly')
+ * @param {Function} props.onToggleFly - Handler for toggling fly mode
+ * @param {Function} props.onRecenter - Handler for recentering camera
+ * @param {Function} props.onLookDown - Handler for top-down view
+ * @param {Function} props.onFit - Handler for fitting camera to scene
+ * @returns {JSX.Element} Control buttons component
+ */
 function Baselode3DControls({
   controlMode = 'orbit',
   onToggleFly = () => {},

@@ -7,11 +7,20 @@ import { ASSAY_NON_VALUE_FIELDS } from './assayFieldSets.js';
 import { logDataInfo, logDataWarning } from './dataErrorUtils.js';
 import { buildTraceConfigsForHoleIds, reorderHoleIds } from './traceGridConfig.js';
 
+/** LocalStorage key for cached assay data */
 export const ASSAY_CACHE_KEY = 'baselode-assays-cache-v1';
+
+/** LocalStorage key for cached assay metadata */
 export const ASSAY_CACHE_META_KEY = 'baselode-assays-meta-v1';
+
 let cacheDisabled = false;
 export { reorderHoleIds };
 
+/**
+ * Derive numeric and categorical property names from assay hole data
+ * @param {Array<Object>} holes - Array of hole objects with points containing assay data
+ * @returns {{numericProps: Array<string>, categoricalProps: Array<string>, defaultProp: string}} Property classification
+ */
 export function deriveAssayProps(holes = []) {
   const points = holes.flatMap((h) => h.points || []);
   const candidates = new Set();
@@ -48,16 +57,35 @@ export function deriveAssayProps(holes = []) {
   return { numericProps, categoricalProps, defaultProp };
 }
 
+/**
+ * Load metadata (hole IDs) from an assay CSV file
+ * @param {File|Blob} file - Assay CSV file
+ * @param {Object|null} config - Optional configuration (unused, for backwards compatibility)
+ * @returns {Promise<Array<{holeId: string}>>} Array of hole IDs with assay data
+ */
 export async function loadAssayMetadata(file, config = null) {
   const holeIds = await parseAssayHoleIdsWithAssays(file);
   return holeIds;
 }
 
+/**
+ * Load assay intervals for a specific hole from CSV file
+ * @param {File|Blob} file - Assay CSV file
+ * @param {string} holeId - Hole identifier to load
+ * @param {Object|null} config - Optional configuration (unused, for backwards compatibility)
+ * @returns {Promise<Object|null>} Hole object with assay intervals or null if not found
+ */
 export async function loadAssayHole(file, holeId, config = null) {
   const hole = await parseAssayHole(file, holeId);
   return hole;
 }
 
+/**
+ * Build complete assay state from hole data including property analysis and trace configs
+ * @param {Array<Object>} holes - Array of hole objects with assay data
+ * @param {string} focusedHoleId - Hole ID to focus on (will be first in trace configs)
+ * @returns {Object|null} Assay state object with holes, properties, and trace configs
+ */
 export function buildAssayState(holes = [], focusedHoleId = '') {
   if (!holes.length) return null;
   const { numericProps, categoricalProps, defaultProp } = deriveAssayProps(holes);
@@ -79,6 +107,14 @@ export function buildAssayState(holes = [], focusedHoleId = '') {
   };
 }
 
+/**
+ * Load and parse complete assay CSV file into state object
+ * @param {File|Blob} file - Assay CSV file
+ * @param {string} focusedHoleId - Hole ID to focus on
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Promise<Object>} Complete assay state
+ * @throws {Error} If no valid assay intervals found
+ */
 export async function loadAssayFile(file, focusedHoleId = '', sourceColumnMap = null) {
   const { holes } = await parseAssaysCSV(file, sourceColumnMap);
   const state = buildAssayState(holes, focusedHoleId);
@@ -86,6 +122,11 @@ export async function loadAssayFile(file, focusedHoleId = '', sourceColumnMap = 
   return state;
 }
 
+/**
+ * Load previously cached assay state from localStorage
+ * @param {string} focusedHoleId - Hole ID to focus on
+ * @returns {Object|null} Cached assay state or null if unavailable
+ */
 export function loadCachedAssayState(focusedHoleId = '') {
   try {
     const raw = localStorage.getItem(ASSAY_CACHE_KEY);
@@ -99,6 +140,10 @@ export function loadCachedAssayState(focusedHoleId = '') {
   }
 }
 
+/**
+ * Load cached assay metadata from localStorage
+ * @returns {{numericProps: Array<string>, categoricalProps: Array<string>, defaultProp: string, holeCount: number, updatedAt: number}|null} Cached metadata or null
+ */
 export function loadCachedAssayMeta() {
   try {
     const raw = localStorage.getItem(ASSAY_CACHE_META_KEY);
@@ -113,6 +158,14 @@ export function loadCachedAssayMeta() {
   }
 }
 
+/**
+ * Save assay data and metadata to localStorage cache
+ * @param {Array<Object>} holes - Hole objects to cache
+ * @param {Object|null} meta - Metadata to cache
+ * @param {Object} options - Caching options
+ * @param {boolean} options.fallbackToMetaOnly - If true and quota exceeded, save only metadata
+ * @returns {boolean} True if successfully cached
+ */
 export function saveAssayCache(holes = [], meta = null, options = {}) {
   if (cacheDisabled) return false;
   const fallbackToMetaOnly = options?.fallbackToMetaOnly || false;
@@ -154,6 +207,9 @@ export function saveAssayCache(holes = [], meta = null, options = {}) {
   }
 }
 
+/**
+ * Clear all cached assay data and metadata from localStorage
+ */
 export function clearAssayCache() {
   try {
     localStorage.removeItem(ASSAY_CACHE_KEY);

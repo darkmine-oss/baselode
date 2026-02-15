@@ -5,6 +5,12 @@
 import Papa from 'papaparse';
 import { withDataErrorContext } from './dataErrorUtils.js';
 
+/**
+ * Parse block model CSV file containing 3D block/voxel data
+ * Expected columns: center_x, center_y, center_z, size_x, size_y, size_z, plus property columns
+ * @param {File|Blob} file - Block model CSV file
+ * @returns {Promise<{data: Array<Object>, properties: Array<string>}>} Parsed blocks and property column names
+ */
 export function parseBlockModelCSV(file) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -31,6 +37,12 @@ export function parseBlockModelCSV(file) {
   });
 }
 
+/**
+ * Calculate statistics for a property column in block model data
+ * @param {Array<Object>} data - Block model data array
+ * @param {string} property - Property column name to analyze
+ * @returns {{type: 'numeric'|'categorical', min?: number, max?: number, values: Array, categories?: Array}} Property statistics
+ */
 export function calculatePropertyStats(data, property) {
   const values = data
     .map((row) => row[property])
@@ -48,6 +60,13 @@ export function calculatePropertyStats(data, property) {
   return { type: 'categorical', categories: uniqueValues, values };
 }
 
+/**
+ * Generate a color for a property value based on its statistics
+ * @param {*} value - Property value to colorize
+ * @param {{type: 'numeric'|'categorical', min?: number, max?: number, categories?: Array}|null} stats - Property statistics
+ * @param {Object} THREEInstance - THREE.js instance for creating Color objects
+ * @returns {THREE.Color} Color object for the value
+ */
 export function getColorForValue(value, stats, THREEInstance) {
   if (!stats) return new THREEInstance.Color('#888888');
 

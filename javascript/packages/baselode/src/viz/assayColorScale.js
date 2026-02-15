@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+/** Default 10-color palette for assay visualization (blue to red gradient) */
 export const ASSAY_COLOR_PALETTE_10 = [
   '#313695',
   '#4575b4',
@@ -16,6 +17,13 @@ export const ASSAY_COLOR_PALETTE_10 = [
   '#a50026'
 ];
 
+/**
+ * Build an equal-range color scale from numeric values
+ * Divides value range into bins with equal width, each mapped to a color
+ * @param {Array<number>} values - Array of numeric values to analyze
+ * @param {Array<string>} colors - Array of color hex strings to use for bins
+ * @returns {{min: number|null, max: number|null, step: number|null, bins: Array<{index: number, min: number, max: number, label: string}>, colors: Array<string>}} Color scale object
+ */
 export function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALETTE_10) {
   let min = Infinity;
   let max = -Infinity;
@@ -77,6 +85,12 @@ export function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALE
   };
 }
 
+/**
+ * Get the bin index for a value in an equal-range color scale
+ * @param {number} value - Value to find bin for
+ * @param {Object} scale - Color scale object from buildEqualRangeColorScale
+ * @returns {number} Bin index (0 to bins.length-1) or -1 if invalid
+ */
 export function getEqualRangeBinIndex(value, scale) {
   if (!Number.isFinite(value) || !scale || !Array.isArray(scale.bins) || !scale.bins.length) {
     return -1;
@@ -92,6 +106,13 @@ export function getEqualRangeBinIndex(value, scale) {
   return Math.max(0, Math.min(scale.bins.length - 1, rawIndex));
 }
 
+/**
+ * Get the color for a value using an equal-range color scale
+ * @param {number} value - Value to get color for
+ * @param {Object} scale - Color scale object from buildEqualRangeColorScale
+ * @param {string} fallbackColor - Color to use if value is invalid or out of range
+ * @returns {string} Color hex string
+ */
 export function getEqualRangeColor(value, scale, fallbackColor = '#8b1e3f') {
   const index = getEqualRangeBinIndex(value, scale);
   if (index < 0) return fallbackColor;

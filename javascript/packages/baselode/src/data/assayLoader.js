@@ -8,14 +8,30 @@ import { standardizeColumns } from './keying.js';
 import { withDataErrorContext } from './dataErrorUtils.js';
 import { HOLE_ID, FROM, TO, PROJECT_ID } from './datamodel.js';
 
-// Shared helpers for parsing assay CSVs with varying column names.
+/**
+ * Normalize a raw CSV row to use standardized column names
+ * @private
+ */
 const normalizeRow = (rawRow, sourceColumnMap = null) => standardizeColumns(rawRow, null, sourceColumnMap);
 
+/**
+ * Extract hole ID from a normalized row
+ * @private
+ * @param {Object} row - Normalized row object
+ * @returns {{holeId: string}} Object containing hole ID
+ */
 function extractIdFields(row) {
   const holeId = row[HOLE_ID];
   return { holeId };
 }
 
+/**
+ * Extract and validate assay interval data from a row
+ * @private
+ * @param {Object} row - Normalized row object
+ * @param {Object|null} sourceColumnMap - Optional column mappings
+ * @returns {Object|null} Interval object or null if invalid
+ */
 function extractInterval(row, sourceColumnMap = null) {
   const holeIdRaw = row[HOLE_ID];
   const holeId = holeIdRaw !== undefined ? `${holeIdRaw}`.trim() : '';
@@ -35,6 +51,13 @@ function extractInterval(row, sourceColumnMap = null) {
   };
 }
 
+/**
+ * Convert array of intervals to a hole object with points
+ * @private
+ * @param {string} holeId - Hole identifier
+ * @param {Array<Object>} intervals - Array of interval objects
+ * @returns {{id: string, project: string, points: Array<Object>}} Hole object
+ */
 function intervalsToHole(holeId, intervals) {
   const sorted = intervals.sort((a, b) => a.from - b.from);
   const points = [];
@@ -54,7 +77,12 @@ function intervalsToHole(holeId, intervals) {
   return { id: holeId, project: sorted[0]?.project, points };
 }
 
-// Quick pass: collect unique hole IDs (collars) without materializing all intervals.
+/**
+ * Parse assay CSV to extract unique hole IDs (quick pass, no interval data)
+ * @param {File|Blob} file - Assay CSV file
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Promise<Array<string>>} Array of unique hole IDs
+ */
 export function parseAssayHoleIds(file, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     const holeIds = new Set();
@@ -75,6 +103,12 @@ export function parseAssayHoleIds(file, sourceColumnMap = null) {
   });
 }
 
+/**
+ * Check if a row has at least one non-null assay value
+ * @private
+ * @param {Object} row - Normalized row object
+ * @returns {boolean} True if row contains assay data
+ */
 function hasAssayValue(row) {
   return Object.entries(row || {}).some(([k, v]) => {
     if (ASSAY_NON_VALUE_FIELDS.has(k)) return false;
@@ -84,7 +118,12 @@ function hasAssayValue(row) {
   });
 }
 
-// Quick pass: hole IDs that have at least one non-null assay value.
+/**
+ * Parse assay CSV to extract hole IDs that have at least one assay value (quick pass)
+ * @param {File|Blob} file - Assay CSV file
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Promise<Array<{holeId: string}>>} Array of objects with hole IDs that have assay data
+ */
 export function parseAssayHoleIdsWithAssays(file, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     const byHole = new Map();
@@ -112,7 +151,14 @@ export function parseAssayHoleIdsWithAssays(file, sourceColumnMap = null) {
   });
 }
 
-// Parse assay CSV with intervals for a single holeId.
+/**
+ * Parse assay CSV for a single hole's intervals
+ * @param {File|Blob} file - Assay CSV file
+ * @param {string} holeId - Hole identifier to extract
+ * @param {Object|null} config - Optional configuration (unused, for backwards compatibility)
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Promise<Object|null>} Hole object with intervals or null if not found
+ */
 export function parseAssayHole(file, holeId, config = null, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     const wanted = `${holeId}`.trim();
@@ -145,7 +191,13 @@ export function parseAssayHole(file, holeId, config = null, sourceColumnMap = nu
   });
 }
 
-// Parse assay CSV with intervals for all holes (eager load).
+/**
+ * Parse complete assay CSV file with all holes and intervals (eager load)
+ * @param {File|Blob} file - Assay CSV file
+ * @param {Object|null} config - Optional configuration (unused, for backwards compatibility)
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Promise<{holes: Array<Object>}>} Object containing array of all holes with intervals
+ */
 export function parseAssaysCSV(file, config = null, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {

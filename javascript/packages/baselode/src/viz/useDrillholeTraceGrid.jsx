@@ -17,6 +17,15 @@ import {
 } from '../data/traceGridConfig.js';
 import { buildIntervalPoints, holeHasData } from './drillholeViz.js';
 
+/**
+ * React hook for managing a grid of drillhole trace plots
+ * Handles loading assay data, managing plot configurations, and coordinating state
+ * @param {Object} options - Hook options
+ * @param {string} options.initialFocusedHoleId - Initial focused hole ID
+ * @param {File|Blob} options.sourceFile - Assay data CSV file
+ * @param {number} options.plotCount - Number of plots in grid (default: 4)
+ * @returns {{traceGraphs: Array, traceConfigs: Array, updateTraceConfig: Function, propertyOptions: Array, holeOptions: Array, loadHole: Function}} Hook state and actions
+ */
 export default function useDrillholeTraceGrid({
   initialFocusedHoleId = '',
   sourceFile = null,

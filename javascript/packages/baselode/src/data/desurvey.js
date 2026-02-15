@@ -7,10 +7,19 @@ import { standardizeColumns } from './keying.js';
 import { logDataWarning, withDataErrorContext } from './dataErrorUtils.js';
 import { HOLE_ID, LATITUDE, LONGITUDE, AZIMUTH, DIP, DEPTH, PROJECT_ID } from './datamodel.js';
 
+/** LocalStorage key for cached collar data */
 const COLLAR_CACHE_KEY = 'baselode-collars-cache-v1';
+
+/** LocalStorage key for cached survey data */
 const SURVEY_CACHE_KEY = 'baselode-survey-cache-v1';
+
+/** LocalStorage key for cached desurveyed traces */
 const DESURVEY_CACHE_KEY = 'baselode-desurvey-cache-v1';
 
+/**
+ * Load cached collar data from localStorage
+ * @returns {Array<Object>} Array of cached collars or empty array
+ */
 export function loadCachedCollars() {
   try {
     const raw = localStorage.getItem(COLLAR_CACHE_KEY);
@@ -26,6 +35,10 @@ export function loadCachedCollars() {
   }
 }
 
+/**
+ * Save survey data to localStorage cache
+ * @param {Array<Object>} rows - Survey data to cache
+ */
 export function saveCachedSurvey(rows) {
   try {
     localStorage.setItem(SURVEY_CACHE_KEY, JSON.stringify(rows || []));
@@ -34,6 +47,10 @@ export function saveCachedSurvey(rows) {
   }
 }
 
+/**
+ * Load cached survey data from localStorage
+ * @returns {Array<Object>} Array of cached survey rows or empty array
+ */
 export function loadCachedSurvey() {
   try {
     const raw = localStorage.getItem(SURVEY_CACHE_KEY);
@@ -46,6 +63,10 @@ export function loadCachedSurvey() {
   }
 }
 
+/**
+ * Save desurveyed hole data to localStorage cache
+ * @param {Array<Object>} holes - Desurveyed hole objects to cache
+ */
 export function saveCachedDesurveyed(holes) {
   try {
     localStorage.setItem(DESURVEY_CACHE_KEY, JSON.stringify(holes || []));
@@ -54,6 +75,10 @@ export function saveCachedDesurveyed(holes) {
   }
 }
 
+/**
+ * Load cached desurveyed hole data from localStorage
+ * @returns {Array<Object>} Array of cached desurveyed holes or empty array
+ */
 export function loadCachedDesurveyed() {
   try {
     const raw = localStorage.getItem(DESURVEY_CACHE_KEY);
@@ -66,6 +91,13 @@ export function loadCachedDesurveyed() {
   }
 }
 
+/**
+ * Parse survey CSV file containing downhole survey measurements
+ * Expected columns: hole_id, depth, azimuth, dip
+ * @param {File|Blob} file - Survey CSV file
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Promise<Array<Object>>} Array of normalized survey rows
+ */
 export function parseSurveyCSV(file, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
     Papa.parse(file, {
@@ -83,6 +115,13 @@ export function parseSurveyCSV(file, sourceColumnMap = null) {
   });
 }
 
+/**
+ * Normalize a survey row to standardized field names
+ * @private
+ * @param {Object} row - Raw survey row
+ * @param {Object|null} sourceColumnMap - Optional column mappings
+ * @returns {Object} Normalized row with standardized field names
+ */
 function normalizeRow(row, sourceColumnMap = null) {
   const norm = standardizeColumns(row, null, sourceColumnMap);
 
@@ -113,12 +152,24 @@ function normalizeRow(row, sourceColumnMap = null) {
   };
 }
 
+/**
+ * Convert value to number, returning undefined if not finite
+ * @private
+ * @param {*} v - Value to convert
+ * @returns {number|undefined} Finite number or undefined
+ */
 const toNumber = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
 };
 
-// Minimum curvature desurvey; returns array of {id, project, points:[{x,y,z,md,azimuth,dip}...]}
+/**
+ * Desurvey drillhole traces using minimum curvature method
+ * Converts survey measurements (azimuth, dip, depth) to 3D coordinates (x, y, z)
+ * @param {Array<Object>} collars - Array of collar objects with location data
+ * @param {Array<Object>} surveys - Array of survey measurement objects
+ * @returns {Array<{id: string, project: string, points: Array<{x: number, y: number, z: number, md: number, azimuth: number, dip: number, lat: number, lng: number}>, collar: Object}>} Array of desurveyed holes with 3D points
+ */
 export function desurveyTraces(collars, surveys) {
   const collarByKey = new Map();
   collars.forEach((c) => {
@@ -239,9 +290,20 @@ export function desurveyTraces(collars, surveys) {
   return holes;
 }
 
+/**
+ * Convert degrees to radians
+ * @private
+ * @param {number} d - Degrees
+ * @returns {number} Radians
+ */
 const degToRad = (d) => (d * Math.PI) / 180;
 
-// Dip is given as negative downward from horizontal; convert to inclination from vertical (0 = vertical)
+/**
+ * Convert dip (negative downward from horizontal) to inclination from vertical
+ * @private
+ * @param {number} dipDeg - Dip in degrees (negative = downward)
+ * @returns {number} Inclination in radians from vertical (0 = vertical down)
+ */
 const toInclination = (dipDeg) => {
   const val = Number(dipDeg);
   const incDeg = 90 + (Number.isFinite(val) ? val : 0); // dip -60 => inc 30

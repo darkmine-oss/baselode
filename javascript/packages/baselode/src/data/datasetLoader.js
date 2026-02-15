@@ -28,17 +28,29 @@ import {
 // Re-export for backwards compatibility
 export { DEFAULT_COLUMN_MAP } from './datamodel.js';
 
+/**
+ * Convert source to array
+ * @private
+ */
 function toArray(source) {
   if (!source) return [];
   if (Array.isArray(source)) return [...source];
   return [];
 }
 
+/**
+ * Convert value to finite number or undefined
+ * @private
+ */
 function toNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : undefined;
 }
 
+/**
+ * Sort rows by multiple columns
+ * @private
+ */
 function sortByColumns(rows = [], columns = []) {
   const out = [...rows];
   out.sort((a, b) => {
@@ -57,6 +69,10 @@ function sortByColumns(rows = [], columns = []) {
   return out;
 }
 
+/**
+ * Parse CSV data using PapaParse
+ * @private
+ */
 function parseCsv(source, papaParseConfig = {}) {
   return new Promise((resolve, reject) => {
     Papa.parse(source, {
@@ -103,6 +119,17 @@ export async function loadTable(source, options = {}) {
   return standardizeColumns(rows, columnMap, sourceColumnMap);
 }
 
+/**
+ * Load and validate drillhole collar data
+ * Requires hole_id and coordinates (either lat/lng or easting/northing)
+ * @param {File|Blob|Array<Object>|string} source - Collar data source
+ * @param {Object} options - Loading options
+ * @param {string} options.crs - Coordinate reference system (optional)
+ * @param {Object} options.sourceColumnMap - Optional user-provided column mappings
+ * @param {boolean} options.keepAll - Keep all columns (default: true)
+ * @returns {Promise<Array<Object>>} Array of validated collar rows
+ * @throws {Error} If required columns or values are missing
+ */
 export async function loadCollars(source, options = {}) {
   const {
     crs = null,
@@ -170,6 +197,16 @@ export async function loadCollars(source, options = {}) {
   return normalized;
 }
 
+/**
+ * Load and validate drillhole survey data
+ * Requires hole_id, depth, azimuth, and dip columns
+ * @param {File|Blob|Array<Object>|string} source - Survey data source
+ * @param {Object} options - Loading options
+ * @param {Object} options.sourceColumnMap - Optional user-provided column mappings
+ * @param {boolean} options.keepAll - Keep all columns (default: true)
+ * @returns {Promise<Array<Object>>} Array of validated survey rows, sorted by hole_id and depth
+ * @throws {Error} If required columns or values are missing
+ */
 export async function loadSurveys(source, options = {}) {
   const {
     sourceColumnMap = null,
@@ -222,6 +259,16 @@ export async function loadSurveys(source, options = {}) {
   return sortByColumns(normalized, [HOLE_ID, DEPTH]);
 }
 
+/**
+ * Load and validate assay/interval data
+ * Requires hole_id, from, and to columns. Calculates mid depth automatically.
+ * @param {File|Blob|Array<Object>|string} source - Assay data source
+ * @param {Object} options - Loading options
+ * @param {Object} options.sourceColumnMap - Optional user-provided column mappings
+ * @param {boolean} options.keepAll - Keep all columns (default: true)
+ * @returns {Promise<Array<Object>>} Array of validated assay rows, sorted by hole_id, from, to
+ * @throws {Error} If required columns or values are missing
+ */
 export async function loadAssays(source, options = {}) {
   const {
     sourceColumnMap = null,
@@ -276,6 +323,15 @@ export async function loadAssays(source, options = {}) {
   return sortByColumns(normalized, [HOLE_ID, FROM, TO]);
 }
 
+/**
+ * Join assay data to desurveyed trace data by matching key columns
+ * Adds trace fields to assay rows, suffixing with '_trace' if field already exists
+ * @param {Array<Object>} assays - Array of assay rows
+ * @param {Array<Object>} traces - Array of trace/desurvey rows
+ * @param {Object} options - Join options
+ * @param {Array<string>} options.onCols - Columns to join on (default: [hole_id])
+ * @returns {Array<Object>} Assay rows enriched with trace data
+ */
 export function joinAssaysToTraces(assays = [], traces = [], options = {}) {
   const onCols = Array.isArray(options.onCols) && options.onCols.length ? options.onCols : [HOLE_ID];
   if (!traces.length) return [...assays];
@@ -302,6 +358,12 @@ export function joinAssaysToTraces(assays = [], traces = [], options = {}) {
   });
 }
 
+/**
+ * Filter rows by project ID
+ * @param {Array<Object>} rows - Array of rows with project_id field
+ * @param {string|null} projectId - Project ID to filter by (null returns all rows)
+ * @returns {Array<Object>} Filtered rows
+ */
 export function filterByProject(rows = [], projectId = null) {
   if (projectId === null || projectId === undefined) return [...rows];
   if (!rows.length) return [];
@@ -313,6 +375,12 @@ export function filterByProject(rows = [], projectId = null) {
   return rows.filter((row) => row?.[PROJECT_ID] === projectId);
 }
 
+/**
+ * Coerce specified columns to numeric (finite number or undefined)
+ * @param {Array<Object>} rows - Array of rows
+ * @param {Array<string>} columns - Column names to coerce to numeric
+ * @returns {Array<Object>} Rows with coerced numeric columns
+ */
 export function coerceNumeric(rows = [], columns = []) {
   return rows.map((row) => {
     const next = { ...row };
@@ -325,6 +393,16 @@ export function coerceNumeric(rows = [], columns = []) {
   });
 }
 
+/**
+ * Assemble a complete drillhole dataset from component tables
+ * @param {Object} components - Dataset components
+ * @param {Array<Object>} components.collars - Collar data
+ * @param {Array<Object>} components.surveys - Survey data
+ * @param {Array<Object>} components.assays - Assay data
+ * @param {Array<Object>} components.structures - Structural data (optional)
+ * @param {Object} components.metadata - Dataset metadata (optional)
+ * @returns {{collars: Array, surveys: Array, assays: Array, structures: Array, metadata: Object}} Complete dataset
+ */
 export function assembleDataset({
   collars = [],
   surveys = [],

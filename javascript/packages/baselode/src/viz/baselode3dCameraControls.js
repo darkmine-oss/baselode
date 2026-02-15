@@ -3,6 +3,11 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+/**
+ * Build a string signature from view state for comparison (to detect changes)
+ * @param {Object} viewState - View state object with camera, target, up vectors
+ * @returns {string} String signature representing the view state
+ */
 export function buildViewSignature(viewState) {
   if (!viewState) return '';
   const toNum = (v) => Number.isFinite(v) ? v.toFixed(3) : 'nan';
@@ -19,6 +24,11 @@ export function buildViewSignature(viewState) {
   ].join('|');
 }
 
+/**
+ * Extract current view state from 3D scene state
+ * @param {Object} state - Baselode3D scene state with camera and controls
+ * @returns {Object|null} View state object or null if state invalid
+ */
 export function getViewState(state) {
   if (!state.camera || !state.controls) return null;
   return {
@@ -40,6 +50,12 @@ export function getViewState(state) {
   };
 }
 
+/**
+ * Apply a view state to the 3D scene camera and controls
+ * @param {Object} state - Baselode3D scene state
+ * @param {Object} viewState - View state to apply
+ * @returns {boolean} True if successfully applied
+ */
 export function setViewState(state, viewState) {
   if (!state.camera || !state.controls || !viewState) return false;
   const camera = viewState.camera || {};
@@ -58,6 +74,10 @@ export function setViewState(state, viewState) {
   return true;
 }
 
+/**
+ * Emit view change event if view has changed (throttled to 250ms)
+ * @param {Object} state - Baselode3D scene state with viewChangeHandler
+ */
 export function emitViewChangeIfNeeded(state) {
   if (!state.viewChangeHandler) return;
   const now = Date.now();
@@ -71,6 +91,11 @@ export function emitViewChangeIfNeeded(state) {
   state.viewChangeHandler(viewState);
 }
 
+/**
+ * Fit camera to view all content within specified bounds
+ * @param {Object} state - Baselode3D scene state
+ * @param {Object} bounds - Bounding box {minX, maxX, minY, maxY, minZ, maxZ}
+ */
 export function fitCameraToBounds(state, { minX, maxX, minY, maxY, minZ, maxZ }) {
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
@@ -87,6 +112,11 @@ export function fitCameraToBounds(state, { minX, maxX, minY, maxY, minZ, maxZ })
   state.controls.update();
 }
 
+/**
+ * Recenter camera to origin at specified distance
+ * @param {Object} state - Baselode3D scene state
+ * @param {number} distance - Distance from origin
+ */
 export function recenterCameraToOrigin(state, distance = 1000) {
   if (!state.camera || !state.controls) return;
   state.controls.target.set(0, 0, 0);
@@ -95,6 +125,11 @@ export function recenterCameraToOrigin(state, distance = 1000) {
   state.controls.update();
 }
 
+/**
+ * Position camera looking straight down from above
+ * @param {Object} state - Baselode3D scene state
+ * @param {number} distance - Distance above origin
+ */
 export function lookDown(state, distance = 2000) {
   if (!state.camera || !state.controls) return;
   state.controls.target.set(0, 0, 0);
@@ -104,6 +139,12 @@ export function lookDown(state, distance = 2000) {
   state.controls.update();
 }
 
+/**
+ * Pan the camera view by screen-space delta
+ * @param {Object} state - Baselode3D scene state
+ * @param {number} dx - Horizontal pan delta
+ * @param {number} dy - Vertical pan delta
+ */
 export function pan(state, dx = 0, dy = 0) {
   if (!state.controls) return;
   if (typeof state.controls.pan === 'function') {
@@ -112,6 +153,11 @@ export function pan(state, dx = 0, dy = 0) {
   }
 }
 
+/**
+ * Zoom camera in or out by scale factor
+ * @param {Object} state - Baselode3D scene state
+ * @param {number} scale - Scale factor (>1 zooms out, <1 zooms in)
+ */
 export function dolly(state, scale = 1.1) {
   if (!state.controls || typeof state.controls.dollyIn !== 'function' || typeof state.controls.dollyOut !== 'function') return;
   if (scale > 1) {
@@ -122,6 +168,11 @@ export function dolly(state, scale = 1.1) {
   state.controls.update();
 }
 
+/**
+ * Focus camera on last computed bounds with optional padding
+ * @param {Object} state - Baselode3D scene state with lastBounds property
+ * @param {number} padding - Padding multiplier for bounds (1.2 = 20% larger view)
+ */
 export function focusOnLastBounds(state, padding = 1.2) {
   if (!state.lastBounds) return;
   const {
@@ -141,6 +192,11 @@ export function focusOnLastBounds(state, padding = 1.2) {
   state.controls.update();
 }
 
+/**
+ * Switch between orbit and fly camera control modes
+ * @param {Object} state - Baselode3D scene state with orbit and fly controls
+ * @param {string} mode - Control mode ('orbit' or 'fly')
+ */
 export function setControlMode(state, mode = 'orbit') {
   state.controlMode = mode === 'fly' ? 'fly' : 'orbit';
   if (state.controlMode === 'fly') {

@@ -5,10 +5,21 @@
 // Shared drillhole 2D visualization helpers for reuse beyond the UI layer.
 // These helpers build Plotly-ready data/layout objects based on interval points.
 
+/** Default color for numeric line traces */
 export const NUMERIC_LINE_COLOR = '#8b1e3f';
+
+/** Default color for numeric markers */
 export const NUMERIC_MARKER_COLOR = '#a8324f';
+
+/** Color for error bars */
 export const ERROR_COLOR = '#6b7280';
 
+/**
+ * Check if a hole has data for a specific property
+ * @param {Object} hole - Hole object with points array
+ * @param {string} property - Property name to check
+ * @returns {boolean} True if hole has at least one valid value for the property
+ */
 export function holeHasData(hole, property) {
   if (!hole || !property) return false;
   const pts = hole.points || [];
@@ -21,6 +32,14 @@ export function holeHasData(hole, property) {
   return false;
 }
 
+/**
+ * Build array of interval points for visualization from hole data
+ * Extracts depth intervals and property values, deduplicates, and sorts by depth
+ * @param {Object} hole - Hole object with points array
+ * @param {string} property - Property name to extract
+ * @param {boolean} isCategorical - Whether property is categorical (vs numeric)
+ * @returns {Array<{z: number, val: *, from: number, to: number, errorPlus: number, errorMinus: number}>} Array of interval points
+ */
 export function buildIntervalPoints(hole, property, isCategorical) {
   if (!hole || !property) return [];
   const rawPoints = hole?.points || [];
@@ -64,6 +83,13 @@ export function buildIntervalPoints(hole, property, isCategorical) {
   return out.sort((a, b) => b.z - a.z);
 }
 
+/**
+ * Build Plotly configuration for categorical property visualization
+ * @private
+ * @param {Array<Object>} points - Interval points array
+ * @param {string} property - Property name for title
+ * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
+ */
 function buildCategoricalConfig(points, property) {
   if (!points.length) return { data: [], layout: {} };
   const sorted = [...points].sort((a, b) => b.z - a.z);
@@ -116,6 +142,14 @@ function buildCategoricalConfig(points, property) {
   return { data: [textTrace], layout };
 }
 
+/**
+ * Build Plotly configuration for numeric property visualization
+ * @private
+ * @param {Array<Object>} points - Interval points array
+ * @param {string} property - Property name for axis label
+ * @param {string} chartType - Chart type ('bar', 'markers', 'line', 'markers+line')
+ * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
+ */
 function buildNumericConfig(points, property, chartType) {
   if (!points.length) return { data: [], layout: {} };
   const isBar = chartType === 'bar';
@@ -168,6 +202,15 @@ function buildNumericConfig(points, property, chartType) {
   return { data: [trace], layout };
 }
 
+/**
+ * Build complete Plotly configuration for property visualization
+ * @param {Object} options - Configuration options
+ * @param {Array<Object>} options.points - Interval points to visualize
+ * @param {boolean} options.isCategorical - Whether property is categorical
+ * @param {string} options.property - Property name
+ * @param {string} options.chartType - Chart type ('bar', 'markers', 'line', 'categorical', etc.)
+ * @returns {{data: Array, layout: Object}} Complete Plotly configuration
+ */
 export function buildPlotConfig({ points, isCategorical, property, chartType }) {
   if (!points || !points.length || !property) return { data: [], layout: {} };
   if (isCategorical || chartType === 'categorical') {
