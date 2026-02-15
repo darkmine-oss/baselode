@@ -117,8 +117,8 @@ DEFAULT_COLUMN_MAP = {
     },
     "assay":
     {
-        FROM: ["from", "depth_from", "from_depth", "todepth", "to_depth", "samp_from", "sample_from", "sampfrom"],
-        TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto"],
+        FROM: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
+        TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
     }
 }
 
@@ -140,30 +140,30 @@ def _frame(df):
     return pd.DataFrame(df)
 
 
-def standardize_columns(df, column_map=None, hole_id_col=None):
+def standardize_columns(df, column_map=None, source_column_map=None):
     column_map = column_map or DEFAULT_COLUMN_MAP
-    hole_id_key = None
-    if hole_id_col is not None:
-        hole_id_key = str(hole_id_col).lower().strip()
-        available = {str(col).lower().strip() for col in df.columns}
-        if hole_id_key not in available:
-            raise ValueError(f"hole id column '{hole_id_col}' not found; available: {list(df.columns)}")
+
+    lookup = dict(_COLUMN_LOOKUP)
+    if source_column_map:
+        normalized_map = {
+            str(raw_name).lower().strip(): str(expected_name).lower().strip()
+            for raw_name, expected_name in source_column_map.items()
+            if raw_name is not None and expected_name is not None
+        }
+        lookup.update(normalized_map)
 
     renamed = {}
     for col in df.columns:
         key = col.lower().strip()
-        if hole_id_key is not None and key == hole_id_key:
-            renamed[col] = HOLE_ID
-        else:
-            mapped = _COLUMN_LOOKUP.get(key, key)
-            if hole_id_key is not None and mapped == HOLE_ID:
-                mapped = "datasource_hole_id"
-            renamed[col] = mapped
+        mapped = lookup.get(key, key)
+        renamed[col] = mapped
     out = df.rename(columns=renamed)
+    if not out.columns.is_unique:
+        out = out.T.groupby(level=0, sort=False).first().T
     return out
 
 
-def load_table(source, kind="csv", connection=None, query=None, table=None, column_map=None, hole_id_col=None, **kwargs):
+def load_table(source, kind="csv", connection=None, query=None, table=None, column_map=None, source_column_map=None, **kwargs):
     if isinstance(source, pd.DataFrame):
         df = source.copy()
     elif kind == "csv":
@@ -179,28 +179,24 @@ def load_table(source, kind="csv", connection=None, query=None, table=None, colu
             df = pd.read_sql_table(table, connection, **kwargs)
     else:
         raise ValueError(f"Unsupported kind: {kind}")
-    return standardize_columns(df, column_map=column_map, hole_id_col=hole_id_col)
+    return standardize_columns(df, column_map=column_map, source_column_map=source_column_map)
 
 
-def load_collars(source, crs=None, hole_id_col=None, keep_all=True, **kwargs):
-    df = load_table(source, hole_id_col=hole_id_col, **kwargs)
+def load_collars(source, crs=None, source_column_map=None, keep_all=True, **kwargs):
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
 
-    required_cols = BASELODE_DATA_MODEL_DRILL_COLLAR.keys()
+    if HOLE_ID not in df.columns:
+        raise ValueError(f"Collar table missing column: {HOLE_ID}")
 
-    has_xy = EASTING in df.columns and NORTHING in df.columns
+    required_cols = set(BASELODE_DATA_MODEL_DRILL_COLLAR.keys())
+
+    has_xy = EASTING in df.columns and NORTHING in df.columns 
     has_latlon = LATITUDE in df.columns and LONGITUDE in df.columns
     if not has_xy and has_latlon:
         required_cols -= {EASTING, NORTHING, CRS}
     elif has_xy and not has_latlon:
         required_cols -= {LATITUDE, LONGITUDE}
-
-    for col in required_cols:
-        if col not in df.columns:
-            raise ValueError(f"Collar table missing column: {col}")
         
-    if not keep_all:
-        df = df[list(required_cols)]
-
     if has_latlon:
         geom = gpd.points_from_xy(df[LONGITUDE], df[LATITUDE])
         resolved_crs = crs or "EPSG:4326"
@@ -208,24 +204,53 @@ def load_collars(source, crs=None, hole_id_col=None, keep_all=True, **kwargs):
         geom = gpd.points_from_xy(df[EASTING], df[NORTHING])
         resolved_crs = crs
 
+    # if dataset_hole_id was not populated, copy it from hole_id
+    if "datasource_hole_id" not in df.columns:
+        hole_series = df[HOLE_ID]
+        if isinstance(hole_series, pd.DataFrame):
+            hole_series = hole_series.bfill(axis=1).iloc[:, 0]
+        df["datasource_hole_id"] = hole_series
+
+    for col in sorted(required_cols):
+        if col not in df.columns:
+            raise ValueError(f"Collar table missing column: {col}")
+
+    if not keep_all:
+        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_COLLAR.keys() if col in required_cols]]
+
     return gpd.GeoDataFrame(df, geometry=geom, crs=resolved_crs)
 
 
-def load_surveys(source, **kwargs):
-    df = load_table(source, **kwargs)
+def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+    required_cols = set(BASELODE_DATA_MODEL_DRILL_SURVEY.keys())
+
+    if TO not in df.columns:
+        required_cols -= {TO}
+
     required = [HOLE_ID, FROM, AZIMUTH, DIP]
     for col in required:
         if col not in df.columns:
             raise ValueError(f"Survey table missing column: {col}")
+
+    if not keep_all:
+        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_SURVEY.keys() if col in required_cols]]
+
     return df.sort_values([HOLE_ID, FROM])
 
 
-def load_assays(source, **kwargs):
-    df = load_table(source, **kwargs)
+def load_assays(source, source_column_map=None, keep_all=True, **kwargs):
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+    required_cols = set(BASELODE_DATA_MODEL_DRILL_ASSAY.keys())
+
     required = [HOLE_ID, FROM, TO]
     for col in required:
         if col not in df.columns:
             raise ValueError(f"Assay table missing column: {col}")
+
+    if not keep_all:
+        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_ASSAY.keys() if col in required_cols]]
+
     return df.sort_values([HOLE_ID, FROM, TO])
 
 

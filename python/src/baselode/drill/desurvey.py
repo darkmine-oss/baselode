@@ -30,20 +30,14 @@ pandas and numpy for portability.
 """
 
 import math
-
-import numpy as np
 import pandas as pd
 
-from . import data
-
-
-def _deg_to_rad(angle):
-    return math.radians(angle)
+from baselode.datamodel import HOLE_ID, AZIMUTH, DIP, FROM, TO, EASTING, NORTHING, ELEVATION
 
 
 def _direction_cosines(azimuth, dip):
-    az_rad = _deg_to_rad(azimuth)
-    dip_rad = _deg_to_rad(dip)
+    az_rad = math.radians(azimuth)
+    dip_rad = math.radians(dip)
     ca = math.cos(dip_rad) * math.sin(az_rad)
     cb = math.cos(dip_rad) * math.cos(az_rad)
     cc = math.sin(dip_rad) * -1
@@ -72,38 +66,33 @@ def _segment_displacement(delta_md, az0, dip0, az1, dip1, method="minimum_curvat
     return dx, dy, dz, az1, dip1
 
 
-def _desurvey(collars, surveys, step=1.0, hole_id_col=None, method="minimum_curvature"):
-    collars = data._canonicalize_hole_id(data._frame(collars), hole_id_col=hole_id_col)
-    surveys = data._canonicalize_hole_id(data._frame(surveys), hole_id_col=hole_id_col)
-    alias_col = collars.attrs.get("hole_id_col", hole_id_col or "hole_id")
+def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
     if collars.empty or surveys.empty:
-        return pd.DataFrame(columns=["hole_id", "md", "x", "y", "z", "azimuth", "dip"])
+        return pd.DataFrame(columns=[HOLE_ID, "md", EASTING, NORTHING, ELEVATION, AZIMUTH, DIP])
 
     traces = []
-    for hole_id, collar in collars.groupby("hole_id"):
+    for hole_id, collar in collars.groupby(HOLE_ID):
         collar_row = collar.iloc[0]
-        hole_surveys = surveys[surveys["hole_id"] == hole_id].sort_values("from")
+        hole_surveys = surveys[surveys[HOLE_ID] == hole_id].sort_values(FROM)
         if hole_surveys.empty:
             continue
-        x, y, z = float(collar_row.get("x", 0)), float(collar_row.get("y", 0)), float(collar_row.get("z", 0))
-        md_cursor = float(hole_surveys.iloc[0]["from"])
-        az_prev = float(hole_surveys.iloc[0]["azimuth"])
-        dip_prev = float(hole_surveys.iloc[0]["dip"])
-        first_record = {"hole_id": hole_id, "md": md_cursor, "x": x, "y": y, "z": z, "azimuth": az_prev, "dip": dip_prev}
-        if alias_col != "hole_id" and alias_col in collar_row:
-            first_record[alias_col] = collar_row[alias_col]
+        x, y, z = float(collar_row.get(EASTING, 0)), float(collar_row.get(NORTHING, 0)), float(collar_row.get(ELEVATION, 0))
+        md_cursor = float(hole_surveys.iloc[0][FROM])
+        az_prev = float(hole_surveys.iloc[0][AZIMUTH])
+        dip_prev = float(hole_surveys.iloc[0][DIP])
+        first_record = {HOLE_ID: hole_id, "md": md_cursor, EASTING: x, NORTHING: y, ELEVATION: z, AZIMUTH: az_prev, DIP: dip_prev}
         traces.append(first_record)
 
         for idx in range(len(hole_surveys) - 1):
             s0 = hole_surveys.iloc[idx]
             s1 = hole_surveys.iloc[idx + 1]
-            md0 = float(s0["from"])
-            md1 = float(s1["from"])
+            md0 = float(s0[FROM])
+            md1 = float(s1[FROM])
             delta_md = md1 - md0
             if delta_md <= 0:
                 continue
-            az0, dip0 = float(s0["azimuth"]), float(s0["dip"])
-            az1, dip1 = float(s1["azimuth"]), float(s1["dip"])
+            az0, dip0 = float(s0[AZIMUTH]), float(s0[DIP])
+            az1, dip1 = float(s1[AZIMUTH]), float(s1[DIP])
 
             segment_steps = max(1, int(math.ceil(delta_md / step)))
             md_increment = delta_md / segment_steps
@@ -124,81 +113,69 @@ def _desurvey(collars, surveys, step=1.0, hole_id_col=None, method="minimum_curv
                 y += dy
                 z += dz
                 record = {
-                    "hole_id": hole_id,
+                    HOLE_ID: hole_id,
                     "md": md_cursor,
-                    "x": x,
-                    "y": y,
-                    "z": z,
-                    "azimuth": az_interp if method == "minimum_curvature" else az_for_record,
-                    "dip": dip_interp if method == "minimum_curvature" else dip_for_record,
+                    EASTING: x,
+                    NORTHING: y,
+                    ELEVATION: z,
+                    AZIMUTH: az_interp if method == "minimum_curvature" else az_for_record,
+                    DIP: dip_interp if method == "minimum_curvature" else dip_for_record,
                 }
-                if alias_col != "hole_id" and alias_col in collar_row:
-                    record[alias_col] = collar_row[alias_col]
                 traces.append(record)
     out = pd.DataFrame(traces)
-    out.attrs["hole_id_col"] = alias_col
     return out
 
 
-def minimum_curvature_desurvey(collars, surveys, step=1.0, hole_id_col=None):
-    return _desurvey(collars=collars, surveys=surveys, step=step, hole_id_col=hole_id_col, method="minimum_curvature")
+def minimum_curvature_desurvey(collars, surveys, step=1.0):
+    return _desurvey(collars=collars, surveys=surveys, step=step, method="minimum_curvature")
 
 
-def tangential_desurvey(collars, surveys, step=1.0, hole_id_col=None):
+def tangential_desurvey(collars, surveys, step=1.0,):
     """Simpler desurvey: uses the starting station orientation for each segment."""
-    return _desurvey(collars=collars, surveys=surveys, step=step, hole_id_col=hole_id_col, method="tangential")
+    return _desurvey(collars=collars, surveys=surveys, step=step, method="tangential")
 
 
-def balanced_tangential_desurvey(collars, surveys, step=1.0, hole_id_col=None):
+def balanced_tangential_desurvey(collars, surveys, step=1.0):
     """Balanced tangential desurvey using the average of start/end orientations per segment."""
-    return _desurvey(collars=collars, surveys=surveys, step=step, hole_id_col=hole_id_col, method="balanced_tangential")
+    return _desurvey(collars=collars, surveys=surveys, step=step, method="balanced_tangential")
 
 
-def attach_assay_positions(assays, traces, hole_id_col=None):
-    assays = data._canonicalize_hole_id(data._frame(assays), hole_id_col=hole_id_col)
-    traces = data._canonicalize_hole_id(data._frame(traces), hole_id_col=hole_id_col)
-    alias_col_raw = traces.attrs.get("hole_id_col", hole_id_col or "hole_id")
-    alias_col = data.DEFAULT_COLUMN_MAP.get(str(alias_col_raw).lower().strip(), alias_col_raw)
+def attach_assay_positions(assays, traces):
+
     if assays.empty or traces.empty:
         return assays.copy()
-    if alias_col not in traces.columns and "hole_id" in traces.columns:
-        traces = traces.copy()
-        traces[alias_col] = traces["hole_id"]
-    if alias_col not in assays.columns and "hole_id" in assays.columns:
-        assays = assays.copy()
-        assays[alias_col] = assays["hole_id"]
 
     traces_sorted = traces.copy()
     traces_sorted["md"] = pd.to_numeric(traces_sorted["md"], errors="coerce")
-    traces_sorted = traces_sorted[traces_sorted[alias_col].notna() & traces_sorted["md"].notna()]
-    traces_sorted = traces_sorted.sort_values([alias_col, "md"], kind="mergesort").reset_index(drop=True)
+    traces_sorted = traces_sorted[traces_sorted[HOLE_ID].notna() & traces_sorted["md"].notna()]
+    traces_sorted = traces_sorted.sort_values([HOLE_ID, "md"], kind="mergesort").reset_index(drop=True)
 
     assays_sorted = assays.copy()
-    assays_sorted["from"] = pd.to_numeric(assays_sorted["from"], errors="coerce")
-    assays_sorted["to"] = pd.to_numeric(assays_sorted["to"], errors="coerce")
-    assays_sorted = assays_sorted[assays_sorted[alias_col].notna()]
-    assays_sorted = assays_sorted.sort_values([alias_col, "from", "to"], kind="mergesort")
-    assays_sorted["mid_md"] = 0.5 * (assays_sorted["from"] + assays_sorted["to"])
+    assays_sorted["from"] = pd.to_numeric(assays_sorted[FROM], errors="coerce")
+    assays_sorted["to"] = pd.to_numeric(assays_sorted[TO], errors="coerce")
+    assays_sorted = assays_sorted[assays_sorted[HOLE_ID].notna()]
+    assays_sorted = assays_sorted.sort_values([HOLE_ID, FROM, TO], kind="mergesort")
+    assays_sorted["mid_md"] = 0.5 * (assays_sorted[FROM] + assays_sorted[TO])
     assays_sorted = assays_sorted[assays_sorted["mid_md"].notna()]
 
     merged_groups = []
-    for hid, group in assays_sorted.groupby(alias_col, sort=False):
-        tgroup = traces_sorted[traces_sorted[alias_col] == hid]
+    for hid, group in assays_sorted.groupby(HOLE_ID, sort=False):
+        tgroup = traces_sorted[traces_sorted[HOLE_ID] == hid]
         if tgroup.empty:
             merged_groups.append(group)
             continue
-        pos_cols = [c for c in ["md", "x", "y", "z", "azimuth", "dip"] if c in tgroup.columns]
-        tgroup_use = tgroup[[alias_col] + pos_cols].sort_values("md", kind="mergesort")
+        pos_cols = [c for c in ["md", EASTING, NORTHING, ELEVATION, AZIMUTH, DIP] if c in tgroup.columns]
+        tgroup_use = tgroup[[HOLE_ID] + pos_cols].sort_values("md", kind="mergesort")
         merged = pd.merge_asof(
             group.sort_values("mid_md", kind="mergesort"),
             tgroup_use,
             left_on="mid_md",
             right_on="md",
-            by=alias_col,
+            by=HOLE_ID,
             direction="nearest",
             suffixes=("", "_trace"),
         )
-        drop_cols = [col for col in [f"{alias_col}_trace", "hole_id_trace"] if col in merged.columns]
+        drop_cols = [col for col in [f"{HOLE_ID}_trace", "hole_id_trace"] if col in merged.columns]
         if drop_cols:
             merged = merged.drop(columns=drop_cols)
         merged_groups.append(merged)
@@ -208,5 +185,5 @@ def attach_assay_positions(assays, traces, hole_id_col=None):
     return pd.concat(merged_groups, ignore_index=True)
 
 
-def build_traces(collars, surveys, step=1.0, hole_id_col=None):
-    return minimum_curvature_desurvey(collars=collars, surveys=surveys, step=step, hole_id_col=hole_id_col)
+def build_traces(collars, surveys, step=1.0):
+    return minimum_curvature_desurvey(collars=collars, surveys=surveys, step=step)
