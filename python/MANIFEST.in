@@ -1,0 +1,3 @@
+prune src/build
+prune src/*.egg-info
+global-exclude __pycache__ *.py[cod]

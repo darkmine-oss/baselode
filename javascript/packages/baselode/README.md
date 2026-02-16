@@ -32,3 +32,20 @@ By using `baselode`, you agree to the following obligations:
 - You must distribute your modified source code under the GPL-3.0 license.
 
 For any questions or contributions, contact form is at [darkmine.ai](http://darkmine.ai/)
+
+## NPM Release
+
+This package is configured to take its version from the git tag on the current commit.
+
+- Tag format: `vMAJOR.MINOR.PATCH` (example: `v0.1.0`)
+- On `npm pack` or `npm publish`, `prepack` runs `scripts/set-version-from-tag.mjs`
+- The script strips the leading `v` and updates `package.json` version before building
+
+Typical publish flow:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+npm run pack:check
+npm run publish:npm
+```

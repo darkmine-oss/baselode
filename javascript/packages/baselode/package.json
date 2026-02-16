@@ -3,6 +3,19 @@
   "version": "0.1.0",
   "description": "Geoscience drillhole data processing and visualization toolkit",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/darkmine-oss/baselode.git",
+    "directory": "javascript/packages/baselode"
+  },
+  "homepage": "https://github.com/darkmine-oss/baselode",
+  "bugs": {
+    "url": "https://github.com/darkmine-oss/baselode/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "type": "module",
   "main": "./dist/baselode.js",
   "module": "./dist/baselode.js",
@@ -13,14 +26,20 @@
     "./style.css": "./dist/style.css"
   },
   "files": [
-    "dist",
-    "src"
+    "dist/baselode.js",
+    "dist/baselode.js.map",
+    "dist/style.css",
+    "README.md"
   ],
   "sideEffects": [
     "**/*.css"
   ],
   "scripts": {
+    "version:from-tag": "node ./scripts/set-version-from-tag.mjs",
     "build": "vite build",
+    "prepack": "npm run version:from-tag && npm run build",
+    "pack:check": "npm pack --dry-run",
+    "publish:npm": "npm publish",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest"
