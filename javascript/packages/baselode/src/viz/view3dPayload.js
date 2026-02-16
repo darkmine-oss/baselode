@@ -23,9 +23,9 @@ function getHoleId(row = {}) {
  * Convert value to finite number or undefined
  * @private
  */
-function toNumber(value) {
+function toNumber(value, fallback = undefined) {
   const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
+  return Number.isFinite(n) ? n : fallback;
 }
 
 /**
