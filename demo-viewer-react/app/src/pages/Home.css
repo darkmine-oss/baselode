@@ -174,12 +174,13 @@
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
-  width: 390px;
-  max-height: 90vh;
+  width: 500px;
+  height: 600px;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
+  overflow: hidden;
 }
 
 .hole-popup-header {
@@ -187,6 +188,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
+  flex-shrink: 0;
 }
 
 .hole-popup-title {
@@ -209,12 +211,16 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .popup-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
   gap: 1rem;
 }
 
@@ -232,8 +238,10 @@
 }
 
 .hole-popup-plot {
-  width: 100%;
-  min-height: 320px;
+  width: 100%;0;
+  overflow: hidden
+  flex: 1;
+  min-height: 200px;
 }
 
 .hole-popup-placeholder {

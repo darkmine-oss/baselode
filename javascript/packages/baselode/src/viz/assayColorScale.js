@@ -19,24 +19,16 @@ export const ASSAY_COLOR_PALETTE_10 = [
 
 /**
  * Build an equal-range color scale from numeric values
- * Divides value range into bins with equal width, each mapped to a color
+ * Uses percentile-based binning for better distribution with outliers
  * @param {Array<number>} values - Array of numeric values to analyze
  * @param {Array<string>} colors - Array of color hex strings to use for bins
  * @returns {{min: number|null, max: number|null, step: number|null, bins: Array<{index: number, min: number, max: number, label: string}>, colors: Array<string>}} Color scale object
  */
 export function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALETTE_10) {
-  let min = Infinity;
-  let max = -Infinity;
-  let count = 0;
-  for (let i = 0; i < values.length; i += 1) {
-    const value = values[i];
-    if (!Number.isFinite(value)) continue;
-    if (value < min) min = value;
-    if (value > max) max = value;
-    count += 1;
-  }
-
-  if (!count) {
+  // Filter to finite values and sort
+  const finiteValues = values.filter((v) => Number.isFinite(v));
+  
+  if (!finiteValues.length) {
     return {
       min: null,
       max: null,
@@ -46,6 +38,9 @@ export function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALE
     };
   }
 
+  const sorted = finiteValues.slice().sort((a, b) => a - b);
+  const min = sorted[0];
+  const max = sorted[sorted.length - 1];
   const binCount = colors.length;
 
   if (max === min) {
@@ -64,17 +59,24 @@ export function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALE
     };
   }
 
-  const step = (max - min) / binCount;
+  // Use percentile-based binning for better distribution
   const bins = colors.map((_, index) => {
-    const lower = min + (step * index);
-    const upper = index === binCount - 1 ? max : min + (step * (index + 1));
+    const percentileLow = index / binCount;
+    const percentileHigh = (index + 1) / binCount;
+    const idxLow = Math.floor(percentileLow * sorted.length);
+    const idxHigh = Math.min(sorted.length - 1, Math.floor(percentileHigh * sorted.length));
+    const lower = sorted[idxLow];
+    const upper = index === binCount - 1 ? max : sorted[idxHigh];
+    
     return {
       index,
       min: lower,
       max: upper,
-      label: `${lower.toFixed(3)} - ${upper.toFixed(3)}`
+      label: formatBinLabel(lower, upper)
     };
   });
+
+  const step = (max - min) / binCount;
 
   return {
     min,
@@ -86,7 +88,22 @@ export function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALE
 }
 
 /**
- * Get the bin index for a value in an equal-range color scale
+ * Format bin label with appropriate precision
+ * @private
+ */
+function formatBinLabel(min, max) {
+  const formatVal = (v) => {
+    if (!Number.isFinite(v)) return 'n/a';
+    if (Math.abs(v) >= 1000) return v.toFixed(0);
+    if (Math.abs(v) >= 10) return v.toFixed(1);
+    if (Math.abs(v) >= 0.1) return v.toFixed(2);
+    return v.toFixed(3);
+  };
+  return `${formatVal(min)} – ${formatVal(max)}`;
+}
+
+/**
+ * Get the bin index for a value in a color scale
  * @param {number} value - Value to find bin for
  * @param {Object} scale - Color scale object from buildEqualRangeColorScale
  * @returns {number} Bin index (0 to bins.length-1) or -1 if invalid
@@ -100,10 +117,16 @@ export function getEqualRangeBinIndex(value, scale) {
     return value === scale.min ? 0 : -1;
   }
 
-  const step = scale.step;
-  if (!Number.isFinite(step) || step <= 0) return -1;
-  const rawIndex = Math.floor((value - scale.min) / step);
-  return Math.max(0, Math.min(scale.bins.length - 1, rawIndex));
+  // Find the bin that contains this value
+  for (let i = 0; i < scale.bins.length; i += 1) {
+    const bin = scale.bins[i];
+    if (value >= bin.min && (value <= bin.max || i === scale.bins.length - 1)) {
+      return i;
+    }
+  }
+
+  // Value is out of range
+  return -1;
 }
 
 /**

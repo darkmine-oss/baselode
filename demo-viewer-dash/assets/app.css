@@ -221,7 +221,7 @@ body {
 
 .trace-controls {
   display: grid;
-  grid-template-columns: 1.1fr 1fr 0.9fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-bottom: 6px;
 }
@@ -239,3 +239,4 @@ body {
   border-radius: 10px;
   margin-top: 10px;
 }
+

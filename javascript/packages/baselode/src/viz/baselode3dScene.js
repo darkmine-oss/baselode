@@ -71,9 +71,9 @@ function getWeightedIntervalValue(assayIntervals, segStart, segEnd) {
  * @private
  */
 function getAssaySegmentColor(value, assayScale) {
-  if (!Number.isFinite(value) || value <= 0) return new THREE.Color(LOW_ASSAY_GREY);
+  if (!Number.isFinite(value)) return new THREE.Color(LOW_ASSAY_GREY);
   const binIndex = getEqualRangeBinIndex(value, assayScale);
-  if (binIndex <= 0) return new THREE.Color(LOW_ASSAY_GREY);
+  if (binIndex < 0) return new THREE.Color(LOW_ASSAY_GREY);
   const colorHex = getEqualRangeColor(value, assayScale, LOW_ASSAY_GREY);
   return new THREE.Color(colorHex);
 }
@@ -172,11 +172,11 @@ class Baselode3DScene {
     this.renderer.autoClear = false;
     container.appendChild(this.renderer.domElement);
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Lighting - balanced for clean colors without bleeding
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
     directionalLight.position.set(10, 10, 5);
     this.scene.add(directionalLight);
 
@@ -381,7 +381,10 @@ class Baselode3DScene {
     const up = new THREE.Vector3(0, 1, 0); // cylinder default axis
 
     holes.forEach((hole, idx) => {
-      const defaultColor = new THREE.Color().setHSL((idx / holes.length), 0.6, 0.45);
+      // Improved color palette: use golden angle for better distribution
+      const goldenAngle = 137.5;
+      const hue = ((idx * goldenAngle) % 360) / 360;
+      const defaultColor = new THREE.Color().setHSL(hue, 0.75, 0.55);
       const points = (hole.points || []).map((p) => {
         minX = Math.min(minX, p.x);
         maxX = Math.max(maxX, p.x);
@@ -396,8 +399,12 @@ class Baselode3DScene {
 
       if (points.length < 2) {
         if (points.length === 1) {
-          const sphereGeom = new THREE.SphereGeometry(5, 16, 16);
-          const sphereMat = new THREE.MeshStandardMaterial({ color: defaultColor });
+          const sphereGeom = new THREE.SphereGeometry(5, 12, 12);
+          const sphereMat = new THREE.MeshLambertMaterial({ 
+            color: defaultColor,
+            emissive: defaultColor,
+            emissiveIntensity: 0.2
+          });
           const sphere = new THREE.Mesh(sphereGeom, sphereMat);
           sphere.position.copy(points[0]);
           sphere.userData = buildHoleUserData(hole);
@@ -420,8 +427,8 @@ class Baselode3DScene {
         const dir = tmpVec.subVectors(p2, p1);
         const len = dir.length();
         if (len <= 0.001) continue;
-        const radius = 2.5;
-        const cylinderGeom = new THREE.CylinderGeometry(radius, radius, len, 10, 1, false);
+        const radius = 2.2;
+        const cylinderGeom = new THREE.CylinderGeometry(radius, radius, len, 6, 1, false);
         const segmentColor = this._getSegmentColor({
           selectedAssayVariable,
           assayIntervals,
@@ -431,7 +438,12 @@ class Baselode3DScene {
           p1,
           p2
         });
-        const cylinderMat = new THREE.MeshStandardMaterial({ color: segmentColor });
+        const cylinderMat = new THREE.MeshLambertMaterial({ 
+          color: segmentColor,
+          flatShading: true,
+          emissive: segmentColor,
+          emissiveIntensity: 0.15
+        });
         const mesh = new THREE.Mesh(cylinderGeom, cylinderMat);
         mesh.position.copy(p1.clone().addScaledVector(dir, 0.5));
         mesh.quaternion.setFromUnitVectors(up, dir.clone().normalize());
@@ -455,6 +467,22 @@ class Baselode3DScene {
   _getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, holeId, segmentIndex, p1, p2 }) {
     if (!selectedAssayVariable) {
       return randomSegmentColor(holeId, segmentIndex);
+    }
+    // Special mode: color by presence of any assay data
+    if (selectedAssayVariable === '__HAS_ASSAY__') {
+      if (!assayIntervals?.length) return new THREE.Color(LOW_ASSAY_GREY);
+      const depthRange = getMeasuredDepthRange(p1, p2);
+      if (!depthRange) return new THREE.Color(LOW_ASSAY_GREY);
+      // Check for ANY overlap with assay intervals
+      const hasData = assayIntervals.some((interval) => {
+        const from = Number(interval?.from);
+        const to = Number(interval?.to);
+        if (!Number.isFinite(from) || !Number.isFinite(to)) return false;
+        const overlapStart = Math.max(depthRange.segStart, from);
+        const overlapEnd = Math.min(depthRange.segEnd, to);
+        return overlapEnd > overlapStart;
+      });
+      return hasData ? new THREE.Color('#ff8c42') : new THREE.Color(LOW_ASSAY_GREY);
     }
     if (!assayIntervals?.length) return new THREE.Color(LOW_ASSAY_GREY);
     const depthRange = getMeasuredDepthRange(p1, p2);

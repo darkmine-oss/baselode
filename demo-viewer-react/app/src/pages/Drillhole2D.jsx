@@ -10,6 +10,7 @@ import {
 } from 'baselode';
 import './Drillhole2D.css';
 import { loadDemoGswaAssayFile } from '../data/demoGswaData.js';
+import { createPortal } from 'react-dom';
 
 function Drillhole2D() {
   const location = useLocation();
@@ -59,11 +60,6 @@ function Drillhole2D() {
       <div className="drillhole2d-header">
         <h1>Drillhole 2D Traces</h1>
         <div className="drillhole2d-controls">
-          <span className="drillhole-info">Data source: demo_gswa_sample_assays.csv (cached)</span>
-          {holeCount > 0 && (
-            <span className="drillhole-info">{holeCount} collars with assays</span>
-          )}
-
           {error && <span className="error-text">{error}</span>}
         </div>
       </div>
@@ -80,6 +76,18 @@ function Drillhole2D() {
           />
         ))}
       </div>
+      {(() => {
+        const dataSourceTarget = typeof document !== 'undefined' ? document.getElementById('data-source-slot') : null;
+        if (!dataSourceTarget) return null;
+        const dataSourceInfo = (
+          <div className="data-source-text">
+            {holeCount > 0 && (
+              <div>demo_gswa ({holeCount} assays)</div>
+            )}
+          </div>
+        );
+        return createPortal(dataSourceInfo, dataSourceTarget);
+      })()}
     </div>
   );
 }

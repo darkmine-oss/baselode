@@ -588,9 +588,6 @@ function Home() {
         />
       </form>
       {searchError && <div className="error-banner inline small">{searchError}</div>}
-      <div className="status-banner small">
-        Data source: demo_gswa_sample_collars.csv + demo_gswa_sample_assays.csv (cached)
-      </div>
 
       <label className="checkbox-row">
         <input
@@ -602,13 +599,24 @@ function Home() {
       </label>
 
       {error && <div className="error-banner small">{error}</div>}
-      {!error && collars.length > 0 && (
-        <div className="status-banner small">Loaded {collars.length} collars</div>
+    </div>
+  );
+
+  const dataSourceInfo = (
+    <div className="data-source-text">
+      {(collars.length > 0 || assayState?.holes?.length) && (
+        <div>
+          demo_gswa
+          {collars.length > 0 && ` (${collars.length} collars`}
+          {assayState?.holes?.length > 0 && `${collars.length > 0 ? ', ' : ' ('}${assayState.holes.length} assays`}
+          {(collars.length > 0 || assayState?.holes?.length) && ')'}
+        </div>
       )}
     </div>
   );
 
   const controlsTarget = typeof document !== 'undefined' ? document.getElementById('map-controls-slot') : null;
+  const dataSourceTarget = typeof document !== 'undefined' ? document.getElementById('data-source-slot') : null;
 
   return (
     <div className="home-container">
@@ -616,6 +624,7 @@ function Home() {
         <div ref={mapContainerRef} className="maplibre-container" />
       </div>
       {controlsTarget ? createPortal(controls, controlsTarget) : controls}
+      {dataSourceTarget && createPortal(dataSourceInfo, dataSourceTarget)}
       {popupHoleId && (
         <div className="hole-popup-overlay" role="dialog" aria-modal="true">
           <div className="hole-popup-card">

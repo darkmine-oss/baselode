@@ -72,11 +72,42 @@
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   font-size: 13px;
   color: #444;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.data-source-info {
+  font-size: 10px;
+  color: #666;
+  line-height: 1.3;
+}
+
+.data-source-text {
+  font-size: 10px;
+  color: #666;
 }
 
 .sidebar-slot {
   padding: 6px 12px 10px;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.sidebar-source-link {
+  padding: 12px 20px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  font-size: 11px;
+}
+
+.sidebar-source-link a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.sidebar-source-link a:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
 }
 
 .zoom-label {

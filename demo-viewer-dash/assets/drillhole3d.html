@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drillhole 3D Viewer</title>
+    <link rel="stylesheet" href="/assets/baselode-style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #scene-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="scene-container">
+        <div id="loading">Loading 3D scene...</div>
+    </div>
+    
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+            "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+            "three-viewport-gizmo": "https://cdn.jsdelivr.net/npm/three-viewport-gizmo@2.0.3/+esm",
+            "react": "https://cdn.jsdelivr.net/npm/react@18.2.0/+esm",
+            "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@18.2.0/jsx-runtime/+esm",
+            "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@18.2.0/+esm",
+            "papaparse": "https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm",
+            "plotly.js-dist-min": "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.26.0/+esm",
+            "baselode": "/assets/baselode.js"
+        }
+    }
+    </script>
+    
+    <script type="module">
+        import { Baselode3DScene } from 'baselode';
+        
+        // Get drillhole data from parent window
+        function getDrillholeData() {
+            if (window.parent && window.parent.drillholeData) {
+                return window.parent.drillholeData;
+            }
+            return {};
+        }
+        
+        // Convert drillhole data to Baselode3DScene format
+        function convertToBaselodeFormat(drillholeData) {
+            return Object.entries(drillholeData).map(([holeId, points]) => ({
+                id: holeId,
+                points: points.map(p => ({
+                    x: p.easting,
+                    y: p.elevation,  // Y is up in Three.js
+                    z: p.northing,
+                    md: p.md
+                }))
+            }));
+        }
+        
+        // Initialize the 3D scene
+        async function init() {
+            const container = document.getElementById('scene-container');
+            const loading = document.getElementById('loading');
+            
+            // Create scene
+            const scene = new Baselode3DScene();
+            scene.init(container);
+            
+            // Get and convert drillhole data
+            const drillholeData = getDrillholeData();
+            const holes = convertToBaselodeFormat(drillholeData);
+            
+            // Render drillholes
+            if (holes.length > 0) {
+                scene.setDrillholes(holes);
+            }
+            
+            loading.style.display = 'none';
+        }
+        
+        init();
+    </script>
+</body>
+</html>

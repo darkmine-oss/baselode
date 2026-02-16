@@ -12,8 +12,8 @@ function Sidebar() {
 
   const menuItems = [
     { path: '/', label: 'Map' },
-    { path: '/drillhole', label: 'Drillhole' },
-    { path: '/drillhole-2d', label: 'Drillhole 2D' }
+    { path: '/drillhole', label: '3D Scene' },
+    { path: '/drillhole-2d', label: 'Strip Log' }
   ];
 
   return (
@@ -35,7 +35,15 @@ function Sidebar() {
       </ul>
       <div id="map-controls-slot" className="sidebar-slot" />
       <div className="sidebar-footer">
-        <span className="zoom-label">Zoom: {zoomLevel}</span>
+        <div id="data-source-slot" className="data-source-info" />
+        {location.pathname === '/' && (
+          <span className="zoom-label">Zoom: {zoomLevel}</span>
+        )}
+      </div>
+      <div className="sidebar-source-link">
+        <a href="https://github.com/darkmine-oss/baselode" target="_blank" rel="noopener noreferrer">
+          Source Code
+        </a>
       </div>
     </nav>
   );

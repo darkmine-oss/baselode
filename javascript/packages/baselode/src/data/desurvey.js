@@ -197,7 +197,7 @@ export function desurveyTraces(collars, surveys) {
 
     holes.push({
       id: collar[HOLE_ID] || collar.holeId || key,
-      project: collar.project,
+      project: collar[PROJECT_ID] || collar.project_id || collar.project || '',
       points: pointsWithGeo,
       collar
     });

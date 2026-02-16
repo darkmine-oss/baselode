@@ -231,8 +231,8 @@ app.layout = html.Div(
             children=[
                 html.H2("Baselode Viewer", className="sidebar-title"),
                 sidebar_link("Map", "/"),
-                sidebar_link("Drillhole", "/drillhole"),
-                sidebar_link("Drillhole 2D", "/drillhole-2d"),
+                sidebar_link("3D Scene", "/drillhole"),
+                sidebar_link("Strip Log", "/drillhole-2d"),
                 html.Div(id="sidebar-panel", className="sidebar-panel"),
                 html.Div(id="sidebar-zoom", className="sidebar-footer"),
             ],
@@ -248,6 +248,27 @@ app.layout = html.Div(
 def render_page(pathname, selected_hole):
     if pathname == "/drillhole":
         hole_count = len(DATASET["traces"]["hole_id"].unique()) if not DATASET["traces"].empty else 0
+        
+        # Prepare drillhole data for JavaScript
+        traces_df = DATASET["traces"]
+        drillhole_data = {}
+        
+        if not traces_df.empty:
+            for hole_id in traces_df["hole_id"].unique():
+                hole_traces = traces_df[traces_df["hole_id"] == hole_id].sort_values("md")
+                drillhole_data[str(hole_id)] = [
+                    {
+                        "easting": float(row.easting) if pd.notna(row.easting) else 0,
+                        "northing": float(row.northing) if pd.notna(row.northing) else 0,
+                        "elevation": float(row.elevation) if pd.notna(row.elevation) else 0,
+                        "md": float(row.md) if pd.notna(row.md) else 0,
+                    }
+                    for _, row in hole_traces.iterrows()
+                ]
+        
+        import json
+        drillhole_json = json.dumps(drillhole_data)
+        
         return html.Div(
             className="page",
             children=[
@@ -255,17 +276,18 @@ def render_page(pathname, selected_hole):
                     className="page-header",
                     children=[
                         html.H1("Drillhole Viewer (3D)"),
-                        html.Div(f"{hole_count} desurveyed drillholes available from Python preprocessing", className="meta"),
+                        html.Div(f"{hole_count} desurveyed drillholes", className="meta"),
                     ],
                 ),
-                html.Div(
-                    className="card",
-                    children=[
-                        html.Label("JS viewer URL", className="label"),
-                        dcc.Input(id="js-3d-url", type="text", value="http://localhost:3000/drillhole", className="text-input"),
-                        html.Div("The 3D window is intentionally provided by JavaScript Baselode for parity.", className="meta"),
-                        html.Iframe(id="drillhole-3d-iframe", src="http://localhost:3000/drillhole", className="viewer-iframe"),
-                    ],
+                html.Script(f"window.drillholeData = {drillhole_json};"),
+                html.Iframe(
+                    src="/assets/drillhole3d.html",
+                    style={
+                        "width": "100%",
+                        "height": "80vh",
+                        "border": "none",
+                        "borderRadius": "8px",
+                    },
                 ),
             ],
         )
@@ -347,18 +369,6 @@ def render_page(pathname, selected_hole):
             ),
         ],
     )
-
-
-@app.callback(
-    Output("drillhole-3d-iframe", "src"),
-    Input("js-3d-url", "value"),
-    prevent_initial_call=True,
-)
-def update_iframe_src(url):
-    """Update 3D iframe source URL."""
-    if not url:
-        return no_update
-    return url
 
 
 @app.callback(

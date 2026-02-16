@@ -19,6 +19,7 @@ import {
   loadDemoPrecomputedDesurveyFile,
   loadDemoSurveyCsvText
 } from '../data/demoGswaData.js';
+import { createPortal } from 'react-dom';
 
 const ASSAY_COLOR_PALETTE_10 = [
   '#313695',
@@ -47,7 +48,6 @@ function Drillhole() {
   const [collars, setCollars] = useState([]);
   const [error, setError] = useState('');
   const [desurveyMs, setDesurveyMs] = useState(null);
-  const [desurveyCsvUrl, setDesurveyCsvUrl] = useState('');
   const [assayVariables, setAssayVariables] = useState([]);
   const [assayIntervalsByHole, setAssayIntervalsByHole] = useState({});
   const [colorByVariable, setColorByVariable] = useState('None');
@@ -56,17 +56,19 @@ function Drillhole() {
 
   const selectedAssayIntervalsByHole = useMemo(() => {
     if (colorByVariable === 'None') return null;
+    // For "Has Assay Data" mode, return all intervals (not filtered by variable)
+    if (colorByVariable === '__HAS_ASSAY__') return assayIntervalsByHole;
     return mapIntervalsForVariable(assayIntervalsByHole, colorByVariable);
   }, [assayIntervalsByHole, colorByVariable]);
 
   const legendScale = useMemo(() => {
-    if (!selectedAssayIntervalsByHole) return null;
+    if (!selectedAssayIntervalsByHole || colorByVariable === '__HAS_ASSAY__') return null;
     const values = Object.values(selectedAssayIntervalsByHole)
       .flatMap((intervals) => (intervals || []).map((interval) => Number(interval?.value)))
       .filter((value) => Number.isFinite(value));
     const scale = buildEqualRangeColorScale(values, ASSAY_COLOR_PALETTE_10);
     return scale?.bins?.length ? scale : null;
-  }, [selectedAssayIntervalsByHole]);
+  }, [selectedAssayIntervalsByHole, colorByVariable]);
 
   const projectTo28350 = useMemo(() => {
     const def = '+proj=utm +zone=50 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
@@ -94,21 +96,17 @@ function Drillhole() {
         if (!renderable.length) return;
         const normalized = renderable.map((hole) => ({
           id: hole.id,
-          project: hole.points?.[0]?.project || '',
+          project: hole.points?.[0]?.project_id || '',
           points: (hole.points || []).map((point) => ({
             x: Number(point.x),
             y: Number(point.y),
             z: Number(point.z),
             md: Number(point.md)
           })).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z))
-        })).filter((hole) => (hole.points || []).length >= 2 && isFfCompanyHole(hole));
+        })).filter((hole) => (hole.points || []).length >= 2);
         if (!normalized.length) return;
         const limited = normalized.slice(0, MAX_SCENE_HOLES);
         setHoles(limited);
-        setDesurveyCsvUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return makeDesurveyCsvUrl(limited);
-        });
         setUsingPrecomputed(true);
       })
       .catch((err) => {
@@ -118,19 +116,12 @@ function Drillhole() {
   }, [holes]);
 
   useEffect(() => {
-    return () => {
-      if (desurveyCsvUrl) {
-        URL.revokeObjectURL(desurveyCsvUrl);
-      }
-    };
-  }, [desurveyCsvUrl]);
-
-  useEffect(() => {
     loadDemoGswaAssayFile()
       .then((demoGswaAssayFile) => loadAssayFile(demoGswaAssayFile, ''))
       .then((state) => {
         const numeric = (state?.numericProps || []).filter(Boolean);
-        setAssayVariables(numeric);
+        // Add special "Has Assay Data" option at the beginning
+        setAssayVariables(['__HAS_ASSAY__', ...numeric]);
         setAssayIntervalsByHole(buildAssayIntervalsByHole(state?.holes || []));
       })
       .catch((err) => {
@@ -281,19 +272,15 @@ function Drillhole() {
       points: h.points.map((p) => ({ x: p.offset.x, y: p.offset.y, z: p.z, md: p.md }))
     }));
 
-    const filteredHoles = shiftedHoles.filter((h) => (h.points || []).length >= 2 && isFfCompanyHole(h));
+    const filteredHoles = shiftedHoles.filter((h) => (h.points || []).length >= 2);
     if (!filteredHoles.length) {
-      setError('No renderable FF* company holes after projection.');
+      setError('No renderable holes after projection.');
       return;
     }
 
     const limitedHoles = filteredHoles.slice(0, MAX_SCENE_HOLES);
 
     setHoles(limitedHoles);
-    setDesurveyCsvUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return makeDesurveyCsvUrl(limitedHoles);
-    });
   };
 
   return (
@@ -301,9 +288,6 @@ function Drillhole() {
       <div className="drillhole-header">
         <h1>Drillhole Viewer</h1>
         <div className="drillhole-controls">
-          <span className="drillhole-info">
-            Data source: {usingPrecomputed ? 'demo_gswa_precomputed_desurveyed.csv' : 'demo_gswa_sample_survey.csv (fallback desurvey)'}
-          </span>
           <label className="drillhole-color-control">
             Color by
             <select
@@ -313,7 +297,9 @@ function Drillhole() {
             >
               <option value="None">None</option>
               {assayVariables.map((variable) => (
-                <option key={variable} value={variable}>{variable}</option>
+                <option key={variable} value={variable}>
+                  {variable === '__HAS_ASSAY__' ? 'Has Assay Data' : variable}
+                </option>
               ))}
             </select>
           </label>
@@ -325,24 +311,30 @@ function Drillhole() {
           {desurveyMs !== null && (
             <span className="drillhole-info">Desurveyed in {desurveyMs.toFixed(1)} ms</span>
           )}
-          {desurveyCsvUrl && (
-            <a
-              className="ghost-button"
-              href={desurveyCsvUrl}
-              download="demo_gswa_desurveyed.csv"
-            >
-              Download desurveyed CSV
-            </a>
-          )}
           {error && <span className="drillhole-info error">{error}</span>}
-          {colorByVariable !== 'None' && legendScale && (
+          {colorByVariable === '__HAS_ASSAY__' && (
+            <div className="drillhole-legend" aria-label="Color legend for assay data presence">
+              <div className="drillhole-legend-title">Legend (Has Assay Data)</div>
+              <div className="drillhole-legend-grid">
+                <div className="drillhole-legend-item">
+                  <span className="drillhole-legend-swatch" style={{ background: '#ff8c42' }} />
+                  <span className="drillhole-legend-label">Has assay data</span>
+                </div>
+                <div className="drillhole-legend-item">
+                  <span className="drillhole-legend-swatch" style={{ background: '#9ca3af' }} />
+                  <span className="drillhole-legend-label">No assay data</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {colorByVariable !== 'None' && colorByVariable !== '__HAS_ASSAY__' && legendScale && (
             <div className="drillhole-legend" aria-label={`Color legend for ${colorByVariable}`}>
               <div className="drillhole-legend-title">Legend ({colorByVariable})</div>
               <div className="drillhole-legend-grid">
                 {legendScale.bins.map((bin, index) => (
                   <div key={`${bin.index}-${index}`} className="drillhole-legend-item">
                     <span className="drillhole-legend-swatch" style={{ background: legendScale.colors[index] }} />
-                    <span className="drillhole-legend-label">{formatLegendRange(bin.min, bin.max)}</span>
+                    <span className="drillhole-legend-label">{bin.label}</span>
                   </div>
                 ))}
               </div>
@@ -378,34 +370,28 @@ function Drillhole() {
           </div>
         )}
       </div>
+      {(() => {
+        const dataSourceTarget = typeof document !== 'undefined' ? document.getElementById('data-source-slot') : null;
+        if (!dataSourceTarget) return null;
+        const dataSourceInfo = (
+          <div className="data-source-text">
+            {(collars.length > 0 || holes?.length > 0) && (
+              <div>
+                demo_gswa
+                {collars.length > 0 && ` (${collars.length} collars`}
+                {holes?.length > 0 && `${collars.length > 0 ? ', ' : ' ('}${holes.length} surveys`}
+                {(collars.length > 0 || holes?.length > 0) && ')'}
+              </div>
+            )}
+          </div>
+        );
+        return createPortal(dataSourceInfo, dataSourceTarget);
+      })()}
     </div>
   );
 }
 
 export default Drillhole;
-
-function makeDesurveyCsvUrl(holes) {
-  const lines = ['hole_id,point_index,x,y,z'];
-  (holes || []).forEach((hole) => {
-    const hid = escapeCsv(hole.id || '');
-    (hole.points || []).forEach((point, index) => {
-      const x = Number.isFinite(point.x) ? point.x : '';
-      const y = Number.isFinite(point.y) ? point.y : '';
-      const z = Number.isFinite(point.z) ? point.z : '';
-      lines.push(`${hid},${index},${x},${y},${z}`);
-    });
-  });
-  const blob = new Blob([`${lines.join('\n')}\n`], { type: 'text/csv;charset=utf-8' });
-  return URL.createObjectURL(blob);
-}
-
-function escapeCsv(value) {
-  const str = String(value ?? '');
-  if (/[,"\n]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
 
 function buildAssayIntervalsByHole(assayHoles) {
   const byHole = {};
