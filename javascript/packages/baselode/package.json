@@ -5,7 +5,7 @@
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/darkmine-oss/baselode.git",
+    "url": "git+https://github.com/darkmine-oss/baselode.git",
     "directory": "javascript/packages/baselode"
   },
   "homepage": "https://github.com/darkmine-oss/baselode",
@@ -13,8 +13,7 @@
     "url": "https://github.com/darkmine-oss/baselode/issues"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "type": "module",
   "main": "./dist/baselode.js",
@@ -40,6 +39,7 @@
     "prepack": "npm run version:from-tag && npm run build",
     "pack:check": "npm pack --dry-run",
     "publish:npm": "npm publish",
+    "publish:npm:provenance": "npm publish --provenance",
     "dev": "vite build --watch",
     "test": "vitest run",
     "test:watch": "vitest"
