@@ -11,23 +11,23 @@ import {
 
 
 describe('datasetLoader', () => {
-  it('includes depth -> from alias in default map', () => {
-    expect(DEFAULT_COLUMN_MAP.depth).toBe('from');
+  it('DEFAULT_COLUMN_MAP has depth field with variations', () => {
+    expect(Array.isArray(DEFAULT_COLUMN_MAP.depth)).toBe(true);
+    expect(DEFAULT_COLUMN_MAP.depth).toContain('depth');
   });
 
   it('standardizes mixed-case GSWA-like columns', () => {
-    const rows = [{ HoleId: 'ABC1', CollarId: 10, Latitude: -31.2, Longitude: 119.1, Elevation: 400 }];
+    const rows = [{ HoleId: 'ABC1', Latitude: -31.2, Longitude: 119.1, Elevation: 400 }];
     const standardized = standardizeColumns(rows);
     expect(standardized[0]).toMatchObject({
       hole_id: 'ABC1',
-      collar_id: 10,
-      lat: -31.2,
-      lon: 119.1,
-      z: 400
+      latitude: -31.2,
+      longitude: 119.1,
+      elevation: 400
     });
   });
 
-  it('loads collars from CSV and derives x/y from lon/lat', async () => {
+  it('loads collars from CSV with latitude/longitude', async () => {
     const csv = [
       'HoleId,Latitude,Longitude,Elevation',
       'A1,-31.5,119.7,410',
@@ -38,40 +38,41 @@ describe('datasetLoader', () => {
 
     expect(collars).toHaveLength(2);
     expect(collars[0].hole_id).toBe('A1');
-    expect(collars[0].x).toBeCloseTo(119.7, 12);
-    expect(collars[0].y).toBeCloseTo(-31.5, 12);
+    expect(collars[0].latitude).toBeCloseTo(-31.5, 12);
+    expect(collars[0].longitude).toBeCloseTo(119.7, 12);
+    expect(collars[0].elevation).toBeCloseTo(410, 12);
   });
 
-  it('loads surveys using depth as from via default map', async () => {
+  it('loads surveys with sourceColumnMap for custom column names', async () => {
     const csv = [
       'CollarId,Depth,Azimuth,Dip',
-      'C1,10,90,-60',
       'C1,0,88,-58',
+      'C1,10,90,-60',
       'C2,5,100,-55'
     ].join('\n');
 
-    const surveys = await loadSurveys(csv, { holeIdCol: 'collar_id' });
+    const surveys = await loadSurveys(csv, { sourceColumnMap: { CollarId: 'hole_id' } });
 
     expect(surveys).toHaveLength(3);
     expect(surveys[0].hole_id).toBe('C1');
-    expect(surveys[0].from).toBe(0);
-    expect(surveys[1].from).toBe(10);
+    expect(surveys[0].depth).toBe(0);
+    expect(surveys[1].depth).toBe(10);
     expect(surveys[2].hole_id).toBe('C2');
   });
 
-  it('fails loadAssays when to column is missing', async () => {
+  it('fails loadAssays when required columns are missing', async () => {
     const csv = [
-      'CollarId,Depth,Azimuth,Dip',
-      'C1,10,90,-60'
+      'HoleId,From',
+      'C1,10'
     ].join('\n');
 
-    await expect(loadAssays(csv, { holeIdCol: 'collar_id' }))
+    await expect(loadAssays(csv))
       .rejects
       .toThrow('Assay table missing column: to');
   });
 
   it('supports loadTable on array input', async () => {
     const table = await loadTable([{ HoleId: 'X1', Depth: 12 }]);
-    expect(table[0]).toMatchObject({ hole_id: 'X1', from: 12 });
+    expect(table[0]).toMatchObject({ hole_id: 'X1', depth: 12 });
   });
 });

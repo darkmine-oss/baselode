@@ -68,10 +68,10 @@
       ],
       "pythonSymbols": [
         ["baselode.map", "map_collar_points"],
-        ["baselode.map", "plan_view"],
-        ["baselode.map", "section_view"],
-        ["baselode.map", "project_trace_to_section"],
-        ["baselode.map", "section_window"]
+        ["baselode.drill.view_2d", "plan_view"],
+        ["baselode.drill.view_2d", "section_view"],
+        ["baselode.drill.view_2d", "project_trace_to_section"],
+        ["baselode.drill.view_2d", "section_window"]
       ]
     },
     {

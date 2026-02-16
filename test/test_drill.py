@@ -25,9 +25,9 @@ from baselode.drill import desurvey, view
 def _sample_collars_surveys():
     collars = pd.DataFrame({
         "hole_id": ["A"],
-        "x": [500000.0],
-        "y": [6900000.0],
-        "z": [300.0],
+        "easting": [500000.0],
+        "northing": [6900000.0],
+        "elevation": [300.0],
     })
     surveys = pd.DataFrame({
         "hole_id": ["A", "A", "A"],
@@ -49,7 +49,7 @@ def test_desurvey_variants_return_traces():
     for fn in methods:
         traces = fn(collars, surveys, step=10.0)
         assert not traces.empty
-        for col in ["hole_id", "md", "x", "y", "z", "azimuth", "dip"]:
+        for col in ["hole_id", "md", "easting", "northing", "elevation", "azimuth", "dip"]:
             assert col in traces.columns
 
 
@@ -64,8 +64,8 @@ def test_attach_assay_positions_merges_midpoints():
     })
     merged = desurvey.attach_assay_positions(assays, traces)
     assert len(merged) == len(assays)
-    assert merged["mid_md"].notna().all()
-    for col in ["x", "y", "z"]:
+    assert merged["mid"].notna().all()
+    for col in ["easting", "northing", "elevation"]:
         assert col in merged.columns
 
 
