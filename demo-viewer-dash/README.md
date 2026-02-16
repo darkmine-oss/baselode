@@ -13,28 +13,35 @@ The only exception is the 3D window, which is intentionally embedded from the Ja
 
 ## Run
 
-From repo root:
+### Quick Start (After Git Checkout)
+
+From the repository root:
 
 ```bash
-python -m pip install -r demo-viewer-dash/requirements.txt
-python -m pip install -e python/src
-python demo-viewer-dash/app.py
+# 1. Activate the virtual environment
+source .venv/bin/activate
+
+# 2. Install Python dependencies
+pip install -r demo-viewer-dash/requirements.txt
+pip install -e python/src
+
+# 3. Run the Dash app
+cd demo-viewer-dash
+python app.py
 ```
 
-Open: http://127.0.0.1:8050
+The app will be available at: **http://127.0.0.1:8050**
 
-## 3D page setup
+### Alternative: Using Conda
 
-The 3D page embeds the JS viewer route in an iframe.
-
-Start the React demo app in another terminal:
+If you're using conda:
 
 ```bash
-npm run dev --workspace=demo-viewer-react/app
+# 1. Activate the conda environment
+conda activate env-baselode
+
+# 2. Install dependencies and run
+cd demo-viewer-dash
+python app.py
 ```
 
-Default embedded URL is:
-
-`http://localhost:3000/drillhole`
-
-You can change this URL directly inside the Dash app on the Drillhole (3D) page.

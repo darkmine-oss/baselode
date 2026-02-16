@@ -197,7 +197,7 @@ def build_popup_figure(assays_df, selected_hole, selected_property, categorical_
         chart_type="line",
         categorical_props=[],
     )
-    fig.update_layout(height=420, template="plotly_white", margin=dict(l=45, r=10, t=20, b=30))
+    fig.update_layout(template="plotly_white", margin=dict(l=45, r=10, t=10, b=30))
     return fig
 
 
@@ -229,12 +229,23 @@ app.layout = html.Div(
             id="sidebar",
             className="sidebar",
             children=[
-                html.H2("Baselode Viewer", className="sidebar-title"),
+                html.Div(
+                    className="sidebar-header",
+                    children=[
+                        html.H2("Baselode Viewer", className="sidebar-title")
+                    ]
+                ),
                 sidebar_link("Map", "/"),
                 sidebar_link("3D Scene", "/drillhole"),
                 sidebar_link("Strip Log", "/drillhole-2d"),
                 html.Div(id="sidebar-panel", className="sidebar-panel"),
-                html.Div(id="sidebar-zoom", className="sidebar-footer"),
+                html.Div(id="sidebar-footer", className="sidebar-footer"),
+                html.Div(
+                    className="sidebar-source-link",
+                    children=[
+                        html.A("Source Code", href="https://github.com/darkmine-oss/baselode", target="_blank", rel="noopener noreferrer")
+                    ]
+                ),
             ],
         ),
         html.Main(id="main-content", className="main-content", children=[
@@ -276,7 +287,6 @@ def render_page(pathname, selected_hole):
                     className="page-header",
                     children=[
                         html.H1("Drillhole Viewer (3D)"),
-                        html.Div(f"{hole_count} desurveyed drillholes", className="meta"),
                     ],
                 ),
                 html.Script(f"window.drillholeData = {drillhole_json};"),
@@ -336,7 +346,6 @@ def render_page(pathname, selected_hole):
                     className="page-header",
                     children=[
                         html.H1("Drillhole 2D Traces"),
-                        html.Div("Data source: demo_gswa_sample_assays.csv", className="meta"),
                     ],
                 ),
                 html.Div(controls, className="trace-grid"),
@@ -363,7 +372,7 @@ def render_page(pathname, selected_hole):
                         html.Button("Close", id="popup-close", n_clicks=0, className="btn btn-small"),
                     ]),
                     dcc.Dropdown(id="popup-property", options=[{"label": p, "value": p} for p in PROPERTY_INFO["numeric"]], value=(PROPERTY_INFO["numeric"][0] if PROPERTY_INFO["numeric"] else "")),
-                    dcc.Graph(id="popup-graph"),
+                    dcc.Graph(id="popup-graph", style={"flex": "1", "minHeight": "0"}),
                     html.Button("Open page", id="popup-open-page", n_clicks=0, className="btn"),
                 ],
             ),
@@ -502,10 +511,22 @@ def update_traces(
     return figs[0], figs[1], figs[2], figs[3]
 
 
-@app.callback(Output("sidebar-zoom", "children"), Input("url", "pathname"))
+@app.callback(
+    Output("sidebar-footer", "children"),
+    Input("url", "pathname"),
+)
 def update_sidebar_footer(pathname):
-    """Display current page in sidebar footer."""
-    return f"Page: {pathname or '/'}"
+    """Display data source info in sidebar footer."""
+    collars_count = len(DATASET["collars"])
+    assays_count = len(DATASET["assays"]["hole_id"].unique()) if not DATASET["assays"].empty else 0
+    surveys_count = len(DATASET["traces"]["hole_id"].unique()) if not DATASET["traces"].empty else 0
+    
+    data_source_text = html.Div(
+        f"demo_gswa ({collars_count} collars, {surveys_count} surveys, {assays_count} assays)",
+        className="data-source-info"
+    )
+    
+    return [data_source_text]
 
 
 @app.callback(
@@ -532,8 +553,6 @@ def update_sidebar_panel(pathname, open_mode):
             value=["popup"] if open_in_popup else [],
             className="checklist",
         ),
-        html.Div("Data source: demo_gswa_sample_collars.csv + demo_gswa_sample_assays.csv", className="meta"),
-        html.Div(f"Loaded {len(collars)} collars", className="meta"),
     ]
     return panel, "sidebar sidebar-map", "main-content map-main"
 

@@ -10,6 +10,14 @@ The primary goal of Baselode is to provide high-quality, open-source, tooling ac
 - **Industry Standards**: Implementation, or inclusion/wrapping of other open-source, standard algorithms like Minimum Curvature for drillhole desurveying.
 - **Accessibility**: Lowering the barrier to entry for using geological and mining data.
 
+## Getting Started
+
+To run the demo applications after cloning this repository:
+
+- **React Demo App**: See [demo-viewer-react/app/README.md](./demo-viewer-react/app/README.md) for setup and launch instructions
+- **Dash Demo App**: See [demo-viewer-dash/README.md](./demo-viewer-dash/README.md) for setup and launch instructions
+- **Python Package**: See [python/src/README.md](./python/src/README.md) for installation and usage
+
 ## Project Structure
 
 - **[`baselode` (Python)](./src/baselode)**: A Python package for drillhole data processing, desurveying, and validation.
