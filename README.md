@@ -20,7 +20,7 @@ To run the demo applications after cloning this repository:
 
 ## Project Structure
 
-- **[`baselode` (Python)](./src/baselode)**: A Python package for drillhole data processing, desurveying, and validation.
+- **[`baselode` (Python)](./python/src/baselode)**: A Python package for drillhole data processing, desurveying, and validation.
 
 - **[`demo-viewer-react/` (JavaScript/React)](./demo-viewer-react)**: A web-based application demonstrating use of the React **baselode** components for 1D, 2D, and 3D visualisation.
 - **[`demo-viewer-dash/` (Python/Dash)](./demo-viewer-dash)**: A Python Dash application showing feature parity with the React demo, using Python `baselode` for map + 2D workflows and embedding the JS Baselode 3D window.
@@ -34,7 +34,7 @@ From repo root:
 
 ```bash
 source .venv/bin/activate
-python -m pytest test/test_drill.py test/test_data_loading_gswa.py test/test_parity_contract.py -q
+python -m pytest test/test_drill.py test/test_parity_contract.py -q
 ```
 
 ### JavaScript package tests (vitest)

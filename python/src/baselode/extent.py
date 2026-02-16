@@ -21,7 +21,7 @@ import shapely.geometry
 
 class Extent():
 
-    def __init__(self, xmin=None, xmax=None, ymin=None, ymax=None, bbox=None, name=None, crs=4386):
+    def __init__(self, xmin=None, xmax=None, ymin=None, ymax=None, bbox=None, name=None, crs=4326):
         """ 
         Create an extent object, which is an axis-aligned bounding box with name and 
         coordinate reference system (CRS).
@@ -32,7 +32,7 @@ class Extent():
         @param xmin, xmax, ymin, ymax - the coordinates of the bounding box edges
 
         @param name - optional name for the extent
-        @param crs - coordinate reference system (default is 4386)
+        @param crs - coordinate reference system (default is 4326)
         """
         if bbox is None:
             self.bbox = shapely.geometry.box(xmin, ymin, xmax, ymax)

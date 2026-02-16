@@ -4,3 +4,5 @@ plotly>=5.0
 geopandas>=0.13
 pyproj>=3.4
 folium>=0.15
+pyarrow>=12.0
+sqlalchemy>=2.0

@@ -23,6 +23,8 @@ import math
 
 import pandas as pd
 
+from baselode.datamodel import EASTING, NORTHING
+
 
 def poles_from_dip_dipdir(dip, dipdir):
     strike = (dipdir - 90) % 360
@@ -52,8 +54,8 @@ def project_structures_to_section(structures, origin, azimuth):
     sin_a = math.sin(az_rad)
     projected = []
     for _, row in structures.iterrows():
-        dx = row["x"] - ox
-        dy = row["y"] - oy
+        dx = row[EASTING] - ox
+        dy = row[NORTHING] - oy
         along = dx * sin_a + dy * cos_a
         projected.append({
             **row.to_dict(),

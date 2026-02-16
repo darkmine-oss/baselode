@@ -21,23 +21,25 @@
 
 import pandas as pd
 
+from baselode.datamodel import EASTING, NORTHING, ELEVATION
+
 
 def traces_as_segments(traces, color_by=None):
     if traces.empty:
         return []
     segments = []
     for hole_id, group in traces.sort_values(["hole_id", "md"]).groupby("hole_id"):
-        xs = group["x"].tolist()
-        ys = group["y"].tolist()
-        zs = group["z"].tolist()
+        xs = group[EASTING].tolist()
+        ys = group[NORTHING].tolist()
+        zs = group[ELEVATION].tolist()
         colors = None
         if color_by is not None and color_by in group.columns:
             colors = group[color_by].tolist()
         segments.append({
             "hole_id": hole_id,
-            "x": xs,
-            "y": ys,
-            "z": zs,
+            EASTING: xs,
+            NORTHING: ys,
+            ELEVATION: zs,
             "color": colors,
         })
     return segments

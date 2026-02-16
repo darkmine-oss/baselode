@@ -21,11 +21,15 @@
 
 These functions prepare data frames suitable for plotting in matplotlib or
 plotly without binding to any viewer.
+
+TODO - untested
 """
 
 import math
 
 import pandas as pd
+
+from baselode.datamodel import EASTING, NORTHING
 
 
 def project_trace_to_section(traces, origin, azimuth):
@@ -36,8 +40,8 @@ def project_trace_to_section(traces, origin, azimuth):
     cos_a = math.cos(az_rad)
     sin_a = math.sin(az_rad)
     projected = traces.copy()
-    dx = projected["x"] - ox
-    dy = projected["y"] - oy
+    dx = projected[EASTING] - ox
+    dy = projected[NORTHING] - oy
     projected["along"] = dx * sin_a + dy * cos_a
     projected["across"] = dx * cos_a - dy * sin_a
     return projected
