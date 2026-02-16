@@ -74,15 +74,18 @@ def build_drillhole_data(traces_df, max_holes=100):
         return {}
 
     drillhole_data = {}
-    unique_holes = traces_df["hole_id"].dropna().unique()[:max_holes]
+    # Normalize all hole_ids to lowercase/strip for join
+    traces_df = traces_df.copy()
+    traces_df["_hole_key"] = traces_df["hole_id"].astype(str).str.strip().str.lower()
+    unique_holes = traces_df["_hole_key"].dropna().unique()[:max_holes]
 
-    for hole_id in unique_holes:
-        hole_traces = traces_df[traces_df["hole_id"] == hole_id].sort_values("md")
-        drillhole_data[str(hole_id)] = []
+    for hole_key in unique_holes:
+        hole_traces = traces_df[traces_df["_hole_key"] == hole_key].sort_values("md")
+        drillhole_data[str(hole_key)] = []
 
         for _, row in hole_traces.iterrows():
             coords = _trace_coordinates(row)
-            drillhole_data[str(hole_id)].append(
+            drillhole_data[str(hole_key)].append(
                 {
                     "easting": coords["easting"],
                     "northing": coords["northing"],
@@ -99,12 +102,13 @@ def build_scene_assay_rows(assays_df, hole_ids, numeric_props):
     if assays_df.empty or not hole_ids:
         return []
 
-    hole_keys = {str(h).strip() for h in hole_ids if str(h).strip()}
+    # Normalize all keys to lowercase/strip for join
+    hole_keys = {str(h).strip().lower() for h in hole_ids if str(h).strip()}
     if not hole_keys:
         return []
 
     assays = assays_df.copy()
-    assays["_hole_key"] = assays["hole_id"].astype(str).str.strip()
+    assays["_hole_key"] = assays["hole_id"].astype(str).str.strip().str.lower()
     assays = assays[assays["_hole_key"].isin(hole_keys)]
 
     rows = []

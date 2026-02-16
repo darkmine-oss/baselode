@@ -1,6 +1,6 @@
-# Baselode (JavaScript)
+# BASELODE (Python)
 
-Baselode is an open-source JavaScript toolkit providing structured data models for exploration and mining applications.
+Baselode is an open-source Python toolkit for working with structured exploration and mining datasets.
 
 Version 0.1.0 focuses on domain-aware data models and validation utilities for drillhole-style data. The goal is to provide a consistent foundation for analytics, visualization, and AI workflows.
 
@@ -9,25 +9,19 @@ Version 0.1.0 focuses on domain-aware data models and validation utilities for d
 ## Installation
 
 ```bash
-npm install baselode
+pip install baselode
 ```
 
-**Requires:** Node.js 20+, React 18+
+**Requires:** Python 3.12+
 
 ---
 
 ## Example
 
-```javascript
-import { parseDrillholesCSV } from 'baselode';
+```python
+import baselode.drill.data
 
-// Example: file is a File object from an <input type="file" />
-const file = /* your File object */;
-file.text().then(csvText => {
-  const { holes } = parseDrillholesCSV(csvText);
-  // holes is an array of collar objects
-  console.log(holes);
-});
+gdf = baselode.drill.data.load_collars(COLLAR_CSV)
 ```
 
 ---
@@ -39,7 +33,7 @@ file.text().then(csvText => {
 - Basic validation utilities  
 - Strip log visualisations
 - Map visualisations
-- 3D visualisations 
+- 3D visualisations (requires the `baselode` javascript module from npm)
 
 ---
 

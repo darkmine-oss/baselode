@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "baselode"
 version = "0.1.0"
-description = "Geoscience data processing and visualization toolkit."
+description = "Domain-aware data models and utilities for exploration and mining datasets."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
