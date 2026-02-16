@@ -92,9 +92,7 @@ function Drillhole() {
     loadDemoPrecomputedDesurveyFile()
       .then((precomputedFile) => parseDrillholesCSV(precomputedFile))
       .then((parsed) => {
-        const renderable = (parsed?.holes || []).filter((hole) => (hole.points || []).length >= 2);
-        if (!renderable.length) return;
-        const normalized = renderable.map((hole) => ({
+        const normalized = (parsed?.holes || []).map((hole) => ({
           id: hole.id,
           project: hole.points?.[0]?.project_id || '',
           points: (hole.points || []).map((point) => ({
@@ -102,8 +100,8 @@ function Drillhole() {
             y: Number(point.y),
             z: Number(point.z),
             md: Number(point.md)
-          })).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z))
-        })).filter((hole) => (hole.points || []).length >= 2);
+          }))
+        }));
         if (!normalized.length) return;
         const limited = normalized.slice(0, MAX_SCENE_HOLES);
         setHoles(limited);
@@ -222,11 +220,6 @@ function Drillhole() {
       setError('No matching holes found between survey and cached collars.');
       return;
     }
-    const renderable = desurveyed.filter((h) => (h.points || []).length >= 2);
-    if (!renderable.length) {
-      setError('Desurveying produced no lines with 2+ points.');
-      return;
-    }
 
     const projectedCollars = collars.map((c) => ({
       id: c.holeId || c.hole_id || c.id,
@@ -272,13 +265,7 @@ function Drillhole() {
       points: h.points.map((p) => ({ x: p.offset.x, y: p.offset.y, z: p.z, md: p.md }))
     }));
 
-    const filteredHoles = shiftedHoles.filter((h) => (h.points || []).length >= 2);
-    if (!filteredHoles.length) {
-      setError('No renderable holes after projection.');
-      return;
-    }
-
-    const limitedHoles = filteredHoles.slice(0, MAX_SCENE_HOLES);
+    const limitedHoles = shiftedHoles.slice(0, MAX_SCENE_HOLES);
 
     setHoles(limitedHoles);
   };

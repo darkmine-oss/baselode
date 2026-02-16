@@ -37,31 +37,28 @@
         <div id="loading">Loading 3D scene...</div>
     </div>
     
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-            "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
-            "three-viewport-gizmo": "https://cdn.jsdelivr.net/npm/three-viewport-gizmo@2.0.3/+esm",
-            "react": "https://cdn.jsdelivr.net/npm/react@18.2.0/+esm",
-            "react/jsx-runtime": "https://cdn.jsdelivr.net/npm/react@18.2.0/jsx-runtime/+esm",
-            "react-dom": "https://cdn.jsdelivr.net/npm/react-dom@18.2.0/+esm",
-            "papaparse": "https://cdn.jsdelivr.net/npm/papaparse@5.4.1/+esm",
-            "plotly.js-dist-min": "https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.26.0/+esm",
-            "baselode": "/assets/baselode.js"
-        }
-    }
-    </script>
-    
     <script type="module">
-        import { Baselode3DScene } from 'baselode';
+        // Import standalone baselode module (all dependencies bundled)
+        const { Baselode3DScene } = await import('/assets/baselode-module.js');
         
         // Get drillhole data from parent window
         function getDrillholeData() {
+            console.log('Checking for drillhole data...');
+            console.log('window.parent:', window.parent);
+            console.log('window.parent.drillholeData:', window.parent?.drillholeData);
+            console.log('window.drillholeData:', window.drillholeData);
+            
+            // Try parent first
             if (window.parent && window.parent.drillholeData) {
+                console.log('Found data on parent window');
                 return window.parent.drillholeData;
             }
+            // Fallback to current window (in case script runs in same context)
+            if (window.drillholeData) {
+                console.log('Found data on current window');
+                return window.drillholeData;
+            }
+            console.log('No drillhole data found');
             return {};
         }
         
@@ -90,6 +87,8 @@
             // Get and convert drillhole data
             const drillholeData = getDrillholeData();
             const holes = convertToBaselodeFormat(drillholeData);
+            
+            console.log(`Loading ${holes.length} drillholes into 3D scene`);
             
             // Render drillholes
             if (holes.length > 0) {

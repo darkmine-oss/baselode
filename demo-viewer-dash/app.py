@@ -17,6 +17,7 @@ DATA_DIR = REPO_ROOT / "demo-viewer-react" / "app" / "public" / "data" / "gswa"
 COLLARS_CSV = DATA_DIR / "demo_gswa_sample_collars.csv"
 SURVEY_CSV = DATA_DIR / "demo_gswa_sample_survey.csv"
 ASSAYS_CSV = DATA_DIR / "demo_gswa_sample_assays.csv"
+PRECOMPUTED_DESURVEY_CSV = DATA_DIR / "demo_gswa_precomputed_desurveyed.csv"
 
 # Non-value fields for assay data (metadata and structural columns)
 ASSAY_NON_VALUE_FIELDS = {
@@ -44,7 +45,92 @@ ASSAY_NON_VALUE_FIELDS = {
 CHART_TYPES = ["markers+line", "markers", "line", "bar", "categorical"]
 
 
-def load_demo_dataset(collars_csv, survey_csv, assays_csv):
+def _safe_float(value, default=0.0):
+    numeric = pd.to_numeric(value, errors="coerce")
+    return float(numeric) if pd.notna(numeric) else float(default)
+
+
+def _trace_coordinates(row):
+    easting = row.get("easting")
+    northing = row.get("northing")
+    elevation = row.get("elevation")
+
+    if pd.isna(easting):
+        easting = row.get("x")
+    if pd.isna(northing):
+        northing = row.get("y")
+    if pd.isna(elevation):
+        elevation = row.get("z")
+
+    return {
+        "easting": _safe_float(easting),
+        "northing": _safe_float(northing),
+        "elevation": _safe_float(elevation),
+    }
+
+
+def build_drillhole_data(traces_df, max_holes=100):
+    if traces_df.empty:
+        return {}
+
+    drillhole_data = {}
+    unique_holes = traces_df["hole_id"].dropna().unique()[:max_holes]
+
+    for hole_id in unique_holes:
+        hole_traces = traces_df[traces_df["hole_id"] == hole_id].sort_values("md")
+        drillhole_data[str(hole_id)] = []
+
+        for _, row in hole_traces.iterrows():
+            coords = _trace_coordinates(row)
+            drillhole_data[str(hole_id)].append(
+                {
+                    "easting": coords["easting"],
+                    "northing": coords["northing"],
+                    "elevation": coords["elevation"],
+                    "md": _safe_float(row.get("md")),
+                    "project_id": row.get("project_id") if pd.notna(row.get("project_id")) else None,
+                }
+            )
+
+    return drillhole_data
+
+
+def build_scene_assay_rows(assays_df, hole_ids, numeric_props):
+    if assays_df.empty or not hole_ids:
+        return []
+
+    hole_keys = {str(h).strip() for h in hole_ids if str(h).strip()}
+    if not hole_keys:
+        return []
+
+    assays = assays_df.copy()
+    assays["_hole_key"] = assays["hole_id"].astype(str).str.strip()
+    assays = assays[assays["_hole_key"].isin(hole_keys)]
+
+    rows = []
+    for _, row in assays.iterrows():
+        from_value = pd.to_numeric(row.get("from"), errors="coerce")
+        to_value = pd.to_numeric(row.get("to"), errors="coerce")
+        if pd.isna(from_value) or pd.isna(to_value) or float(to_value) <= float(from_value):
+            continue
+
+        interval = {
+            "hole_id": row.get("_hole_key"),
+            "from": float(from_value),
+            "to": float(to_value),
+        }
+
+        for var in numeric_props:
+            value = pd.to_numeric(row.get(var), errors="coerce")
+            if pd.notna(value):
+                interval[var] = float(value)
+
+        rows.append(interval)
+
+    return rows
+
+
+def load_demo_dataset(collars_csv, survey_csv, assays_csv, precomputed_desurvey_csv=None):
     """Load demo dataset using library's standardization.
     
     The library automatically maps common column name variations to standard names
@@ -57,32 +143,75 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv):
         collars_csv, 
         kind="csv"
     )
-    surveys = baselode.drill.data.load_surveys(
-        survey_csv, 
-        kind="csv"
-    )
+    
+    # Load precomputed desurvey if available (has easting/northing in projected coordinates)
+    if precomputed_desurvey_csv and Path(precomputed_desurvey_csv).exists():
+        print(f"\nDEBUG: Loading precomputed desurvey from: {precomputed_desurvey_csv}")
+        traces = pd.read_csv(precomputed_desurvey_csv)
+        print(f"DEBUG: Loaded {len(traces)} trace rows")
+        print(f"DEBUG: Original columns: {traces.columns.tolist()}")
+        
+        # Standardize column names
+        traces.rename(columns={
+            'x': 'easting',
+            'y': 'northing', 
+            'z': 'elevation'
+        }, inplace=True)
+        print(f"DEBUG: After renaming columns: {traces.columns.tolist()}")
+        
+        if not traces.empty:
+            print("DEBUG: First trace row:")
+            print(traces.head(1)[['hole_id', 'md', 'easting', 'northing', 'elevation']].to_string())
+            print()
+    else:
+        surveys = baselode.drill.data.load_surveys(
+            survey_csv, 
+            kind="csv"
+        )
+        
+        # Drop geometry column for simpler DataFrame handling
+        collars = collars.drop(columns=["geometry"], errors="ignore")
+        
+        # Clean string columns
+        for frame in [collars, surveys]:
+            if "hole_id" in frame.columns:
+                frame["hole_id"] = frame["hole_id"].astype(str).str.strip()
+
+        # Desurvey to create 3D traces
+        traces = baselode.drill.desurvey.minimum_curvature_desurvey(collars, surveys, step=5.0)
+    
     assays = baselode.drill.data.load_assays(
         assays_csv, 
         kind="csv"
     )
-
-    # Drop geometry column for simpler DataFrame handling
-    collars = collars.drop(columns=["geometry"], errors="ignore")
     
     # Clean string columns
-    for frame in [collars, surveys, assays]:
-        if "hole_id" in frame.columns:
-            frame["hole_id"] = frame["hole_id"].astype(str).str.strip()
+    if "hole_id" in assays.columns:
+        assays["hole_id"] = assays["hole_id"].astype(str).str.strip()
+    if "hole_id" in traces.columns:
+        traces["hole_id"] = traces["hole_id"].astype(str).str.strip()
 
-    # Desurvey to create 3D traces
-    traces = baselode.drill.desurvey.minimum_curvature_desurvey(collars, surveys, step=5.0)
+    # Join collar project metadata by normalized hole id (geometry remains from traces)
+    if {"hole_id", "project_id"}.issubset(collars.columns) and "hole_id" in traces.columns:
+        collar_projects = collars[["hole_id", "project_id"]].copy()
+        collar_projects["_hole_id_key"] = collar_projects["hole_id"].astype(str).str.strip().str.lower()
+        traces["_hole_id_key"] = traces["hole_id"].astype(str).str.strip().str.lower()
+        traces = traces.merge(
+            collar_projects[["_hole_id_key", "project_id"]],
+            on="_hole_id_key",
+            how="left",
+            suffixes=("", "_collar"),
+        )
+        if "project_id_collar" in traces.columns:
+            traces["project_id"] = traces["project_id"].where(traces["project_id"].notna(), traces["project_id_collar"])
+            traces = traces.drop(columns=["project_id_collar"])
+        traces = traces.drop(columns=["_hole_id_key"])
     
     # Attach spatial positions to assays for 3D visualization
     assays_with_positions = baselode.drill.desurvey.attach_assay_positions(assays, traces)
 
     return {
         "collars": collars,
-        "surveys": surveys,
         "assays": assays_with_positions,
         "traces": traces,
     }
@@ -202,7 +331,7 @@ def build_popup_figure(assays_df, selected_hole, selected_property, categorical_
 
 
 # Initialize app with demo data
-DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV)
+DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV, PRECOMPUTED_DESURVEY_CSV)
 PROPERTY_INFO = infer_property_lists(DATASET["assays"])
 DEFAULT_PROPERTY = (PROPERTY_INFO["numeric"] + PROPERTY_INFO["categorical"] + [""])[0]
 
@@ -212,6 +341,412 @@ app = Dash(
     title="Baselode Dash Viewer",
     external_stylesheets=["https://fonts.googleapis.com/css2?family=Lexend:wght@600&display=swap"]
 )
+
+# Serve baselode-module.js with correct MIME type for ES modules
+@app.server.route('/assets/baselode-module.js')
+def serve_baselode_module():
+    from flask import Response
+    assets_dir = Path(__file__).parent / 'assets'
+    
+    with open(assets_dir / 'baselode-module.js', 'r', encoding='utf-8') as f:
+        content = f.read()
+    
+    return Response(
+        content,
+        mimetype='text/javascript',
+        headers={
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        }
+    )
+
+# Dynamic 3D viewer with embedded drillhole data
+@app.server.route('/drillhole3d')
+def serve_drillhole3d():
+    import json
+    from flask import render_template_string
+    
+    # Get drillhole data
+    traces_df = DATASET["traces"]
+    drillhole_data = {}
+    
+    print(f"\nDEBUG serve_drillhole3d: traces_df has {len(traces_df)} rows")
+    print(f"DEBUG serve_drillhole3d: traces_df columns: {traces_df.columns.tolist()}")
+    
+    if not traces_df.empty:
+        MAX_SCENE_HOLES = 100
+        unique_holes = traces_df["hole_id"].unique()[:MAX_SCENE_HOLES]
+
+        if len(unique_holes) > 0:
+            first_hole = unique_holes[0]
+            first_traces = traces_df[traces_df["hole_id"] == first_hole].head(3)
+            preview_cols = [c for c in ["hole_id", "md", "easting", "northing", "elevation", "x", "y", "z"] if c in first_traces.columns]
+            print(f"\nDEBUG: First hole '{first_hole}' data:")
+            print(first_traces[preview_cols].to_string())
+            print()
+
+        drillhole_data = build_drillhole_data(traces_df, max_holes=MAX_SCENE_HOLES)
+    
+    scene_hole_ids = list(drillhole_data.keys())
+    assay_variables = ["__HAS_ASSAY__"] + PROPERTY_INFO["numeric"]
+    assay_rows = build_scene_assay_rows(DATASET["assays"], scene_hole_ids, PROPERTY_INFO["numeric"])
+
+    drillhole_json = json.dumps(drillhole_data)
+    assay_variables_json = json.dumps(assay_variables)
+    assay_rows_json = json.dumps(assay_rows)
+    
+    html_template = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drillhole 3D Viewer</title>
+    <link rel="stylesheet" href="/assets/baselode-style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #scene-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+            z-index: 5;
+        }
+        #controls-panel {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            z-index: 10;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 260px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+        }
+        #controls-panel label {
+            font-size: 12px;
+            color: #374151;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        #color-by-select {
+            border: 1px solid #c7d0df;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 12px;
+            background: #fff;
+        }
+        .control-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+        .control-btn {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .control-btn:hover {
+            background: #f9fafb;
+        }
+        #legend {
+            display: none;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 8px;
+        }
+        #legend.visible {
+            display: block;
+        }
+        .legend-title {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #374151;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 4px;
+        }
+        .legend-swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.15);
+        }
+        .legend-label {
+            font-size: 11px;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body>
+    <div id="scene-container">
+        <div id="loading">Loading 3D scene...</div>
+        <div id="controls-panel">
+            <label>
+                Color by assay variable
+                <select id="color-by-select">
+                    <option value="None">None</option>
+                </select>
+            </label>
+            <div class="control-buttons">
+                <button id="btn-look-down" class="control-btn" type="button">Look down</button>
+                <button id="btn-fit" class="control-btn" type="button">Fit to scene</button>
+                <button id="btn-origin" class="control-btn" type="button">Go to 0,0,0</button>
+                <button id="btn-fly" class="control-btn" type="button">Enable fly controls</button>
+            </div>
+            <div id="legend"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Embed drillhole data directly in the page
+        window.drillholeData = {{ drillhole_data|safe }};
+        window.assayVariables = {{ assay_variables|safe }};
+        window.assayRows = {{ assay_rows|safe }};
+    </script>
+    
+    <script type="module">
+        // Import standalone baselode module (all dependencies bundled)
+        const { Baselode3DScene } = await import('/assets/baselode-module.js');
+        const ASSAY_COLOR_PALETTE_10 = [
+            '#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8',
+            '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026'
+        ];
+
+        function normalizeHoleKey(value) {
+            return `${value ?? ''}`.trim().toLowerCase();
+        }
+
+        function buildAssayIntervalsByHole(assayRows) {
+            const byHole = {};
+            (assayRows || []).forEach((row) => {
+                const holeKey = normalizeHoleKey(row?.hole_id);
+                const from = Number(row?.from);
+                const to = Number(row?.to);
+                if (!holeKey || !Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+                if (!Array.isArray(byHole[holeKey])) byHole[holeKey] = [];
+                byHole[holeKey].push({ from, to, values: { ...row } });
+            });
+            Object.keys(byHole).forEach((holeKey) => {
+                byHole[holeKey] = byHole[holeKey].sort((a, b) => a.from - b.from);
+            });
+            return byHole;
+        }
+
+        function mapIntervalsForVariable(intervalsByHole, variable) {
+            const mapped = {};
+            Object.entries(intervalsByHole || {}).forEach(([holeId, intervals]) => {
+                const selected = (intervals || [])
+                    .map((interval) => {
+                        const value = Number(interval?.values?.[variable]);
+                        if (!Number.isFinite(value)) return null;
+                        return { from: interval.from, to: interval.to, value };
+                    })
+                    .filter(Boolean);
+                if (selected.length) mapped[holeId] = selected;
+            });
+            return mapped;
+        }
+
+        function buildEqualRangeColorScale(values, colors = ASSAY_COLOR_PALETTE_10) {
+            const valid = (values || []).filter((v) => Number.isFinite(v));
+            if (!valid.length) return null;
+            const min = Math.min(...valid);
+            const max = Math.max(...valid);
+            if (min === max) {
+                return {
+                    colors: [colors[0]],
+                    bins: [{ index: 0, min, max, label: `${min.toFixed(3)} - ${max.toFixed(3)}` }]
+                };
+            }
+            const binCount = colors.length;
+            const width = (max - min) / binCount;
+            const bins = Array.from({ length: binCount }, (_, idx) => {
+                const binMin = min + idx * width;
+                const binMax = idx === binCount - 1 ? max : min + (idx + 1) * width;
+                return {
+                    index: idx,
+                    min: binMin,
+                    max: binMax,
+                    label: `${binMin.toFixed(3)} - ${binMax.toFixed(3)}`
+                };
+            });
+            return { colors, bins };
+        }
+
+        function renderLegend(colorByVariable, legendScale) {
+            const legend = document.getElementById('legend');
+            if (!legend) return;
+
+            if (colorByVariable === '__HAS_ASSAY__') {
+                legend.classList.add('visible');
+                legend.innerHTML = `
+                    <div class="legend-title">Legend (Has Assay Data)</div>
+                    <div class="legend-item"><span class="legend-swatch" style="background:#ff8c42"></span><span class="legend-label">Has assay data</span></div>
+                    <div class="legend-item"><span class="legend-swatch" style="background:#9ca3af"></span><span class="legend-label">No assay data</span></div>
+                `;
+                return;
+            }
+
+            if (!legendScale || colorByVariable === 'None') {
+                legend.classList.remove('visible');
+                legend.innerHTML = '';
+                return;
+            }
+
+            const items = legendScale.bins.map((bin, idx) => `
+                <div class="legend-item">
+                    <span class="legend-swatch" style="background:${legendScale.colors[idx]}"></span>
+                    <span class="legend-label">${bin.label}</span>
+                </div>
+            `).join('');
+
+            legend.classList.add('visible');
+            legend.innerHTML = `<div class="legend-title">Legend (${colorByVariable})</div>${items}`;
+        }
+        
+        // Convert drillhole data to Baselode3DScene format
+        function convertToBaselodeFormat(drillholeData) {
+            // Map: x = easting, y = northing, z = elevation
+            return Object.entries(drillholeData).map(([holeId, points]) => ({
+                id: holeId,
+                project: points?.[0]?.project_id || '',
+                points: points.map(p => ({
+                    x: p.easting,
+                    y: p.northing,
+                    z: p.elevation,
+                    md: p.md
+                }))
+            }));
+        }
+        
+        // Initialize the 3D scene
+        async function init() {
+            const container = document.getElementById('scene-container');
+            const loading = document.getElementById('loading');
+            const colorBySelect = document.getElementById('color-by-select');
+            const lookDownBtn = document.getElementById('btn-look-down');
+            const fitBtn = document.getElementById('btn-fit');
+            const originBtn = document.getElementById('btn-origin');
+            const flyBtn = document.getElementById('btn-fly');
+            
+            // Create scene
+            const scene = new Baselode3DScene();
+            scene.init(container);
+            
+            // Get and convert drillhole data
+            const drillholeData = window.drillholeData || {};
+            const holes = convertToBaselodeFormat(drillholeData);
+            const assayVariables = window.assayVariables || [];
+            const assayRows = window.assayRows || [];
+            const intervalsByHole = buildAssayIntervalsByHole(assayRows);
+            let colorByVariable = 'None';
+            let controlMode = 'orbit';
+            let firstRender = true;
+
+            assayVariables.forEach((variable) => {
+                const option = document.createElement('option');
+                option.value = variable;
+                option.textContent = variable === '__HAS_ASSAY__' ? 'Has Assay Data' : variable;
+                colorBySelect.appendChild(option);
+            });
+
+            function renderDrillholes() {
+                if (!holes.length) return;
+
+                let selectedAssayVariable = '';
+                let selectedIntervalsByHole = null;
+                let legendScale = null;
+
+                if (colorByVariable !== 'None') {
+                    selectedAssayVariable = colorByVariable;
+                    if (colorByVariable === '__HAS_ASSAY__') {
+                        selectedIntervalsByHole = intervalsByHole;
+                    } else {
+                        selectedIntervalsByHole = mapIntervalsForVariable(intervalsByHole, colorByVariable);
+                        const values = Object.values(selectedIntervalsByHole)
+                            .flatMap((intervals) => (intervals || []).map((interval) => Number(interval?.value)))
+                            .filter((value) => Number.isFinite(value));
+                        legendScale = buildEqualRangeColorScale(values, ASSAY_COLOR_PALETTE_10);
+                    }
+                }
+
+                scene.setDrillholes(holes, {
+                    selectedAssayVariable,
+                    assayIntervalsByHole: selectedIntervalsByHole,
+                    preserveView: !firstRender
+                });
+                firstRender = false;
+                renderLegend(colorByVariable, legendScale);
+            }
+            
+            console.log(`Loading ${holes.length} drillholes into 3D scene`);
+            
+            // Render drillholes
+            if (holes.length > 0) {
+                renderDrillholes();
+            }
+
+            colorBySelect.addEventListener('change', (event) => {
+                colorByVariable = event.target.value || 'None';
+                renderDrillholes();
+            });
+
+            lookDownBtn.addEventListener('click', () => scene.lookDown(3000));
+            fitBtn.addEventListener('click', () => scene.focusOnLastBounds(1.2));
+            originBtn.addEventListener('click', () => scene.recenterCameraToOrigin(2000));
+            flyBtn.addEventListener('click', () => {
+                controlMode = controlMode === 'orbit' ? 'fly' : 'orbit';
+                scene.setControlMode(controlMode);
+                flyBtn.textContent = controlMode === 'orbit' ? 'Enable fly controls' : 'Disable fly controls';
+            });
+
+            window.addEventListener('resize', () => scene.resize());
+            
+            loading.style.display = 'none';
+        }
+        
+        init();
+    </script>
+</body>
+</html>
+    '''
+    
+    return render_template_string(
+        html_template,
+        drillhole_data=drillhole_json,
+        assay_variables=assay_variables_json,
+        assay_rows=assay_rows_json,
+    )
 
 
 def sidebar_link(label, href):
@@ -258,40 +793,17 @@ app.layout = html.Div(
 @app.callback(Output("page-content", "children"), Input("url", "pathname"), State("selected-hole-store", "data"))
 def render_page(pathname, selected_hole):
     if pathname == "/drillhole":
-        hole_count = len(DATASET["traces"]["hole_id"].unique()) if not DATASET["traces"].empty else 0
-        
-        # Prepare drillhole data for JavaScript
-        traces_df = DATASET["traces"]
-        drillhole_data = {}
-        
-        if not traces_df.empty:
-            for hole_id in traces_df["hole_id"].unique():
-                hole_traces = traces_df[traces_df["hole_id"] == hole_id].sort_values("md")
-                drillhole_data[str(hole_id)] = [
-                    {
-                        "easting": float(row.easting) if pd.notna(row.easting) else 0,
-                        "northing": float(row.northing) if pd.notna(row.northing) else 0,
-                        "elevation": float(row.elevation) if pd.notna(row.elevation) else 0,
-                        "md": float(row.md) if pd.notna(row.md) else 0,
-                    }
-                    for _, row in hole_traces.iterrows()
-                ]
-        
-        import json
-        drillhole_json = json.dumps(drillhole_data)
-        
         return html.Div(
             className="page",
             children=[
                 html.Div(
                     className="page-header",
                     children=[
-                        html.H1("Drillhole Viewer (3D)"),
+                        html.H1("Drillhole Viewer 3D")
                     ],
                 ),
-                html.Script(f"window.drillholeData = {drillhole_json};"),
                 html.Iframe(
-                    src="/assets/drillhole3d.html",
+                    src="/drillhole3d",
                     style={
                         "width": "100%",
                         "height": "80vh",
@@ -541,7 +1053,6 @@ def update_sidebar_panel(pathname, open_mode):
     if pathname != "/":
         return [], "sidebar", "main-content content-main"
 
-    collars = DATASET["collars"]
     open_in_popup = bool((open_mode or {}).get("open_in_popup", True))
 
     panel = [

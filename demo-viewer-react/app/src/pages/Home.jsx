@@ -108,8 +108,8 @@ function Home() {
             return;
           }
 
-          if (hasValidLatLng && latLngInRange && project && holeId) {
-            parsed.push({ lat, lng, project, holeId });
+          if (hasValidLatLng && latLngInRange && holeId) {
+            parsed.push({ lat, lng, project: project || 'Unknown', holeId });
           } else if (!latLngInRange || !hasValidLatLng) {
             skippedInvalidCoords += 1;
           }

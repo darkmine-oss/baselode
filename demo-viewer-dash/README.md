@@ -27,7 +27,7 @@ pip install -e python/src
 
 # 3. Run the Dash app
 cd demo-viewer-dash
-python app.py
+uvicorn asgi:app --host 127.0.0.1 --port 8050 --reload
 ```
 
 The app will be available at: **http://127.0.0.1:8050**
@@ -42,6 +42,6 @@ conda activate env-baselode
 
 # 2. Install dependencies and run
 cd demo-viewer-dash
-python app.py
+uvicorn asgi:app --host 127.0.0.1 --port 8050 --reload
 ```
 
