@@ -56,26 +56,15 @@ export {
 } from './data/assayFieldSets.js';
 
 export {
-  ASSAY_CACHE_KEY,
-  ASSAY_CACHE_META_KEY,
   reorderHoleIds,
   deriveAssayProps,
   loadAssayMetadata,
   loadAssayHole,
   buildAssayState,
-  loadAssayFile,
-  loadCachedAssayState,
-  loadCachedAssayMeta,
-  saveAssayCache,
-  clearAssayCache
+  loadAssayFile
 } from './data/assayDataLoader.js';
 
 export {
-  loadCachedCollars,
-  saveCachedSurvey,
-  loadCachedSurvey,
-  saveCachedDesurveyed,
-  loadCachedDesurveyed,
   parseSurveyCSV,
   desurveyTraces
 } from './data/desurvey.js';

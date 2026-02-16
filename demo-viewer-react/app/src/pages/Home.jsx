@@ -13,9 +13,6 @@ import './Home.css';
 import { useZoomContext } from '../context/ZoomContext.jsx';
 import {
   loadAssayFile,
-  loadCachedAssayMeta,
-  loadCachedAssayState,
-  saveAssayCache,
   buildIntervalPoints,
   buildPlotConfig,
   standardizeColumns,
@@ -199,15 +196,6 @@ function Home() {
     } catch (e) {
       console.warn('Failed to read map open preference', e);
     }
-
-    const cachedState = loadCachedAssayState();
-    if (cachedState) {
-      setAssayState(cachedState);
-      setPopupProperty((prev) => prev || cachedState.defaultProp || '');
-    } else {
-      const meta = loadCachedAssayMeta();
-      if (meta) setAssayMeta(meta);
-    }
   }, [assayPreferenceKey]);
 
   useEffect(() => {
@@ -243,7 +231,6 @@ function Home() {
           updatedAt: Date.now()
         });
         setPopupProperty((prev) => prev || state.defaultProp || '');
-        saveAssayCache(state.holes, state, { fallbackToMetaOnly: true });
       })
       .catch((err) => {
         console.info('Auto-load of GSWA assays skipped:', err.message);

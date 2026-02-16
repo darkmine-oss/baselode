@@ -6,9 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   deriveAssayProps,
   loadAssayHole,
-  loadAssayMetadata,
-  loadCachedAssayState,
-  saveAssayCache
+  loadAssayMetadata
 } from '../data/assayDataLoader.js';
 import {
   buildTraceConfigsForHoleIds,
@@ -53,13 +51,6 @@ export default function useDrillholeTraceGrid({
     setDefaultProp(state.defaultProp || '');
     setTraceConfigs(state.traceConfigs || []);
   };
-
-  useEffect(() => {
-    const cachedState = loadCachedAssayState(focusedHoleId);
-    if (cachedState) {
-      applyAssayState(cachedState);
-    }
-  }, [focusedHoleId]);
 
   useEffect(() => {
     if (!sourceFile || holeIds.length > 0) return;
@@ -138,15 +129,6 @@ export default function useDrillholeTraceGrid({
                   numericDefaultChartType: 'markers+line'
                 })
               })));
-            }
-            const cached = saveAssayCache(next, {
-              holes: next,
-              numericProps: props.numericProps,
-              categoricalProps: props.categoricalProps,
-              defaultProp: props.defaultProp
-            }, { fallbackToMetaOnly: true });
-            if (!cached) {
-              console.info('Proceeding without cached assays (quota exceeded).');
             }
             return next;
           });

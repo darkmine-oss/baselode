@@ -7,12 +7,7 @@ import {
   Baselode3DScene,
   Baselode3DControls,
   loadAssayFile,
-  loadCachedCollars,
-  loadCachedSurvey,
-  loadCachedDesurveyed,
   parseDrillholesCSV,
-  saveCachedDesurveyed,
-  saveCachedSurvey,
   parseSurveyCSV,
   desurveyTraces
 } from 'baselode';
@@ -88,19 +83,6 @@ function Drillhole() {
   }, []);
 
   useEffect(() => {
-    setCollars(loadCachedCollars());
-    const cachedHoles = loadCachedDesurveyed();
-    if (cachedHoles && cachedHoles.length) {
-      const limited = cachedHoles
-        .filter((hole) => isFfCompanyHole(hole))
-        .slice(0, MAX_SCENE_HOLES);
-      setHoles(limited);
-      setDesurveyCsvUrl(makeDesurveyCsvUrl(limited));
-      setPrecomputedAttempted(true);
-    }
-  }, []);
-
-  useEffect(() => {
     if (holes && holes.length) {
       setPrecomputedAttempted(true);
       return;
@@ -123,7 +105,6 @@ function Drillhole() {
         if (!normalized.length) return;
         const limited = normalized.slice(0, MAX_SCENE_HOLES);
         setHoles(limited);
-        saveCachedDesurveyed(limited);
         setDesurveyCsvUrl((prev) => {
           if (prev) URL.revokeObjectURL(prev);
           return makeDesurveyCsvUrl(limited);
@@ -157,17 +138,12 @@ function Drillhole() {
       });
   }, []);
 
-  // Auto-load canonical GSWA survey if no cached data
+  // Auto-load canonical GSWA survey if no precomputed data
   useEffect(() => {
     if (!precomputedAttempted) return;
     if (usingPrecomputed) return;
     if (!collars.length) return;
     if (holes && holes.length >= MAX_SCENE_HOLES) return;
-    const cachedSurvey = loadCachedSurvey();
-    if (cachedSurvey.length) {
-      processAndSetHoles(cachedSurvey);
-      return;
-    }
 
     loadDemoSurveyCsvText()
       .then((csvText) => parseSurveyCSV(csvText))
@@ -260,7 +236,6 @@ function Drillhole() {
       setError('Desurveying produced no lines with 2+ points.');
       return;
     }
-    saveCachedSurvey(surveyRows);
 
     const projectedCollars = collars.map((c) => ({
       id: c.holeId || c.hole_id || c.id,
@@ -315,7 +290,6 @@ function Drillhole() {
     const limitedHoles = filteredHoles.slice(0, MAX_SCENE_HOLES);
 
     setHoles(limitedHoles);
-    saveCachedDesurveyed(limitedHoles);
     setDesurveyCsvUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return makeDesurveyCsvUrl(limitedHoles);

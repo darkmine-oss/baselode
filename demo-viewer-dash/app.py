@@ -206,7 +206,12 @@ DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV)
 PROPERTY_INFO = infer_property_lists(DATASET["assays"])
 DEFAULT_PROPERTY = (PROPERTY_INFO["numeric"] + PROPERTY_INFO["categorical"] + [""])[0]
 
-app = Dash(__name__, suppress_callback_exceptions=True, title="Baselode Dash Viewer")
+app = Dash(
+    __name__,
+    suppress_callback_exceptions=True,
+    title="Baselode Dash Viewer",
+    external_stylesheets=["https://fonts.googleapis.com/css2?family=Lexend:wght@600&display=swap"]
+)
 
 
 def sidebar_link(label, href):
