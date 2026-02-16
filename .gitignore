@@ -14,6 +14,7 @@ python/src/baselode/__pycache__/
 python/src/baselode/drill/__pycache__/
 python/src/baselode.egg-info/
 python/src/build/
+python/dist/
 
 test/__pycache__/
 
