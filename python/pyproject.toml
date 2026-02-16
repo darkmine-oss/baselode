@@ -1,16 +1,41 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "baselode"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Domain-aware data models and utilities for exploration and mining datasets."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { file = "LICENSE" }
-authors = [{ name = "Tamara Vasey" }, { name = "Darkmine Pty Ltd"}]
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "Tamara Vasey" }]
+maintainers = [{ name = "Darkmine Pty Ltd" }]
 
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering",
+]
+
+
+dependencies = [
+    "pandas>=1.5",
+    "numpy>=1.23",
+    "plotly>=5.0",
+    "geopandas>=0.13",
+    "pyproj>=3.4",
+  "pyarrow>=12.0",
+]
+
+[project.optional-dependencies]
+viz = ["folium>=0.15"]
+sql = ["sqlalchemy>=2.0"]
+all = ["folium>=0.15", "sqlalchemy>=2.0"]
 
 [project.urls]
 Homepage = "https://github.com/darkmine-oss/baselode"
@@ -19,3 +44,9 @@ Issues = "https://github.com/darkmine-oss/baselode/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+exclude = ["build", "build.*", "*.egg-info", "*.egg-info.*"]
+
+[tool.setuptools_scm]
+root = ".."
+version_scheme = "post-release"
+local_scheme = "no-local-version"
