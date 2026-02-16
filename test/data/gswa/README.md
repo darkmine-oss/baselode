@@ -30,11 +30,12 @@ All sample data was extracted using the below lat/lon bounding box to filter for
     [-32.329994174232176, 118.77253985070098]
     [-32.75139434476367, 119.74208332736906]
 
-The GSWA HoleId is used as primary key (assumed globally unique) and all datasets are sorted by this field. The CompanyHoleId and Dataset are kept for informational purposes.
+The GSWA HoleId is used as primary key (assumed globally unique) and all datasets are sorted by this field. The CompanyHoleId and Dataset are kept for informational purposes. The files are reduced to the minimum columns required for the datamodel/demo.
 
 * `gswa_sample_collars.csv` filters on collar location after joining tables `dbo.Collar` and `dbo.CollarElevation`
-* `gswa_sample_survey.csv` using the collars above, uses `dbo.DHSurvey` and takes only the latest survey results when there are duplicates
-* `gswa_sample_assays.csv` using the collars above, uses `gsd.dhAssayFlat` 
+* `gswa_sample_survey.csv` using the collars above, uses `dbo.DHSurvey` and takes only the latest survey results when there are duplicates. Filtered further to drillholes with CompanyHoleId starting with 'FF'
+* `gswa_sample_assays.csv` using the collars above, uses `gsd.dhAssayFlat` . Columns containing only NaN are removed.
+* `demo_gswa_precomputed_desurveyed.csv` is desurveyed hole trajectories for the holes in the survey file, using minimum curvature, reprojected to easting/northing, for 3D visualisation demo
 
 ## No endorsement
 
