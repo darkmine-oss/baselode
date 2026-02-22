@@ -8,41 +8,35 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import baselode.drill.data
-import baselode.drill.desurvey 
-import baselode.drill.view 
+import baselode.drill.desurvey
+import baselode.drill.view
+from baselode.drill.data import load_unified_dataset
+from baselode.drill.columns import (
+    classify_columns,
+    CHART_OPTIONS,
+    DISPLAY_NUMERIC,
+    DISPLAY_CATEGORICAL,
+    DISPLAY_COMMENT,
+    DISPLAY_TADPOLE,
+    DISPLAY_HIDDEN,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-DATA_DIR = REPO_ROOT / "demo-viewer-react" / "app" / "public" / "data" / "gswa"
-COLLARS_CSV = DATA_DIR / "demo_gswa_sample_collars.csv"
-SURVEY_CSV = DATA_DIR / "demo_gswa_sample_survey.csv"
-ASSAYS_CSV = DATA_DIR / "demo_gswa_sample_assays.csv"
+DATA_DIR = REPO_ROOT / "test" / "data" / "gswa"
+COLLARS_CSV = DATA_DIR / "gswa_sample_collars.csv"
+SURVEY_CSV = DATA_DIR / "gswa_sample_survey.csv"
+ASSAYS_CSV = DATA_DIR / "gswa_sample_assays.csv"
+STRUCTURES_CSV = DATA_DIR / "gswa_sample_structure.csv"
 PRECOMPUTED_DESURVEY_CSV = DATA_DIR / "demo_gswa_precomputed_desurveyed.csv"
 
-# Non-value fields for assay data (metadata and structural columns)
-ASSAY_NON_VALUE_FIELDS = {
-    "hole_id",
-    "datasource_hole_id",
-    "project_id",
-    "from",
-    "to",
-    "mid",
-    "x",
-    "y",
-    "z",
-    "lat",
-    "lon",
-    "easting",
-    "northing",
-    "elevation",
-    "latitude",
-    "longitude",
-    "azimuth",
-    "dip",
-    "depth",
-    "md",
-}
-CHART_TYPES = ["markers+line", "markers", "line", "bar", "categorical"]
+# Chart type options formatted for Dash Dropdown
+def _dash_chart_options(display_type):
+    """Convert CHART_OPTIONS entries to Dash dropdown option dicts."""
+    return [{"label": o["label"], "value": o["value"]} for o in CHART_OPTIONS.get(display_type, CHART_OPTIONS[DISPLAY_NUMERIC])]
+
+
+MODEBAR_BUTTONS_TO_REMOVE = ["select2d", "lasso2d", "autoScale2d"]
 
 
 def _safe_float(value, default=0.0):
@@ -134,7 +128,7 @@ def build_scene_assay_rows(assays_df, hole_ids, numeric_props):
     return rows
 
 
-def load_demo_dataset(collars_csv, survey_csv, assays_csv, precomputed_desurvey_csv=None):
+def load_demo_dataset(collars_csv, survey_csv, assays_csv, structures_csv, precomputed_desurvey_csv=None):
     """Load demo dataset using library's standardization.
     
     The library automatically maps common column name variations to standard names
@@ -188,10 +182,18 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv, precomputed_desurvey_
         assays_csv, 
         kind="csv"
     )
+
+    structures = baselode.drill.data.load_structures(
+        structures_csv,
+        kind="csv",
+        keep_all=True,
+    )
     
     # Clean string columns
     if "hole_id" in assays.columns:
         assays["hole_id"] = assays["hole_id"].astype(str).str.strip()
+    if "hole_id" in structures.columns:
+        structures["hole_id"] = structures["hole_id"].astype(str).str.strip()
     if "hole_id" in traces.columns:
         traces["hole_id"] = traces["hole_id"].astype(str).str.strip()
 
@@ -217,26 +219,70 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv, precomputed_desurvey_
     return {
         "collars": collars,
         "assays": assays_with_positions,
+        "structures": structures,
         "traces": traces,
     }
 
 
 def infer_property_lists(df):
-    props = [col for col in df.columns if col not in ASSAY_NON_VALUE_FIELDS]
-    numeric = []
-    categorical = []
-    for col in props:
-        series = pd.to_numeric(df[col], errors="coerce")
-        valid_ratio = float(series.notna().mean()) if len(series) else 0.0
-        if valid_ratio > 0.7:
-            numeric.append(col)
-        else:
-            categorical.append(col)
+    """Classify DataFrame columns using the baselode column metadata module.
+
+    Returns a dict matching the old shape for backward compatibility, plus
+    a 'by_type' dict for per-column lookup.
+    """
+    meta = classify_columns(df)
+    tadpole_cols = meta.get("tadpole_cols", [])
+    visible = sorted(meta["numeric_cols"]) + sorted(tadpole_cols) + sorted(meta["categorical_cols"]) + sorted(meta["comment_cols"])
     return {
-        "numeric": sorted(set(numeric)),
-        "categorical": sorted(set(categorical)),
-        "all": sorted(set(props)),
+        "numeric": sorted(meta["numeric_cols"]),
+        "tadpole": sorted(tadpole_cols),
+        "categorical": sorted(meta["categorical_cols"]),
+        "comment": sorted(meta["comment_cols"]),
+        "all": visible,
+        "by_type": meta["by_type"],
     }
+
+
+def build_striplog_dataset(assays_df, structures_df):
+    assay_frame = assays_df.copy() if assays_df is not None else pd.DataFrame()
+    structure_frame = structures_df.copy() if structures_df is not None else pd.DataFrame()
+
+    if not structure_frame.empty:
+        # Preserve user-facing structural aliases expected in the strip log UI.
+        if "comments" in structure_frame.columns and "structcomment" not in structure_frame.columns:
+            structure_frame["structcomment"] = structure_frame["comments"]
+
+        # Structural datasets are now point-based (depth). Convert depth points
+        # to tiny intervals for interval-style strip-log plotting.
+        has_interval = {"from", "to"}.issubset(structure_frame.columns)
+        if not has_interval and "depth" in structure_frame.columns:
+            depth_num = pd.to_numeric(structure_frame["depth"], errors="coerce")
+            structure_frame["from"] = depth_num - 0.05
+            structure_frame["to"] = depth_num + 0.05
+        elif has_interval:
+            # Keep backward compatibility for any interval-style structural rows.
+            from_num = pd.to_numeric(structure_frame["from"], errors="coerce")
+            to_num = pd.to_numeric(structure_frame["to"], errors="coerce")
+            equal_mask = from_num.notna() & to_num.notna() & (from_num == to_num)
+            if equal_mask.any():
+                structure_frame.loc[equal_mask, "to"] = to_num.loc[equal_mask] + 0.1
+
+    if not assay_frame.empty:
+        assay_frame["data_source"] = "assay"
+    if not structure_frame.empty:
+        structure_frame["data_source"] = "structure"
+
+    if assay_frame.empty and structure_frame.empty:
+        return pd.DataFrame()
+    if assay_frame.empty:
+        return structure_frame.copy()
+    if structure_frame.empty:
+        return assay_frame.copy()
+
+    combined = pd.concat([assay_frame, structure_frame], ignore_index=True, sort=False)
+    if "hole_id" in combined.columns:
+        combined["hole_id"] = combined["hole_id"].astype(str).str.strip()
+    return combined
 
 
 
@@ -253,7 +299,7 @@ def build_map_figure(collars_df, search_value):
 
     if frame.empty:
         fig = go.Figure()
-        fig.update_layout(template="plotly_white", margin=dict(l=10, r=10, t=20, b=10), height=640)
+        fig.update_layout(template="plotly_white", margin=dict(l=10, r=10, t=20, b=10), autosize=True)
         fig.add_annotation(text="No matching collars", showarrow=False, x=0.5, y=0.5, xref="paper", yref="paper")
         return fig
 
@@ -270,17 +316,35 @@ def build_map_figure(collars_df, search_value):
         hover_name="hole_id",
         hover_data=hover_data,
         zoom=5,
-        height=640,
     )
     fig.update_traces(marker=dict(size=8, color="#8b1e3f", opacity=0.85))
-    fig.update_layout(map_style="open-street-map", margin=dict(l=10, r=10, t=10, b=10))
+    fig.update_layout(map_style="open-street-map", margin=dict(l=10, r=10, t=10, b=10), autosize=True)
     return fig
 
 
-def hole_options(assays_df):
-    """Get unique hole IDs from assays for dropdown options."""
-    vals = sorted([v for v in assays_df["hole_id"].dropna().astype(str).unique().tolist() if v])
+def hole_options(df):
+    """Get unique hole IDs from the unified dataset for dropdown options."""
+    if df.empty or "hole_id" not in df.columns:
+        return []
+    vals = sorted([v for v in df["hole_id"].dropna().astype(str).unique().tolist() if v])
     return [{"label": v, "value": v} for v in vals]
+
+
+def hole_property_options(df, hole_id, global_props_info):
+    """Return property dropdown options filtered to non-null columns for a specific hole.
+
+    Falls back to all global properties when no hole is selected or the hole has
+    no rows in the dataset.  The returned list is ordered: numeric → categorical →
+    comment, matching the global ordering.
+    """
+    all_props = global_props_info["all"]
+    if not hole_id or df.empty:
+        return [{"label": p, "value": p} for p in all_props]
+    hole_df = df[df["hole_id"] == str(hole_id).strip()]
+    if hole_df.empty:
+        return [{"label": p, "value": p} for p in all_props]
+    available = [p for p in all_props if p in hole_df.columns and hole_df[p].notna().any()]
+    return [{"label": p, "value": p} for p in available]
 
 
 def build_trace_figure(
@@ -289,22 +353,50 @@ def build_trace_figure(
     selected_property,
     chart_type,
     categorical_props,
+    comment_props,
 ):
     """Build a single drillhole trace figure using library's plot function."""
     if not selected_hole or not selected_property:
         fig = go.Figure()
-        fig.update_layout(template="plotly_white", margin=dict(l=40, r=10, t=20, b=30), height=280)
+        fig.update_layout(template="plotly_white", height=280)
         return fig
 
     subset = assays_df[assays_df["hole_id"] == selected_hole].copy()
     if subset.empty or selected_property not in subset.columns:
         fig = go.Figure()
-        fig.update_layout(template="plotly_white", margin=dict(l=40, r=10, t=20, b=30), height=280)
+        fig.update_layout(template="plotly_white", height=280)
         return fig
 
+    display_type = STRIPLOG_PROPERTY_INFO["by_type"].get(selected_property, DISPLAY_NUMERIC)
+    is_comment = selected_property in (comment_props or [])
     is_cat = selected_property in categorical_props
-    resolved_type = "categorical" if (is_cat and chart_type != "bar") else chart_type
-    
+    is_tadpole = display_type == DISPLAY_TADPOLE or chart_type == "tadpole"
+    resolved_type = "comment" if is_comment else ("tadpole" if is_tadpole else ("categorical" if (is_cat and chart_type != "bar") else chart_type))
+
+    if resolved_type == "comment":
+        fig = baselode.drill.view.plot_comments_log(
+            subset,
+            from_col="from",
+            to_col="to",
+            comment_col=selected_property,
+            height=620,
+        )
+        fig.update_layout(height=620, template="plotly_white")
+        return fig
+
+    if resolved_type == "tadpole":
+        az_col = "azimuth" if "azimuth" in subset.columns else None
+        color_col = "defect" if "defect" in subset.columns else None
+        fig = baselode.drill.view.plot_tadpole_log(
+            subset,
+            md_col="depth",
+            dip_col=selected_property,
+            az_col=az_col or selected_property,
+            color_by=color_col,
+        )
+        fig.update_layout(height=620, template="plotly_white")
+        return fig
+
     # Use library's visualization function
     fig = baselode.drill.view.plot_drillhole_trace(
         df=subset,
@@ -330,19 +422,25 @@ def build_popup_figure(assays_df, selected_hole, selected_property, categorical_
         chart_type="line",
         categorical_props=[],
     )
-    fig.update_layout(template="plotly_white", margin=dict(l=45, r=10, t=10, b=30))
+    fig.update_layout(template="plotly_white", margin=dict(l=45, r=10, t=10, b=30), autosize=True)
     return fig
 
 
 # Initialize app with demo data
-DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV, PRECOMPUTED_DESURVEY_CSV)
-PROPERTY_INFO = infer_property_lists(DATASET["assays"])
-DEFAULT_PROPERTY = (PROPERTY_INFO["numeric"] + PROPERTY_INFO["categorical"] + [""])[0]
+DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV, STRUCTURES_CSV, PRECOMPUTED_DESURVEY_CSV)
+ASSAY_PROPERTY_INFO = infer_property_lists(DATASET["assays"])
+STRUCTURE_PROPERTY_INFO = infer_property_lists(DATASET["structures"])
+# Unified strip-log dataset: assay intervals + structural measurements merged by hole_id.
+# Rows are tagged with _source='assay'|'structural'; depth = mid for assay rows so
+# both data types share a consistent y-axis.
+STRIPLOG_DATASET = load_unified_dataset(ASSAYS_CSV, STRUCTURES_CSV, kind="csv")
+STRIPLOG_PROPERTY_INFO = infer_property_lists(STRIPLOG_DATASET)
+DEFAULT_STRIPLOG_PROPERTY = (STRIPLOG_PROPERTY_INFO["numeric"] + STRIPLOG_PROPERTY_INFO["categorical"] + STRIPLOG_PROPERTY_INFO["comment"] + [""])[0]
 
 app = Dash(
     __name__,
     suppress_callback_exceptions=True,
-    title="Baselode Dash Viewer",
+    title="Baselode Dash Demo",
     external_stylesheets=["https://fonts.googleapis.com/css2?family=Lexend:wght@600&display=swap"]
 )
 
@@ -393,8 +491,8 @@ def serve_drillhole3d():
         drillhole_data = build_drillhole_data(traces_df, max_holes=MAX_SCENE_HOLES)
     
     scene_hole_ids = list(drillhole_data.keys())
-    assay_variables = ["__HAS_ASSAY__"] + PROPERTY_INFO["numeric"]
-    assay_rows = build_scene_assay_rows(DATASET["assays"], scene_hole_ids, PROPERTY_INFO["numeric"])
+    assay_variables = ["__HAS_ASSAY__"] + ASSAY_PROPERTY_INFO["numeric"]
+    assay_rows = build_scene_assay_rows(DATASET["assays"], scene_hole_ids, ASSAY_PROPERTY_INFO["numeric"])
 
     drillhole_json = json.dumps(drillhole_data)
     assay_variables_json = json.dumps(assay_variables)
@@ -763,7 +861,6 @@ app.layout = html.Div(
         dcc.Location(id="url", refresh=False),
         dcc.Store(id="selected-hole-store", storage_type="session", data=""),
         dcc.Store(id="popup-hole-store", storage_type="memory", data=""),
-        dcc.Store(id="open-mode-store", storage_type="local", data={"open_in_popup": True}),
         html.Nav(
             id="sidebar",
             className="sidebar",
@@ -771,7 +868,8 @@ app.layout = html.Div(
                 html.Div(
                     className="sidebar-header",
                     children=[
-                        html.H2("Baselode Viewer", className="sidebar-title")
+                        html.H2("Baselode", className="sidebar-title"),
+                        html.H2("Demo Viewer", className="sidebar-title")
                     ]
                 ),
                 sidebar_link("Map", "/"),
@@ -819,16 +917,24 @@ def render_page(pathname, selected_hole):
         )
 
     if pathname == "/drillhole-2d":
-        options_holes = hole_options(DATASET["assays"])
+        options_holes = hole_options(STRIPLOG_DATASET)
         first_hole = selected_hole or (options_holes[0]["value"] if options_holes else "")
-        property_options = [{"label": p, "value": p} for p in PROPERTY_INFO["all"]]
-        initial_chart = "markers+line"
+        # Property options filtered to non-null columns for the first hole at render time.
+        # Per-hole callbacks will update these dynamically on subsequent hole changes.
+        property_options = hole_property_options(STRIPLOG_DATASET, first_hole, STRIPLOG_PROPERTY_INFO)
+        available_props = [o["value"] for o in property_options]
+        initial_prop = DEFAULT_STRIPLOG_PROPERTY if DEFAULT_STRIPLOG_PROPERTY in available_props else (available_props[0] if available_props else "")
+        # Set initial chart type based on the initial property's display type
+        default_display_type = STRIPLOG_PROPERTY_INFO["by_type"].get(initial_prop, DISPLAY_NUMERIC)
+        initial_chart_options = _dash_chart_options(default_display_type)
+        initial_chart = initial_chart_options[0]["value"] if initial_chart_options else "markers+line"
         initial_figure = build_trace_figure(
-            DATASET["assays"],
+            STRIPLOG_DATASET,
             first_hole,
-            DEFAULT_PROPERTY,
+            initial_prop,
             initial_chart,
-            PROPERTY_INFO["categorical"],
+            STRIPLOG_PROPERTY_INFO["categorical"],
+            STRIPLOG_PROPERTY_INFO["comment"],
         )
 
         controls = []
@@ -841,15 +947,19 @@ def render_page(pathname, selected_hole):
                             className="trace-controls",
                             children=[
                                 dcc.Dropdown(id=f"trace-hole-{idx}", options=options_holes, value=first_hole, placeholder="Hole"),
-                                dcc.Dropdown(id=f"trace-prop-{idx}", options=property_options, value=DEFAULT_PROPERTY, placeholder="Property"),
-                                dcc.Dropdown(id=f"trace-chart-{idx}", options=[{"label": c, "value": c} for c in CHART_TYPES], value=initial_chart),
+                                dcc.Dropdown(id=f"trace-prop-{idx}", options=property_options, value=initial_prop, placeholder="Property"),
+                                dcc.Dropdown(id=f"trace-chart-{idx}", options=initial_chart_options, value=initial_chart),
                             ],
                         ),
                         dcc.Graph(
                             id=f"trace-fig-{idx}",
                             figure=initial_figure,
-                            config={"displayModeBar": True, "responsive": True},
-                            style={"height": "62vh"},
+                            config={
+                                "displayModeBar": True,
+                                "responsive": True,
+                                "modeBarButtonsToRemove": MODEBAR_BUTTONS_TO_REMOVE,
+                            },
+                            style={"height": "62vh", "width": "100%"},
                         ),
                     ],
                 )
@@ -861,7 +971,7 @@ def render_page(pathname, selected_hole):
                 html.Div(
                     className="page-header",
                     children=[
-                        html.H1("Drillhole 2D Traces"),
+                        html.H2("Drillhole Strip Logs"),
                     ],
                 ),
                 html.Div(controls, className="trace-grid"),
@@ -875,7 +985,11 @@ def render_page(pathname, selected_hole):
             dcc.Graph(
                 id="collar-map",
                 figure=build_map_figure(DATASET["collars"], ""),
-                config={"displayModeBar": True, "responsive": True},
+                config={
+                    "displayModeBar": True,
+                    "responsive": True,
+                    "modeBarButtonsToRemove": MODEBAR_BUTTONS_TO_REMOVE,
+                },
                 className="map-graph",
                 style={"height": "100vh"},
             ),
@@ -883,27 +997,30 @@ def render_page(pathname, selected_hole):
                 id="popup-panel",
                 className="popup hidden",
                 children=[
-                    html.Div(className="popup-head", children=[
-                        html.Div(id="popup-title", className="popup-title"),
-                        html.Button("Close", id="popup-close", n_clicks=0, className="btn btn-small"),
-                    ]),
-                    dcc.Dropdown(id="popup-property", options=[{"label": p, "value": p} for p in PROPERTY_INFO["numeric"]], value=(PROPERTY_INFO["numeric"][0] if PROPERTY_INFO["numeric"] else "")),
-                    dcc.Graph(id="popup-graph", style={"flex": "1", "minHeight": "0"}),
-                    html.Button("Open page", id="popup-open-page", n_clicks=0, className="btn"),
+                    html.Div(
+                        className="popup-card",
+                        children=[
+                            html.Div(className="popup-head", children=[
+                                html.Div(id="popup-title", className="popup-title"),
+                                html.Button("\u00d7", id="popup-close", n_clicks=0, className="popup-close-btn"),
+                            ]),
+                            dcc.Dropdown(id="popup-property", options=[{"label": p, "value": p} for p in ASSAY_PROPERTY_INFO["numeric"]], value=(ASSAY_PROPERTY_INFO["numeric"][0] if ASSAY_PROPERTY_INFO["numeric"] else "")),
+                            dcc.Graph(
+                                id="popup-graph",
+                                config={
+                                    "displayModeBar": True,
+                                    "responsive": True,
+                                    "modeBarButtonsToRemove": MODEBAR_BUTTONS_TO_REMOVE,
+                                },
+                                style={"flex": "1", "minHeight": "0"},
+                            ),
+                            html.Button("Open page", id="popup-open-page", n_clicks=0, className="btn"),
+                        ],
+                    ),
                 ],
             ),
         ],
     )
-
-
-@app.callback(
-    Output("open-mode-store", "data"),
-    Input("open-mode-check", "value"),
-    prevent_initial_call=True,
-)
-def update_open_mode(values):
-    """Update whether to open holes in popup or navigate to page."""
-    return {"open_in_popup": "popup" in (values or [])}
 
 
 @app.callback(
@@ -922,11 +1039,10 @@ def update_map(search_value):
     Input("collar-map", "clickData"),
     Input("popup-close", "n_clicks"),
     Input("popup-open-page", "n_clicks"),
-    State("open-mode-store", "data"),
     State("popup-hole-store", "data"),
     prevent_initial_call=True,
 )
-def handle_map_click_or_popup(click_data, close_clicks, open_page_clicks, open_mode, popup_hole):
+def handle_map_click_or_popup(click_data, close_clicks, open_page_clicks, popup_hole):
     """Handle map marker clicks and popup interactions."""
     trigger = callback_context.triggered[0]["prop_id"].split(".")[0]
 
@@ -959,11 +1075,8 @@ def handle_map_click_or_popup(click_data, close_clicks, open_page_clicks, open_m
     if not hole_id:
         return no_update, no_update, no_update
 
-    # Open in popup or navigate to page
-    is_popup = bool((open_mode or {}).get("open_in_popup", True))
-    if is_popup:
-        return hole_id, no_update, no_update
-    return "", hole_id, "/drillhole-2d"
+    # Always open in popup
+    return hole_id, no_update, no_update
 
 
 @app.callback(
@@ -978,53 +1091,27 @@ def update_popup(hole_id, selected_property):
     if not hole_id:
         return "popup hidden", "", go.Figure()
     
-    default_numeric = PROPERTY_INFO["numeric"][0] if PROPERTY_INFO["numeric"] else ""
+    default_numeric = ASSAY_PROPERTY_INFO["numeric"][0] if ASSAY_PROPERTY_INFO["numeric"] else ""
     prop = selected_property or default_numeric
-    fig = build_popup_figure(DATASET["assays"], hole_id, prop, PROPERTY_INFO["categorical"])
+    fig = build_popup_figure(DATASET["assays"], hole_id, prop, ASSAY_PROPERTY_INFO["categorical"])
     return "popup", f"Hole {hole_id} — 2D assay preview", fig
 
 
-@app.callback(
-    Output("trace-fig-0", "figure"),
-    Output("trace-fig-1", "figure"),
-    Output("trace-fig-2", "figure"),
-    Output("trace-fig-3", "figure"),
-    Input("trace-hole-0", "value"),
-    Input("trace-prop-0", "value"),
-    Input("trace-chart-0", "value"),
-    Input("trace-hole-1", "value"),
-    Input("trace-prop-1", "value"),
-    Input("trace-chart-1", "value"),
-    Input("trace-hole-2", "value"),
-    Input("trace-prop-2", "value"),
-    Input("trace-chart-2", "value"),
-    Input("trace-hole-3", "value"),
-    Input("trace-prop-3", "value"),
-    Input("trace-chart-3", "value"),
-)
-def update_traces(
-    hole0,
-    prop0,
-    chart0,
-    hole1,
-    prop1,
-    chart1,
-    hole2,
-    prop2,
-    chart2,
-    hole3,
-    prop3,
-    chart3,
-):
-    """Update all four trace figures."""
-    assays = DATASET["assays"]
-    figs = [
-        build_trace_figure(assays, hole0, prop0, chart0, PROPERTY_INFO["categorical"]),
-        build_trace_figure(assays, hole1, prop1, chart1, PROPERTY_INFO["categorical"]),
-        build_trace_figure(assays, hole2, prop2, chart2, PROPERTY_INFO["categorical"]),
-        build_trace_figure(assays, hole3, prop3, chart3, PROPERTY_INFO["categorical"]),
-    ]
-    return figs[0], figs[1], figs[2], figs[3]
+for _idx in range(4):
+    @app.callback(
+        Output(f"trace-fig-{_idx}", "figure"),
+        Input(f"trace-hole-{_idx}", "value"),
+        Input(f"trace-prop-{_idx}", "value"),
+        Input(f"trace-chart-{_idx}", "value"),
+    )
+    def _update_trace_figure(hole, prop, chart, __idx=_idx):
+        """Update a single trace figure — only fires when that panel's inputs change."""
+        return build_trace_figure(
+            STRIPLOG_DATASET,
+            hole, prop, chart,
+            STRIPLOG_PROPERTY_INFO["categorical"],
+            STRIPLOG_PROPERTY_INFO["comment"],
+        )
 
 
 @app.callback(
@@ -1035,10 +1122,11 @@ def update_sidebar_footer(pathname):
     """Display data source info in sidebar footer."""
     collars_count = len(DATASET["collars"])
     assays_count = len(DATASET["assays"]["hole_id"].unique()) if not DATASET["assays"].empty else 0
+    structures_count = len(DATASET["structures"]["hole_id"].unique()) if not DATASET["structures"].empty else 0
     surveys_count = len(DATASET["traces"]["hole_id"].unique()) if not DATASET["traces"].empty else 0
     
     data_source_text = html.Div(
-        f"demo_gswa ({collars_count} collars, {surveys_count} surveys, {assays_count} assays)",
+        f"demo_gswa ({collars_count} collars, {surveys_count} surveys, {assays_count} assays, {structures_count} structures)",
         className="data-source-info"
     )
     
@@ -1050,26 +1138,59 @@ def update_sidebar_footer(pathname):
     Output("sidebar", "className"),
     Output("main-content", "className"),
     Input("url", "pathname"),
-    Input("open-mode-store", "data"),
 )
-def update_sidebar_panel(pathname, open_mode):
+def update_sidebar_panel(pathname):
     """Update sidebar panel content based on current page."""
     if pathname != "/":
         return [], "sidebar", "main-content content-main"
 
-    open_in_popup = bool((open_mode or {}).get("open_in_popup", True))
-
     panel = [
+        html.Hr(),
         html.Div("Map Controls", className="controls-title"),
         dcc.Input(id="map-search", type="text", placeholder="Search hole_id", className="text-input"),
-        dcc.Checklist(
-            id="open-mode-check",
-            options=[{"label": "Open hole in popup viewer", "value": "popup"}],
-            value=["popup"] if open_in_popup else [],
-            className="checklist",
-        ),
     ]
     return panel, "sidebar sidebar-map", "main-content map-main"
+
+
+def _chart_options_for_property(property_name, current_chart):
+    """Return (dash_options, value) for the chart type dropdown given a property name."""
+    display_type = STRIPLOG_PROPERTY_INFO["by_type"].get(property_name, DISPLAY_NUMERIC)
+    if display_type == DISPLAY_HIDDEN:
+        display_type = DISPLAY_NUMERIC
+    options = _dash_chart_options(display_type)
+    valid_values = {o["value"] for o in options}
+    value = current_chart if current_chart in valid_values else (options[0]["value"] if options else "markers+line")
+    return options, value
+
+
+# Per-hole property filtering:
+# When the hole dropdown changes, update the property dropdown options to only
+# show columns that have at least one non-null value for that hole.  If the
+# currently selected property is still available for the new hole, keep it;
+# otherwise fall back to the first available property.
+for _idx in range(4):
+    @app.callback(
+        Output(f"trace-prop-{_idx}", "options"),
+        Output(f"trace-prop-{_idx}", "value"),
+        Input(f"trace-hole-{_idx}", "value"),
+        State(f"trace-prop-{_idx}", "value"),
+    )
+    def _update_hole_property_options(hole_id, current_prop, __idx=_idx):
+        options = hole_property_options(STRIPLOG_DATASET, hole_id, STRIPLOG_PROPERTY_INFO)
+        valid_values = {o["value"] for o in options}
+        value = current_prop if current_prop in valid_values else (options[0]["value"] if options else "")
+        return options, value
+
+
+for _idx in range(4):
+    @app.callback(
+        Output(f"trace-chart-{_idx}", "options"),
+        Output(f"trace-chart-{_idx}", "value"),
+        Input(f"trace-prop-{_idx}", "value"),
+        State(f"trace-chart-{_idx}", "value"),
+    )
+    def _update_chart_options(property_name, current_chart, __idx=_idx):
+        return _chart_options_for_property(property_name, current_chart)
 
 
 if __name__ == "__main__":

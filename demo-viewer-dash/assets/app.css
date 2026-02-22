@@ -22,7 +22,7 @@ body {
 .sidebar {
   width: 200px;
   height: 100vh;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.45);
   backdrop-filter: blur(10px);
   border-right: 1px solid rgba(0, 0, 0, 0.1);
   display: flex;
@@ -217,23 +217,30 @@ body {
 
 .popup {
   position: fixed;
-  right: 20px;
-  top: 20px;
-  width: 500px;
-  height: 600px;
-  z-index: 20;
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
-  padding: 12px;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow: hidden;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 3vh 1.5rem;
+  z-index: 20;
 }
 
 .popup.hidden {
   display: none;
+}
+
+.popup-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+  width: 280px;
+  height: 780px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  overflow: hidden;
 }
 
 .popup-head {
@@ -241,10 +248,37 @@ body {
   justify-content: space-between;
   align-items: center;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
 .popup-title {
-  font-weight: 600;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.popup-close-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1.5px solid #d0d7de;
+  background: #fff;
+  color: #475569;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.popup-close-btn:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .popup #popup-property {
@@ -255,6 +289,16 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.popup #popup-graph .js-plotly-plot,
+.popup #popup-graph .js-plotly-plot .plot-container,
+.popup #popup-graph .js-plotly-plot .plot-container .svg-container {
+  flex: 1;
+  height: 100% !important;
+  min-height: 0;
 }
 
 .popup .btn {

@@ -1,39 +1,36 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { buildPlotConfig } from './drillholeViz.js';
+import { buildCommentsConfig, buildTadpoleConfig } from './structuralViz.js';
+import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_TADPOLE } from '../data/columnMeta.js';
 
 const DEFAULT_NUMERIC_CHART_TYPE = 'markers+line';
-const CATEGORICAL_CHART_OPTIONS = [{ value: 'categorical', label: 'Categorical bands' }];
-const NUMERIC_CHART_OPTIONS = [
-  { value: 'bar', label: 'Bars' },
-  { value: 'markers', label: 'Markers' },
-  { value: DEFAULT_NUMERIC_CHART_TYPE, label: 'Markers + Line' },
-  { value: 'line', label: 'Line only' }
-];
 
 /**
- * Resolve chart type from available options
+ * Resolve chart type from available options.
  * @private
  */
-function resolveChartType(chartOptions, requestedChartType) {
+function resolveChartType(displayType, requestedChartType) {
+  const chartOptions = getChartOptions(displayType);
   if (chartOptions.some((opt) => opt.value === requestedChartType)) return requestedChartType;
   return chartOptions[0]?.value || DEFAULT_NUMERIC_CHART_TYPE;
 }
 
 /**
- * Plotly-based trace plot component for drillhole assay data
- * Renders 1D strip log or 2D trace with configurable chart types
- * @param {Object} props - Component props
+ * Plotly-based trace plot component for drillhole data.
+ * Renders 1D strip logs with chart type options driven by column display type.
+ *
+ * @param {Object} props
  * @param {Object} props.config - Plot configuration {holeId, property, chartType}
- * @param {Object} props.graph - Graph data {hole, points, isCategorical, loading}
+ * @param {Object} props.graph - Graph data {hole, points, displayType, isCategorical, isComment, loading}
  * @param {Array} props.holeOptions - Available holes for dropdown
  * @param {Array} props.propertyOptions - Available properties for dropdown
  * @param {Function} props.onConfigChange - Handler for configuration changes
- * @returns {JSX.Element} Trace plot component
+ * @returns {JSX.Element}
  */
 function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onConfigChange }) {
   const containerRef = useRef(null);
@@ -42,20 +39,50 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
   const property = config?.property || '';
   const chartType = config?.chartType || DEFAULT_NUMERIC_CHART_TYPE;
   const selectedHoleId = config?.holeId || '';
-  const isCategorical = graph?.isCategorical || false;
 
-  const chartOptions = isCategorical ? CATEGORICAL_CHART_OPTIONS : NUMERIC_CHART_OPTIONS;
+  // Derive display type from graph metadata (set by useDrillholeTraceGrid)
+  const displayType = graph?.displayType
+    || (graph?.isComment ? DISPLAY_COMMENT : (graph?.isCategorical ? DISPLAY_CATEGORICAL : DISPLAY_NUMERIC));
 
-  const effectiveChartType = resolveChartType(chartOptions, chartType);
+  const chartOptions = getChartOptions(displayType);
+  const effectiveChartType = resolveChartType(displayType, chartType);
 
   const [renderError, setRenderError] = useState('');
 
   useEffect(() => {
-    if (!hole || !property || points.length === 0) return;
+    const isComment = displayType === DISPLAY_COMMENT;
+    const isTadpole = displayType === DISPLAY_TADPOLE;
+    if (!hole || !property) return;
+    // For comment type, allow empty points (empty intervals still draw border boxes)
+    // For tadpole, points are raw hole points — allow empty array through so buildTadpoleConfig can return empty gracefully
+    if (!isComment && !isTadpole && points.length === 0) return;
     const target = containerRef.current;
     if (!target) return;
-    const { data, layout } = buildPlotConfig({ points, isCategorical, property, chartType: effectiveChartType });
-    if (!data || data.length === 0) return;
+
+    let plotData;
+    try {
+      if (isComment) {
+        plotData = buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to' });
+      } else if (isTadpole) {
+        plotData = buildTadpoleConfig(points);
+      } else {
+        plotData = buildPlotConfig({
+          points,
+          isCategorical: displayType === DISPLAY_CATEGORICAL,
+          property,
+          chartType: effectiveChartType
+        });
+      }
+    } catch (err) {
+      console.error('Plot build error', err);
+      setRenderError(err?.message || 'Plot build error');
+      return;
+    }
+
+    if (!plotData?.data || plotData.data.length === 0) {
+      if (!isComment) return;
+    }
+
     const plotConfig = {
       displayModeBar: true,
       responsive: true,
@@ -65,7 +92,7 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
 
     try {
       setRenderError('');
-      Plotly.react(target, data, layout, plotConfig);
+      Plotly.react(target, plotData.data, plotData.layout, plotConfig);
       requestAnimationFrame(() => {
         if (target && target.parentElement) {
           Plotly.Plots.resize(target);
@@ -85,7 +112,7 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
         }
       }
     };
-  }, [hole, property, effectiveChartType, isCategorical, points]);
+  }, [hole, property, effectiveChartType, displayType, points]);
 
   useEffect(() => {
     const target = containerRef.current;
@@ -111,10 +138,10 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
     );
   }
 
-  if (points.length === 0) {
+  if (displayType !== DISPLAY_COMMENT && displayType !== DISPLAY_TADPOLE && points.length === 0) {
     return (
       <div className="plot-card empty">
-        <div className="placeholder">No numeric data for {property}</div>
+        <div className="placeholder">No data</div>
       </div>
     );
   }
@@ -156,15 +183,17 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
             ))}
           </select>
         )}
-        <select
-          className="plot-select"
-          value={effectiveChartType}
-          onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
-        >
-          {chartOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+        {chartOptions.length > 1 && (
+          <select
+            className="plot-select"
+            value={effectiveChartType}
+            onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
+          >
+            {chartOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        )}
       </div>
       <div className="plotly-chart" ref={containerRef} />
     </div>

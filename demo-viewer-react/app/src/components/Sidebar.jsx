@@ -1,10 +1,11 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { Link, useLocation } from 'react-router-dom';
 import './Sidebar.css';
 import { useZoomContext } from '../context/ZoomContext.jsx';
+import { ViewHelper } from 'three/examples/jsm/Addons.js';
 
 function Sidebar() {
   const location = useLocation();
@@ -19,7 +20,8 @@ function Sidebar() {
   return (
     <nav className="sidebar">
       <div className="sidebar-header">
-        <h2>Baselode Viewer</h2>
+        <h2>Baselode</h2>
+        <h2>Demo Viewer</h2>
       </div>
       <ul className="sidebar-menu">
         {menuItems.map((item) => (

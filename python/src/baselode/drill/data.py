@@ -27,7 +27,7 @@ so downstream functions can expect consistent keys.
 import pandas as pd
 import geopandas as gpd
 
-from baselode.datamodel import ( HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, AZIMUTH, DIP, FROM, TO, MID, PROJECT_ID, EASTING, NORTHING, CRS, DEPTH )
+from baselode.datamodel import ( HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, AZIMUTH, DIP, FROM, TO, MID, PROJECT_ID, EASTING, NORTHING, CRS, DEPTH, ALPHA, BETA, COMMENTS )
 
 
 """
@@ -74,6 +74,23 @@ BASELODE_DATA_MODEL_DRILL_SURVEY = {
     DIP: float
 }
 
+# The GSWA Structure table has the following potential attributes for structure measurements:
+# Alpha,Beta,Confidence,Defect,Defect_Width,Description,Dip,DipDir_Calc,
+# DipDirect_calc,DipDrn,Dip_Calc,,Fill1,Fill2,FillPC,,Hole_Dip,Hole_Dip_2,Hole_Dir,Hole_dir_2,
+# JWS,,Reliability,Rough,,StructComment,Structure,Type,a,alpha_2,beta_2,d
+
+# Ignored as meta-data not structure data:
+# Id,CollarId,FromDepth,ToDepth,HoleId,Geologist,Drill_code,PRIORITY,ProjectCode,Projectcode_2,Shape
+BASELODE_DATA_MODEL_STRUCTURAL_POINT = {
+    HOLE_ID: str,
+    DEPTH: float,
+    DIP: float,
+    AZIMUTH: float,
+    ALPHA: float,
+    BETA: float,
+    "comments": str,
+}
+
 BASELODE_DATA_MODEL_DRILL_ASSAY = {
     # The unique hole id that maps to the collar and any other data tables
     HOLE_ID: str,
@@ -105,10 +122,12 @@ DEFAULT_COLUMN_MAP = {
     CRS: ["crs", "epsg", "projection"],
     FROM: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
     TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
-    AZIMUTH: ["azimuth", "az", "dipdir", "dip_direction"],
-    DIP: ["dip"],
-    "declination": ["declination", "dec"],
-    DEPTH: ["depth", "survey_depth", "surveydepth"]
+    AZIMUTH: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn", "dipdirection", "dip_dir", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg", "dipdrn", "dipdir_calc", "dipdirect_calc"],
+    DIP: ["dip", "computed_plane_dip", "calc_dip", "calc_dip_deg", "dip_calc"],
+    DEPTH: ["depth", "survey_depth", "surveydepth"],
+    ALPHA: ["alpha", "alpha_angle", "alpha_angle_deg", "alpha_2"],
+    BETA: ["beta", "beta_angle", "beta_angle_deg", "beta_2"],
+    COMMENTS: ["comment", "comments", "structcomment", "description"]
 }
 
 # Pivot the DEFAULT_COLUMN_MAP for efficient reverse lookup
@@ -245,6 +264,54 @@ def load_assays(source, source_column_map=None, keep_all=True, **kwargs):
     return df.sort_values([HOLE_ID, FROM, TO])
 
 
+def load_structures(source, source_column_map=None, keep_all=True, **kwargs):
+    """Load structural point measurement data.
+
+    Expects point schema: hole_id, depth, dip, azimuth.
+    Structural measurements are always recorded at a single measured depth
+    (a point along the hole), consistent with BASELODE_DATA_MODEL_STRUCTURAL_POINT.
+    """
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+
+    if HOLE_ID not in df.columns:
+        raise ValueError(f"Structural table missing column: {HOLE_ID}")
+
+    if DEPTH not in df.columns:
+        raise ValueError(f"Structural table missing column: {DEPTH}")
+
+    df = coerce_numeric(df, [DIP, AZIMUTH, ALPHA, BETA])
+
+    if not keep_all:
+        keep_cols = [
+            col for col in BASELODE_DATA_MODEL_STRUCTURAL_POINT.keys() if col in df.columns
+        ]
+        df = df[keep_cols]
+
+    return df.sort_values([HOLE_ID, DEPTH])
+
+
+def load_geotechnical(source, source_column_map=None, keep_all=True, **kwargs):
+    """Load geotechnical interval data (RQD, fracture count, weathering, etc.).
+
+    Accepts interval tables (hole_id, from, to, ...) with geotechnical columns.
+    """
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+
+    if HOLE_ID not in df.columns:
+        raise ValueError(f"Geotechnical table missing column: {HOLE_ID}")
+
+    required = [FROM, TO]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Geotechnical table missing column: {col}")
+
+    geotechnical_numeric = ["rqd", "fracture_count", "fracture_frequency", "core_recovery", "tce"]
+    df = coerce_numeric(df, geotechnical_numeric)
+
+    df[MID] = 0.5 * (df[FROM] + df[TO])
+    return df.sort_values([HOLE_ID, FROM])
+
+
 def join_assays_to_traces(assays, traces, on_cols=(HOLE_ID,)):
     if traces.empty:
         return assays.copy()
@@ -266,11 +333,92 @@ def coerce_numeric(df, columns):
     return out
 
 
-def assemble_dataset(collars=None, surveys=None, assays=None, structures=None, metadata=None):
+def assemble_dataset(collars=None, surveys=None, assays=None, structures=None, geotechnical=None, metadata=None):
     return {
         "collars": _frame(collars),
         "surveys": _frame(surveys),
         "assays": _frame(assays),
         "structures": _frame(structures),
+        "geotechnical": _frame(geotechnical),
         "metadata": metadata or {},
     }
+
+
+def load_unified_dataset(assays_source, structures_source, source_column_map=None, **kwargs):
+    """Load and merge assay intervals and structural data into one DataFrame.
+
+    This is the recommended entry point for the Drillhole 2D strip-log view. The
+    combined DataFrame can be used directly as the data source for the hole / property
+    dropdowns and the strip-log renderer, giving a consistent experience across both
+    data types.
+
+    Rules applied:
+    - **Assay rows** (interval schema): ``from``, ``to`` and ``mid`` are already
+      computed by :func:`load_assays`.  A unified ``depth`` column is set to
+      ``mid`` so assay points appear at the interval midpoint on the depth axis.
+      Rows are tagged ``_source = 'assay'``.
+    - **Structural rows** (point schema): ``depth`` is the measured depth.
+      ``from`` and ``to`` are set to ``depth ± 0.05 m`` (0.1 m centred interval)
+      so the bar renders at the measurement point.  ``mid`` is set to ``depth``.
+      Rows are tagged ``_source = 'structural'``.
+
+    The caller gets a single DataFrame indexed by ``hole_id``.  The hole dropdown
+    should enumerate ``hole_id.unique()``, the property dropdown should show only
+    columns with at least one non-null value for the selected hole, and the y-axis
+    should use the ``depth`` column.
+
+    Parameters
+    ----------
+    assays_source:
+        Path, file-like, or DataFrame for the assay CSV (passed to
+        :func:`load_assays`).
+    structures_source:
+        Path, file-like, or DataFrame for the structural CSV (passed to
+        :func:`load_structures`).
+    source_column_map : dict, optional
+        Extra column-name overrides forwarded to both loaders.
+    **kwargs:
+        Additional keyword arguments forwarded to both loaders (e.g.
+        ``kind='csv'``).
+
+    Returns
+    -------
+    pd.DataFrame
+        Combined DataFrame with all assay and structural rows, sorted by
+        ``hole_id`` then ``depth``.  Contains a ``_source`` column
+        (``'assay'`` | ``'structural'``) and a unified ``depth`` column.
+    """
+    assay_df = load_assays(assays_source, source_column_map=source_column_map, **kwargs)
+    struct_df = load_structures(structures_source, source_column_map=source_column_map, keep_all=True, **kwargs)
+
+    assay_df = assay_df.copy()
+    struct_df = struct_df.copy()
+
+    # --- tag sources ---
+    assay_df["_source"] = "assay"
+    struct_df["_source"] = "structural"
+
+    # --- unified depth for assay rows: midpoint of the interval ---
+    if not assay_df.empty and MID in assay_df.columns:
+        assay_df[DEPTH] = assay_df[MID]
+
+    # --- unified depth + interval columns for structural rows ---
+    # Structural data is always point schema (depth). Add from/to/mid so
+    # interval-style renderers can still consume the rows.
+    # The interval is centred on depth (±0.05 m) so the bar appears at the
+    # measurement point and renders at the target 0.1 m display width.
+    if not struct_df.empty and DEPTH in struct_df.columns:
+        struct_df[FROM] = struct_df[DEPTH] - 0.05
+        struct_df[TO] = struct_df[DEPTH] + 0.05
+        struct_df[MID] = struct_df[DEPTH]
+
+    combined = pd.concat([assay_df, struct_df], ignore_index=True, sort=False)
+
+    if HOLE_ID in combined.columns:
+        combined[HOLE_ID] = combined[HOLE_ID].astype(str).str.strip()
+
+    if DEPTH in combined.columns and HOLE_ID in combined.columns:
+        combined = combined.sort_values([HOLE_ID, DEPTH], kind="mergesort").reset_index(drop=True)
+
+    return combined
+

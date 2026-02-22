@@ -1,52 +1,38 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { parseAssayHole, parseAssayHoleIdsWithAssays, parseAssaysCSV } from './assayLoader.js';
-import { ASSAY_NON_VALUE_FIELDS } from './assayFieldSets.js';
 import { buildTraceConfigsForHoleIds, reorderHoleIds } from './traceGridConfig.js';
+import { classifyColumns } from './columnMeta.js';
 
 export { reorderHoleIds };
 
 /**
- * Derive numeric and categorical property names from assay hole data
+ * Derive property names from hole data using column display-type classification.
+ *
  * @param {Array<Object>} holes - Array of hole objects with points containing assay data
- * @returns {{numericProps: Array<string>, categoricalProps: Array<string>, defaultProp: string}} Property classification
+ * @returns {{
+ *   numericProps: string[],
+ *   categoricalProps: string[],
+ *   commentProps: string[],
+ *   columnMeta: Object,
+ *   defaultProp: string
+ * }} Property classification
  */
 export function deriveAssayProps(holes = []) {
   const points = holes.flatMap((h) => h.points || []);
-  const candidates = new Set();
-  points.forEach((p) => {
-    Object.keys(p || {}).forEach((k) => {
-      if (!ASSAY_NON_VALUE_FIELDS.has(k)) candidates.add(k);
-    });
-  });
+  const { numericCols, categoricalCols, commentCols, byType } = classifyColumns(points);
 
-  const numericProps = [];
-  const categoricalProps = [];
+  const defaultProp = numericCols[0] || categoricalCols[0] || '';
 
-  candidates.forEach((key) => {
-    let hasNumber = false;
-    let hasValue = false;
-    for (let i = 0; i < points.length; i += 1) {
-      const v = points[i]?.[key];
-      if (v === undefined || v === null || (typeof v === 'string' && v.trim() === '')) continue;
-      hasValue = true;
-      if (typeof v === 'number' && Number.isFinite(v)) {
-        hasNumber = true;
-        break;
-      }
-    }
-    if (hasNumber) {
-      numericProps.push(key);
-    } else if (hasValue) {
-      categoricalProps.push(key);
-    }
-  });
-
-  const defaultProp = numericProps[0] || categoricalProps[0] || '';
-
-  return { numericProps, categoricalProps, defaultProp };
+  return {
+    numericProps: numericCols,
+    categoricalProps: categoricalCols,
+    commentProps: commentCols,
+    columnMeta: byType,
+    defaultProp,
+  };
 }
 
 /**
@@ -80,7 +66,7 @@ export async function loadAssayHole(file, holeId, config = null) {
  */
 export function buildAssayState(holes = [], focusedHoleId = '') {
   if (!holes.length) return null;
-  const { numericProps, categoricalProps, defaultProp } = deriveAssayProps(holes);
+  const { numericProps, categoricalProps, commentProps, columnMeta, defaultProp } = deriveAssayProps(holes);
   const holeIds = holes.map((h) => h.id || h.holeId).filter(Boolean);
   const traceConfigs = buildTraceConfigsForHoleIds({
     holeIds,
@@ -88,12 +74,15 @@ export function buildAssayState(holes = [], focusedHoleId = '') {
     plotCount: 4,
     defaultProp,
     categoricalProps,
+    commentProps,
     numericDefaultChartType: 'line'
   });
   return {
     holes,
     numericProps,
     categoricalProps,
+    commentProps,
+    columnMeta,
     defaultProp,
     traceConfigs
   };

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import * as THREE from 'three';
@@ -428,7 +428,7 @@ class Baselode3DScene {
         const len = dir.length();
         if (len <= 0.001) continue;
         const radius = 2.2;
-        const cylinderGeom = new THREE.CylinderGeometry(radius, radius, len, 6, 1, false);
+        const cylinderGeom = new THREE.CylinderGeometry(radius, radius, len, 6, 1, true);
         const segmentColor = this._getSegmentColor({
           selectedAssayVariable,
           assayIntervals,

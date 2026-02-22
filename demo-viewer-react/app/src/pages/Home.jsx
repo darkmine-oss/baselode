@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -15,6 +15,8 @@ import {
   loadAssayFile,
   buildIntervalPoints,
   buildPlotConfig,
+  getChartOptions,
+  defaultChartType,
   standardizeColumns,
   HOLE_ID
 } from 'baselode';
@@ -30,9 +32,9 @@ function Home() {
   const [searchError, setSearchError] = useState('');
   const [filteredCollars, setFilteredCollars] = useState(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [openInPopup, setOpenInPopup] = useState(true);
   const [popupHoleId, setPopupHoleId] = useState('');
   const [popupProperty, setPopupProperty] = useState('');
+  const [popupChartType, setPopupChartType] = useState('line');
   const [assayState, setAssayState] = useState(null);
   const [assayMeta, setAssayMeta] = useState(null);
   const [assayLoading, setAssayLoading] = useState(false);
@@ -127,15 +129,6 @@ function Home() {
           return;
         }
 
-        console.info('Collar CSV loaded', {
-          source: sourceName,
-          totalRows,
-          parsedRows: parsed.length,
-          detectedColumns: Array.from(detectedColumns),
-          skippedInvalidCoords,
-          skippedMissingKey,
-          sample: parsed.slice(0, 3)
-        });
         setCollars(parsed);
         try {
           localStorage.setItem(cacheKey, JSON.stringify(parsed));
@@ -173,14 +166,14 @@ function Home() {
   // Auto-load canonical GSWA collars if cache is empty
   useEffect(() => {
     if (collars.length > 0) return;
-    fetch('/data/gswa/demo_gswa_sample_collars.csv')
+    fetch('/data/gswa/gswa_sample_collars.csv')
       .then((res) => {
         if (!res.ok) return null;
         return res.text();
       })
       .then((csvText) => {
         if (!csvText) return;
-        parseCollarCSV(csvText, 'demo_gswa_sample_collars.csv (auto)');
+        parseCollarCSV(csvText, 'gswa_sample_collars.csv (auto)');
       })
       .catch((err) => {
         console.info('Auto-load of GSWA collars skipped:', err.message);
@@ -198,18 +191,11 @@ function Home() {
     }
   }, [assayPreferenceKey]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(assayPreferenceKey, openInPopup ? 'popup' : 'page');
-    } catch (e) {
-      console.warn('Failed to persist map open preference', e);
-    }
-  }, [assayPreferenceKey, openInPopup]);
 
   useEffect(() => {
     if (assayState || assayLoading) return;
     setAssayLoading(true);
-    fetch('/data/gswa/demo_gswa_sample_assays.csv')
+    fetch('/data/gswa/gswa_sample_assays.csv')
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
@@ -218,7 +204,7 @@ function Home() {
       })
       .then((csvText) => {
         const blob = new Blob([csvText], { type: 'text/csv' });
-        const demoGswaAssayFile = new File([blob], 'demo_gswa_sample_assays.csv', { type: 'text/csv' });
+        const demoGswaAssayFile = new File([blob], 'gswa_sample_assays.csv', { type: 'text/csv' });
         return loadAssayFile(demoGswaAssayFile, '');
       })
       .then((state) => {
@@ -270,11 +256,7 @@ function Home() {
 
   const handleHoleClick = (holeId) => {
     if (!holeId) return;
-    if (openInPopup) {
-      setPopupHoleId(holeId);
-    } else {
-      navigate('/drillhole-2d', { state: { holeId } });
-    }
+    setPopupHoleId(holeId);
   };
 
   useEffect(() => {
@@ -344,12 +326,14 @@ function Home() {
     const candidate = popupProperty || assayState.defaultProp || propertyOptions[0] || '';
     if (!popupProperty && candidate) {
       setPopupProperty(candidate);
+      setPopupChartType(defaultChartType(assayState?.columnMeta?.byType?.[candidate]));
       return;
     }
     if (popupHole && candidate && !holeHasProperty(popupHole, candidate)) {
       const fallback = propertyOptions.find((p) => holeHasProperty(popupHole, p));
       if (fallback && fallback !== popupProperty) {
         setPopupProperty(fallback);
+        setPopupChartType(defaultChartType(assayState?.columnMeta?.byType?.[fallback]));
       }
     }
   }, [assayState, popupHoleId, popupHole, popupProperty, propertyOptions]);
@@ -361,17 +345,18 @@ function Home() {
     const isCategorical = assayState?.categoricalProps?.includes(popupProperty);
     const points = buildIntervalPoints(popupHole, popupProperty, isCategorical);
     if (!points.length) return;
-    const { data, layout } = buildPlotConfig({
+    const { data, layout: baseLayout } = buildPlotConfig({
       points,
       isCategorical,
       property: popupProperty,
-      chartType: isCategorical ? 'categorical' : 'line'
+      chartType: popupChartType
     });
+    const layout = { ...baseLayout, margin: { l: 38, r: 8, t: 8, b: 38, pad: 6 } };
     const config = {
       displayModeBar: true,
       responsive: true,
       useResizeHandler: true,
-      modeBarButtonsToRemove: ['select2d', 'lasso2d']
+      modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
     };
     try {
       Plotly.react(target, data, layout, config);
@@ -386,7 +371,7 @@ function Home() {
         console.warn('Popup plot purge failed', err);
       }
     };
-  }, [popupHoleId, popupHole, popupProperty, assayState]);
+  }, [popupHoleId, popupHole, popupProperty, popupChartType, assayState]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -589,16 +574,7 @@ function Home() {
       </form>
       {searchError && <div className="error-banner inline small">{searchError}</div>}
 
-      <label className="checkbox-row">
-        <input
-          type="checkbox"
-          checked={openInPopup}
-          onChange={(e) => setOpenInPopup(e.target.checked)}
-        />
-        <span>Open hole in popup viewer</span>
-      </label>
-
-      {error && <div className="error-banner small">{error}</div>}
+{error && <div className="error-banner small">{error}</div>}
     </div>
   );
 
@@ -631,7 +607,6 @@ function Home() {
             <div className="hole-popup-header">
               <div>
                 <div className="hole-popup-title">Hole {popupHoleId}</div>
-                <div className="hole-popup-subtitle">2D assay preview</div>
               </div>
               <div className="hole-popup-actions">
                 <button
@@ -643,10 +618,11 @@ function Home() {
                 </button>
                 <button
                   type="button"
-                  className="ghost-button small"
+                  className="popup-close-btn"
                   onClick={() => setPopupHoleId('')}
+                  aria-label="Close"
                 >
-                  Close
+                  ×
                 </button>
               </div>
             </div>
@@ -659,15 +635,33 @@ function Home() {
                     <select
                       className="popup-select"
                       value={popupProperty}
-                      onChange={(e) => setPopupProperty(e.target.value)}
+                      onChange={(e) => {
+                        const p = e.target.value;
+                        setPopupProperty(p);
+                        setPopupChartType(defaultChartType(assayState?.columnMeta?.byType?.[p]));
+                      }}
                     >
                       {propertyOptions.map((p) => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
                   </label>
-                  <span className="popup-meta">{assayState?.holes?.length || 0} holes cached</span>
                 </div>
+                {getChartOptions(assayState?.columnMeta?.byType?.[popupProperty]).length > 1 && (
+                  <div className="popup-row">
+                    <label className="file-input-label inline">
+                      <select
+                        className="popup-select"
+                        value={popupChartType}
+                        onChange={(e) => setPopupChartType(e.target.value)}
+                      >
+                        {getChartOptions(assayState?.columnMeta?.byType?.[popupProperty]).map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                )}
                 <div ref={popupPlotRef} className="hole-popup-plot" />
               </div>
             ) : (

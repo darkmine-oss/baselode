@@ -19,9 +19,11 @@ export {
   NORTHING,
   CRS,
   DEPTH,
+  STRIKE,
   BASELODE_DATA_MODEL_DRILL_COLLAR,
   BASELODE_DATA_MODEL_DRILL_SURVEY,
   BASELODE_DATA_MODEL_DRILL_ASSAY,
+  BASELODE_DATA_MODEL_STRUCTURAL_POINT,
   DEFAULT_COLUMN_MAP
 } from './data/datamodel.js';
 
@@ -98,6 +100,34 @@ export {
   getColorForValue
 } from './data/blockModelLoader.js';
 
+export {
+  parseStructuralPointsCSV,
+  parseStructuralIntervalsCSV,
+  parseStructuralCSV,
+  validateStructuralPoints,
+  groupRowsByHole
+} from './data/structuralLoader.js';
+
+export {
+  parseAssayCsvTextToHoles,
+  parseUnifiedDataset
+} from './data/unifiedLoader.js';
+
+// --- Column metadata ---
+export {
+  DISPLAY_NUMERIC,
+  DISPLAY_CATEGORICAL,
+  DISPLAY_COMMENT,
+  DISPLAY_HIDDEN,
+  DISPLAY_TADPOLE,
+  CHART_OPTIONS,
+  HIDDEN_COLUMNS,
+  COMMENT_COLUMN_NAMES,
+  classifyColumns,
+  getChartOptions,
+  defaultChartType
+} from './data/columnMeta.js';
+
 // --- Visualization layer ---
 export {
   NUMERIC_LINE_COLOR,
@@ -130,6 +160,18 @@ export {
   intervalsAsTubes,
   annotationsFromIntervals
 } from './viz/view3dPayload.js';
+
+export {
+  buildTadpoleConfig,
+  buildStructuralStripConfig,
+  buildCommentsConfig,
+  buildStrikeDipSymbol
+} from './viz/structuralViz.js';
+
+export {
+  dipAzimuthToNormal,
+  buildStructuralDiscs
+} from './viz/structuralScene.js';
 
 export {
   buildViewSignature,

@@ -1,76 +1,40 @@
-# Baselode (JavaScript)
+# baselode-viewer
 
-Baselode is an open-source JavaScript toolkit providing structured data models for exploration and mining applications.
+React demo application for the [`baselode`](../../javascript/packages/baselode) JavaScript library. It showcases interactive drillhole data loading, desurveying, 2D strip-log visualisation, and 3D scene rendering.
 
-Version 0.1.0 focuses on domain-aware data models and validation utilities for drillhole-style data. The goal is to provide a consistent foundation for analytics, visualization, and AI workflows.
+## Pages
 
----
+| Route | Description |
+|---|---|
+| `/` | **Map** — MapLibre map of collar locations. Click a collar to open a strip-log popup with a property selector. Search bar filters visible collars by hole ID. |
+| `/drillhole` | **3D viewer** — Three.js scene with desurveyed drillhole traces and structural disc markers. |
+| `/drillhole2d` | **2D strip logs** — Multi-track Plotly strip logs for a selected hole (numeric, categorical, comments tracks). |
 
-## Installation
+## Development
+
+The app depends on the local `baselode` library package (linked via `file:../../javascript/packages/baselode`). Use the combined dev script to watch both simultaneously:
 
 ```bash
-npm install baselode
+# from repo root
+npm install
+
+# start library watch + app dev server together (recommended)
+npm run dev:local --workspace=demo-viewer-react/app
+# or from this directory:
+cd demo-viewer-react/app
+npm run dev:local
 ```
 
-**Requires:** Node.js 20+, React 18+
+The Vite dev server starts at **http://localhost:5173** (or next available port). The `dev:local` script runs the library in watch mode (`vite build --watch`) and the app dev server concurrently, so changes to the library are reflected immediately.
 
----
+## Data
 
-## Example
+In dev mode, Vite serves `../../test/data/` under `/data` via a custom middleware. The app auto-loads the canonical GSWA dataset from:
 
-```javascript
-import { parseDrillholesCSV } from 'baselode';
-
-// Example: file is a File object from an <input type="file" />
-const file = /* your File object */;
-file.text().then(csvText => {
-  const { holes } = parseDrillholesCSV(csvText);
-  // holes is an array of collar objects
-  console.log(holes);
-});
 ```
-
----
-
-## Included in 0.1.0
-
-- Drillhole collar, survey, and assay models  
-- Downhole interval structures  
-- Basic validation utilities  
-- Strip log visualisations
-- Map visualisations
-- 3D visualisations 
-
----
-
-## Design Principles
-
-- Explicit domain models (not generic tables)  
-- Minimal dependencies  
-- Visualisation tooling as key to data analysis
-- Designed for integration with analytics, GIS, and AI systems  
-
----
-
-## Roadmap
-
-Future releases may include:
-
-- Assay and lithology schemas  
-- Geospatial helpers  
-- Interoperability with common mining formats  
-- Visualization adapters  
-
----
-
-## License
-
-GNU General Public License v3.0 or later (GPL-3.0-or-later).
-
-See the `LICENSE` file in this repository for full details.
-
----
-
-## Contributing
-
-Contributions and issue reports are welcome via GitHub.
+test/data/gswa/
+  gswa_sample_collars.csv
+  gswa_sample_assays.csv
+  gswa_sample_survey.csv
+  demo_gswa_precomputed_desurveyed.csv   # pre-built 3D traces
+```

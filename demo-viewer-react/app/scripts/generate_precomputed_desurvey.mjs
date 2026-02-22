@@ -4,11 +4,11 @@ import Papa from 'papaparse';
 import proj4 from 'proj4';
 import { desurveyTraces } from '../../../javascript/packages/baselode/src/data/desurvey.js';
 import { standardizeColumns } from '../../../javascript/packages/baselode/src/data/keying.js';
-import { HOLE_ID, LATITUDE, LONGITUDE, DEPTH, AZIMUTH, DIP, PROJECT_ID } from '../../../javascript/packages/baselode/src/data/datamodel.js';
+import { HOLE_ID, LATITUDE, LONGITUDE, DEPTH, AZIMUTH, DIP, PROJECT_ID, ELEVATION } from '../../../javascript/packages/baselode/src/data/datamodel.js';
 
 const appRoot = path.resolve(process.cwd(), 'demo-viewer-react/app');
-const collarsPath = path.join(appRoot, 'public/data/gswa/demo_gswa_sample_collars.csv');
-const surveyPath = path.join(appRoot, 'public/data/gswa/demo_gswa_sample_survey.csv');
+const collarsPath = path.join(appRoot, 'public/data/gswa/gswa_sample_collars.csv');
+const surveyPath = path.join(appRoot, 'public/data/gswa/gswa_sample_survey.csv');
 const outPath = path.join(appRoot, 'public/data/gswa/demo_gswa_precomputed_desurveyed.csv');
 
 const collarsCsv = await fs.readFile(collarsPath, 'utf8');
@@ -29,7 +29,8 @@ const collars = collarRows
     const companyHoleId = String(standardized.company_hole_id || standardized.companyholeid || '').trim();
     const collarId = companyHoleId || holeId;
     const primaryId = collarId.toLowerCase();
-    return { lat, lng, project, holeId, companyHoleId, collarId, primaryId };
+    const elevation = Number(standardized[ELEVATION] ?? standardized.elevation ?? 0);
+    return { lat, lng, elevation, project, holeId, companyHoleId, collarId, primaryId };
   })
   .filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lng) && r.holeId && r.primaryId);
 
@@ -80,7 +81,8 @@ for (const hole of desurveyed) {
   const pts = (hole.points || [])
     .map((p) => {
       const proj = projectTo28350(p.lat ?? 0, p.lng ?? 0);
-      return { x: proj.x - centroid.x, y: proj.y - centroid.y, z: p.z, md: p.md };
+      const collarElevation = Number.isFinite(hole.collar?.elevation) ? hole.collar.elevation : 0;
+      return { x: proj.x - centroid.x, y: proj.y - centroid.y, z: p.z + collarElevation, md: p.md };
     })
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
   if (pts.length < 2) continue;
