@@ -463,11 +463,20 @@ def plot_strip_log(df,
     return fig
 
 
+_DEFAULT_TADPOLE_PALETTE = [
+    "#0f172a", "#1e3a5f", "#7c3aed", "#dc2626", "#16a34a",
+    "#d97706", "#0ea5e9", "#db2777", "#65a30d", "#9333ea",
+]
+
+
 def plot_tadpole_log(df,
     md_col="md",
     dip_col="dip",
     az_col="azimuth",
     size_col=None,
+    color_by=None,
+    structure_type_col="structure_type",
+    palette=None,
     tail_scale=0.2,
     height=400,
     width=220):
@@ -475,53 +484,98 @@ def plot_tadpole_log(df,
 
     Each measurement renders a circle at the measured depth with a "tail" pointing
     toward the dip direction. Tail length scales with dip magnitude and tail_scale.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Structural measurements.
+    md_col : str
+        Column for measured depth.
+    dip_col : str
+        Column for dip angle.
+    az_col : str
+        Column for dip direction (azimuth clockwise from North).
+    size_col : str, optional
+        Column to scale marker size.
+    color_by : str, optional
+        Column to color heads by (e.g., structure_type_col). If None, all heads are black.
+    structure_type_col : str
+        Column name for structure type (used in legend when color_by is set).
+    palette : list, optional
+        List of hex color strings. Defaults to built-in palette.
+    tail_scale : float
+        Controls tail length relative to dip magnitude.
+    height, width : int
+        Figure dimensions.
     """
     if df.empty or md_col not in df.columns or dip_col not in df.columns or az_col not in df.columns:
         return go.Figure()
 
-    safe = df[[md_col, dip_col, az_col] + ([size_col] if size_col else [])].dropna(subset=[md_col, dip_col, az_col])
+    extra_cols = [c for c in [size_col, color_by] if c and c in df.columns]
+    safe = df[[md_col, dip_col, az_col] + extra_cols].dropna(subset=[md_col, dip_col, az_col])
     if safe.empty:
         return go.Figure()
 
+    palette = palette or _DEFAULT_TADPOLE_PALETTE
+
+    # Build color lookup for categories
+    color_map = {}
+    if color_by and color_by in safe.columns:
+        categories = sorted(safe[color_by].dropna().unique())
+        color_map = {cat: palette[i % len(palette)] for i, cat in enumerate(categories)}
+
     base_x = 0.0
-    xs = []
-    ys = []
-    sizes = []
-    tail_x0 = []
-    tail_y0 = []
-    tail_x1 = []
-    tail_y1 = []
+    tail_shapes = []
+
+    # Group by category to build separate traces for legend
+    traces_by_cat = {}
 
     for _, row in safe.iterrows():
         depth = float(row[md_col])
         dip = float(row[dip_col])
         az = float(row[az_col])
-        size = float(row[size_col]) if size_col and not pd.isna(row[size_col]) else 8.0
-        xs.append(base_x)
-        ys.append(depth)
-        sizes.append(size)
+        size = float(row[size_col]) if size_col and size_col in row.index and not pd.isna(row[size_col]) else 8.0
+
+        cat = str(row[color_by]) if color_by and color_by in row.index and not pd.isna(row[color_by]) else "_default"
+        color = color_map.get(cat, "#0f172a")
+
+        if cat not in traces_by_cat:
+            traces_by_cat[cat] = {"xs": [], "ys": [], "sizes": [], "dips": [], "azs": [], "color": color}
+        traces_by_cat[cat]["xs"].append(base_x)
+        traces_by_cat[cat]["ys"].append(depth)
+        traces_by_cat[cat]["sizes"].append(size)
+        traces_by_cat[cat]["dips"].append(dip)
+        traces_by_cat[cat]["azs"].append(az)
+
         az_rad = math.radians(az)
         length = tail_scale * (abs(dip) / 90.0)
         dx = math.sin(az_rad) * length
         dy = math.cos(az_rad) * length
-        tail_x0.append(base_x)
-        tail_y0.append(depth)
-        tail_x1.append(base_x + dx)
-        tail_y1.append(depth + dy)
+        tail_shapes.append(dict(
+            type="line",
+            x0=base_x, y0=depth,
+            x1=base_x + dx, y1=depth + dy,
+            line=dict(color=color, width=2),
+        ))
 
-    head_trace = go.Scatter(
-        x=xs,
-        y=ys,
-        mode="markers",
-        marker=dict(size=sizes, color="#0f172a"),
-        showlegend=False,
-        hovertemplate="Depth: %{y}<br>Dip: %{customdata[0]}<br>Az: %{customdata[1]}<extra></extra>",
-        customdata=list(zip(safe[dip_col], safe[az_col])),
-    )
+    head_traces = []
+    for cat, data in traces_by_cat.items():
+        label = cat if cat != "_default" else None
+        head_traces.append(go.Scatter(
+            x=data["xs"],
+            y=data["ys"],
+            mode="markers",
+            name=label,
+            marker=dict(size=data["sizes"], color=data["color"]),
+            showlegend=bool(color_by and cat != "_default"),
+            hovertemplate="Depth: %{y}<br>Dip: %{customdata[0]}<br>Az: %{customdata[1]}<extra></extra>",
+            customdata=list(zip(data["dips"], data["azs"])),
+        ))
 
-    fig = go.Figure(data=[head_trace])
-    for x0, y0, x1, y1 in zip(tail_x0, tail_y0, tail_x1, tail_y1):
-        fig.add_shape(type="line", x0=x0, y0=y0, x1=x1, y1=y1, line=dict(color="#0f172a", width=2))
+    show_legend = bool(color_by and len(traces_by_cat) > 1)
+    fig = go.Figure(data=head_traces)
+    for shape in tail_shapes:
+        fig.add_shape(**shape)
 
     fig.update_layout(
         height=height,
@@ -529,6 +583,111 @@ def plot_tadpole_log(df,
         margin=dict(l=40, r=10, t=10, b=40),
         xaxis=dict(range=[-0.5, 0.5], visible=False, fixedrange=True),
         yaxis=dict(title="Depth (m)", autorange="reversed"),
+        showlegend=show_legend,
+    )
+    return fig
+
+
+def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col="easting", northing_col="northing", dip_col="dip", az_col="azimuth", label_col="structure_type"):
+    """2D map view with strike/dip symbols.
+
+    Renders each structural measurement as a line (strike direction) with a
+    perpendicular tick (dip direction). Requires easting/northing on the
+    structures DataFrame (from attach_structure_positions) or collar coordinates.
+
+    Parameters
+    ----------
+    structures : pd.DataFrame
+        Structural data with easting, northing, dip, azimuth columns.
+    collar_gdf : geopandas.GeoDataFrame, optional
+        Collar locations to overlay.
+    symbol_size : float
+        Strike line half-length in map units.
+    """
+    if structures.empty:
+        return go.Figure()
+
+    if easting_col not in structures.columns or northing_col not in structures.columns:
+        return go.Figure()
+
+    safe = structures.dropna(subset=[easting_col, northing_col, dip_col, az_col])
+    if safe.empty:
+        return go.Figure()
+
+    symbol_traces = []
+    for _, row in safe.iterrows():
+        x = float(row[easting_col])
+        y = float(row[northing_col])
+        dip = float(row[dip_col])
+        az = float(row[az_col])
+        strike_az = (az - 90) % 360
+        strike_rad = math.radians(strike_az)
+
+        # Strike line endpoints
+        dx_s = symbol_size * math.sin(strike_rad)
+        dy_s = symbol_size * math.cos(strike_rad)
+        # Dip tick (short line in dip direction, at midpoint of strike line)
+        tick_len = symbol_size * 0.4 * (dip / 90.0)
+        dip_rad = math.radians(az)
+        dx_d = tick_len * math.sin(dip_rad)
+        dy_d = tick_len * math.cos(dip_rad)
+
+        label = str(row.get(label_col, "")) if label_col in row.index else ""
+        hover = f"{label}<br>Dip: {dip:.1f}° Az: {az:.1f}°"
+
+        # Strike line
+        symbol_traces.append(go.Scatter(
+            x=[x - dx_s, x + dx_s, None],
+            y=[y - dy_s, y + dy_s, None],
+            mode="lines",
+            line=dict(color="#0f172a", width=2),
+            showlegend=False,
+            hoverinfo="skip",
+        ))
+        # Dip tick from center
+        symbol_traces.append(go.Scatter(
+            x=[x, x + dx_d, None],
+            y=[y, y + dy_d, None],
+            mode="lines",
+            line=dict(color="#0f172a", width=2),
+            showlegend=False,
+            hoverinfo="skip",
+        ))
+        # Invisible hover point at center
+        symbol_traces.append(go.Scatter(
+            x=[x],
+            y=[y],
+            mode="markers",
+            marker=dict(size=8, color="rgba(0,0,0,0)"),
+            showlegend=False,
+            hovertext=hover,
+            hoverinfo="text",
+        ))
+
+    fig = go.Figure(data=symbol_traces)
+
+    if collar_gdf is not None and not collar_gdf.empty:
+        try:
+            collar_x = collar_gdf.geometry.x
+            collar_y = collar_gdf.geometry.y
+            collar_ids = collar_gdf.get("hole_id", collar_gdf.index)
+            fig.add_trace(go.Scatter(
+                x=collar_x,
+                y=collar_y,
+                mode="markers+text",
+                text=collar_ids,
+                textposition="top center",
+                marker=dict(size=6, color="#ef4444"),
+                showlegend=False,
+                hoverinfo="text",
+            ))
+        except Exception:
+            pass
+
+    fig.update_layout(
+        margin=dict(l=40, r=10, t=10, b=40),
+        xaxis=dict(title="Easting (m)", scaleanchor="y", scaleratio=1),
+        yaxis=dict(title="Northing (m)"),
         showlegend=False,
     )
     return fig

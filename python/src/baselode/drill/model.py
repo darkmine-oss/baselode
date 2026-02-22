@@ -52,12 +52,13 @@ class ProjectConfig:
 
 
 class DrillholeDataset:
-    def __init__(self, project=None, collars=None, surveys=None, assays=None, structures=None, traces=None, metadata=None):
+    def __init__(self, project=None, collars=None, surveys=None, assays=None, structures=None, geotechnical=None, traces=None, metadata=None):
         self.project = project or ProjectConfig()
         self.collars = data._frame(collars)
         self.surveys = data._frame(surveys)
         self.assays = data._frame(assays)
         self.structures = data._frame(structures)
+        self.geotechnical = data._frame(geotechnical)
         self.traces = data._frame(traces)
         self.metadata = metadata or {}
 
@@ -68,19 +69,25 @@ class DrillholeDataset:
             surveys=self.surveys.copy(),
             assays=self.assays.copy(),
             structures=self.structures.copy(),
+            geotechnical=self.geotechnical.copy(),
             traces=self.traces.copy(),
             metadata=dict(self.metadata),
         )
 
     def select_holes(self, hole_ids):
         hole_ids = set(hole_ids)
+
+        def _filter(df):
+            return df[df["hole_id"].isin(hole_ids)] if not df.empty else df
+
         return DrillholeDataset(
             project=self.project,
-            collars=self.collars[self.collars["hole_id"].isin(hole_ids)],
-            surveys=self.surveys[self.surveys["hole_id"].isin(hole_ids)],
-            assays=self.assays[self.assays["hole_id"].isin(hole_ids)],
-            structures=self.structures[self.structures["hole_id"].isin(hole_ids)],
-            traces=self.traces[self.traces["hole_id"].isin(hole_ids)],
+            collars=_filter(self.collars),
+            surveys=_filter(self.surveys),
+            assays=_filter(self.assays),
+            structures=_filter(self.structures),
+            geotechnical=_filter(self.geotechnical),
+            traces=_filter(self.traces),
             metadata=self.metadata,
         )
 
@@ -93,6 +100,7 @@ class DrillholeDataset:
             surveys=data.filter_by_project(self.surveys, project_id),
             assays=data.filter_by_project(self.assays, project_id),
             structures=data.filter_by_project(self.structures, project_id),
+            geotechnical=data.filter_by_project(self.geotechnical, project_id),
             traces=data.filter_by_project(self.traces, project_id),
             metadata=self.metadata,
         )
@@ -121,6 +129,7 @@ class DrillholeDataset:
             "surveys": self.surveys,
             "assays": self.assays,
             "structures": self.structures,
+            "geotechnical": self.geotechnical,
             "traces": self.traces,
             "metadata": self.metadata,
         }

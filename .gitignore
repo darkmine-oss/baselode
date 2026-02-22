@@ -1,6 +1,7 @@
 .env
 .venv
 .vscode
+.features
 
 demo-viewer-dash/__pycache__/
 

@@ -26,6 +26,10 @@ export const EASTING = "easting";
 export const NORTHING = "northing";
 export const CRS = "crs";
 export const DEPTH = "depth";
+export const STRUCTURE_TYPE = "structure_type";
+export const STRIKE = "strike";
+export const CONFIDENCE = "confidence";
+export const INTENSITY = "intensity";
 
 /**
  * Minimum expected columns for drillhole collars
@@ -79,6 +83,34 @@ export const BASELODE_DATA_MODEL_DRILL_ASSAY = {
 };
 
 /**
+ * Structural point data model schema
+ */
+export const BASELODE_DATA_MODEL_STRUCTURAL_POINT = {
+  [HOLE_ID]: "string",
+  [DEPTH]: "number",
+  [STRUCTURE_TYPE]: "string",
+  [DIP]: "number",
+  [AZIMUTH]: "number",
+  [CONFIDENCE]: "string",
+  "comments": "string",
+};
+
+/**
+ * Structural interval data model schema
+ */
+export const BASELODE_DATA_MODEL_STRUCTURAL_INTERVAL = {
+  [HOLE_ID]: "string",
+  [FROM]: "number",
+  [TO]: "number",
+  [STRUCTURE_TYPE]: "string",
+  [DIP]: "number",
+  [AZIMUTH]: "number",
+  [INTENSITY]: "number",
+  "classification": "string",
+  "comments": "string",
+};
+
+/**
  * This column map is used to make a 'best guess' for mapping common variations in source column names to the baselode data model.
  * It is applied in the standardizeColumns function, but users can also provide their own column map to override or extend this mapping as needed.
  * The keys from the input source are normalized to lowercase and stripped of whitespace for more robust matching.
@@ -97,10 +129,16 @@ export const DEFAULT_COLUMN_MAP = {
   [CRS]: ["crs", "epsg", "projection"],
   [FROM]: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
   [TO]: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
-  [AZIMUTH]: ["azimuth", "az", "dipdir", "dip_direction"],
-  [DIP]: ["dip"],
+  [AZIMUTH]: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn",
+              "dipdirection", "dip_dir", "beta", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg"],
+  [DIP]: ["dip", "alpha", "computed_plane_dip", "calc_dip", "calc_dip_deg"],
   "declination": ["declination", "dec"],
-  [DEPTH]: ["depth", "survey_depth", "surveydepth"]
+  [DEPTH]: ["depth", "survey_depth", "surveydepth"],
+  [STRUCTURE_TYPE]: ["structure_type", "type", "defect", "structure", "defecttype",
+                     "structuretype", "strfeature"],
+  [INTENSITY]: ["intensity", "structure_intensity", "structure_int", "frequency"],
+  [CONFIDENCE]: ["confidence", "structure_confidence", "reliability_confidence", "accuracy"],
+  [STRIKE]: ["strike", "str"],
 };
 
 /**

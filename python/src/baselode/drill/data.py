@@ -27,7 +27,7 @@ so downstream functions can expect consistent keys.
 import pandas as pd
 import geopandas as gpd
 
-from baselode.datamodel import ( HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, AZIMUTH, DIP, FROM, TO, MID, PROJECT_ID, EASTING, NORTHING, CRS, DEPTH )
+from baselode.datamodel import ( HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, AZIMUTH, DIP, FROM, TO, MID, PROJECT_ID, EASTING, NORTHING, CRS, DEPTH, STRUCTURE_TYPE, STRIKE, CONFIDENCE, INTENSITY )
 
 
 """
@@ -74,6 +74,28 @@ BASELODE_DATA_MODEL_DRILL_SURVEY = {
     DIP: float
 }
 
+BASELODE_DATA_MODEL_STRUCTURAL_POINT = {
+    HOLE_ID: str,
+    DEPTH: float,
+    STRUCTURE_TYPE: str,
+    DIP: float,
+    AZIMUTH: float,
+    CONFIDENCE: str,
+    "comments": str,
+}
+
+BASELODE_DATA_MODEL_STRUCTURAL_INTERVAL = {
+    HOLE_ID: str,
+    FROM: float,
+    TO: float,
+    STRUCTURE_TYPE: str,
+    DIP: float,
+    AZIMUTH: float,
+    INTENSITY: float,
+    "classification": str,
+    "comments": str,
+}
+
 BASELODE_DATA_MODEL_DRILL_ASSAY = {
     # The unique hole id that maps to the collar and any other data tables
     HOLE_ID: str,
@@ -105,10 +127,16 @@ DEFAULT_COLUMN_MAP = {
     CRS: ["crs", "epsg", "projection"],
     FROM: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
     TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
-    AZIMUTH: ["azimuth", "az", "dipdir", "dip_direction"],
-    DIP: ["dip"],
+    AZIMUTH: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn",
+              "dipdirection", "dip_dir", "beta", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg"],
+    DIP: ["dip", "alpha", "computed_plane_dip", "calc_dip", "calc_dip_deg"],
     "declination": ["declination", "dec"],
-    DEPTH: ["depth", "survey_depth", "surveydepth"]
+    DEPTH: ["depth", "survey_depth", "surveydepth"],
+    STRUCTURE_TYPE: ["structure_type", "type", "defect", "structure", "defecttype",
+                     "structuretype", "strfeature"],
+    INTENSITY: ["intensity", "structure_intensity", "structure_int", "frequency"],
+    CONFIDENCE: ["confidence", "structure_confidence", "reliability_confidence", "accuracy"],
+    STRIKE: ["strike", "str"],
 }
 
 # Pivot the DEFAULT_COLUMN_MAP for efficient reverse lookup
@@ -245,6 +273,58 @@ def load_assays(source, source_column_map=None, keep_all=True, **kwargs):
     return df.sort_values([HOLE_ID, FROM, TO])
 
 
+def load_structures(source, source_column_map=None, keep_all=True, **kwargs):
+    """Load structural point and/or interval data.
+
+    Accepts tables with either:
+    - Point schema: hole_id, depth, dip, azimuth, structure_type
+    - Interval schema: hole_id, from, to, dip, azimuth, structure_type
+
+    Determines point vs interval based on presence of from/to vs depth columns.
+    """
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+
+    is_interval = FROM in df.columns and TO in df.columns
+    is_point = DEPTH in df.columns and not is_interval
+
+    if not is_interval and not is_point:
+        raise ValueError(
+            "Structural table requires either 'depth' (point) or 'from'/'to' (interval) columns"
+        )
+    if HOLE_ID not in df.columns:
+        raise ValueError(f"Structural table missing column: {HOLE_ID}")
+
+    df = coerce_numeric(df, [DIP, AZIMUTH, STRIKE, INTENSITY])
+
+    if is_interval:
+        df[MID] = 0.5 * (df[FROM] + df[TO])
+        return df.sort_values([HOLE_ID, FROM])
+    else:
+        return df.sort_values([HOLE_ID, DEPTH])
+
+
+def load_geotechnical(source, source_column_map=None, keep_all=True, **kwargs):
+    """Load geotechnical interval data (RQD, fracture count, weathering, etc.).
+
+    Accepts interval tables (hole_id, from, to, ...) with geotechnical columns.
+    """
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+
+    if HOLE_ID not in df.columns:
+        raise ValueError(f"Geotechnical table missing column: {HOLE_ID}")
+
+    required = [FROM, TO]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Geotechnical table missing column: {col}")
+
+    geotechnical_numeric = ["rqd", "fracture_count", "fracture_frequency", "core_recovery", "tce"]
+    df = coerce_numeric(df, geotechnical_numeric)
+
+    df[MID] = 0.5 * (df[FROM] + df[TO])
+    return df.sort_values([HOLE_ID, FROM])
+
+
 def join_assays_to_traces(assays, traces, on_cols=(HOLE_ID,)):
     if traces.empty:
         return assays.copy()
@@ -266,11 +346,12 @@ def coerce_numeric(df, columns):
     return out
 
 
-def assemble_dataset(collars=None, surveys=None, assays=None, structures=None, metadata=None):
+def assemble_dataset(collars=None, surveys=None, assays=None, structures=None, geotechnical=None, metadata=None):
     return {
         "collars": _frame(collars),
         "surveys": _frame(surveys),
         "assays": _frame(assays),
         "structures": _frame(structures),
+        "geotechnical": _frame(geotechnical),
         "metadata": metadata or {},
     }

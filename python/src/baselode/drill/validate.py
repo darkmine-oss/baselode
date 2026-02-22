@@ -21,6 +21,8 @@
 
 import pandas as pd
 
+from baselode.datamodel import AZIMUTH, DIP, HOLE_ID, DEPTH, FROM, TO
+
 
 def validate_intervals(df, from_col="from", to_col="to", hole_col="hole_id"):
     issues = []
@@ -52,3 +54,57 @@ def validate_surveys(df, hole_col="hole_id", depth_col="from"):
 def report_missing_columns(df, required):
     missing = [col for col in required if col not in df.columns]
     return missing
+
+
+def validate_structural_points(df, dip_col=DIP, az_col=AZIMUTH, hole_col=HOLE_ID, depth_col=DEPTH):
+    """Validate structural point measurements.
+
+    Returns a list of issue dicts: dip out of [0, 90], azimuth out of [0, 360), missing depth.
+    """
+    issues = []
+    for idx, row in df.iterrows():
+        hole_id = row.get(hole_col)
+        depth = row.get(depth_col)
+        dip = row.get(dip_col)
+        az = row.get(az_col)
+
+        if pd.isna(depth):
+            issues.append({"hole_id": hole_id, "row_index": idx, "type": "missing_depth", "row": row.to_dict()})
+            continue
+
+        if dip is not None and not pd.isna(dip):
+            if dip < 0 or dip > 90:
+                issues.append({"hole_id": hole_id, "row_index": idx, "type": "dip_out_of_range",
+                                "value": dip, "row": row.to_dict()})
+
+        if az is not None and not pd.isna(az):
+            if az < 0 or az >= 360:
+                issues.append({"hole_id": hole_id, "row_index": idx, "type": "azimuth_out_of_range",
+                                "value": az, "row": row.to_dict()})
+
+    return issues
+
+
+def validate_structural_intervals(df, from_col=FROM, to_col=TO, dip_col=DIP, az_col=AZIMUTH, hole_col=HOLE_ID):
+    """Validate structural interval measurements.
+
+    Reuses validate_intervals() for from/to consistency, then checks dip/azimuth ranges.
+    """
+    issues = list(validate_intervals(df, from_col=from_col, to_col=to_col, hole_col=hole_col))
+
+    for idx, row in df.iterrows():
+        hole_id = row.get(hole_col)
+        dip = row.get(dip_col)
+        az = row.get(az_col)
+
+        if dip is not None and not pd.isna(dip):
+            if dip < 0 or dip > 90:
+                issues.append({"hole_id": hole_id, "row_index": idx, "type": "dip_out_of_range",
+                                "value": dip, "row": row.to_dict()})
+
+        if az is not None and not pd.isna(az):
+            if az < 0 or az >= 360:
+                issues.append({"hole_id": hole_id, "row_index": idx, "type": "azimuth_out_of_range",
+                                "value": az, "row": row.to_dict()})
+
+    return issues
