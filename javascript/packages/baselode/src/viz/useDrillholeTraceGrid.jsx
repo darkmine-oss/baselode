@@ -74,7 +74,7 @@ export default function useDrillholeTraceGrid({
   }, [sourceFile, holeIds.length, focusedHoleId, plotCount, categoricalProps]);
 
   useEffect(() => {
-    setError((prev) => (prev && prev.startsWith('Loading assays for hole') ? prev : ''));
+    setError((prev) => (prev && prev.startsWith('Loading ') && prev.includes(' for hole ') ? prev : ''));
   }, [traceConfigs]);
 
   useEffect(() => {

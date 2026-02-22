@@ -7,9 +7,10 @@ import { standardizeColumns } from '../../../javascript/packages/baselode/src/da
 import { HOLE_ID, LATITUDE, LONGITUDE, DEPTH, AZIMUTH, DIP, PROJECT_ID } from '../../../javascript/packages/baselode/src/data/datamodel.js';
 
 const appRoot = path.resolve(process.cwd(), 'demo-viewer-react/app');
-const collarsPath = path.join(appRoot, 'public/data/gswa/demo_gswa_sample_collars.csv');
-const surveyPath = path.join(appRoot, 'public/data/gswa/demo_gswa_sample_survey.csv');
-const outPath = path.join(appRoot, 'public/data/gswa/demo_gswa_precomputed_desurveyed.csv');
+const repoRoot = path.resolve(appRoot, '../..');
+const collarsPath = path.join(repoRoot, 'test/data/gswa/gswa_sample_collars.csv');
+const surveyPath = path.join(repoRoot, 'test/data/gswa/gswa_sample_survey.csv');
+const outPath = path.join(repoRoot, 'test/data/gswa/demo_gswa_precomputed_desurveyed.csv');
 
 const collarsCsv = await fs.readFile(collarsPath, 'utf8');
 const surveyCsv = await fs.readFile(surveyPath, 'utf8');
@@ -93,7 +94,7 @@ for (const hole of desurveyed) {
 }
 
 await fs.writeFile(outPath, `${lines.join('\n')}\n`, 'utf8');
-console.log(`Wrote ${pointCount} points across ${holeCount} holes to ${path.relative(appRoot, outPath)}`);
+console.log(`Wrote ${pointCount} points across ${holeCount} holes to ${path.relative(repoRoot, outPath)}`);
 
 function num(v) {
   return Number.isFinite(v) ? v : '';

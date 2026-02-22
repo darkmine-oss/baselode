@@ -4,13 +4,6 @@ This Dash app mirrors the React demo viewer functionality using the Python `base
 
 The only exception is the 3D window, which is intentionally embedded from the JavaScript Baselode demo so the 3D rendering remains powered by the JS module.
 
-## Features parity
-
-- Map-style collar viewer with search by configurable primary key
-- Drillhole 2D page with 4 configurable traces
-- Drillhole key configuration page (shared across app state)
-- Drillhole 3D page embedding the JS Baselode viewer window
-
 ## Run
 
 ### Quick Start (After Git Checkout)

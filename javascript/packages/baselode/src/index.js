@@ -19,9 +19,12 @@ export {
   NORTHING,
   CRS,
   DEPTH,
+  GEOLOGY_CODE,
+  GEOLOGY_DESCRIPTION,
   BASELODE_DATA_MODEL_DRILL_COLLAR,
   BASELODE_DATA_MODEL_DRILL_SURVEY,
   BASELODE_DATA_MODEL_DRILL_ASSAY,
+  BASELODE_DATA_MODEL_DRILL_GEOLOGY,
   DEFAULT_COLUMN_MAP
 } from './data/datamodel.js';
 
@@ -86,6 +89,7 @@ export {
   loadCollars,
   loadSurveys,
   loadAssays,
+  loadGeology,
   joinAssaysToTraces,
   filterByProject,
   coerceNumeric,
@@ -105,7 +109,8 @@ export {
   ERROR_COLOR,
   holeHasData,
   buildIntervalPoints,
-  buildPlotConfig
+  buildPlotConfig,
+  buildCategoricalStripLogConfig
 } from './viz/drillholeViz.js';
 
 export { default as TracePlot } from './viz/TracePlot.jsx';

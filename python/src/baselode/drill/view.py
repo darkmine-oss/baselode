@@ -175,56 +175,66 @@ def plot_categorical_trace(interval_df, value_col, palette=None):
         return go.Figure()
 
     palette = palette or [
-        "#8b1e3f",
-        "#a8324f",
-        "#b84c68",
-        "#d16587",
-        "#e07ba0",
-        "#f091b6",
-        "#f7a7c8",
-        "#fbcfe8",
+        "#1f77b4",  # blue
+        "#ff7f0e",  # orange
+        "#2ca02c",  # green
+        "#d62728",  # red
+        "#9467bd",  # purple
+        "#8c564b",  # brown
+        "#e377c2",  # pink
+        "#17becf",  # cyan
+        "#bcbd22",  # olive
+        "#7f7f7f",  # grey
     ]
 
-    segments = []
-    sorted_df = interval_df.sort_values("z", ascending=False)
-    for idx, row in sorted_df.iterrows():
-        y0 = row["z"]
-        next_row = sorted_df.iloc[idx + 1] if idx + 1 < len(sorted_df) else None
-        y1 = next_row["z"] if next_row is not None else row["z"] - 20
-        if y1 == y0:
-            continue
-        segments.append((y0, y1, str(row["val"])) )
+    safe = interval_df.dropna(subset=["from_val", "to_val", "val"]).copy()
+    if safe.empty:
+        return go.Figure()
+    safe = safe[safe["to_val"] > safe["from_val"]]
+    if safe.empty:
+        return go.Figure()
+    safe = safe.sort_values(["from_val", "to_val"], ascending=[True, True])
 
-    shapes = []
-    text_y = []
-    text_label = []
-    for i, (y0, y1, category) in enumerate(segments):
-        shapes.append(
-            dict(
-                type="rect",
-                xref="x",
-                yref="y",
-                x0=0,
-                x1=1,
-                y0=y0,
-                y1=y1,
-                fillcolor=palette[i % len(palette)],
-                line=dict(width=0),
+    categories = [str(v) for v in safe["val"].tolist()]
+    unique_categories = list(dict.fromkeys(categories))
+    color_map = {cat: palette[idx % len(palette)] for idx, cat in enumerate(unique_categories)}
+
+    traces = []
+    hover_x = []
+    hover_y = []
+    hover_data = []
+    for _, row in safe.iterrows():
+        frm = float(row["from_val"])
+        to = float(row["to_val"])
+        category = str(row["val"])
+        hover_x.append(0.5)
+        hover_y.append(0.5 * (frm + to))
+        hover_data.append([frm, to, category])
+        traces.append(
+            go.Scatter(
+                x=[0, 1, 1, 0, 0],
+                y=[frm, frm, to, to, frm],
+                fill="toself",
+                mode="lines",
+                line=dict(width=0.5, color="#ffffff"),
+                fillcolor=color_map[category],
+                hoveron="fills",
+                showlegend=False,
+                customdata=[[frm, to, category]] * 5,
+                hovertemplate="code: %{customdata[2]}<br>from: %{customdata[0]}<br>to: %{customdata[1]}<extra></extra>",
             )
         )
-        text_y.append(0.5 * (y0 + y1))
-        text_label.append(category)
 
-    text_trace = go.Scatter(
-        x=[0.5] * len(text_y),
-        y=text_y,
-        mode="text",
-        text=text_label,
-        textposition="middle center",
-        showlegend=False,
-        hoverinfo="text",
-        customdata=segments,
-        hovertemplate="Category: %{text}<br>from: %{customdata[0]} to %{customdata[1]}<extra></extra>",
+    traces.append(
+        go.Scatter(
+            x=hover_x,
+            y=hover_y,
+            mode="markers",
+            marker=dict(size=10, opacity=0),
+            customdata=hover_data,
+            hovertemplate="code: %{customdata[2]}<br>from: %{customdata[0]}<br>to: %{customdata[1]}<extra></extra>",
+            showlegend=False,
+        )
     )
 
     layout = go.Layout(
@@ -232,11 +242,10 @@ def plot_categorical_trace(interval_df, value_col, palette=None):
         margin=dict(l=50, r=10, t=10, b=30),
         xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
         yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
-        shapes=shapes,
         showlegend=False,
     )
 
-    fig = go.Figure(data=[text_trace], layout=layout)
+    fig = go.Figure(data=traces, layout=layout)
     return fig
 
 
@@ -461,6 +470,30 @@ def plot_strip_log(df,
         showlegend=False,
     )
     return fig
+
+
+def plot_geology_strip_log(df,
+    from_col="from",
+    to_col="to",
+    category_col="geology_code",
+    fallback_category_col="geology_description",
+    palette=None,
+    height=400,
+    width=220):
+    """Render a geology categorical strip log using standardized geology fields."""
+    if category_col not in df.columns and fallback_category_col not in df.columns:
+        return go.Figure()
+
+    resolved_col = category_col if category_col in df.columns else fallback_category_col
+    return plot_strip_log(
+        df=df,
+        from_col=from_col,
+        to_col=to_col,
+        label_col=resolved_col,
+        palette=palette,
+        height=height,
+        width=width,
+    )
 
 
 def plot_tadpole_log(df,

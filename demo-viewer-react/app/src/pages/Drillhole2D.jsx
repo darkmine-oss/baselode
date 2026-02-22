@@ -9,21 +9,21 @@ import {
   useDrillholeTraceGrid
 } from 'baselode';
 import './Drillhole2D.css';
-import { loadDemoGswaAssayFile } from '../data/demoGswaData.js';
+import { loadDemoGswaGeologyFile } from '../data/demoGswaData.js';
 import { createPortal } from 'react-dom';
 
 function Drillhole2D() {
   const location = useLocation();
-  const [demoGswaAssayFile, setDemoGswaAssayFile] = useState(null);
+  const [demoGswaGeologyFile, setDemoGswaGeologyFile] = useState(null);
 
   useEffect(() => {
     let isCancelled = false;
-    loadDemoGswaAssayFile()
+    loadDemoGswaGeologyFile()
       .then((file) => {
-        if (!isCancelled) setDemoGswaAssayFile(file);
+        if (!isCancelled) setDemoGswaGeologyFile(file);
       })
       .catch((err) => {
-        console.info('Auto-load of GSWA assays skipped:', err.message);
+        console.info('Auto-load of GSWA geology skipped:', err.message);
       });
     return () => {
       isCancelled = true;
@@ -41,7 +41,7 @@ function Drillhole2D() {
     handleConfigChange
   } = useDrillholeTraceGrid({
     initialFocusedHoleId: location.state?.holeId || '',
-    sourceFile: demoGswaAssayFile,
+    sourceFile: demoGswaGeologyFile,
     plotCount: 4
   });
 
@@ -50,7 +50,7 @@ function Drillhole2D() {
     if (holeIdFromNav) {
       setFocusedHoleId(holeIdFromNav);
       if (!holeCount) {
-        setError((prev) => prev || `Loading assays for hole ${holeIdFromNav}.`);
+        setError((prev) => prev || `Loading geology for hole ${holeIdFromNav}.`);
       }
     }
   }, [location.state, holeCount, setError, setFocusedHoleId]);
@@ -58,7 +58,7 @@ function Drillhole2D() {
   return (
     <div className="drillhole2d-container">
       <div className="drillhole2d-header">
-        <h1>Drillhole 2D Traces</h1>
+        <h1>Drillhole 2D Strip Logs</h1>
         <div className="drillhole2d-controls">
           {error && <span className="error-text">{error}</span>}
         </div>
@@ -82,7 +82,7 @@ function Drillhole2D() {
         const dataSourceInfo = (
           <div className="data-source-text">
             {holeCount > 0 && (
-              <div>demo_gswa ({holeCount} assays)</div>
+              <div>demo_gswa ({holeCount} geology holes)</div>
             )}
           </div>
         );

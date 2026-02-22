@@ -13,11 +13,28 @@ import baselode.drill.view
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-DATA_DIR = REPO_ROOT / "demo-viewer-react" / "app" / "public" / "data" / "gswa"
-COLLARS_CSV = DATA_DIR / "demo_gswa_sample_collars.csv"
-SURVEY_CSV = DATA_DIR / "demo_gswa_sample_survey.csv"
-ASSAYS_CSV = DATA_DIR / "demo_gswa_sample_assays.csv"
-PRECOMPUTED_DESURVEY_CSV = DATA_DIR / "demo_gswa_precomputed_desurveyed.csv"
+DATA_DIR_CANDIDATES = [
+    REPO_ROOT / "test" / "data" / "gswa",
+    REPO_ROOT / "demo-viewer-react" / "app" / "public" / "data" / "gswa",
+    REPO_ROOT / "demo-viewer-react" / "app" / "dist" / "data" / "gswa",
+]
+
+
+def _resolve_demo_csv(filename_candidates):
+    for data_dir in DATA_DIR_CANDIDATES:
+        for filename in filename_candidates:
+            candidate = data_dir / filename
+            if candidate.exists():
+                return candidate
+    # fallback to first candidate path for predictable errors later
+    return DATA_DIR_CANDIDATES[0] / filename_candidates[0]
+
+
+COLLARS_CSV = _resolve_demo_csv(["gswa_sample_collars.csv", "demo_gswa_sample_collars.csv"])
+SURVEY_CSV = _resolve_demo_csv(["gswa_sample_survey.csv", "demo_gswa_sample_survey.csv"])
+ASSAYS_CSV = _resolve_demo_csv(["gswa_sample_assays.csv", "demo_gswa_sample_assays.csv"])
+GEOLOGY_CSV = _resolve_demo_csv(["gswa_sample_geology.csv", "demo_gswa_sample_geology.csv"])
+PRECOMPUTED_DESURVEY_CSV = _resolve_demo_csv(["demo_gswa_precomputed_desurveyed.csv"])
 
 # Non-value fields for assay data (metadata and structural columns)
 ASSAY_NON_VALUE_FIELDS = {
@@ -134,7 +151,7 @@ def build_scene_assay_rows(assays_df, hole_ids, numeric_props):
     return rows
 
 
-def load_demo_dataset(collars_csv, survey_csv, assays_csv, precomputed_desurvey_csv=None):
+def load_demo_dataset(collars_csv, survey_csv, assays_csv, geology_csv, precomputed_desurvey_csv=None):
     """Load demo dataset using library's standardization.
     
     The library automatically maps common column name variations to standard names
@@ -188,10 +205,16 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv, precomputed_desurvey_
         assays_csv, 
         kind="csv"
     )
+    geology = baselode.drill.data.load_geology(
+        geology_csv,
+        kind="csv"
+    )
     
     # Clean string columns
     if "hole_id" in assays.columns:
         assays["hole_id"] = assays["hole_id"].astype(str).str.strip()
+    if "hole_id" in geology.columns:
+        geology["hole_id"] = geology["hole_id"].astype(str).str.strip()
     if "hole_id" in traces.columns:
         traces["hole_id"] = traces["hole_id"].astype(str).str.strip()
 
@@ -217,6 +240,7 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv, precomputed_desurvey_
     return {
         "collars": collars,
         "assays": assays_with_positions,
+        "geology": geology,
         "traces": traces,
     }
 
@@ -335,9 +359,10 @@ def build_popup_figure(assays_df, selected_hole, selected_property, categorical_
 
 
 # Initialize app with demo data
-DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV, PRECOMPUTED_DESURVEY_CSV)
-PROPERTY_INFO = infer_property_lists(DATASET["assays"])
-DEFAULT_PROPERTY = (PROPERTY_INFO["numeric"] + PROPERTY_INFO["categorical"] + [""])[0]
+DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV, GEOLOGY_CSV, PRECOMPUTED_DESURVEY_CSV)
+ASSAY_PROPERTY_INFO = infer_property_lists(DATASET["assays"])
+GEOLOGY_PROPERTY_INFO = infer_property_lists(DATASET["geology"])
+DEFAULT_GEOLOGY_PROPERTY = (GEOLOGY_PROPERTY_INFO["categorical"] + GEOLOGY_PROPERTY_INFO["all"] + [""])[0]
 
 app = Dash(
     __name__,
@@ -393,8 +418,8 @@ def serve_drillhole3d():
         drillhole_data = build_drillhole_data(traces_df, max_holes=MAX_SCENE_HOLES)
     
     scene_hole_ids = list(drillhole_data.keys())
-    assay_variables = ["__HAS_ASSAY__"] + PROPERTY_INFO["numeric"]
-    assay_rows = build_scene_assay_rows(DATASET["assays"], scene_hole_ids, PROPERTY_INFO["numeric"])
+    assay_variables = ["__HAS_ASSAY__"] + ASSAY_PROPERTY_INFO["numeric"]
+    assay_rows = build_scene_assay_rows(DATASET["assays"], scene_hole_ids, ASSAY_PROPERTY_INFO["numeric"])
 
     drillhole_json = json.dumps(drillhole_data)
     assay_variables_json = json.dumps(assay_variables)
@@ -819,16 +844,16 @@ def render_page(pathname, selected_hole):
         )
 
     if pathname == "/drillhole-2d":
-        options_holes = hole_options(DATASET["assays"])
+        options_holes = hole_options(DATASET["geology"])
         first_hole = selected_hole or (options_holes[0]["value"] if options_holes else "")
-        property_options = [{"label": p, "value": p} for p in PROPERTY_INFO["all"]]
-        initial_chart = "markers+line"
+        property_options = [{"label": p, "value": p} for p in GEOLOGY_PROPERTY_INFO["all"]]
+        initial_chart = "categorical"
         initial_figure = build_trace_figure(
-            DATASET["assays"],
+            DATASET["geology"],
             first_hole,
-            DEFAULT_PROPERTY,
+            DEFAULT_GEOLOGY_PROPERTY,
             initial_chart,
-            PROPERTY_INFO["categorical"],
+            GEOLOGY_PROPERTY_INFO["categorical"],
         )
 
         controls = []
@@ -841,7 +866,7 @@ def render_page(pathname, selected_hole):
                             className="trace-controls",
                             children=[
                                 dcc.Dropdown(id=f"trace-hole-{idx}", options=options_holes, value=first_hole, placeholder="Hole"),
-                                dcc.Dropdown(id=f"trace-prop-{idx}", options=property_options, value=DEFAULT_PROPERTY, placeholder="Property"),
+                                dcc.Dropdown(id=f"trace-prop-{idx}", options=property_options, value=DEFAULT_GEOLOGY_PROPERTY, placeholder="Property"),
                                 dcc.Dropdown(id=f"trace-chart-{idx}", options=[{"label": c, "value": c} for c in CHART_TYPES], value=initial_chart),
                             ],
                         ),
@@ -861,7 +886,7 @@ def render_page(pathname, selected_hole):
                 html.Div(
                     className="page-header",
                     children=[
-                        html.H1("Drillhole 2D Traces"),
+                        html.H1("Drillhole 2D Strip Logs"),
                     ],
                 ),
                 html.Div(controls, className="trace-grid"),
@@ -887,7 +912,7 @@ def render_page(pathname, selected_hole):
                         html.Div(id="popup-title", className="popup-title"),
                         html.Button("Close", id="popup-close", n_clicks=0, className="btn btn-small"),
                     ]),
-                    dcc.Dropdown(id="popup-property", options=[{"label": p, "value": p} for p in PROPERTY_INFO["numeric"]], value=(PROPERTY_INFO["numeric"][0] if PROPERTY_INFO["numeric"] else "")),
+                    dcc.Dropdown(id="popup-property", options=[{"label": p, "value": p} for p in ASSAY_PROPERTY_INFO["numeric"]], value=(ASSAY_PROPERTY_INFO["numeric"][0] if ASSAY_PROPERTY_INFO["numeric"] else "")),
                     dcc.Graph(id="popup-graph", style={"flex": "1", "minHeight": "0"}),
                     html.Button("Open page", id="popup-open-page", n_clicks=0, className="btn"),
                 ],
@@ -978,9 +1003,9 @@ def update_popup(hole_id, selected_property):
     if not hole_id:
         return "popup hidden", "", go.Figure()
     
-    default_numeric = PROPERTY_INFO["numeric"][0] if PROPERTY_INFO["numeric"] else ""
+    default_numeric = ASSAY_PROPERTY_INFO["numeric"][0] if ASSAY_PROPERTY_INFO["numeric"] else ""
     prop = selected_property or default_numeric
-    fig = build_popup_figure(DATASET["assays"], hole_id, prop, PROPERTY_INFO["categorical"])
+    fig = build_popup_figure(DATASET["assays"], hole_id, prop, ASSAY_PROPERTY_INFO["categorical"])
     return "popup", f"Hole {hole_id} — 2D assay preview", fig
 
 
@@ -1017,12 +1042,12 @@ def update_traces(
     chart3,
 ):
     """Update all four trace figures."""
-    assays = DATASET["assays"]
+    geology = DATASET["geology"]
     figs = [
-        build_trace_figure(assays, hole0, prop0, chart0, PROPERTY_INFO["categorical"]),
-        build_trace_figure(assays, hole1, prop1, chart1, PROPERTY_INFO["categorical"]),
-        build_trace_figure(assays, hole2, prop2, chart2, PROPERTY_INFO["categorical"]),
-        build_trace_figure(assays, hole3, prop3, chart3, PROPERTY_INFO["categorical"]),
+        build_trace_figure(geology, hole0, prop0, chart0, GEOLOGY_PROPERTY_INFO["categorical"]),
+        build_trace_figure(geology, hole1, prop1, chart1, GEOLOGY_PROPERTY_INFO["categorical"]),
+        build_trace_figure(geology, hole2, prop2, chart2, GEOLOGY_PROPERTY_INFO["categorical"]),
+        build_trace_figure(geology, hole3, prop3, chart3, GEOLOGY_PROPERTY_INFO["categorical"]),
     ]
     return figs[0], figs[1], figs[2], figs[3]
 
@@ -1035,10 +1060,11 @@ def update_sidebar_footer(pathname):
     """Display data source info in sidebar footer."""
     collars_count = len(DATASET["collars"])
     assays_count = len(DATASET["assays"]["hole_id"].unique()) if not DATASET["assays"].empty else 0
+    geology_count = len(DATASET["geology"]["hole_id"].unique()) if not DATASET["geology"].empty else 0
     surveys_count = len(DATASET["traces"]["hole_id"].unique()) if not DATASET["traces"].empty else 0
     
     data_source_text = html.Div(
-        f"demo_gswa ({collars_count} collars, {surveys_count} surveys, {assays_count} assays)",
+        f"demo_gswa ({collars_count} collars, {surveys_count} surveys, {assays_count} assays, {geology_count} geology)",
         className="data-source-info"
     )
     

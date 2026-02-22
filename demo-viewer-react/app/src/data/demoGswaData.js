@@ -4,10 +4,17 @@
  */
 
 export async function loadDemoGswaAssayFile({
-  url = '/data/gswa/demo_gswa_sample_assays.csv',
-  fileName = 'demo_gswa_sample_assays.csv'
+  url = '/data/gswa/gswa_sample_assays.csv',
+  fileName = 'gswa_sample_assays.csv'
 } = {}) {
   return loadDemoCsvFile({ url, fileName, label: 'demo assays' });
+}
+
+export async function loadDemoGswaGeologyFile({
+  url = '/data/gswa/gswa_sample_geology.csv',
+  fileName = 'gswa_sample_geology.csv'
+} = {}) {
+  return loadDemoCsvFile({ url, fileName, label: 'demo geology' });
 }
 
 export async function loadDemoPrecomputedDesurveyFile({
@@ -18,7 +25,7 @@ export async function loadDemoPrecomputedDesurveyFile({
 }
 
 export async function loadDemoSurveyCsvText({
-  url = '/data/gswa/demo_gswa_sample_survey.csv'
+  url = '/data/gswa/gswa_sample_survey.csv'
 } = {}) {
   return loadDemoCsvText({ url, label: 'demo survey data' });
 }

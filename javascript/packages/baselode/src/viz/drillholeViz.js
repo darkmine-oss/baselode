@@ -65,7 +65,7 @@ export function buildIntervalPoints(hole, property, isCategorical) {
     const rawVal = p?.[property];
     if (!Number.isFinite(fromVal) || !Number.isFinite(toVal) || toVal <= fromVal) return;
     if (rawVal === undefined || rawVal === null || rawVal === '') return;
-    const key = `${property}:${fromVal}-${toVal}`;
+    const key = `${property}:${fromVal}-${toVal}:${String(rawVal)}`;
     if (seen.has(key)) return;
     seen.add(key);
     const mid = (fromVal + toVal) / 2;
@@ -92,54 +92,57 @@ export function buildIntervalPoints(hole, property, isCategorical) {
  */
 function buildCategoricalConfig(points, property) {
   if (!points.length) return { data: [], layout: {} };
-  const sorted = [...points].sort((a, b) => b.z - a.z);
-  const segments = [];
-  for (let i = 0; i < sorted.length; i += 1) {
-    const curr = sorted[i];
-    const next = sorted[i + 1];
-    const y0 = curr.z;
-    const y1 = next ? next.z : curr.z - 20;
-    if (y1 === y0) continue;
-    segments.push({ y0, y1, category: curr.val || 'unknown' });
-  }
+  const safe = points
+    .filter((point) => Number.isFinite(point?.from) && Number.isFinite(point?.to) && point.to > point.from)
+    .map((point) => ({ ...point, category: `${point?.val ?? ''}`.trim() }))
+    .filter((point) => point.category !== '')
+    .sort((a, b) => a.from - b.from || a.to - b.to);
 
-  const palette = ['#8b1e3f', '#a8324f', '#b84c68', '#d16587', '#e07ba0', '#f091b6', '#f7a7c8', '#fbcfe8'];
+  if (!safe.length) return { data: [], layout: {} };
 
-  const shapes = segments.map((seg, idx) => ({
-    type: 'rect',
-    xref: 'x',
-    yref: 'y',
-    x0: 0,
-    x1: 1,
-    y0: seg.y0,
-    y1: seg.y1,
-    fillcolor: palette[idx % palette.length],
-    line: { width: 0 }
-  }));
+  const palette = [
+    '#1f77b4', // blue
+    '#ff7f0e', // orange
+    '#2ca02c', // green
+    '#d62728', // red
+    '#9467bd', // purple
+    '#17becf', // cyan
+    '#bcbd22', // olive
+    '#e377c2', // pink
+    '#8c564b', // brown
+    '#393b79', // indigo
+    '#e6550d', // deep orange
+    '#31a354', // deep green
+    '#756bb1', // violet
+    '#636363', // dark gray
+  ];
+  const uniqueCategories = [...new Set(safe.map((point) => point.category))];
+  const colorByCategory = new Map(uniqueCategories.map((category, idx) => [category, palette[idx % palette.length]]));
 
-  const textTrace = {
-    x: segments.map(() => 0.5),
-    y: segments.map((s) => (s.y0 + s.y1) / 2),
-    mode: 'text',
-    text: segments.map((s) => s.category),
-    textposition: 'middle center',
+  const traces = safe.map((segment) => ({
+    type: 'scatter',
+    x: [0, 1, 1, 0, 0],
+    y: [segment.from, segment.from, segment.to, segment.to, segment.from],
+    fill: 'toself',
+    mode: 'lines',
+    line: { width: 0.5, color: '#ffffff' },
+    fillcolor: colorByCategory.get(segment.category),
+    hoveron: 'fills',
     showlegend: false,
-    hoverinfo: 'text',
-    customdata: segments.map((s) => [s.y0, s.y1]),
-    hovertemplate: `Category: %{text}<br>from: %{customdata[0]} to %{customdata[1]}<extra></extra>`
-  };
+    customdata: Array.from({ length: 5 }, () => [segment.from, segment.to, segment.category]),
+    hovertemplate: `${property}: %{customdata[2]}<br>from: %{customdata[0]} to %{customdata[1]}<extra></extra>`
+  }));
 
   const layout = {
     height: 260,
     margin: { l: 50, r: 10, t: 10, b: 30 },
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
-    shapes,
     showlegend: false,
     title: property || undefined
   };
 
-  return { data: [textTrace], layout };
+  return { data: traces, layout };
 }
 
 /**
@@ -217,4 +220,48 @@ export function buildPlotConfig({ points, isCategorical, property, chartType }) 
     return buildCategoricalConfig(points, property);
   }
   return buildNumericConfig(points, property, chartType);
+}
+
+/**
+ * Build a categorical strip-log Plotly config directly from interval rows.
+ * @param {Array<Object>} rows - Interval rows (e.g. geology)
+ * @param {Object} options - Field mapping options
+ * @param {string} options.fromCol - From-depth column
+ * @param {string} options.toCol - To-depth column
+ * @param {string} options.categoryCol - Category label column
+ * @returns {{data: Array, layout: Object}} Plotly configuration for strip-log rendering
+ */
+export function buildCategoricalStripLogConfig(
+  rows = [],
+  {
+    fromCol = 'from',
+    toCol = 'to',
+    categoryCol = 'geology_code'
+  } = {}
+) {
+  const points = [];
+  rows.forEach((row) => {
+    const from = Number(row?.[fromCol]);
+    const to = Number(row?.[toCol]);
+    const category = row?.[categoryCol];
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+    if (category === undefined || category === null || `${category}`.trim() === '') return;
+    const mid = (from + to) / 2;
+    points.push({
+      z: mid,
+      val: `${category}`,
+      from,
+      to,
+      errorPlus: to - mid,
+      errorMinus: mid - from
+    });
+  });
+
+  points.sort((a, b) => b.z - a.z);
+  return buildPlotConfig({
+    points,
+    isCategorical: true,
+    property: categoryCol,
+    chartType: 'categorical'
+  });
 }

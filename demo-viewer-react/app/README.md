@@ -1,76 +1,42 @@
-# Baselode (JavaScript)
 
-Baselode is an open-source JavaScript toolkit providing structured data models for exploration and mining applications.
+# Baselode Demo Viewer – React
 
-Version 0.1.0 focuses on domain-aware data models and validation utilities for drillhole-style data. The goal is to provide a consistent foundation for analytics, visualization, and AI workflows.
+This is a React app that showcases the Baselode JavaScript library for geoscience drillhole data loading, manipulation, and interactive visualization (2D strip logs, maps, and 3D scenes).
 
----
+The app demonstrates:
+- Loading canonical GSWA drillhole data (CSV) from the test/data/gswa/ directory
+- Interactive 2D and 3D drillhole visualizations using Plotly and Three.js
+- Map view, strip log view, and block model view
+- Configurable drillhole display and color mapping
 
-## Installation
+## Getting Started
+
+### Prerequisites
+
+- Node.js >= 20
+- npm >= 9 (or yarn/pnpm)
+
+### Install Dependencies
+
+From the repository root:
 
 ```bash
-npm install baselode
+# Install all workspace dependencies
+npm install
 ```
 
-**Requires:** Node.js 20+, React 18+
+### Run the App (Dev Mode)
 
----
-
-## Example
-
-```javascript
-import { parseDrillholesCSV } from 'baselode';
-
-// Example: file is a File object from an <input type="file" />
-const file = /* your File object */;
-file.text().then(csvText => {
-  const { holes } = parseDrillholesCSV(csvText);
-  // holes is an array of collar objects
-  console.log(holes);
-});
+```bash
+# Start the Vite dev server
+npm run dev --workspace=demo-viewer-react/app
 ```
 
----
+The app will be available at: **http://localhost:3000**
 
-## Included in 0.1.0
+### Build for Production
 
-- Drillhole collar, survey, and assay models  
-- Downhole interval structures  
-- Basic validation utilities  
-- Strip log visualisations
-- Map visualisations
-- 3D visualisations 
+```bash
+npm run build --workspace=demo-viewer-react/app
+```
 
----
-
-## Design Principles
-
-- Explicit domain models (not generic tables)  
-- Minimal dependencies  
-- Visualisation tooling as key to data analysis
-- Designed for integration with analytics, GIS, and AI systems  
-
----
-
-## Roadmap
-
-Future releases may include:
-
-- Assay and lithology schemas  
-- Geospatial helpers  
-- Interoperability with common mining formats  
-- Visualization adapters  
-
----
-
-## License
-
-GNU General Public License v3.0 or later (GPL-3.0-or-later).
-
-See the `LICENSE` file in this repository for full details.
-
----
-
-## Contributing
-
-Contributions and issue reports are welcome via GitHub.

@@ -1,51 +1,76 @@
-# BASELODE
+# Baselode (JavaScript)
 
-## Free Tooling for the Exploration and Mining Industry
+Baselode is an open-source JavaScript toolkit providing structured data models for exploration and mining applications.
 
-`baselode` is a free software project developed by Darkmine Pty Ltd.
+Version 0.1.0 focuses on domain-aware data models and validation utilities for drillhole-style data. The goal is to provide a consistent foundation for analytics, visualization, and AI workflows.
 
-`baselode` is designed to support the exploration and mining industry, with an ever-growing suite of tools that enable data loading, data modeling, visualization, and common algorithms in one package that can be imported and leveraged without extensive customisation requirements (but is infinitely customizable). This tooling is useful to data scientists, app builders, geologists, mine planners, AI agents, and more.
+---
 
-Not all of `baselode` is custom - it pulls from and leverages many other open-source libraries and is designed to further their reach and utility.
+## Installation
 
-## Languages
+```bash
+npm install baselode
+```
 
-This is the javascript version of `baselode`. See also the python module.
+**Requires:** Node.js 20+, React 18+
 
-## Key Features
+---
 
-- **Data Loading:** Efficiently import and manage your exploration and mining data.
-- **Data Models:** Utilize predefined models to analyze and interpret your data.
-- **Data Visualization:** Create insightful visualizations to support decision-making.
-- **Common Algorithms:** Access a range of algorithms designed to solve common problems in the industry.
+## Example
+
+```javascript
+import { parseDrillholesCSV } from 'baselode';
+
+// Example: file is a File object from an <input type="file" />
+const file = /* your File object */;
+file.text().then(csvText => {
+  const { holes } = parseDrillholesCSV(csvText);
+  // holes is an array of collar objects
+  console.log(holes);
+});
+```
+
+---
+
+## Included in 0.1.0
+
+- Drillhole collar, survey, and assay models  
+- Downhole interval structures  
+- Basic validation utilities  
+- Strip log visualisations
+- Map visualisations
+- 3D visualisations 
+
+---
+
+## Design Principles
+
+- Explicit domain models (not generic tables)  
+- Minimal dependencies  
+- Visualisation tooling as key to data analysis
+- Designed for integration with analytics, GIS, and AI systems  
+
+---
+
+## Roadmap
+
+Future releases may include:
+
+- Assay and lithology schemas  
+- Geospatial helpers  
+- Interoperability with common mining formats  
+- Visualization adapters  
+
+---
 
 ## License
 
-`baselode` is licensed under the GNU General Public License v3.0 (GPL-3.0) and later. This means you are free to use, modify, and distribute the software, but you must adhere to the terms specified in the GPL-3.0 license. For more details, please refer to the [LICENSE](https://www.notion.so/LICENSE) file.
+GNU General Public License v3.0 or later (GPL-3.0-or-later).
 
-## Obligations
+See the `LICENSE` file in this repository for full details.
 
-By using `baselode`, you agree to the following obligations:
+---
 
-- You must preserve the copyright notice and this list of conditions.
-- You must state any significant changes made to the original software.
-- You must distribute your modified source code under the GPL-3.0 license.
+## Contributing
 
-For any questions or contributions, contact form is at [darkmine.ai](http://darkmine.ai/)
-
-## NPM Release
-
-This package is configured to take its version from the git tag on the current commit.
-
-- Tag format: `vMAJOR.MINOR.PATCH` (example: `v0.1.0`)
-- On `npm pack` or `npm publish`, `prepack` runs `scripts/set-version-from-tag.mjs`
-- The script strips the leading `v` and updates `package.json` version before building
-
-Typical publish flow:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-npm run pack:check
-npm run publish:npm
-```
+Contributions and issue reports are welcome via GitHub.

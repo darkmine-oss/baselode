@@ -26,6 +26,8 @@ export const EASTING = "easting";
 export const NORTHING = "northing";
 export const CRS = "crs";
 export const DEPTH = "depth";
+export const GEOLOGY_CODE = "geology_code";
+export const GEOLOGY_DESCRIPTION = "geology_description";
 
 /**
  * Minimum expected columns for drillhole collars
@@ -78,6 +80,15 @@ export const BASELODE_DATA_MODEL_DRILL_ASSAY = {
   // Assays may be flattened (one column per assay type) or long (one row per assay type with an additional 'assay_type' column)
 };
 
+export const BASELODE_DATA_MODEL_DRILL_GEOLOGY = {
+  [HOLE_ID]: "string",
+  [FROM]: "number",
+  [TO]: "number",
+  [MID]: "number",
+  [GEOLOGY_CODE]: "string",
+  [GEOLOGY_DESCRIPTION]: "string"
+};
+
 /**
  * This column map is used to make a 'best guess' for mapping common variations in source column names to the baselode data model.
  * It is applied in the standardizeColumns function, but users can also provide their own column map to override or extend this mapping as needed.
@@ -97,6 +108,27 @@ export const DEFAULT_COLUMN_MAP = {
   [CRS]: ["crs", "epsg", "projection"],
   [FROM]: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
   [TO]: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
+  [GEOLOGY_CODE]: [
+    "geology_code",
+    "geologycode",
+    "lith1",
+    "lith1code",
+    "lith1_code",
+    "lithology",
+    "plot_lithology",
+    "rock1"
+  ],
+  [GEOLOGY_DESCRIPTION]: [
+    "geology_description",
+    "geologydescription",
+    "geology_comment",
+    "geologycomment",
+    "geology comment",
+    "lithology_comment",
+    "lithology comment",
+    "description",
+    "comments"
+  ],
   [AZIMUTH]: ["azimuth", "az", "dipdir", "dip_direction"],
   [DIP]: ["dip"],
   "declination": ["declination", "dec"],

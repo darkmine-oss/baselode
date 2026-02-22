@@ -173,14 +173,14 @@ function Home() {
   // Auto-load canonical GSWA collars if cache is empty
   useEffect(() => {
     if (collars.length > 0) return;
-    fetch('/data/gswa/demo_gswa_sample_collars.csv')
+    fetch('/data/gswa/gswa_sample_collars.csv')
       .then((res) => {
         if (!res.ok) return null;
         return res.text();
       })
       .then((csvText) => {
         if (!csvText) return;
-        parseCollarCSV(csvText, 'demo_gswa_sample_collars.csv (auto)');
+        parseCollarCSV(csvText, 'gswa_sample_collars.csv (auto)');
       })
       .catch((err) => {
         console.info('Auto-load of GSWA collars skipped:', err.message);
@@ -209,7 +209,7 @@ function Home() {
   useEffect(() => {
     if (assayState || assayLoading) return;
     setAssayLoading(true);
-    fetch('/data/gswa/demo_gswa_sample_assays.csv')
+    fetch('/data/gswa/gswa_sample_assays.csv')
       .then((res) => {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
@@ -218,7 +218,7 @@ function Home() {
       })
       .then((csvText) => {
         const blob = new Blob([csvText], { type: 'text/csv' });
-        const demoGswaAssayFile = new File([blob], 'demo_gswa_sample_assays.csv', { type: 'text/csv' });
+        const demoGswaAssayFile = new File([blob], 'gswa_sample_assays.csv', { type: 'text/csv' });
         return loadAssayFile(demoGswaAssayFile, '');
       })
       .then((state) => {

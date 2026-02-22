@@ -20,9 +20,12 @@ import {
   NORTHING,
   CRS,
   DEPTH,
+  GEOLOGY_CODE,
+  GEOLOGY_DESCRIPTION,
   BASELODE_DATA_MODEL_DRILL_COLLAR,
   BASELODE_DATA_MODEL_DRILL_SURVEY,
-  BASELODE_DATA_MODEL_DRILL_ASSAY
+  BASELODE_DATA_MODEL_DRILL_ASSAY,
+  BASELODE_DATA_MODEL_DRILL_GEOLOGY
 } from './datamodel.js';
 
 // Re-export for backwards compatibility
@@ -67,6 +70,28 @@ function sortByColumns(rows = [], columns = []) {
     return 0;
   });
   return out;
+}
+
+function validateNoOverlappingIntervals(rows = [], label = 'Intervals') {
+  if (!rows.length) return;
+  const ordered = sortByColumns(rows, [HOLE_ID, FROM, TO]);
+  const prevToByHole = new Map();
+
+  ordered.forEach((row) => {
+    const holeId = `${row?.[HOLE_ID] ?? ''}`.trim();
+    const fromValue = Number(row?.[FROM]);
+    const toValue = Number(row?.[TO]);
+    if (!holeId || !Number.isFinite(fromValue) || !Number.isFinite(toValue)) return;
+
+    const prevTo = prevToByHole.get(holeId);
+    if (Number.isFinite(prevTo) && fromValue < prevTo) {
+      throw withDataErrorContext(
+        'validateNoOverlappingIntervals',
+        new Error(`${label} intervals overlap for hole '${holeId}': from=${fromValue} is less than previous to=${prevTo}`)
+      );
+    }
+    prevToByHole.set(holeId, toValue);
+  });
 }
 
 /**
@@ -313,11 +338,99 @@ export async function loadAssays(source, options = {}) {
     if (!row[HOLE_ID]) return false;
     if (!Number.isFinite(row[FROM])) return false;
     if (!Number.isFinite(row[TO])) return false;
+    if (!(row[TO] > row[FROM])) return false;
     return true;
   });
 
   if (!allValid) {
     throw withDataErrorContext('loadAssays', new Error('Assay table has missing required values'));
+  }
+
+  return sortByColumns(normalized, [HOLE_ID, FROM, TO]);
+}
+
+/**
+ * Load and validate geology interval data for categorical strip-log plotting.
+ * Requires hole_id, from, to and at least one geology categorical field.
+ * @param {File|Blob|Array<Object>|string} source - Geology data source
+ * @param {Object} options - Loading options
+ * @param {Object} options.sourceColumnMap - Optional user-provided column mappings
+ * @returns {Promise<Array<Object>>} Array of validated geology rows, sorted by hole_id, from, to
+ */
+export async function loadGeology(source, options = {}) {
+  const {
+    sourceColumnMap = null,
+    keepAll = true,
+    ...tableOptions
+  } = options;
+
+  const standardized = await loadTable(source, { ...tableOptions, sourceColumnMap });
+
+  const required = [HOLE_ID, FROM, TO];
+  for (const col of required) {
+    const hasColumn = standardized.some((row) => col in row);
+    if (!hasColumn) {
+      throw withDataErrorContext('loadGeology', new Error(`Geology table missing column: ${col}`));
+    }
+  }
+
+  const normalized = standardized.map((row) => {
+    const result = { ...row };
+
+    if (HOLE_ID in result) {
+      const val = result[HOLE_ID];
+      result[HOLE_ID] = val === undefined || val === null ? '' : `${val}`.trim();
+    }
+
+    if (FROM in result) result[FROM] = toNumber(result[FROM]);
+    if (TO in result) result[TO] = toNumber(result[TO]);
+
+    if (FROM in result && TO in result && Number.isFinite(result[FROM]) && Number.isFinite(result[TO])) {
+      result[MID] = 0.5 * (result[FROM] + result[TO]);
+    }
+
+    const hasCode = result[GEOLOGY_CODE] !== undefined && result[GEOLOGY_CODE] !== null && `${result[GEOLOGY_CODE]}`.trim() !== '';
+    const hasDescription = result[GEOLOGY_DESCRIPTION] !== undefined && result[GEOLOGY_DESCRIPTION] !== null && `${result[GEOLOGY_DESCRIPTION]}`.trim() !== '';
+    if (!hasCode && hasDescription) {
+      result[GEOLOGY_CODE] = result[GEOLOGY_DESCRIPTION];
+    }
+    if (hasCode && !hasDescription) {
+      result[GEOLOGY_DESCRIPTION] = result[GEOLOGY_CODE];
+    }
+
+    return result;
+  });
+
+  const allValid = normalized.every((row) => {
+    if (!row[HOLE_ID]) return false;
+    if (!Number.isFinite(row[FROM])) return false;
+    if (!Number.isFinite(row[TO])) return false;
+    return true;
+  });
+
+  if (!allValid) {
+    throw withDataErrorContext('loadGeology', new Error('Geology table has missing required values'));
+  }
+
+  const hasCategory = normalized.some((row) => {
+    const code = row[GEOLOGY_CODE];
+    const description = row[GEOLOGY_DESCRIPTION];
+    return (code !== undefined && code !== null && `${code}`.trim() !== '') ||
+      (description !== undefined && description !== null && `${description}`.trim() !== '');
+  });
+
+  if (!hasCategory) {
+    throw withDataErrorContext('loadGeology', new Error(`Geology table missing categorical columns: ${GEOLOGY_CODE} or ${GEOLOGY_DESCRIPTION}`));
+  }
+
+  validateNoOverlappingIntervals(normalized, 'Geology');
+
+  if (!keepAll) {
+    const keep = new Set(Object.keys(BASELODE_DATA_MODEL_DRILL_GEOLOGY));
+    return sortByColumns(
+      normalized.map((row) => Object.fromEntries(Object.entries(row).filter(([k]) => keep.has(k)))),
+      [HOLE_ID, FROM, TO]
+    );
   }
 
   return sortByColumns(normalized, [HOLE_ID, FROM, TO]);
@@ -399,14 +512,16 @@ export function coerceNumeric(rows = [], columns = []) {
  * @param {Array<Object>} components.collars - Collar data
  * @param {Array<Object>} components.surveys - Survey data
  * @param {Array<Object>} components.assays - Assay data
+ * @param {Array<Object>} components.geology - Geology interval data
  * @param {Array<Object>} components.structures - Structural data (optional)
  * @param {Object} components.metadata - Dataset metadata (optional)
- * @returns {{collars: Array, surveys: Array, assays: Array, structures: Array, metadata: Object}} Complete dataset
+ * @returns {{collars: Array, surveys: Array, assays: Array, geology: Array, structures: Array, metadata: Object}} Complete dataset
  */
 export function assembleDataset({
   collars = [],
   surveys = [],
   assays = [],
+  geology = [],
   structures = [],
   metadata = {}
 } = {}) {
@@ -414,6 +529,7 @@ export function assembleDataset({
     collars: toArray(collars),
     surveys: toArray(surveys),
     assays: toArray(assays),
+    geology: toArray(geology),
     structures: toArray(structures),
     metadata: metadata || {}
   };

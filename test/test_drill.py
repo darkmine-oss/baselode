@@ -19,6 +19,7 @@
 
 import pandas as pd
 
+from baselode.drill import data
 from baselode.drill import desurvey, view
 
 
@@ -82,7 +83,7 @@ def test_plot_numeric_and_categorical_traces():
     num_fig = view.plot_numeric_trace(view.compute_interval_points(df, "grade"), "grade")
     cat_fig = view.plot_categorical_trace(view.compute_interval_points(df, "lith"), "lith")
     assert len(num_fig.data) == 1
-    assert len(cat_fig.data) == 1
+    assert len(cat_fig.data) == 3
 
 
 def test_plot_drillhole_trace_variants():
@@ -96,7 +97,7 @@ def test_plot_drillhole_trace_variants():
     fig_num = view.plot_drillhole_trace(df, value_col="grade")
     fig_cat = view.plot_drillhole_trace(df, value_col="lith", categorical_props={"lith"})
     assert len(fig_num.data) == 1
-    assert len(fig_cat.data) == 1
+    assert len(fig_cat.data) == 3
 
 
 def test_plot_drillhole_traces_multiple_tracks():
@@ -126,6 +127,107 @@ def test_plot_strip_log_shapes():
     df = pd.DataFrame({"from": [0, 10], "to": [10, 20], "lithology": ["A", "B"]})
     fig = view.plot_strip_log(df)
     assert len(fig.layout.shapes) == 2
+
+
+def test_load_geology_standardizes_common_fields():
+    geology = pd.DataFrame({
+        "HoleId": ["A", "A"],
+        "FromDepth": [0.0, 10.0],
+        "ToDepth": [10.0, 20.0],
+        "Lith1": ["FG", "SBIF"],
+        "GeologyComment": ["Granite", "Banded iron formation"],
+    })
+    loaded = data.load_geology(geology)
+    assert "geology_code" in loaded.columns
+    assert "geology_description" in loaded.columns
+    assert loaded["mid"].tolist() == [5.0, 15.0]
+
+
+def test_plot_geology_strip_log_shapes():
+    geology = pd.DataFrame({
+        "from": [0, 10],
+        "to": [10, 20],
+        "geology_code": ["FG", "SBIF"],
+    })
+    fig = view.plot_geology_strip_log(geology)
+    assert len(fig.layout.shapes) == 2
+
+
+def test_load_geology_rejects_overlapping_intervals():
+    geology = pd.DataFrame({
+        "HoleId": ["A", "A"],
+        "FromDepth": [0.0, 9.5],
+        "ToDepth": [10.0, 20.0],
+        "Lith1": ["FG", "SBIF"],
+    })
+    try:
+        data.load_geology(geology)
+        assert False, "Expected overlap validation error"
+    except ValueError as exc:
+        assert "overlap" in str(exc).lower()
+
+
+def test_load_geology_equal_from_to_expands_to_1mm():
+    geology = pd.DataFrame({
+        "HoleId": ["A"],
+        "FromDepth": [10.1234],
+        "ToDepth": [10.1234],
+        "Lith1": ["FG"],
+    })
+    loaded = data.load_geology(geology)
+    assert loaded.iloc[0]["from"] == 10.123
+    assert loaded.iloc[0]["to"] == 10.124
+
+
+def test_load_geology_overlap_check_uses_3dp():
+    geology = pd.DataFrame({
+        "HoleId": ["A", "A"],
+        "FromDepth": [10.12349, 10.12351],
+        "ToDepth": [10.12349, 12.0],
+        "Lith1": ["FG", "SBIF"],
+    })
+    loaded = data.load_geology(geology)
+    assert len(loaded) == 2
+
+
+def test_load_assays_equal_from_to_expands_to_1mm():
+    assays = pd.DataFrame({
+        "hole_id": ["A"],
+        "from": [20.0004],
+        "to": [20.0004],
+        "au_ppm": [1.0],
+    })
+    loaded = data.load_assays(assays, flat=True)
+    assert loaded.iloc[0]["from"] == 20.0
+    assert loaded.iloc[0]["to"] == 20.001
+
+
+def test_load_assays_flat_false_flattens_long_format():
+    assays_long = pd.DataFrame({
+        "hole_id": ["A", "A", "A", "A"],
+        "from": [0.0, 0.0, 10.0, 10.0],
+        "to": [10.0, 10.0, 20.0, 20.0],
+        "assay_code": ["au_ppm", "cu_ppm", "au_ppm", "cu_ppm"],
+        "assay_value": [1.2, 300.0, 2.5, 500.0],
+    })
+    loaded = data.load_assays(assays_long, flat=False, keep_all=True)
+    assert "au_ppm" in loaded.columns
+    assert "cu_ppm" in loaded.columns
+    assert loaded.shape[0] == 2
+
+
+def test_load_geology_flat_false_flattens_long_format():
+    geology_long = pd.DataFrame({
+        "hole_id": ["A", "A", "A", "A"],
+        "from": [0.0, 0.0, 10.0, 10.0],
+        "to": [10.0, 10.0, 20.0, 20.0],
+        "geology_code": ["lith1", "weath", "lith1", "weath"],
+        "geology_description": ["FG", "OX", "SBIF", "FR"],
+    })
+    loaded = data.load_geology(geology_long, flat=False, keep_all=True)
+    assert "lith1" in loaded.columns
+    assert "weath" in loaded.columns
+    assert loaded.shape[0] == 2
 
 
 def test_plot_tadpole_log_shapes():
