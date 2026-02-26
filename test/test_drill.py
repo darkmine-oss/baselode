@@ -129,6 +129,6 @@ def test_plot_strip_log_shapes():
 
 
 def test_plot_tadpole_log_shapes():
-    df = pd.DataFrame({"md": [10, 20], "dip": [45, 60], "azimuth": [90, 180]})
+    df = pd.DataFrame({"depth": [10, 20], "dip": [45, 60], "azimuth": [90, 180]})
     fig = view.plot_tadpole_log(df)
     assert len(fig.layout.shapes) == 2

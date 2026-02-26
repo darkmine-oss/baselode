@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 // Shared drillhole 2D visualization helpers for reuse beyond the UI layer.
@@ -13,6 +13,53 @@ export const NUMERIC_MARKER_COLOR = '#a8324f';
 
 /** Color for error bars */
 export const ERROR_COLOR = '#6b7280';
+
+/** Default compact strip-log margins */
+export const STRIPLOG_COMPACT_MARGIN = { l: 4, r: 4, t: 4, b: 4 };
+
+/** Default strip-log axis tick size */
+export const STRIPLOG_AXIS_TICK_FONT_SIZE = 10;
+
+/** Default strip-log axis title size */
+export const STRIPLOG_AXIS_TITLE_FONT_SIZE = 12;
+
+function normalizeAxisTitle(t) {
+  if (!t) return {};
+  return typeof t === 'string' ? { text: t } : t;
+}
+
+function applyStriplogLayoutDefaults(layout = {}) {
+  const xTitle = normalizeAxisTitle(layout.xaxis && layout.xaxis.title);
+  const yTitle = normalizeAxisTitle(layout.yaxis && layout.yaxis.title);
+  return {
+    ...layout,
+    margin: STRIPLOG_COMPACT_MARGIN,
+    autosize: true,
+    width: undefined,
+    xaxis: {
+      ...(layout.xaxis || {}),
+      tickfont: {
+        ...((layout.xaxis && layout.xaxis.tickfont) || {}),
+        size: STRIPLOG_AXIS_TICK_FONT_SIZE,
+      },
+      title: {
+        ...xTitle,
+        font: { ...(xTitle.font || {}), size: STRIPLOG_AXIS_TITLE_FONT_SIZE },
+      },
+    },
+    yaxis: {
+      ...(layout.yaxis || {}),
+      tickfont: {
+        ...((layout.yaxis && layout.yaxis.tickfont) || {}),
+        size: STRIPLOG_AXIS_TICK_FONT_SIZE,
+      },
+      title: {
+        ...yTitle,
+        font: { ...(yTitle.font || {}), size: STRIPLOG_AXIS_TITLE_FONT_SIZE },
+      },
+    },
+  };
+}
 
 /**
  * Check if a hole has data for a specific property
@@ -46,7 +93,7 @@ export function buildIntervalPoints(hole, property, isCategorical) {
   const out = [];
   const seen = new Set();
   rawPoints.forEach((p) => {
-    const fromVal = Number(
+    let fromVal = Number(
       p.from ??
       p.samp_from ??
       p.sample_from ??
@@ -54,7 +101,7 @@ export function buildIntervalPoints(hole, property, isCategorical) {
       p.from_depth ??
       p.depth_from
     );
-    const toVal = Number(
+    let toVal = Number(
       p.to ??
       p.samp_to ??
       p.sample_to ??
@@ -62,9 +109,18 @@ export function buildIntervalPoints(hole, property, isCategorical) {
       p.to_depth ??
       p.depth_to
     );
+    // Fall back to depth for point-schema data (e.g. structural measurements)
+    if (!Number.isFinite(fromVal) || !Number.isFinite(toVal)) {
+      const depthVal = Number(p.depth ?? p.md);
+      if (Number.isFinite(depthVal)) {
+        fromVal = depthVal;
+        toVal = depthVal;
+      }
+    }
     const rawVal = p?.[property];
-    if (!Number.isFinite(fromVal) || !Number.isFinite(toVal) || toVal <= fromVal) return;
+    if (!Number.isFinite(fromVal) || !Number.isFinite(toVal) || toVal < fromVal) return;
     if (rawVal === undefined || rawVal === null || rawVal === '') return;
+    if (isCategorical && typeof rawVal === 'string' && /^(nan|null|none)$/i.test(rawVal.trim())) return;
     const key = `${property}:${fromVal}-${toVal}`;
     if (seen.has(key)) return;
     seen.add(key);
@@ -100,12 +156,20 @@ function buildCategoricalConfig(points, property) {
     const y0 = curr.z;
     const y1 = next ? next.z : curr.z - 20;
     if (y1 === y0) continue;
-    segments.push({ y0, y1, category: curr.val || 'unknown' });
+    const catVal = curr.val == null ? '' : String(curr.val).trim();
+    if (!catVal || /^(nan|null|none)$/i.test(catVal)) continue;
+    segments.push({ y0, y1, category: catVal, fromVal: curr.from, toVal: curr.to });
   }
 
-  const palette = ['#8b1e3f', '#a8324f', '#b84c68', '#d16587', '#e07ba0', '#f091b6', '#f7a7c8', '#fbcfe8'];
+  const palette = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac', '#d4a6c8', '#86bcb6'];
 
-  const shapes = segments.map((seg, idx) => ({
+  // Assign colors by category value (same category → same color, matching Python view.py)
+  const uniqueCategories = [...new Set(segments.map((s) => s.category))];
+  const colorMap = Object.fromEntries(
+    uniqueCategories.map((cat, i) => [cat, palette[i % palette.length]])
+  );
+
+  const shapes = segments.map((seg) => ({
     type: 'rect',
     xref: 'x',
     yref: 'y',
@@ -113,7 +177,7 @@ function buildCategoricalConfig(points, property) {
     x1: 1,
     y0: seg.y0,
     y1: seg.y1,
-    fillcolor: palette[idx % palette.length],
+    fillcolor: colorMap[seg.category],
     line: { width: 0 }
   }));
 
@@ -125,13 +189,11 @@ function buildCategoricalConfig(points, property) {
     textposition: 'middle center',
     showlegend: false,
     hoverinfo: 'text',
-    customdata: segments.map((s) => [s.y0, s.y1]),
-    hovertemplate: `Category: %{text}<br>from: %{customdata[0]} to %{customdata[1]}<extra></extra>`
+    customdata: segments.map((s) => [Math.min(s.fromVal, s.toVal), Math.max(s.fromVal, s.toVal)]),
+    hovertemplate: `Category: %{text}<br>from: %{customdata[0]} to: %{customdata[1]}<extra></extra>`
   };
 
   const layout = {
-    height: 260,
-    margin: { l: 50, r: 10, t: 10, b: 30 },
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     shapes,
@@ -139,7 +201,7 @@ function buildCategoricalConfig(points, property) {
     title: property || undefined
   };
 
-  return { data: [textTrace], layout };
+  return { data: [textTrace], layout: applyStriplogLayoutDefaults(layout) };
 }
 
 /**
@@ -159,8 +221,8 @@ function buildNumericConfig(points, property, chartType) {
   const baseTrace = {
     x: points.map((p) => p.val),
     y: points.map((p) => p.z),
-    hovertemplate: `${property}: %{x}<br>from: %{customdata[0]} to %{customdata[1]}<extra></extra>`,
-    customdata: points.map((p) => [p.from, p.to])
+    hovertemplate: `${property}: %{x}<br>from: %{customdata[0]} to: %{customdata[1]}<extra></extra>`,
+    customdata: points.map((p) => [Math.min(p.from, p.to), Math.max(p.from, p.to)])
   };
 
   const errorConfig = {
@@ -191,15 +253,13 @@ function buildNumericConfig(points, property, chartType) {
       };
 
   const layout = {
-    height: 260,
-    margin: { l: 50, r: 10, t: 10, b: 30 },
     xaxis: { title: property, zeroline: false },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     barmode: 'overlay',
     showlegend: false
   };
 
-  return { data: [trace], layout };
+  return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
 }
 
 /**

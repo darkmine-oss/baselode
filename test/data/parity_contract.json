@@ -87,6 +87,55 @@
         ["baselode.drill.view_3d", "intervals_as_tubes"],
         ["baselode.drill.view_3d", "annotations_from_intervals"]
       ]
+    },
+    {
+      "name": "structural_loading",
+      "jsExports": [
+        "parseStructuralPointsCSV",
+        "parseStructuralIntervalsCSV",
+        "parseStructuralCSV",
+        "validateStructuralPoints",
+        "groupRowsByHole",
+        "buildTadpoleConfig",
+        "buildStructuralStripConfig",
+        "buildCommentsConfig",
+        "buildStrikeDipSymbol",
+        "dipAzimuthToNormal",
+        "buildStructuralDiscs"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.data", "load_structures"],
+        ["baselode.drill.structural", "compute_plane_normal"],
+        ["baselode.drill.structural", "attach_structure_positions"],
+        ["baselode.drill.structural", "normalize_dip_azimuth"],
+        ["baselode.drill.structural", "compute_strike"],
+        ["baselode.drill.validate", "validate_structural_points"],
+        ["baselode.drill.validate", "validate_structural_intervals"],
+        ["baselode.drill.view", "plot_tadpole_log"],
+        ["baselode.drill.view", "plot_strip_log"],
+        ["baselode.drill.view", "plot_comments_log"],
+        ["baselode.drill.view_3d", "structures_as_discs"]
+      ]
+    },
+    {
+      "name": "column_metadata",
+      "jsExports": [
+        "DISPLAY_NUMERIC",
+        "DISPLAY_CATEGORICAL",
+        "DISPLAY_COMMENT",
+        "DISPLAY_HIDDEN",
+        "classifyColumns",
+        "getChartOptions",
+        "defaultChartType"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.columns", "DISPLAY_NUMERIC"],
+        ["baselode.drill.columns", "DISPLAY_CATEGORICAL"],
+        ["baselode.drill.columns", "DISPLAY_COMMENT"],
+        ["baselode.drill.columns", "DISPLAY_HIDDEN"],
+        ["baselode.drill.columns", "classify_columns"],
+        ["baselode.drill.columns", "available_chart_types"]
+      ]
     }
   ]
 }

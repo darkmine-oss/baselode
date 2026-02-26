@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
@@ -23,24 +23,29 @@ export function reorderHoleIds(ids = [], focusId = '') {
 }
 
 /**
- * Determine appropriate chart type for a property
+ * Determine appropriate chart type for a property.
+ * Comment columns always use 'comment'; categorical → 'categorical'; numeric → requested or default.
+ *
  * @param {Object} options - Configuration options
  * @param {string} options.property - Property name
  * @param {string} options.chartType - Requested chart type
  * @param {Array<string>} options.categoricalProps - List of categorical property names
+ * @param {Array<string>} options.commentProps - List of comment property names
  * @param {string} options.numericDefaultChartType - Default chart type for numeric properties
- * @returns {string} Coerced chart type ('categorical', 'line', 'markers+line', etc.)
+ * @returns {string} Coerced chart type ('comment', 'categorical', 'line', 'markers+line', etc.)
  */
 export function coerceChartTypeForProperty({
   property = '',
   chartType = '',
   categoricalProps = [],
+  commentProps = [],
   numericDefaultChartType = 'markers+line'
 } = {}) {
   if (!property) return chartType || numericDefaultChartType;
-  const isCategorical = categoricalProps.includes(property);
-  if (isCategorical) return 'categorical';
-  if (!chartType || chartType === 'categorical') return numericDefaultChartType;
+  if (commentProps.includes(property)) return 'comment';
+  if (categoricalProps.includes(property)) return 'categorical';
+  if (property === 'dip') return 'tadpole';
+  if (!chartType || chartType === 'categorical' || chartType === 'comment' || chartType === 'tadpole') return numericDefaultChartType;
   return chartType;
 }
 
@@ -52,6 +57,7 @@ export function coerceChartTypeForProperty({
  * @param {number} options.plotCount - Number of plots in grid
  * @param {string} options.defaultProp - Default property to display
  * @param {Array<string>} options.categoricalProps - List of categorical properties
+ * @param {Array<string>} options.commentProps - List of comment properties
  * @param {string} options.numericDefaultChartType - Default chart type for numeric props
  * @returns {Array<{holeId: string, property: string, chartType: string}>} Array of trace configurations
  */
@@ -61,6 +67,7 @@ export function buildTraceConfigsForHoleIds({
   plotCount = DEFAULT_TRACE_PLOT_COUNT,
   defaultProp = '',
   categoricalProps = [],
+  commentProps = [],
   numericDefaultChartType = 'markers+line'
 } = {}) {
   const ordered = reorderHoleIds(holeIds, focusedHoleId);
@@ -70,6 +77,7 @@ export function buildTraceConfigsForHoleIds({
       property: defaultProp,
       chartType: '',
       categoricalProps,
+      commentProps,
       numericDefaultChartType
     });
     return {

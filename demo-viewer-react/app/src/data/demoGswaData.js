@@ -1,13 +1,19 @@
 /*
- * Copyright (C) 2026 Tamara Vasey
+ * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 export async function loadDemoGswaAssayFile({
-  url = '/data/gswa/demo_gswa_sample_assays.csv',
-  fileName = 'demo_gswa_sample_assays.csv'
+  url = '/data/gswa/gswa_sample_assays.csv',
+  fileName = 'gswa_sample_assays.csv'
 } = {}) {
   return loadDemoCsvFile({ url, fileName, label: 'demo assays' });
+}
+
+export async function loadDemoGswaAssayCsvText({
+  url = '/data/gswa/gswa_sample_assays.csv'
+} = {}) {
+  return loadDemoCsvText({ url, label: 'demo assays' });
 }
 
 export async function loadDemoPrecomputedDesurveyFile({
@@ -18,9 +24,15 @@ export async function loadDemoPrecomputedDesurveyFile({
 }
 
 export async function loadDemoSurveyCsvText({
-  url = '/data/gswa/demo_gswa_sample_survey.csv'
+  url = '/data/gswa/gswa_sample_survey.csv'
 } = {}) {
   return loadDemoCsvText({ url, label: 'demo survey data' });
+}
+
+export async function loadDemoStructuralCsvText({
+  url = '/data/gswa/gswa_sample_structure.csv'
+} = {}) {
+  return loadDemoCsvText({ url, label: 'demo structural' });
 }
 
 async function loadDemoCsvFile({ url, fileName, label }) {

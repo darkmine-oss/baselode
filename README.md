@@ -1,30 +1,51 @@
 # Baselode
 
+<img src="docs/assets/baselode_logo.png" style="max-width:100px;">
+
 Baselode is a (work in progress) open-source toolkit designed for the mineral exploration and mining industries. It provides a suite of tools for processing, managing, and visualizing geological and mining data, initially focused on drillhole and spatial datasets.
+
 
 ## Goals
 
-The primary goal of Baselode is to provide high-quality, open-source, tooling across multiple programming environments that be incorporated into notebooks, dashboards, apps, and AI workflows. 
+The primary goal of Baselode is to provide high-quality, open-source, tooling across multiple programming languages that can be incorporated into notebooks, dashboards, apps, and AI workflows. 
 
-- **Multi-language Support**: Tooling (currently) available in **Python** and **JavaScript/React** .
+- **Multi-language Support**: Tooling available in **Python** and **JavaScript/React** .
 - **Industry Standards**: Implementation, or inclusion/wrapping of other open-source, standard algorithms like Minimum Curvature for drillhole desurveying.
 - **Accessibility**: Lowering the barrier to entry for using geological and mining data.
+- **Driving Innovation**: Spend less time coding and re-coding the basics, and more time innovating.
 
 ## Getting Started
 
-To run the demo applications after cloning this repository:
+Baselode is versioned and released reguarly. It is available to install via the standard package managers `pypi` / `pip` for `python` and `npm` for `javascript`.
+
+### Python
+
+`pip install baselode`
+
+### Javascript 
+
+`npm install baselode`
+
+### Demos
+
+Within this repository there are two demo applications to showcase the baselode functionality. To run the demos, after cloning this repository:
 
 - **React Demo App**: See [demo-viewer-react/app/README.md](./demo-viewer-react/app/README.md) for setup and launch instructions
 - **Dash Demo App**: See [demo-viewer-dash/README.md](./demo-viewer-dash/README.md) for setup and launch instructions
-- **Python Package**: See [python/src/README.md](./python/src/README.md) for installation and usage
+
+Data is sourced from the repository `test/data/gswa`
 
 ## Project Structure
 
-- **[`baselode` (Python)](./python/src/baselode)**: A Python package for drillhole data processing, desurveying, and validation.
+- **[`baselode` (Python)](./python/src/baselode)**: The Python package 
+
+- **[`baselode` (Javascript)](./javascript/packages/baselode)**: The Javascript package 
 
 - **[`demo-viewer-react/` (JavaScript/React)](./demo-viewer-react)**: A web-based application demonstrating use of the React **baselode** components for 1D, 2D, and 3D visualisation.
+
 - **[`demo-viewer-dash/` (Python/Dash)](./demo-viewer-dash)**: A Python Dash application showing feature parity with the React demo, using Python `baselode` for map + 2D workflows and embedding the JS Baselode 3D window.
-- **[`notebooks/`](./notebooks)**: Example Jupyter notebooks demonstrating use of the python module **baselode**.
+
+- **[`notebooks/`](./notebooks)**: Example Jupyter notebook(s) demonstrating use of the python module **baselode**.
 
 ## Testing
 

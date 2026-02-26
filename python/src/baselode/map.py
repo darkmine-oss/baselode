@@ -51,3 +51,80 @@ def map_collar_points(collars, color_by=None):
         out["color_value"] = out[color_by]
     return out
 
+
+def map_collars(
+    collars,
+    color="#2563eb",
+    radius=5,
+    fill_opacity=0.7,
+    tooltip_cols=None,
+):
+    """Create a Leaflet map with collar points plotted as circle markers.
+
+    Automatically fits the map view to the spatial extent of the collars, so
+    no manual centre/zoom calculation is needed.
+
+    Parameters
+    ----------
+    collars : pandas.DataFrame or geopandas.GeoDataFrame
+        Collar table with ``latitude`` and ``longitude`` columns (as produced
+        by :func:`baselode.drill.data.load_collars`).
+    color : str, optional
+        Hex colour for the circle markers. Defaults to ``"#2563eb"`` (blue).
+    radius : int, optional
+        Marker radius in pixels. Defaults to ``5``.
+    fill_opacity : float, optional
+        Fill opacity of each marker, between 0 and 1. Defaults to ``0.7``.
+    tooltip_cols : list of str, optional
+        Extra column names to include in the hover tooltip alongside
+        ``hole_id``. Defaults to ``["elevation"]`` when not provided.
+
+    Returns
+    -------
+    folium.Map
+        Leaflet map with all collar markers added and the view fitted to the
+        full spatial extent of the dataset.
+
+    Examples
+    --------
+    >>> from baselode.drill.data import load_collars
+    >>> from baselode.map import map_collars
+    >>> collar_gdf = load_collars("collars.csv")
+    >>> m = map_collars(collar_gdf)
+    >>> m  # renders inline in Jupyter
+    """
+    if tooltip_cols is None:
+        tooltip_cols = ["elevation"]
+
+    lats = collars["latitude"]
+    lons = collars["longitude"]
+
+    # [[south, west], [north, east]] — Leaflet convention
+    bounds = [
+        [float(lats.min()), float(lons.min())],
+        [float(lats.max()), float(lons.max())],
+    ]
+    center = [float(lats.median()), float(lons.median())]
+
+    m = folium.Map(location=center, tiles="OpenStreetMap")
+    m.fit_bounds(bounds)
+
+    for _, row in collars.iterrows():
+        tip_parts = [str(row["hole_id"])]
+        for col in tooltip_cols:
+            if col in row.index:
+                tip_parts.append(f"{col}: {row[col]}")
+        tooltip = "  |  ".join(tip_parts)
+
+        folium.CircleMarker(
+            location=[row["latitude"], row["longitude"]],
+            radius=radius,
+            color=color,
+            fill=True,
+            fill_color=color,
+            fill_opacity=fill_opacity,
+            tooltip=tooltip,
+        ).add_to(m)
+
+    return m
+

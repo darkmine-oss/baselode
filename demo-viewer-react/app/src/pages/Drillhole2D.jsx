@@ -6,27 +6,33 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   TracePlot,
-  useDrillholeTraceGrid
+  useDrillholeTraceGrid,
+  parseUnifiedDataset,
 } from 'baselode';
 import './Drillhole2D.css';
-import { loadDemoGswaAssayFile } from '../data/demoGswaData.js';
+import { loadDemoGswaAssayCsvText, loadDemoStructuralCsvText } from '../data/demoGswaData.js';
 import { createPortal } from 'react-dom';
 
 function Drillhole2D() {
   const location = useLocation();
-  const [demoGswaAssayFile, setDemoGswaAssayFile] = useState(null);
+  // Eagerly-loaded combined holes: assay intervals + structural points merged by holeId
+  const [combinedHoles, setCombinedHoles] = useState([]);
 
   useEffect(() => {
-    let isCancelled = false;
-    loadDemoGswaAssayFile()
-      .then((file) => {
-        if (!isCancelled) setDemoGswaAssayFile(file);
+    let cancelled = false;
+    Promise.all([
+      loadDemoGswaAssayCsvText(),
+      loadDemoStructuralCsvText(),
+    ])
+      .then(([assayCsv, structuralCsv]) => parseUnifiedDataset({ assayCsv, structuralCsv }))
+      .then(({ holes }) => {
+        if (!cancelled) setCombinedHoles(holes);
       })
       .catch((err) => {
-        console.info('Auto-load of GSWA assays skipped:', err.message);
+        console.info('Auto-load of demo data skipped:', err.message);
       });
     return () => {
-      isCancelled = true;
+      cancelled = true;
     };
   }, []);
 
@@ -35,14 +41,14 @@ function Drillhole2D() {
     setError,
     holeCount,
     setFocusedHoleId,
-    propertyOptions,
     labeledHoleOptions,
     traceGraphs,
-    handleConfigChange
+    handleConfigChange,
   } = useDrillholeTraceGrid({
     initialFocusedHoleId: location.state?.holeId || '',
-    sourceFile: demoGswaAssayFile,
-    plotCount: 4
+    // No sourceFile — all data is pre-loaded eagerly and passed as extraHoles
+    extraHoles: combinedHoles,
+    plotCount: 4,
   });
 
   useEffect(() => {
@@ -50,7 +56,7 @@ function Drillhole2D() {
     if (holeIdFromNav) {
       setFocusedHoleId(holeIdFromNav);
       if (!holeCount) {
-        setError((prev) => prev || `Loading assays for hole ${holeIdFromNav}.`);
+        setError((prev) => prev || `Loading data for hole ${holeIdFromNav}.`);
       }
     }
   }, [location.state, holeCount, setError, setFocusedHoleId]);
@@ -58,7 +64,7 @@ function Drillhole2D() {
   return (
     <div className="drillhole2d-container">
       <div className="drillhole2d-header">
-        <h1>Drillhole 2D Traces</h1>
+        <h2>Drillhole Strip Logs</h2>
         <div className="drillhole2d-controls">
           {error && <span className="error-text">{error}</span>}
         </div>
@@ -71,7 +77,7 @@ function Drillhole2D() {
             config={traceGraphs[idx]?.config || { holeId: '', property: '', chartType: 'markers+line' }}
             graph={traceGraphs[idx]}
             holeOptions={labeledHoleOptions}
-            propertyOptions={propertyOptions}
+            propertyOptions={traceGraphs[idx]?.propertyOptions || []}
             onConfigChange={(patch) => handleConfigChange(idx, patch)}
           />
         ))}
@@ -82,7 +88,7 @@ function Drillhole2D() {
         const dataSourceInfo = (
           <div className="data-source-text">
             {holeCount > 0 && (
-              <div>demo_gswa ({holeCount} assays)</div>
+              <div>demo_gswa ({holeCount} holes, assay + structural)</div>
             )}
           </div>
         );

@@ -1,0 +1,7 @@
+hole_id,depth,dip,azimuth,defect
+DH001,10.0,45.0,90.0,Joint
+DH001,25.0,60.0,180.0,Fault
+DH001,40.0,30.0,270.0,Joint
+DH002,15.0,75.0,45.0,Fault
+DH002,25.0,50.0,135.0,Joint
+DH002,30.0,80.0,315.0,Shear

@@ -1,47 +1,71 @@
-# Baselode Demo Viewer - Dash (Python)
+# baselode-viewer (Dash)
 
-This Dash app mirrors the React demo viewer functionality using the Python `baselode` package for data loading, desurveying, map and 2D traces.
+Python/Dash demo application for the [`baselode`](../python) Python library. It mirrors the [React demo](../demo-viewer-react/app) and showcases interactive drillhole data loading, desurveying, map-based collar viewing, 2D strip-log visualisation, and an embedded 3D scene.
 
-The only exception is the 3D window, which is intentionally embedded from the JavaScript Baselode demo so the 3D rendering remains powered by the JS module.
+> The 3D page intentionally embeds the JavaScript baselode viewer so 3D rendering stays powered by the JS library — only the map and strip-log pages use the Python library directly.
 
-## Features parity
+## Pages
 
-- Map-style collar viewer with search by configurable primary key
-- Drillhole 2D page with 4 configurable traces
-- Drillhole key configuration page (shared across app state)
-- Drillhole 3D page embedding the JS Baselode viewer window
+| Route | Description |
+|---|---|
+| `/` | **Map** — Plotly scatter-map of collar locations. Click a collar to open a strip-log popup with a property selector. Search bar filters visible collars by hole ID. |
+| `/drillhole` | **3D viewer** — Embedded JS baselode viewer (`drillhole3d.html`) rendered inside an iframe. |
+| `/drillhole-2d` | **Strip logs** — Multi-track Plotly strip logs for a selected hole (numeric, categorical, comments tracks). |
 
-## Run
+## Development
 
-### Quick Start (After Git Checkout)
-
-From the repository root:
+The app depends on the local `baselode` Python package installed as an editable install from `python/src`.
 
 ```bash
-# 1. Activate the virtual environment
+# from repo root — activate the venv
 source .venv/bin/activate
 
-# 2. Install Python dependencies
+# install Python deps (first time only)
 pip install -r demo-viewer-dash/requirements.txt
 pip install -e python/src
 
-# 3. Run the Dash app
+# start the dev server with hot reload
 cd demo-viewer-dash
 uvicorn asgi:app --host 127.0.0.1 --port 8050 --reload
 ```
 
-The app will be available at: **http://127.0.0.1:8050**
+The app is available at **http://127.0.0.1:8050**.
 
-### Alternative: Using Conda
+`--reload` watches for source changes and restarts automatically. Note that changes to `assets/` (CSS, JS) are served statically and take effect immediately without restart.
 
-If you're using conda:
+### Using Conda
 
 ```bash
-# 1. Activate the conda environment
 conda activate env-baselode
-
-# 2. Install dependencies and run
 cd demo-viewer-dash
 uvicorn asgi:app --host 127.0.0.1 --port 8050 --reload
 ```
+
+## Data
+
+The app reads the canonical GSWA dataset directly from the repo's test data directory:
+
+```
+test/data/gswa/
+  gswa_sample_collars.csv
+  gswa_sample_assays.csv
+  gswa_sample_survey.csv
+  gswa_sample_structure.csv
+  demo_gswa_precomputed_desurveyed.csv   # pre-built 3D traces with true elevation
+```
+
+The precomputed desurvey file contains UTM Zone 50S easting/northing (centroid-relative) and true elevation (metres ASL). When the file is present it is used directly; otherwise the app falls back to desurveying on-the-fly from the collar and survey CSVs.
+
+To regenerate the precomputed desurvey file see the [React app scripts](../demo-viewer-react/app/scripts/generate_precomputed_desurvey.mjs).
+
+## Dependencies
+
+| Package | Purpose |
+|---|---|
+| `baselode` | Local Python library — data loading, desurveying, Plotly strip-log builders |
+| `dash` | Web application framework |
+| `plotly` | Map and strip-log charts |
+| `pandas` | Data manipulation |
+| `geopandas` / `pyproj` | Geospatial coordinate handling |
+| `uvicorn` / `starlette` | ASGI server |
 
