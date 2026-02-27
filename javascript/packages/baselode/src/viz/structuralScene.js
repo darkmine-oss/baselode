@@ -84,14 +84,20 @@ export function buildStructuralDiscs(structures, opts = {}) {
     const xVal = s.x != null ? s.x : (s.easting != null ? s.easting : null);
     const yVal = s.y != null ? s.y : (s.northing != null ? s.northing : null);
     const zVal = s.z != null ? s.z : (s.elevation != null ? s.elevation : null);
-    const dip = s[DIP] != null ? Number(s[DIP]) : null;
-    const az = s[AZIMUTH] != null ? Number(s[AZIMUTH]) : null;
 
-    if (xVal == null || yVal == null || zVal == null || dip == null || az == null) continue;
+    if (xVal == null || yVal == null || zVal == null) continue;
     if (!Number.isFinite(xVal) || !Number.isFinite(yVal) || !Number.isFinite(zVal)) continue;
-    if (!Number.isFinite(dip) || !Number.isFinite(az)) continue;
 
-    const normal = dipAzimuthToNormal(dip, az);
+    const dipVal = s[DIP] != null ? Number(s[DIP]) : null;
+    const azVal = s[AZIMUTH] != null ? Number(s[AZIMUTH]) : null;
+
+    let normal;
+    if (s.nx != null && Number.isFinite(s.nx) && s.ny != null && Number.isFinite(s.ny) && s.nz != null && Number.isFinite(s.nz)) {
+      normal = new THREE.Vector3(s.nx, s.ny, s.nz).normalize();
+    } else {
+      if (dipVal == null || azVal == null || !Number.isFinite(dipVal) || !Number.isFinite(azVal)) continue;
+      normal = dipAzimuthToNormal(dipVal, azVal);
+    }
 
     const geom = new THREE.CylinderGeometry(radius, radius, discThickness, segments, 1, false);
     const mat = new THREE.MeshStandardMaterial({
@@ -112,8 +118,8 @@ export function buildStructuralDiscs(structures, opts = {}) {
       hole_id: s.hole_id,
       depth: s.depth ?? s.mid,
       structure_type: s['structure_type'],
-      dip,
-      azimuth: az,
+      dip: dipVal,
+      azimuth: azVal,
       comments: s.comments,
     };
 

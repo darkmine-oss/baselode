@@ -5,6 +5,8 @@
 
 demo-viewer-dash/__pycache__/
 
+demo-viewer-dash/assets/baselode-module.js
+
 demo-viewer-react/app/dist/
 demo-viewer-react/app/node_modules/
 

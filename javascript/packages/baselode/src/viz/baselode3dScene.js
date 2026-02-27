@@ -8,6 +8,8 @@ import { FlyControls } from 'three/examples/jsm/controls/FlyControls';
 import { ViewportGizmo } from 'three-viewport-gizmo';
 import { getColorForValue } from '../data/blockModelLoader.js';
 import { buildEqualRangeColorScale, getEqualRangeBinIndex, getEqualRangeColor } from './assayColorScale.js';
+import { computeStructuralPositions } from '../data/structuralPositions.js';
+import { buildStructuralDiscs } from './structuralScene.js';
 import {
   buildViewSignature,
   emitViewChangeIfNeeded,
@@ -19,6 +21,7 @@ import {
   dolly,
   recenterCameraToOrigin,
   setControlMode,
+  setFov,
   setViewState
 } from './baselode3dCameraControls.js';
 
@@ -134,6 +137,8 @@ class Baselode3DScene {
     this.blocks = [];
     this.drillLines = [];
     this.drillMeshes = [];
+    this.structuralGroup = null;
+    this.structuralMeshes = [];
     this.frameId = null;
     this.clock = new THREE.Clock();
     this.handleCanvasClick = null;
@@ -288,9 +293,23 @@ class Baselode3DScene {
       this.pointer.y = -((localY / rect.height) * 2) + 1;
 
       this.raycaster.setFromCamera(this.pointer, this.camera);
-      const intersects = this.raycaster.intersectObjects(this.drillMeshes, true);
-      if (intersects.length === 0) return;
-      let obj = intersects[0].object;
+      const drillHits = this.raycaster.intersectObjects(this.drillMeshes, true);
+      const structHits = this.raycaster.intersectObjects(this.structuralMeshes, true);
+
+      const drillDist = drillHits[0]?.distance ?? Infinity;
+      const structDist = structHits[0]?.distance ?? Infinity;
+
+      if (structDist < drillDist && structHits.length > 0) {
+        // Structural disc clicked — fire handler with structural metadata
+        const mesh = structHits[0].object;
+        if (this.drillholeClickHandler) {
+          this.drillholeClickHandler({ type: 'structure', ...mesh.userData });
+        }
+        return;
+      }
+
+      if (drillHits.length === 0) return;
+      let obj = drillHits[0].object;
       while (obj && obj.parent && !obj.userData?.holeId) {
         obj = obj.parent;
       }
@@ -543,6 +562,62 @@ class Baselode3DScene {
     this.blocks = [];
   }
 
+  setStructuralDiscs(structures, holes, opts = {}) {
+    if (!this.scene) return;
+    this._clearStructuralDiscs();
+    if (!structures?.length || !holes?.length) return;
+
+    // Uniform-sample down to maxDiscs to keep render performance reasonable
+    const { maxDiscs = 3000 } = opts;
+    let input = structures;
+    if (input.length > maxDiscs) {
+      const step = input.length / maxDiscs;
+      const sampled = [];
+      for (let i = 0; i < maxDiscs; i++) {
+        sampled.push(input[Math.floor(i * step)]);
+      }
+      input = sampled;
+    }
+
+    const traceRows = holes.flatMap(h => (h.points || []).map(p => ({ ...p, hole_id: h.id })));
+    const enriched = computeStructuralPositions(input, traceRows, opts);
+    if (!enriched.length) return;
+    this.structuralGroup = buildStructuralDiscs(enriched, opts);
+    this.scene.add(this.structuralGroup);
+    this.structuralGroup.traverse(child => {
+      if (child.isMesh) this.structuralMeshes.push(child);
+    });
+  }
+
+  /**
+   * Change the camera field-of-view while keeping the visible scene the same apparent size.
+   * FOV is clamped to [FOV_MIN_DEG, FOV_MAX_DEG]. Delegates to setFov in baselode3dCameraControls.
+   * @param {number} fovDeg - Desired FOV in degrees
+   */
+  setCameraFov(fovDeg) {
+    setFov(this, fovDeg);
+  }
+
+  setStructuralDiscsVisible(visible) {
+    if (this.structuralGroup) {
+      this.structuralGroup.visible = Boolean(visible);
+    }
+  }
+
+  _clearStructuralDiscs() {
+    if (this.structuralGroup) {
+      this.scene.remove(this.structuralGroup);
+      this.structuralGroup.traverse(child => {
+        if (child.isMesh) {
+          child.geometry.dispose();
+          child.material.dispose();
+        }
+      });
+      this.structuralGroup = null;
+    }
+    this.structuralMeshes = [];
+  }
+
   _clearDrillholes() {
     this.drillLines.forEach((line) => {
       this.scene.remove(line);
@@ -577,6 +652,7 @@ class Baselode3DScene {
 
     this._clearBlocks();
     this._clearDrillholes();
+    this._clearStructuralDiscs();
 
     if (this.controls) this.controls.dispose();
     if (this.flyControls) this.flyControls.dispose();

@@ -1,6 +1,6 @@
 {
   "name": "baselode",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "Geoscience drillhole data processing and visualization toolkit",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -36,6 +36,7 @@
   "scripts": {
     "version:from-tag": "node ./scripts/set-version-from-tag.mjs",
     "build": "vite build",
+    "build:module": "vite build --config vite.standalone.js && cp dist/baselode-module.js ../../../demo-viewer-dash/assets/baselode-module.js",
     "prepack": "npm run version:from-tag && npm run build",
     "pack:check": "npm pack --dry-run",
     "publish:npm": "npm publish",

@@ -9,7 +9,8 @@ import {
   loadAssayFile,
   parseDrillholesCSV,
   parseSurveyCSV,
-  desurveyTraces
+  desurveyTraces,
+  parseStructuralCSV
 } from 'baselode';
 import 'baselode/style.css';
 import proj4 from 'proj4';
@@ -17,7 +18,8 @@ import './Drillhole.css';
 import {
   loadDemoGswaAssayFile,
   loadDemoPrecomputedDesurveyFile,
-  loadDemoSurveyCsvText
+  loadDemoSurveyCsvText,
+  loadDemoStructuralCsvText
 } from '../data/demoGswaData.js';
 import { createPortal } from 'react-dom';
 
@@ -34,6 +36,8 @@ const ASSAY_COLOR_PALETTE_10 = [
   '#a50026'
 ];
 const MAX_SCENE_HOLES = 100;
+// FOV stops from nearly-orthographic to full perspective
+const FOV_STEPS = [1, 4, 8, 14, 21, 28];
 const CAMERA_CACHE_KEY = 'baselode-drillhole-camera-v1';
 
 function Drillhole() {
@@ -53,6 +57,9 @@ function Drillhole() {
   const [colorByVariable, setColorByVariable] = useState('None');
   const [precomputedAttempted, setPrecomputedAttempted] = useState(false);
   const [usingPrecomputed, setUsingPrecomputed] = useState(false);
+  const [structureRows, setStructureRows] = useState(null);
+  const [showStructuralDiscs, setShowStructuralDiscs] = useState(true);
+  const [perspectiveLevel, setPerspectiveLevel] = useState(FOV_STEPS.length - 1);
 
   const selectedAssayIntervalsByHole = useMemo(() => {
     if (colorByVariable === 'None') return null;
@@ -126,6 +133,31 @@ function Drillhole() {
         console.info('Auto-load of GSWA assays for 3D coloring skipped:', err.message);
       });
   }, []);
+
+  // Load and parse structural CSV on mount
+  useEffect(() => {
+    loadDemoStructuralCsvText()
+      .then((text) => parseStructuralCSV(text))
+      .then(({ rows }) => setStructureRows(rows))
+      .catch((err) => console.info('Structural load skipped:', err.message));
+  }, []);
+
+  // Render structural discs once both holes and structureRows are available
+  useEffect(() => {
+    if (sceneRef.current && holes?.length && structureRows?.length) {
+      sceneRef.current.setStructuralDiscs(structureRows, holes, { radius: 5, opacity: 0.75 });
+    }
+  }, [holes, structureRows]);
+
+  // Toggle disc visibility
+  useEffect(() => {
+    sceneRef.current?.setStructuralDiscsVisible(showStructuralDiscs);
+  }, [showStructuralDiscs]);
+
+  // Perspective slider
+  useEffect(() => {
+    sceneRef.current?.setCameraFov(FOV_STEPS[perspectiveLevel]);
+  }, [perspectiveLevel]);
 
   // Auto-load canonical GSWA survey if no precomputed data
   useEffect(() => {
@@ -289,6 +321,28 @@ function Drillhole() {
                 </option>
               ))}
             </select>
+          </label>
+          {structureRows?.length > 0 && (
+            <label className="drillhole-color-control">
+              <input
+                type="checkbox"
+                checked={showStructuralDiscs}
+                onChange={(e) => setShowStructuralDiscs(e.target.checked)}
+              />
+              Structural discs
+            </label>
+          )}
+          <label className="drillhole-projection-slider">
+            Ortho
+            <input
+              type="range"
+              min={0}
+              max={FOV_STEPS.length - 1}
+              step={1}
+              value={perspectiveLevel}
+              onChange={(e) => setPerspectiveLevel(Number(e.target.value))}
+            />
+            Persp
           </label>
           {holes && (
             <span className="drillhole-info">

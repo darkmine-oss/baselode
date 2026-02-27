@@ -113,6 +113,12 @@ export {
   parseUnifiedDataset
 } from './data/unifiedLoader.js';
 
+export {
+  interpolateTrace,
+  alphaBetaToNormal,
+  computeStructuralPositions
+} from './data/structuralPositions.js';
+
 // --- Column metadata ---
 export {
   DISPLAY_NUMERIC,
@@ -184,7 +190,10 @@ export {
   pan,
   dolly,
   focusOnLastBounds,
-  setControlMode
+  setControlMode,
+  setFov,
+  FOV_MIN_DEG,
+  FOV_MAX_DEG
 } from './viz/baselode3dCameraControls.js';
 
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';

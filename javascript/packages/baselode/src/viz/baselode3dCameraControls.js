@@ -192,6 +192,39 @@ export function focusOnLastBounds(state, padding = 1.2) {
   state.controls.update();
 }
 
+/** Minimum and maximum permitted camera FOV in degrees. */
+export const FOV_MIN_DEG = 1;
+export const FOV_MAX_DEG = 120;
+
+/**
+ * Change the camera field-of-view while keeping the visible scene the same apparent size.
+ * Adjusts camera distance so the frustum height at the orbit target is preserved.
+ * FOV is clamped to [FOV_MIN_DEG, FOV_MAX_DEG] to avoid numerical issues near 0° or 180°.
+ * @param {Object} state - Baselode3D scene state with camera and controls
+ * @param {number} fovDeg - Desired FOV in degrees
+ * @returns {boolean} True if the FOV was applied, false if state is invalid
+ */
+export function setFov(state, fovDeg) {
+  if (!state.camera || !state.controls) return false;
+  if (!Number.isFinite(fovDeg)) return false;
+  const clampedFov = Math.min(FOV_MAX_DEG, Math.max(FOV_MIN_DEG, fovDeg));
+
+  const target = state.controls.target;
+  const currentDist = state.camera.position.distanceTo(target);
+  const currentFovRad = (state.camera.fov * Math.PI) / 180;
+  const frustumHeight = 2 * currentDist * Math.tan(currentFovRad / 2);
+
+  const newFovRad = (clampedFov * Math.PI) / 180;
+  const newDist = frustumHeight / (2 * Math.tan(newFovRad / 2));
+
+  const dir = state.camera.position.clone().sub(target).normalize();
+  state.camera.position.copy(target).addScaledVector(dir, newDist);
+  state.camera.fov = clampedFov;
+  state.camera.updateProjectionMatrix();
+  state.controls.update();
+  return true;
+}
+
 /**
  * Switch between orbit and fly camera control modes
  * @param {Object} state - Baselode3D scene state with orbit and fly controls
