@@ -1,0 +1,80 @@
+{
+  "name": "demo_block_model",
+  "description": "Small synthetic block model for testing and demo display. Contains 60 blocks in a 5x4x3 grid.",
+  "crs": "EPSG:32750",
+  "origin": {
+    "x": 500000.0,
+    "y": 6900000.0,
+    "z": 290.0,
+    "rotation_deg": 0.0
+  },
+  "max_block_size": {
+    "dx": 10.0,
+    "dy": 10.0,
+    "dz": 10.0
+  },
+  "min_block_size": {
+    "dx": 10.0,
+    "dy": 10.0,
+    "dz": 10.0
+  },
+  "bbox_3d": {
+    "min_x": 500000.0,
+    "max_x": 500050.0,
+    "min_y": 6900000.0,
+    "max_y": 6900040.0,
+    "min_z": 290.0,
+    "max_z": 320.0
+  },
+  "outline_2d": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          500000.0,
+          6900000.0
+        ],
+        [
+          500050.0,
+          6900000.0
+        ],
+        [
+          500050.0,
+          6900040.0
+        ],
+        [
+          500000.0,
+          6900040.0
+        ],
+        [
+          500000.0,
+          6900000.0
+        ]
+      ]
+    ]
+  },
+  "attributes": {
+    "grade": {
+      "type": "numeric",
+      "units": "%",
+      "description": "Simulated ore grade"
+    },
+    "density": {
+      "type": "numeric",
+      "units": "t/m3",
+      "description": "Rock density"
+    },
+    "rock_type": {
+      "type": "categorical",
+      "description": "Weathering state of the rock"
+    },
+    "classification": {
+      "type": "categorical",
+      "description": "Ore classification based on grade cutoff"
+    }
+  },
+  "extra": {
+    "source": "synthetic",
+    "author": "baselode demo"
+  }
+}

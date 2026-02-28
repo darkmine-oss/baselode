@@ -96,7 +96,12 @@ export {
 
 export {
   parseBlockModelCSV,
+  normalizeBlockRow,
+  loadBlockModelMetadata,
   calculatePropertyStats,
+  getBlockStats,
+  filterBlocks,
+  calculateBlockVolume,
   getColorForValue
 } from './data/blockModelLoader.js';
 
@@ -198,3 +203,4 @@ export {
 
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';
+export { default as BlockModelWidget } from './viz/BlockModelWidget.jsx';

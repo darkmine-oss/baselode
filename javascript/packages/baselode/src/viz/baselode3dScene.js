@@ -145,6 +145,7 @@ class Baselode3DScene {
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
     this.drillholeClickHandler = null;
+    this.blockClickHandler = null;
     this.controlMode = 'orbit';
     this._tmpDir = new THREE.Vector3();
     this.viewChangeHandler = null;
@@ -293,6 +294,24 @@ class Baselode3DScene {
       this.pointer.y = -((localY / rect.height) * 2) + 1;
 
       this.raycaster.setFromCamera(this.pointer, this.camera);
+
+      // Check block clicks first (blocks are on top of drillholes in priority)
+      if (this.blocks.length > 0) {
+        const blockIntersects = this.raycaster.intersectObjects(this.blocks, false);
+        if (blockIntersects.length > 0) {
+          const hit = blockIntersects[0];
+          const blockObj = hit.object;
+          if (blockObj?.userData?._isMergedBlocks && this.blockClickHandler) {
+            // Merged geometry: each quad = 2 triangles, so quad index = faceIndex / 2
+            const quadIndex = Math.floor(hit.faceIndex / 2);
+            const blockData = blockObj.userData._quadToBlock[quadIndex];
+            if (blockData) this.blockClickHandler(blockData);
+          }
+          return; // consumed by block click
+        }
+      }
+
+      // Fall through to drillhole click detection
       const drillHits = this.raycaster.intersectObjects(this.drillMeshes, true);
       const structHits = this.raycaster.intersectObjects(this.structuralMeshes, true);
 
@@ -333,53 +352,178 @@ class Baselode3DScene {
     if (this.gizmo) this.gizmo.update();
   }
 
-  setBlocks(data, selectedProperty, stats) {
+  /**
+   * Render block model data as a single merged mesh of exterior faces only.
+   *
+   * Adjacent blocks' shared faces are skipped so there are no coincident
+   * polygons and therefore no z-fighting.  Vertex colours are used so the
+   * entire model is a single draw call.
+   *
+   * Accepts rows with canonical column names ``x``, ``y``, ``z``, ``dx``,
+   * ``dy``, ``dz`` (produced by :func:`parseBlockModelCSV`).
+   *
+   * @param {Array<Object>} data - Block rows (canonical column names)
+   * @param {string} selectedProperty - Attribute column used for colouring
+   * @param {Object} stats - Property statistics (from :func:`calculatePropertyStats`)
+   * @param {Object} [options]
+   * @param {Object} [options.offset] - Optional ``{x, y, z}`` translation applied
+   *   to all block centres before rendering.  When omitted the scene defaults to
+   *   auto-centering by shifting the extent centre to the origin.
+   * @param {number} [options.opacity=1.0] - Initial material opacity (0–1)
+   * @param {boolean} [options.autoCenter=true] - If true and no offset is
+   *   supplied, translate block centres so the extent centre sits at the origin.
+   */
+  setBlocks(data, selectedProperty, stats, options = {}) {
     if (!this.scene) return;
 
     this._clearBlocks();
 
     if (!data || !selectedProperty || !stats) return;
 
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-    let minZ = Infinity, maxZ = -Infinity;
+    const { autoCenter = true, opacity = 1.0 } = options;
+
+    // Compute raw extent from data
+    let rawMinX = Infinity, rawMaxX = -Infinity;
+    let rawMinY = Infinity, rawMaxY = -Infinity;
+    let rawMinZ = Infinity, rawMaxZ = -Infinity;
 
     data.forEach((row) => {
-      const {
-        center_x = 0,
-        center_y = 0,
-        center_z = 0,
-        size_x = 1,
-        size_y = 1,
-        size_z = 1
-      } = row;
-
-      minX = Math.min(minX, center_x - size_x / 2);
-      maxX = Math.max(maxX, center_x + size_x / 2);
-      minY = Math.min(minY, center_y - size_y / 2);
-      maxY = Math.max(maxY, center_y + size_y / 2);
-      minZ = Math.min(minZ, center_z - size_z / 2);
-      maxZ = Math.max(maxZ, center_z + size_z / 2);
-
-      const geometry = new THREE.BoxGeometry(size_x, size_y, size_z);
-      const color = getColorForValue(row[selectedProperty], stats, THREE);
-      const material = new THREE.MeshStandardMaterial({
-        color,
-        transparent: true,
-        opacity: 0.7,
-        side: THREE.DoubleSide
-      });
-
-      const block = new THREE.Mesh(geometry, material);
-      block.position.set(center_x, center_y, center_z);
-      this.scene.add(block);
-      this.blocks.push(block);
+      const x = Number(row.x ?? row.center_x ?? 0);
+      const y = Number(row.y ?? row.center_y ?? 0);
+      const z = Number(row.z ?? row.center_z ?? 0);
+      const dx = Number(row.dx ?? row.size_x ?? 1);
+      const dy = Number(row.dy ?? row.size_y ?? 1);
+      const dz = Number(row.dz ?? row.size_z ?? 1);
+      rawMinX = Math.min(rawMinX, x - dx / 2);
+      rawMaxX = Math.max(rawMaxX, x + dx / 2);
+      rawMinY = Math.min(rawMinY, y - dy / 2);
+      rawMaxY = Math.max(rawMaxY, y + dy / 2);
+      rawMinZ = Math.min(rawMinZ, z - dz / 2);
+      rawMaxZ = Math.max(rawMaxZ, z + dz / 2);
     });
+
+    // Determine coordinate offset
+    let offX = 0, offY = 0, offZ = 0;
+    if (options.offset) {
+      offX = Number(options.offset.x ?? 0);
+      offY = Number(options.offset.y ?? 0);
+      offZ = Number(options.offset.z ?? 0);
+    } else if (autoCenter) {
+      offX = -((rawMinX + rawMaxX) / 2);
+      offY = -((rawMinY + rawMaxY) / 2);
+      offZ = -((rawMinZ + rawMaxZ) / 2);
+    }
+
+    // Translated scene extents (used for camera fit)
+    const minX = rawMinX + offX, maxX = rawMaxX + offX;
+    const minY = rawMinY + offY, maxY = rawMaxY + offY;
+    const minZ = rawMinZ + offZ, maxZ = rawMaxZ + offZ;
+
+    // Neighbour lookup: "rx,ry,rz" keyed on rounded data-space block centres.
+    // A face is interior (skipped) when the neighbour centre exists in the set.
+    const bkey = (x, y, z) => `${Math.round(x)},${Math.round(y)},${Math.round(z)}`;
+    const blockSet = new Set(
+      data.map(row => bkey(Number(row.x ?? 0), Number(row.y ?? 0), Number(row.z ?? 0)))
+    );
+
+    // Six face definitions.  neibDir is used to locate the neighbour in that
+    // direction.  verts are ±1 scale factors of the half-extents (dx/2 etc.).
+    const FACE_DEFS = [
+      { normal: [ 1, 0, 0], neibDir: [ 1, 0, 0], verts: [[ 1,-1,-1],[ 1, 1,-1],[ 1, 1, 1],[ 1,-1, 1]] },
+      { normal: [-1, 0, 0], neibDir: [-1, 0, 0], verts: [[-1,-1, 1],[-1, 1, 1],[-1, 1,-1],[-1,-1,-1]] },
+      { normal: [ 0, 1, 0], neibDir: [ 0, 1, 0], verts: [[-1, 1, 1],[ 1, 1, 1],[ 1, 1,-1],[-1, 1,-1]] },
+      { normal: [ 0,-1, 0], neibDir: [ 0,-1, 0], verts: [[ 1,-1, 1],[-1,-1, 1],[-1,-1,-1],[ 1,-1,-1]] },
+      { normal: [ 0, 0, 1], neibDir: [ 0, 0, 1], verts: [[-1,-1, 1],[ 1,-1, 1],[ 1, 1, 1],[-1, 1, 1]] },
+      { normal: [ 0, 0,-1], neibDir: [ 0, 0,-1], verts: [[ 1,-1,-1],[-1,-1,-1],[-1, 1,-1],[ 1, 1,-1]] },
+    ];
+
+    const positions = [];
+    const normals   = [];
+    const colors    = [];
+    const indices   = [];
+    const quadToBlock = []; // quad index → original row (for click detection)
+    let vi = 0;
+
+    data.forEach((row) => {
+      const bx = Number(row.x ?? row.center_x ?? 0);
+      const by = Number(row.y ?? row.center_y ?? 0);
+      const bz = Number(row.z ?? row.center_z ?? 0);
+      const dx = Number(row.dx ?? row.size_x ?? 1);
+      const dy = Number(row.dy ?? row.size_y ?? 1);
+      const dz = Number(row.dz ?? row.size_z ?? 1);
+      const cx = bx + offX, cy = by + offY, cz = bz + offZ;
+
+      const color = getColorForValue(row[selectedProperty], stats, THREE);
+      const { r, g, b } = color;
+
+      FACE_DEFS.forEach((face) => {
+        // Skip face if an adjacent block occupies the neighbouring cell
+        const nbx = bx + face.neibDir[0] * dx;
+        const nby = by + face.neibDir[1] * dy;
+        const nbz = bz + face.neibDir[2] * dz;
+        if (blockSet.has(bkey(nbx, nby, nbz))) return;
+
+        const vBase = vi;
+        face.verts.forEach(([sx, sy, sz]) => {
+          positions.push(cx + sx * dx / 2, cy + sy * dy / 2, cz + sz * dz / 2);
+          normals.push(face.normal[0], face.normal[1], face.normal[2]);
+          colors.push(r, g, b);
+          vi++;
+        });
+        indices.push(vBase, vBase + 1, vBase + 2, vBase, vBase + 2, vBase + 3);
+        quadToBlock.push(row);
+      });
+    });
+
+    if (positions.length === 0) return;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('normal',   new THREE.Float32BufferAttribute(normals,   3));
+    geometry.setAttribute('color',    new THREE.Float32BufferAttribute(colors,    3));
+    geometry.setIndex(indices);
+
+    const material = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      transparent: opacity < 1,
+      opacity,
+      side: THREE.DoubleSide, // safe — all interior faces are already removed
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.userData._isMergedBlocks = true;
+    mesh.userData._quadToBlock = quadToBlock;
+    this.scene.add(mesh);
+    this.blocks.push(mesh);
 
     if (this.camera && this.controls) {
       this.lastBounds = { minX, maxX, minY, maxY, minZ, maxZ };
       fitCameraToBounds(this, { minX, maxX, minY, maxY, minZ, maxZ });
     }
+  }
+
+  /**
+   * Update the opacity of all currently rendered blocks.
+   * @param {number} opacity - New opacity value between 0 (transparent) and 1 (opaque)
+   */
+  setBlockOpacity(opacity) {
+    const clamped = Math.max(0, Math.min(1, Number(opacity)));
+    this.blocks.forEach((block) => {
+      if (block.material) {
+        block.material.opacity = clamped;
+        block.material.transparent = clamped < 1;
+        block.material.needsUpdate = true;
+      }
+    });
+  }
+
+  /**
+   * Register a click handler for block selection.
+   * The handler is called with the full block row data when a block is clicked.
+   * @param {Function|null} handler - Callback ``(blockData) => void``, or null to clear
+   */
+  setBlockClickHandler(handler) {
+    this.blockClickHandler = typeof handler === 'function' ? handler : null;
   }
 
   setDrillholes(holes, options = {}) {
