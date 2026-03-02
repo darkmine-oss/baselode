@@ -23,6 +23,18 @@ from baselode.drill.columns import (
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+# Auto-build baselode-module.js if it doesn't exist (generated artifact, not checked in)
+_BASELODE_MODULE = Path(__file__).parent / "assets" / "baselode-module.js"
+if not _BASELODE_MODULE.exists():
+    import subprocess
+    print("baselode-module.js not found — building via 'npm run build:module'...")
+    result = subprocess.run(
+        ["npm", "run", "build:module", "--workspace=javascript/packages/baselode"],
+        cwd=REPO_ROOT,
+        check=True,
+    )
+    print("baselode-module.js built successfully.")
+
 DATA_DIR = REPO_ROOT / "test" / "data" / "gswa"
 COLLARS_CSV = DATA_DIR / "gswa_sample_collars.csv"
 SURVEY_CSV = DATA_DIR / "gswa_sample_survey.csv"
@@ -124,6 +136,52 @@ def build_scene_assay_rows(assays_df, hole_ids, numeric_props):
                 interval[var] = float(value)
 
         rows.append(interval)
+
+    return rows
+
+
+def build_structural_rows_for_scene(structures_df, hole_ids):
+    """Serialize structural point measurements to plain dicts for the 3D scene.
+
+    Returns a list of dicts with keys: hole_id (lowercased), depth, and any of
+    dip, azimuth, alpha, beta, structure_type that are present and numeric.
+    """
+    if structures_df is None or structures_df.empty or not hole_ids:
+        return []
+
+    hole_keys = {str(h).strip().lower() for h in hole_ids if str(h).strip()}
+    if not hole_keys:
+        return []
+
+    df = structures_df.copy()
+    df["_hole_key"] = df["hole_id"].astype(str).str.strip().str.lower()
+    df = df[df["_hole_key"].isin(hole_keys)]
+    if df.empty:
+        return []
+
+    rows = []
+    for _, row in df.iterrows():
+        depth = pd.to_numeric(row.get("depth"), errors="coerce")
+        if pd.isna(depth):
+            depth = pd.to_numeric(row.get("mid"), errors="coerce")
+        if pd.isna(depth):
+            continue
+
+        entry = {
+            "hole_id": row["_hole_key"],
+            "depth": float(depth),
+        }
+
+        for col in ("dip", "azimuth", "alpha", "beta"):
+            val = pd.to_numeric(row.get(col), errors="coerce")
+            if pd.notna(val):
+                entry[col] = float(val)
+
+        struct_type = row.get("structure_type")
+        if struct_type is not None and not (isinstance(struct_type, float) and pd.isna(struct_type)):
+            entry["structure_type"] = str(struct_type)
+
+        rows.append(entry)
 
     return rows
 
@@ -494,9 +552,12 @@ def serve_drillhole3d():
     assay_variables = ["__HAS_ASSAY__"] + ASSAY_PROPERTY_INFO["numeric"]
     assay_rows = build_scene_assay_rows(DATASET["assays"], scene_hole_ids, ASSAY_PROPERTY_INFO["numeric"])
 
+    structural_rows = build_structural_rows_for_scene(DATASET.get("structures"), scene_hole_ids)
+
     drillhole_json = json.dumps(drillhole_data)
     assay_variables_json = json.dumps(assay_variables)
     assay_rows_json = json.dumps(assay_rows)
+    structural_rows_json = json.dumps(structural_rows)
     
     html_template = '''
 <!DOCTYPE html>
@@ -607,6 +668,29 @@ def serve_drillhole3d():
             font-size: 11px;
             color: #4b5563;
         }
+        .disc-toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #374151;
+        }
+        .disc-toggle-row input[type="checkbox"] {
+            cursor: pointer;
+            accent-color: #2563eb;
+        }
+        .projection-slider-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #374151;
+        }
+        .projection-slider-row input[type="range"] {
+            flex: 1;
+            cursor: pointer;
+            accent-color: #2563eb;
+        }
     </style>
 </head>
 <body>
@@ -625,6 +709,15 @@ def serve_drillhole3d():
                 <button id="btn-origin" class="control-btn" type="button">Go to 0,0,0</button>
                 <button id="btn-fly" class="control-btn" type="button">Enable fly controls</button>
             </div>
+            <div class="disc-toggle-row" id="disc-toggle-row" style="display:none">
+                <input type="checkbox" id="show-discs-checkbox" checked>
+                <span>Show structural discs</span>
+            </div>
+            <div class="projection-slider-row">
+                <span>Ortho</span>
+                <input type="range" id="perspective-slider" min="0" max="5" step="1" value="5">
+                <span>Persp</span>
+            </div>
             <div id="legend"></div>
         </div>
     </div>
@@ -634,11 +727,13 @@ def serve_drillhole3d():
         window.drillholeData = {{ drillhole_data|safe }};
         window.assayVariables = {{ assay_variables|safe }};
         window.assayRows = {{ assay_rows|safe }};
+        window.structuralRows = {{ structural_rows|safe }};
     </script>
     
     <script type="module">
         // Import standalone baselode module (all dependencies bundled)
         const { Baselode3DScene } = await import('/assets/baselode-module.js');
+        const FOV_STEPS = [1, 4, 8, 14, 21, 28];
         const ASSAY_COLOR_PALETTE_10 = [
             '#313695', '#4575b4', '#74add1', '#abd9e9', '#e0f3f8',
             '#fee090', '#fdae61', '#f46d43', '#d73027', '#a50026'
@@ -818,6 +913,29 @@ def serve_drillhole3d():
                 renderDrillholes();
             }
 
+            // Load structural discs
+            const structuralRows = window.structuralRows || [];
+            if (structuralRows.length > 0 && holes.length > 0) {
+                scene.setStructuralDiscs(structuralRows, holes, { radius: 5, opacity: 0.75 });
+                document.getElementById('disc-toggle-row').style.display = 'flex';
+            }
+
+            // Initial camera FOV (full perspective)
+            scene.setCameraFov(FOV_STEPS[FOV_STEPS.length - 1]);
+
+            // Disc toggle
+            const showDiscsCheckbox = document.getElementById('show-discs-checkbox');
+            showDiscsCheckbox.addEventListener('change', () => {
+                scene.setStructuralDiscsVisible(showDiscsCheckbox.checked);
+            });
+
+            // Perspective slider
+            const perspSlider = document.getElementById('perspective-slider');
+            perspSlider.addEventListener('input', () => {
+                const level = parseInt(perspSlider.value, 10);
+                scene.setCameraFov(FOV_STEPS[level]);
+            });
+
             colorBySelect.addEventListener('change', (event) => {
                 colorByVariable = event.target.value || 'None';
                 renderDrillholes();
@@ -848,6 +966,7 @@ def serve_drillhole3d():
         drillhole_data=drillhole_json,
         assay_variables=assay_variables_json,
         assay_rows=assay_rows_json,
+        structural_rows=structural_rows_json,
     )
 
 

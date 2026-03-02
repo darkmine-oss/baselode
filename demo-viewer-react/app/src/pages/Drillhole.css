@@ -41,6 +41,20 @@
   color: #333;
 }
 
+.drillhole-projection-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #333;
+}
+
+.drillhole-projection-slider input[type="range"] {
+  width: 90px;
+  cursor: pointer;
+  accent-color: var(--accent, #2563eb);
+}
+
 .drillhole-select {
   padding: 6px 10px;
   border: 1px solid #d0d5dd;
