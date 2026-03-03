@@ -1,6 +1,6 @@
 {
   "name": "baselode",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Geoscience drillhole data processing and visualization toolkit",
   "license": "GPL-3.0-or-later",
   "repository": {
