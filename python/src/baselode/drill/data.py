@@ -27,7 +27,26 @@ so downstream functions can expect consistent keys.
 import pandas as pd
 import geopandas as gpd
 
-from baselode.datamodel import ( HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, AZIMUTH, DIP, FROM, TO, MID, PROJECT_ID, EASTING, NORTHING, CRS, DEPTH, ALPHA, BETA, COMMENTS )
+from baselode.datamodel import (
+    HOLE_ID,
+    LATITUDE,
+    LONGITUDE,
+    ELEVATION,
+    AZIMUTH,
+    DIP,
+    FROM,
+    TO,
+    MID,
+    PROJECT_ID,
+    EASTING,
+    NORTHING,
+    CRS,
+    DEPTH,
+    ALPHA,
+    BETA,
+    COMMENTS,
+    GEOLOGY_CODE,
+)
 
 
 """
@@ -104,6 +123,19 @@ BASELODE_DATA_MODEL_DRILL_ASSAY = {
     # Assays may be flattened (one column per assay type) or long (one row per assay type with an additional 'assay_type' column)
 }
 
+BASELODE_DATA_MODEL_DRILL_GEOLOGY = {
+    # The unique hole id that maps to the collar and any other data tables
+    HOLE_ID: str,
+    # The depth along the hole where the geology interval starts
+    FROM: float,
+    # The depth along the hole where the geology interval ends
+    TO: float,
+    # The midpoint depth of the geology interval
+    MID: float,
+    # Standardized lithology/geology code for categorical strip-log plotting
+    GEOLOGY_CODE: str,
+}
+
 
 # This column map is used to make a 'best guess' for mapping common variations in source column names to the baselode data model.
 # It is applied in the standardize_columns function, but users can also provide their own column map to override or extend this mapping as needed.
@@ -122,12 +154,23 @@ DEFAULT_COLUMN_MAP = {
     CRS: ["crs", "epsg", "projection"],
     FROM: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
     TO: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
-    AZIMUTH: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn", "dipdirection", "dip_dir", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg", "dipdrn", "dipdir_calc", "dipdirect_calc"],
+    GEOLOGY_CODE: [
+        "geology_code",
+        "geologycode",
+        "lith1",
+        "lith1code",
+        "lith1_code",
+        "lithology",
+        "plot_lithology",
+        "rock1",
+    ],
+    AZIMUTH: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn", "dipdirection", "dip_dir", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg", "dipdir_calc", "dipdirect_calc"],
     DIP: ["dip", "computed_plane_dip", "calc_dip", "calc_dip_deg", "dip_calc"],
     DEPTH: ["depth", "survey_depth", "surveydepth"],
     ALPHA: ["alpha", "alpha_angle", "alpha_angle_deg", "alpha_2"],
     BETA: ["beta", "beta_angle", "beta_angle_deg", "beta_2"],
-    COMMENTS: ["comment", "comments", "structcomment", "description"]
+    "declination": ["declination", "dec"],
+    COMMENTS: ["comment", "comments", "structcomment", "geology_comment", "geologycomment", "geology comment", "lithology_comment", "lithology comment", "geology_description", "geologydescription"]
 }
 
 # Pivot the DEFAULT_COLUMN_MAP for efficient reverse lookup
@@ -145,6 +188,78 @@ def _frame(df):
     if isinstance(df, pd.DataFrame):
         return df.copy()
     return pd.DataFrame(df)
+
+
+def _validate_non_overlapping_intervals(df, label):
+    if df.empty:
+        return
+    ordered = df.sort_values([HOLE_ID, FROM, TO]).reset_index(drop=True)
+    for hole_id, group in ordered.groupby(HOLE_ID, sort=False):
+        prev_to = None
+        for _, row in group.iterrows():
+            frm = round(float(row[FROM]), 3)
+            to = round(float(row[TO]), 3)
+            if prev_to is not None and frm < prev_to:
+                raise ValueError(
+                    f"{label} intervals overlap for hole '{hole_id}': from={frm} is less than previous to={prev_to}"
+                )
+            prev_to = to
+
+
+def _normalize_interval_bounds(df):
+    out = df.copy()
+    out[FROM] = pd.to_numeric(out[FROM], errors="coerce")
+    out[TO] = pd.to_numeric(out[TO], errors="coerce")
+
+    out[FROM] = out[FROM].round(3)
+    out[TO] = out[TO].round(3)
+
+    equal_mask = out[FROM].notna() & out[TO].notna() & (out[TO] == out[FROM])
+    if equal_mask.any():
+        out.loc[equal_mask, TO] = (out.loc[equal_mask, FROM] + 0.001).round(3)
+
+    return out
+
+
+def _first_present_column(df, candidates):
+    for col in candidates:
+        if col in df.columns:
+            return col
+    return None
+
+
+def _flatten_long_interval_table(df, label, code_candidates, value_candidates):
+    code_col = _first_present_column(df, code_candidates)
+    value_col = _first_present_column(df, value_candidates)
+
+    if code_col is None or value_col is None:
+        raise ValueError(
+            f"{label} long-format table requires code and value columns; found code={code_col}, value={value_col}"
+        )
+
+    base_cols = [col for col in df.columns if col not in {code_col, value_col}]
+    if HOLE_ID not in base_cols or FROM not in base_cols or TO not in base_cols:
+        raise ValueError(f"{label} long-format table must include columns: {HOLE_ID}, {FROM}, {TO}")
+
+    wide = (
+        df.pivot_table(
+            index=base_cols,
+            columns=code_col,
+            values=value_col,
+            aggfunc="first",
+            sort=False,
+        )
+        .reset_index()
+    )
+
+    if isinstance(wide.columns, pd.MultiIndex):
+        wide.columns = [
+            "_".join([str(part) for part in col if str(part) not in ("", "None")]).strip("_")
+            for col in wide.columns.values
+        ]
+
+    wide.columns = [str(col).strip() for col in wide.columns]
+    return wide
 
 
 def standardize_columns(df, column_map=None, source_column_map=None):
@@ -170,7 +285,18 @@ def standardize_columns(df, column_map=None, source_column_map=None):
     return out
 
 
-def load_table(source, kind="csv", connection=None, query=None, table=None, column_map=None, source_column_map=None, **kwargs):
+def load_table(source,
+    kind="csv",
+    connection=None,
+    query=None,
+    table=None,
+    column_map=None,
+    source_column_map=None,
+    keep_all=True,
+    **kwargs):
+    # keep_all is accepted for API compatibility with specialized loaders.
+    # Base table loading does not drop columns because it has no schema context.
+    _ = keep_all
     if isinstance(source, pd.DataFrame):
         df = source.copy()
     elif kind == "csv":
@@ -246,14 +372,36 @@ def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
     return df.sort_values([HOLE_ID, DEPTH])
 
 
-def load_assays(source, source_column_map=None, keep_all=True, **kwargs):
+def load_assays(source, source_column_map=None, flat=True, keep_all=True, **kwargs):
     df = load_table(source, source_column_map=source_column_map, **kwargs)
+
+    if not flat:
+        df = _flatten_long_interval_table(
+            df,
+            label="Assay",
+            code_candidates=["assay_code", "assay_type", "analyte", "element", "code"],
+            value_candidates=["assay_value", "value", "result", "assay_result"],
+        )
+
     required_cols = set(BASELODE_DATA_MODEL_DRILL_ASSAY.keys())
 
     required = [HOLE_ID, FROM, TO]
     for col in required:
         if col not in df.columns:
             raise ValueError(f"Assay table missing column: {col}")
+
+    df[HOLE_ID] = df[HOLE_ID].astype(str).str.strip()
+    df = _normalize_interval_bounds(df)
+
+    invalid = (
+        df[HOLE_ID].isna()
+        | (df[HOLE_ID] == "")
+        | df[FROM].isna()
+        | df[TO].isna()
+        | (df[TO] < df[FROM])
+    )
+    if invalid.any():
+        raise ValueError("Assay table has missing or invalid interval values")
 
     # Calculate midpoint depth
     df[MID] = 0.5 * (df[FROM] + df[TO])
@@ -312,6 +460,70 @@ def load_geotechnical(source, source_column_map=None, keep_all=True, **kwargs):
     return df.sort_values([HOLE_ID, FROM])
 
 
+def load_geology(source, source_column_map=None, flat=True, keep_all=True, **kwargs):
+    """Load geology/lithology interval data.
+
+    Accepts interval tables (hole_id, from, to, geology_code, comments, ...).
+    """
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+
+    if not flat:
+        df = _flatten_long_interval_table(
+            df,
+            label="Geology",
+            code_candidates=[GEOLOGY_CODE, "lith_code", "code"],
+            value_candidates=[COMMENTS, "geology_value", "value", "description"],
+        )
+
+    required_cols = set(BASELODE_DATA_MODEL_DRILL_GEOLOGY.keys())
+
+    required = [HOLE_ID, FROM, TO]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Geology table missing column: {col}")
+
+    df[HOLE_ID] = df[HOLE_ID].astype(str).str.strip()
+    df = _normalize_interval_bounds(df)
+
+    missing_hole = df[HOLE_ID].isna() | (df[HOLE_ID] == "")
+    missing_from = df[FROM].isna()
+    missing_to = df[TO].isna()
+    non_positive_interval = (df[TO] < df[FROM]).fillna(False)
+
+    invalid = missing_hole | missing_from | missing_to | non_positive_interval
+    if invalid.any():
+        invalid_rows = df.loc[invalid, [HOLE_ID, FROM, TO]].head(5).to_dict("records")
+        details = {
+            "total_invalid": int(invalid.sum()),
+            "missing_hole_id": int(missing_hole.sum()),
+            "missing_from": int(missing_from.sum()),
+            "missing_to": int(missing_to.sum()),
+            "to_le_from": int(non_positive_interval.sum()),
+            "sample_rows": invalid_rows,
+        }
+        raise ValueError(f"Geology table has missing or invalid interval values: {details}")
+
+    df[MID] = 0.5 * (df[FROM] + df[TO])
+
+    if flat:
+        has_code = GEOLOGY_CODE in df.columns
+        has_comments = COMMENTS in df.columns
+        if not has_code and not has_comments:
+            raise ValueError(
+                f"Geology table missing categorical columns: {GEOLOGY_CODE} or {COMMENTS}"
+            )
+
+        if not has_code and has_comments:
+            df[GEOLOGY_CODE] = df[COMMENTS]
+
+    _validate_non_overlapping_intervals(df, "Geology")
+
+    if not keep_all:
+        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_GEOLOGY.keys() if col in df.columns]]
+
+    return df.sort_values([HOLE_ID, FROM, TO])
+
+
 def join_assays_to_traces(assays, traces, on_cols=(HOLE_ID,)):
     if traces.empty:
         return assays.copy()
@@ -333,11 +545,12 @@ def coerce_numeric(df, columns):
     return out
 
 
-def assemble_dataset(collars=None, surveys=None, assays=None, structures=None, geotechnical=None, metadata=None):
+def assemble_dataset(collars=None, surveys=None, assays=None, geology=None, structures=None, geotechnical=None, metadata=None):
     return {
         "collars": _frame(collars),
         "surveys": _frame(surveys),
         "assays": _frame(assays),
+        "geology": _frame(geology),
         "structures": _frame(structures),
         "geotechnical": _frame(geotechnical),
         "metadata": metadata or {},

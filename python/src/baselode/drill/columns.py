@@ -78,7 +78,11 @@ HIDDEN_COLUMNS = {
 
 # Column names (lowercased) that map to the comment display type
 COMMENT_COLUMN_NAMES = {
-    COMMENTS
+    COMMENTS,
+    "comment",
+    "notes", "note",
+    "description", "remarks", "remark",
+    "log_description", "struct_comment", "structcomment",
 }
 
 # Column names (lowercased) that map to the tadpole display type.

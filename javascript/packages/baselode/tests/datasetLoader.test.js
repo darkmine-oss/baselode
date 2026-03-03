@@ -9,6 +9,7 @@ import {
   DEFAULT_COLUMN_MAP,
   loadAssays,
   loadCollars,
+  loadGeology,
   loadSurveys,
   loadTable,
   standardizeColumns
@@ -79,5 +80,55 @@ describe('datasetLoader', () => {
   it('supports loadTable on array input', async () => {
     const table = await loadTable([{ HoleId: 'X1', Depth: 12 }]);
     expect(table[0]).toMatchObject({ hole_id: 'X1', depth: 12 });
+  });
+
+  it('loads geology and standardizes lithology/comment fields', async () => {
+    const csv = [
+      'HoleId,FromDepth,ToDepth,Lith1,GeologyComment',
+      'G1,0,10,Fg,Granite',
+      'G1,10,20,Sbif,Banded iron formation'
+    ].join('\n');
+
+    const geology = await loadGeology(csv);
+    expect(geology).toHaveLength(2);
+    expect(geology[0]).toMatchObject({
+      hole_id: 'G1',
+      from: 0,
+      to: 10,
+      mid: 5,
+      geology_code: 'Fg',
+    });
+  });
+
+  it('rejects geology rows where to <= from', async () => {
+    const csv = [
+      'hole_id,from,to,geology_code',
+      'G1,10,5,Fg',
+    ].join('\n');
+
+    await expect(loadGeology(csv)).rejects.toThrow();
+  });
+
+  it('expands equal from/to geology bounds to a 1mm interval', async () => {
+    const csv = [
+      'hole_id,from,to,geology_code',
+      'G1,10.1234,10.1234,Fg',
+    ].join('\n');
+
+    const geology = await loadGeology(csv);
+    expect(geology).toHaveLength(1);
+    expect(geology[0].from).toBeCloseTo(10.123, 3);
+    expect(geology[0].to).toBeCloseTo(10.124, 3);
+    expect(geology[0].to).toBeGreaterThan(geology[0].from);
+  });
+
+  it('rejects overlapping geology intervals for a hole', async () => {
+    const csv = [
+      'HoleId,FromDepth,ToDepth,Lith1',
+      'G1,0,10,Fg',
+      'G1,9.5,20,Sbif'
+    ].join('\n');
+
+    await expect(loadGeology(csv)).rejects.toThrow('overlap');
   });
 });

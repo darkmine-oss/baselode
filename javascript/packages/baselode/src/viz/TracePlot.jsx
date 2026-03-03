@@ -87,7 +87,7 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
       displayModeBar: true,
       responsive: true,
       useResizeHandler: true,
-      modeBarButtonsToRemove: ['select2d', 'lasso2d', 'zoom2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d']
+      modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
     };
 
     try {

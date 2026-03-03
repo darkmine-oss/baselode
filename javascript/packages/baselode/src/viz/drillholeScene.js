@@ -61,13 +61,23 @@ export function getAssaySegmentColor(value, assayScale) {
 }
 
 /**
+ * Get a deterministic hex color for a categorical value using FNV-1a hash → HSL
+ */
+export function getCategoryHexColor(category) {
+  if (!category || !String(category).trim()) return LOW_ASSAY_GREY;
+  const h = seededUnit(String(category).toLowerCase().trim());
+  return '#' + new THREE.Color().setHSL(h, 0.70, 0.50).getHexString();
+}
+
+/**
  * Normalize drillhole rendering options with defaults
  */
 export function normalizeDrillholeRenderOptions(options = {}) {
   return {
     preserveView: Boolean(options.preserveView),
     assayIntervalsByHole: options.assayIntervalsByHole || null,
-    selectedAssayVariable: options.selectedAssayVariable || ''
+    selectedAssayVariable: options.selectedAssayVariable || '',
+    isCategoricalVariable: Boolean(options.isCategoricalVariable),
   };
 }
 
@@ -133,6 +143,19 @@ export function seededUnit(input) {
 // Private helpers (not exported)
 // ---------------------------------------------------------------------------
 
+function getDominantCategory(intervals, segStart, segEnd) {
+  let best = null;
+  let bestOverlap = 0;
+  for (const iv of intervals) {
+    const from = Number(iv?.from);
+    const to = Number(iv?.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) continue;
+    const overlap = Math.min(segEnd, to) - Math.max(segStart, from);
+    if (overlap > bestOverlap) { bestOverlap = overlap; best = iv?.value; }
+  }
+  return best;
+}
+
 function resolveAssayIntervalsForHole(hole, assayIntervalsByHole) {
   if (!assayIntervalsByHole || !hole) return [];
   const holeId = hole.id || hole.holeId;
@@ -150,7 +173,7 @@ function resolveAssayIntervalsForHole(hole, assayIntervalsByHole) {
   return [];
 }
 
-function getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, holeId, segmentIndex, p1, p2 }) {
+function getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, holeId, segmentIndex, p1, p2, isCategorical }) {
   if (!selectedAssayVariable) {
     return randomSegmentColor(holeId, segmentIndex);
   }
@@ -171,6 +194,10 @@ function getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, ho
   if (!assayIntervals?.length) return new THREE.Color(LOW_ASSAY_GREY);
   const depthRange = getMeasuredDepthRange(p1, p2);
   if (!depthRange) return new THREE.Color(LOW_ASSAY_GREY);
+  if (isCategorical) {
+    const cat = getDominantCategory(assayIntervals, depthRange.segStart, depthRange.segEnd);
+    return new THREE.Color(getCategoryHexColor(cat));
+  }
   const value = getWeightedIntervalValue(assayIntervals, depthRange.segStart, depthRange.segEnd);
   return getAssaySegmentColor(value, assayScale);
 }
@@ -192,8 +219,8 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
   clearDrillholes(sceneCtx);
   if (!holes || holes.length === 0) return;
 
-  const { preserveView, assayIntervalsByHole, selectedAssayVariable } = normalizeDrillholeRenderOptions(options);
-  const allAssayValues = collectAssayValues(assayIntervalsByHole, selectedAssayVariable);
+  const { preserveView, assayIntervalsByHole, selectedAssayVariable, isCategoricalVariable } = normalizeDrillholeRenderOptions(options);
+  const allAssayValues = isCategoricalVariable ? [] : collectAssayValues(assayIntervalsByHole, selectedAssayVariable);
   const assayScale = buildEqualRangeColorScale(allAssayValues);
 
   let minX = Infinity, maxX = -Infinity;
@@ -258,7 +285,8 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
         holeId: hole.id,
         segmentIndex: i,
         p1,
-        p2
+        p2,
+        isCategorical: isCategoricalVariable,
       });
       const cylinderMat = new THREE.MeshLambertMaterial({
         color: segmentColor,

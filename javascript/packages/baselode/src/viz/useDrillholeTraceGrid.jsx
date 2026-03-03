@@ -144,7 +144,7 @@ export default function useDrillholeTraceGrid({
   }, [extraHoles]);
 
   useEffect(() => {
-    setError((prev) => (prev && prev.startsWith('Loading data for hole') ? prev : ''));
+    setError((prev) => (prev && prev.startsWith('Loading ') && prev.includes(' for hole ') ? prev : ''));
   }, [traceConfigs]);
 
   useEffect(() => {

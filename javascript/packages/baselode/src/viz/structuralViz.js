@@ -19,7 +19,7 @@ const DEFAULT_PALETTE = [
   '#d97706', '#0ea5e9', '#db2777', '#65a30d', '#9333ea',
 ];
 
-const STRIPLOG_COMPACT_MARGIN = { l: 4, r: 4, t: 4, b: 4 };
+const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 30 };
 const STRIPLOG_AXIS_TICK_FONT_SIZE = 10;
 const STRIPLOG_AXIS_TITLE_FONT_SIZE = 12;
 
@@ -45,6 +45,7 @@ function applyStriplogLayoutDefaults(layout = {}) {
     },
     yaxis: {
       ...(layout.yaxis || {}),
+      automargin: true,
       tickfont: {
         ...((layout.yaxis && layout.yaxis.tickfont) || {}),
         size: STRIPLOG_AXIS_TICK_FONT_SIZE,
@@ -214,6 +215,7 @@ export function buildStructuralStripConfig(intervals, {
       y0: rec.from, y1: rec.to,
       fillcolor: palette[idx % palette.length],
       line: { width: 0 },
+      layer: 'below',
     });
     textY.push(0.5 * (rec.from + rec.to));
     texts.push(rec.label);
@@ -324,13 +326,14 @@ export function buildCommentsConfig(intervals, {
       y0: rec.from, y1: rec.to,
       fillcolor: hasComment ? bgColor : 'rgba(0,0,0,0)',
       line: { color: borderColor, width: 1 },
+      layer: 'below',
     });
 
     if (hasComment) {
       textXs.push(0.5);
       textYs.push(mid);
       texts.push(wrapComment(rec.comment, charsPerLine));
-      hovers.push(`${rec.from}–${rec.to} m: ${rec.comment}`);
+      hovers.push(`${rec.from.toFixed(3)}–${rec.to.toFixed(3)} m<br>${wrapComment(rec.comment, 40)}`);
     }
   }
 

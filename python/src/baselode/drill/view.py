@@ -172,7 +172,7 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
         x=interval_df["val"],
         y=interval_df["z"],
         customdata=interval_df[["from_val", "to_val"]],
-        hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]}} to: %{{customdata[1]}}<extra></extra>",
+        hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
     )
 
     if is_bar:
@@ -211,83 +211,60 @@ def plot_categorical_trace(interval_df, value_col, palette=None):
         return go.Figure()
 
     palette = palette or [
-        "#4e79a7",  # blue
-        "#f28e2b",  # orange
-        "#e15759",  # red
-        "#76b7b2",  # teal
-        "#59a14f",  # green
-        "#edc948",  # yellow
-        "#b07aa1",  # purple
-        "#ff9da7",  # pink
-        "#9c755f",  # brown
-        "#bab0ac",  # grey
-        "#d4a6c8",  # light purple
-        "#86bcb6",  # light teal
+        "#1f77b4",  # blue
+        "#ff7f0e",  # orange
+        "#2ca02c",  # green
+        "#d62728",  # red
+        "#9467bd",  # purple
+        "#8c564b",  # brown
+        "#e377c2",  # pink
+        "#17becf",  # cyan
+        "#bcbd22",  # olive
+        "#7f7f7f",  # grey
     ]
 
-    segments = []
-    sorted_df = interval_df.sort_values("z", ascending=False)
-    for idx, row in sorted_df.iterrows():
-        y0 = row["z"]
-        next_row = sorted_df.iloc[idx + 1] if idx + 1 < len(sorted_df) else None
-        y1 = next_row["z"] if next_row is not None else row["z"] - 20
-        if y1 == y0:
-            continue
-        label = str(row["val"])
-        if label.strip().lower() in ("nan", "null", "none", ""):
-            continue
-        # from_val/to_val are the actual measured depths (from < to)
-        from_val = row.get("from_val", min(y0, y1))
-        to_val = row.get("to_val", max(y0, y1))
-        segments.append((y0, y1, label, from_val, to_val))
+    safe = interval_df.dropna(subset=["from_val", "to_val", "val"]).copy()
+    if safe.empty:
+        return go.Figure()
+    safe = safe[safe["to_val"] > safe["from_val"]]
+    if safe.empty:
+        return go.Figure()
+    safe = safe.sort_values(["from_val", "to_val"], ascending=[True, True])
 
-    # Assign colour by category value so the same category always has the same colour
-    unique_categories = sorted({seg[2] for seg in segments})
-    color_map = {cat: palette[i % len(palette)] for i, cat in enumerate(unique_categories)}
+    categories = [str(v) for v in safe["val"].tolist()]
+    unique_categories = list(dict.fromkeys(categories))
+    color_map = {cat: palette[idx % len(palette)] for idx, cat in enumerate(unique_categories)}
 
-    shapes = []
-    text_y = []
-    text_label = []
-    customdata = []
-    for y0, y1, category, from_val, to_val in segments:
-        shapes.append(
-            dict(
-                type="rect",
-                xref="x",
-                yref="y",
-                x0=0,
-                x1=1,
-                y0=y0,
-                y1=y1,
-                fillcolor=color_map[category],
-                line=dict(width=0),
-                layer="below",
+    # One bar trace per unique category; barmode='overlay' lets non-overlapping
+    # depth intervals from different traces coexist at the same x position.
+    traces = []
+    for cat in unique_categories:
+        cat_rows = safe[safe["val"].astype(str) == cat]
+        froms = cat_rows["from_val"].tolist()
+        tos = cat_rows["to_val"].tolist()
+        traces.append(
+            go.Bar(
+                x=[0.5] * len(froms),
+                y=[t - f for f, t in zip(froms, tos)],
+                base=froms,
+                width=1,
+                marker=dict(color=color_map[cat], line=dict(width=0)),
+                name=cat,
+                showlegend=False,
+                customdata=list(zip(froms, tos)),
+                hovertemplate=f"{value_col}: {cat}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
             )
         )
-        text_y.append(0.5 * (y0 + y1))
-        text_label.append(category)
-        customdata.append((from_val, to_val))
-
-    text_trace = go.Scatter(
-        x=[0.5] * len(text_y),
-        y=text_y,
-        mode="text",
-        text=text_label,
-        textposition="middle center",
-        textfont=dict(color="black", size=10),
-        showlegend=False,
-        customdata=customdata,
-        hovertemplate="%{text}<br>%{customdata[0]:.1f} – %{customdata[1]:.1f} m<extra></extra>",
-    )
 
     layout = go.Layout(
+        barmode="overlay",
+        bargap=0,
         xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
         yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
-        shapes=shapes,
         showlegend=False,
     )
 
-    fig = go.Figure(data=[text_trace], layout=layout)
+    fig = go.Figure(data=traces, layout=layout)
     return _apply_striplog_defaults(fig)
 
 
@@ -546,7 +523,7 @@ def plot_comments_log(df,
         text_xs.append(0.5)
         text_ys.append(mid)
         texts.append(_wrap_comment(comment, chars_per_line))
-        hover_texts.append(f"{f:.3f}–{t:.3f} m<br>{comment}")
+        hover_texts.append(f"{f:.3f}–{t:.3f} m<br>{_wrap_comment(comment, 40)}")
 
     text_trace = go.Scatter(
         x=text_xs,
@@ -609,40 +586,62 @@ def plot_strip_log(df,
     unique_labels = sorted({label for _, _, label in records})
     color_map = {label: palette[i % len(palette)] for i, label in enumerate(unique_labels)}
 
-    shapes = []
-    texts = []
-    y_text = []
-    for f, t, label in records:
-        shapes.append(dict(type="rect", xref="x", yref="y", x0=0, x1=1, y0=f, y1=t, fillcolor=color_map[label], line=dict(width=0), layer="below"))
-        y_text.append(0.5 * (f + t))
-        texts.append(label)
+    # One bar trace per unique label; barmode='overlay' lets non-overlapping
+    # depth intervals coexist at the same x position.
+    traces = []
+    for label in unique_labels:
+        label_records = [(f, t) for f, t, lb in records if lb == label]
+        froms = [r[0] for r in label_records]
+        tos = [r[1] for r in label_records]
+        traces.append(go.Bar(
+            x=[0.5] * len(froms),
+            y=[t - f for f, t in zip(froms, tos)],
+            base=froms,
+            width=1,
+            marker=dict(color=color_map[label], line=dict(width=0)),
+            name=label,
+            text=[label] * len(froms),
+            textposition="inside",
+            insidetextanchor="middle",
+            textfont=dict(color="black", size=10),
+            showlegend=False,
+            customdata=list(zip(froms, tos)),
+            hovertemplate=f"{label}<br>%{{customdata[0]:.3f}} – %{{customdata[1]:.3f}} m<extra></extra>",
+        ))
 
-    # Pair (from, to) per interval for hover
-    customdata = [(f, t) for f, t, _ in records]
-
-    text_trace = go.Scatter(
-        x=[0.5] * len(texts),
-        y=y_text,
-        mode="text",
-        text=texts,
-        textposition="middle center",
-        textfont=dict(color="black", size=10),
-        showlegend=False,
-        customdata=customdata,
-        hovertemplate="%{text}<br>%{customdata[0]:.1f} – %{customdata[1]:.1f} m<extra></extra>",
-    )
-    fig = go.Figure(data=[text_trace])
+    fig = go.Figure(data=traces)
     fig.update_layout(
+        barmode="overlay",
+        bargap=0,
         margin=dict(l=40, r=10, t=10, b=40),
         xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
         yaxis=dict(title="Depth (m)", autorange="reversed"),
-        shapes=shapes,
         showlegend=False,
         paper_bgcolor="white",
         plot_bgcolor="white",
         modebar_remove=["select2d", "lasso2d", "autoScale2d"],
     )
     return fig
+
+
+def plot_geology_strip_log(df,
+    from_col="from",
+    to_col="to",
+    category_col="geology_code",
+    fallback_category_col="comments",
+    palette=None):
+    """Render a geology categorical strip log using standardized geology fields."""
+    if category_col not in df.columns and fallback_category_col not in df.columns:
+        return go.Figure()
+
+    resolved_col = category_col if category_col in df.columns else fallback_category_col
+    return plot_strip_log(
+        df=df,
+        from_col=from_col,
+        to_col=to_col,
+        label_col=resolved_col,
+        palette=palette,
+    )
 
 
 _DEFAULT_TADPOLE_PALETTE = [

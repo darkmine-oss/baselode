@@ -20,9 +20,12 @@ export {
   CRS,
   DEPTH,
   STRIKE,
+  GEOLOGY_CODE,
+  GEOLOGY_DESCRIPTION,
   BASELODE_DATA_MODEL_DRILL_COLLAR,
   BASELODE_DATA_MODEL_DRILL_SURVEY,
   BASELODE_DATA_MODEL_DRILL_ASSAY,
+  BASELODE_DATA_MODEL_DRILL_GEOLOGY,
   BASELODE_DATA_MODEL_STRUCTURAL_POINT,
   DEFAULT_COLUMN_MAP
 } from './data/datamodel.js';
@@ -88,6 +91,7 @@ export {
   loadCollars,
   loadSurveys,
   loadAssays,
+  loadGeology,
   joinAssaysToTraces,
   filterByProject,
   coerceNumeric,
@@ -115,6 +119,7 @@ export {
 
 export {
   parseAssayCsvTextToHoles,
+  parseGeologyCsvText,
   parseUnifiedDataset
 } from './data/unifiedLoader.js';
 
@@ -146,7 +151,8 @@ export {
   ERROR_COLOR,
   holeHasData,
   buildIntervalPoints,
-  buildPlotConfig
+  buildPlotConfig,
+  buildCategoricalStripLogConfig
 } from './viz/drillholeViz.js';
 
 export { default as TracePlot } from './viz/TracePlot.jsx';
@@ -200,6 +206,10 @@ export {
   FOV_MIN_DEG,
   FOV_MAX_DEG
 } from './viz/baselode3dCameraControls.js';
+
+export {
+  getCategoryHexColor,
+} from './viz/drillholeScene.js';
 
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';

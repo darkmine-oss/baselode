@@ -2,39 +2,19 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   TracePlot,
   useDrillholeTraceGrid,
-  parseUnifiedDataset,
 } from 'baselode';
 import './Drillhole2D.css';
-import { loadDemoGswaAssayCsvText, loadDemoStructuralCsvText } from '../data/demoGswaData.js';
 import { createPortal } from 'react-dom';
+import { useDemoData } from '../context/DemoDataContext.jsx';
 
 function Drillhole2D() {
   const location = useLocation();
-  // Eagerly-loaded combined holes: assay intervals + structural points merged by holeId
-  const [combinedHoles, setCombinedHoles] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      loadDemoGswaAssayCsvText(),
-      loadDemoStructuralCsvText(),
-    ])
-      .then(([assayCsv, structuralCsv]) => parseUnifiedDataset({ assayCsv, structuralCsv }))
-      .then(({ holes }) => {
-        if (!cancelled) setCombinedHoles(holes);
-      })
-      .catch((err) => {
-        console.info('Auto-load of demo data skipped:', err.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { combinedHoles } = useDemoData();
 
   const {
     error,
@@ -46,7 +26,6 @@ function Drillhole2D() {
     handleConfigChange,
   } = useDrillholeTraceGrid({
     initialFocusedHoleId: location.state?.holeId || '',
-    // No sourceFile — all data is pre-loaded eagerly and passed as extraHoles
     extraHoles: combinedHoles,
     plotCount: 4,
   });
@@ -88,7 +67,7 @@ function Drillhole2D() {
         const dataSourceInfo = (
           <div className="data-source-text">
             {holeCount > 0 && (
-              <div>demo_gswa ({holeCount} holes, assay + structural)</div>
+              <div>demo_gswa ({holeCount} holes, assay + structural + geology)</div>
             )}
           </div>
         );

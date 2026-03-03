@@ -36,5 +36,6 @@ test/data/gswa/
   gswa_sample_collars.csv
   gswa_sample_assays.csv
   gswa_sample_survey.csv
+  gswa_sample_geology.csv
   demo_gswa_precomputed_desurveyed.csv   # pre-built 3D traces
 ```
