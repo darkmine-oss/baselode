@@ -40,7 +40,7 @@ git push origin v0.2.0
 editing is needed.
 
 ```bash
-cd python/src
+cd python
 
 # Clean any previous build artefacts
 rm -rf dist/ build/
