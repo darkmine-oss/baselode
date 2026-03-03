@@ -14,7 +14,16 @@ const testDataDir = path.resolve(__dirname, '../../test/data');
 console.log('[serve-test-data] testDataDir:', testDataDir);
 console.log('[serve-test-data] exists:', fs.existsSync(testDataDir));
 
+const baselodeDist = path.resolve(__dirname, '../../javascript/packages/baselode/dist');
+
 export default defineConfig({
+  server: {
+    watch: {
+      // Vite ignores node_modules by default; un-ignore the symlinked baselode dist
+      // so the dev server hot-reloads when the library is rebuilt.
+      ignored: (p) => p.includes('node_modules') && !p.startsWith(baselodeDist)
+    }
+  },
   plugins: [
     react(),
     {

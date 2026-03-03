@@ -1,0 +1,145 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+.bm-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  min-width: 200px;
+  font-size: 13px;
+  color: #333;
+}
+
+.bm-widget__label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.bm-widget__select {
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.bm-widget__select:focus {
+  outline: none;
+  border-color: #888;
+}
+
+/* Numeric color-scale bar */
+.bm-widget__scale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 4px;
+}
+
+.bm-widget__scale-bar {
+  flex: 1;
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(to right, hsl(240, 80%, 50%), hsl(120, 80%, 50%), hsl(0, 80%, 50%));
+}
+
+.bm-widget__scale-label {
+  font-size: 11px;
+  color: #555;
+  white-space: nowrap;
+}
+
+/* Categorical chips */
+.bm-widget__categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 2px 0 4px;
+}
+
+.bm-widget__category-chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: #fff;
+}
+
+/* Opacity slider */
+.bm-widget__slider {
+  width: 100%;
+  cursor: pointer;
+  accent-color: #555;
+}
+
+/* Block attribute popup */
+.bm-widget__popup {
+  margin-top: 4px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.bm-widget__popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.bm-widget__popup-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #666;
+  padding: 0 4px;
+}
+
+.bm-widget__popup-close:hover {
+  color: #111;
+}
+
+.bm-widget__popup-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bm-widget__popup-table th,
+.bm-widget__popup-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid #f0f0f0;
+  text-align: left;
+}
+
+.bm-widget__popup-table th {
+  color: #555;
+  font-weight: 600;
+  width: 40%;
+}
+
+.bm-widget__popup-table tr:last-child th,
+.bm-widget__popup-table tr:last-child td {
+  border-bottom: none;
+}
