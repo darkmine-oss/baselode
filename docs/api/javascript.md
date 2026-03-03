@@ -371,24 +371,74 @@ Build disc descriptor objects for the 3D scene.
 
 ## 3D Scene
 
-### Baselode3DScene (default export)
+### Baselode3DScene
 
 ```js
-import Baselode3DScene from 'baselode';
-// or
-import Baselode3DScene from 'baselode/viz/baselode3dScene';
+import { Baselode3DScene } from 'baselode';
 ```
 
-Core Three.js scene manager.
+Thin Three.js orchestrator.  Rendering is delegated to internal domain modules (`drillholeScene`, `blockModelScene`, `structuralScene`, `sceneClickHandler`, `selectionGlow`).
+
+**Lifecycle**
 
 | Method | Description |
 |---|---|
-| `new Baselode3DScene(canvas)` | Create a new scene attached to a canvas element |
-| `loadTraces(segments)` | Load hole trace segments into the scene |
-| `loadStructuralDiscs(discs)` | Load structural disc markers |
-| `loadTubes(tubes)` | Load interval tubes |
-| `clear()` | Remove all objects from the scene |
-| `dispose()` | Clean up Three.js resources |
+| `new Baselode3DScene()` | Construct (does not create WebGL context yet) |
+| `init(container)` | Attach renderer to a DOM container element and start animation loop |
+| `resize()` | Update camera/renderer when the container is resized |
+| `dispose()` | Cancel animation, remove DOM element, free all GPU resources |
+
+**Drillholes**
+
+| Method | Description |
+|---|---|
+| `setDrillholes(holes, options?)` | Render desurveyed hole traces as cylinders; fits camera |
+| `setDrillholeClickHandler(fn)` | Register `({ holeId, project })` or `{ type:'structure', ... }` click callback |
+
+`options`: `{ preserveView, assayIntervalsByHole, selectedAssayVariable }`
+
+**Block model**
+
+| Method | Description |
+|---|---|
+| `setBlocks(data, selectedProperty, stats, options?)` | Render a merged exterior-face block mesh with vertex colours |
+| `setBlockOpacity(opacity)` | Update opacity of all rendered blocks (0–1) |
+| `setBlockClickHandler(fn)` | Register `(blockRow) => void` click callback |
+
+`options`: `{ autoCenter, opacity, offset }`
+
+**Structural discs**
+
+| Method | Description |
+|---|---|
+| `setStructuralDiscs(structures, holes, opts?)` | Render disc meshes oriented to dip/azimuth or alpha/beta |
+| `setStructuralDiscsVisible(visible)` | Show or hide all structural discs |
+
+`opts`: `{ radius, discThickness, opacity, segments, colorMap, maxDiscs }`
+
+**Camera**
+
+| Method | Description |
+|---|---|
+| `recenterCameraToOrigin(distance?)` | Move camera to origin |
+| `lookDown(distance?)` | Point camera straight down |
+| `pan(dx, dy)` | Screen-space pan |
+| `dolly(scale)` | Zoom in/out by scale factor |
+| `focusOnLastBounds(padding?)` | Return to last data bounds |
+| `setCameraFov(fovDeg)` | Set FOV while preserving apparent scale |
+| `setControlMode(mode)` | Switch `'orbit'` / `'fly'` |
+| `getViewState()` | Serialise current camera state |
+| `setViewState(state)` | Restore a saved camera state |
+| `setViewChangeHandler(fn)` | Register callback for camera movement (throttled 250 ms) |
+
+**Selection glow**
+
+| Method | Description |
+|---|---|
+| `selectObject(object\|null)` | Programmatically apply/clear glow |
+| `getSelectedObject()` | Return currently glowing object, or `null` |
+| `setSelectableObjects(objects[])` | Override the raycast candidate list |
+| `disposeGlow()` | Free EffectComposer GPU resources |
 
 ---
 

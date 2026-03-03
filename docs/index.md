@@ -59,3 +59,14 @@ pip install baselode      # Python
 npm install baselode      # JavaScript
 ```
 :::
+
+## Screenshots
+
+<p style="font-size:0.9em;color:#64748b;margin-bottom:0.75rem">Screenshots from <a href="/demos">demo-viewer-react</a>.</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:1rem">
+  <img src="/screenshots/v0.1.5-map.png" alt="Collar map with strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.5-striplogs.png" alt="2D multi-track strip logs" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer with assay colouring" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+</div>

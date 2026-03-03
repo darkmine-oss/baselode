@@ -4,6 +4,8 @@
  */
 import * as THREE from 'three';
 import { AZIMUTH, DIP } from '../data/datamodel.js';
+import { computeStructuralPositions } from '../data/structuralPositions.js';
+import { syncSelectables } from './sceneSelectables.js';
 
 const DEFAULT_COLOR_MAP = {
   bedding: '#2563eb',
@@ -127,4 +129,77 @@ export function buildStructuralDiscs(structures, opts = {}) {
   }
 
   return group;
+}
+
+// ---------------------------------------------------------------------------
+// Scene-level functions (operate on a Baselode3DScene instance)
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute positions for structural measurements and add disc meshes to the scene.
+ *
+ * @param {object} sceneCtx - Baselode3DScene instance
+ * @param {Array} structures - Structural measurement rows
+ * @param {Array} holes - Desurveyed hole objects with `points`
+ * @param {object} [opts]
+ * @param {number} [opts.maxDiscs=3000] - Cap on rendered discs for performance
+ */
+export function setStructuralDiscs(sceneCtx, structures, holes, opts = {}) {
+  if (!sceneCtx.scene) return;
+  clearStructuralDiscs(sceneCtx);
+  if (!structures?.length || !holes?.length) return;
+
+  const { maxDiscs = 3000 } = opts;
+  let input = structures;
+  if (input.length > maxDiscs) {
+    const step = input.length / maxDiscs;
+    const sampled = [];
+    for (let i = 0; i < maxDiscs; i++) {
+      sampled.push(input[Math.floor(i * step)]);
+    }
+    input = sampled;
+  }
+
+  const traceRows = holes.flatMap(h => (h.points || []).map(p => ({ ...p, hole_id: h.id })));
+  const enriched = computeStructuralPositions(input, traceRows, opts);
+  if (!enriched.length) return;
+
+  sceneCtx.structuralGroup = buildStructuralDiscs(enriched, opts);
+  sceneCtx.scene.add(sceneCtx.structuralGroup);
+  sceneCtx.structuralGroup.traverse(child => {
+    if (child.isMesh) sceneCtx.structuralMeshes.push(child);
+  });
+  syncSelectables(sceneCtx);
+}
+
+/**
+ * Remove all structural disc meshes from the scene and dispose GPU resources.
+ *
+ * @param {object} sceneCtx - Baselode3DScene instance
+ */
+export function clearStructuralDiscs(sceneCtx) {
+  if (sceneCtx.structuralGroup) {
+    sceneCtx.scene.remove(sceneCtx.structuralGroup);
+    sceneCtx.structuralGroup.traverse(child => {
+      if (child.isMesh) {
+        child.geometry.dispose();
+        child.material.dispose();
+      }
+    });
+    sceneCtx.structuralGroup = null;
+  }
+  sceneCtx.structuralMeshes = [];
+  syncSelectables(sceneCtx);
+}
+
+/**
+ * Show or hide the structural discs group.
+ *
+ * @param {object} sceneCtx - Baselode3DScene instance
+ * @param {boolean} visible
+ */
+export function setStructuralDiscsVisible(sceneCtx, visible) {
+  if (sceneCtx.structuralGroup) {
+    sceneCtx.structuralGroup.visible = Boolean(visible);
+  }
 }
