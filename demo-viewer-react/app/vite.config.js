@@ -35,7 +35,11 @@ export default defineConfig({
           const isFile = exists && fs.statSync(filePath).isFile();
           console.log(`[serve-test-data] ${req.url} -> ${filePath} (exists=${exists}, isFile=${isFile})`);
           if (isFile) {
-            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            const ext = path.extname(filePath).toLowerCase();
+            const contentType = ext === '.json'
+              ? 'application/json; charset=utf-8'
+              : 'text/csv; charset=utf-8';
+            res.setHeader('Content-Type', contentType);
             fs.createReadStream(filePath).pipe(res);
           } else {
             next();
