@@ -160,6 +160,8 @@ const classification = classifyColumns(rows);
 
 ### 2D strip log (Plotly)
 
+![2D multi-track strip logs](/screenshots/v0.1.5-striplogs.png)
+
 ```js
 import { buildIntervalPoints, buildPlotConfig, getChartOptions, defaultChartType } from 'baselode';
 
@@ -213,14 +215,34 @@ const colour = getEqualRangeColor(scale, 2.5);  // '#...'
 
 ### Baselode3DScene
 
-`Baselode3DScene` is the core Three.js scene manager.  You can use it directly or through the pre-built React wrapper.
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
+  <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+</div>
+
+`Baselode3DScene` is a thin orchestrator that owns the WebGL context and delegates rendering to domain-specific modules (`drillholeScene`, `blockModelScene`, `structuralScene`).  Use it directly or through the pre-built React wrapper.
 
 ```js
-import Baselode3DScene from 'baselode/viz/baselode3dScene';
+import { Baselode3DScene } from 'baselode';
 
-const scene = new Baselode3DScene(canvasElement);
-scene.loadTraces(tracesPayload);
-scene.loadStructuralDiscs(discPayload);
+const scene = new Baselode3DScene();
+scene.init(containerElement);   // attach to a DOM container
+
+// Drillholes (desurveyed trace objects)
+scene.setDrillholes(holes, { selectedAssayVariable: 'au_ppm', assayIntervalsByHole });
+
+// Block model
+scene.setBlocks(blockRows, 'au_ppm', stats);
+
+// Structural discs
+scene.setStructuralDiscs(structuralRows, holes, { radius: 5, opacity: 0.75 });
+
+// Click handlers
+scene.setDrillholeClickHandler(({ holeId }) => console.log(holeId));
+scene.setBlockClickHandler((blockRow) => console.log(blockRow));
+
+// Cleanup
+scene.dispose();
 ```
 
 ### React component — Baselode3DControls

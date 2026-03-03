@@ -14,10 +14,23 @@ This is the javascript version of `baselode`. See also the python module.
 
 ## Key Features
 
-- **Data Loading:** Efficiently import and manage your exploration and mining data.
-- **Data Models:** Utilize predefined models to analyze and interpret your data.
-- **Data Visualization:** Create insightful visualizations to support decision-making.
+- **Data Loading:** Efficiently import and manage your exploration and mining data (drillholes, assays, block models, structural measurements).
+- **Data Models:** Utilize predefined models to normalize and interpret your data (40+ column name variants, minimum-curvature desurveying).
+- **Data Visualization:** Create insightful 2D strip logs (Plotly) and interactive 3D scenes (Three.js) with orbit/fly controls, assay coloring, structural disc rendering, and click-select glow.
 - **Common Algorithms:** Access a range of algorithms designed to solve common problems in the industry.
+
+## 3D Scene Architecture
+
+`Baselode3DScene` is a thin orchestrator; rendering is handled by domain modules:
+
+| Module | Responsibility |
+|---|---|
+| `drillholeScene.js` | Cylinder mesh building, assay coloring, camera fit |
+| `blockModelScene.js` | Merged exterior-face block geometry, vertex colors |
+| `structuralScene.js` | Structural disc meshes (dip/azimuth orientation) |
+| `sceneClickHandler.js` | Canvas click/hover raycasting |
+| `selectionGlow.js` | EffectComposer + OutlinePass per-object glow |
+| `baselode3dCameraControls.js` | Orbit, fly, FOV, pan, dolly |
 
 ## License
 

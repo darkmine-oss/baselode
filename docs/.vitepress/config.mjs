@@ -89,7 +89,7 @@ export default defineConfig({
 
     footer: {
       message: 'Released under the GPL-3.0-or-later License.',
-      copyright: 'Copyright © 2026 Darkmine Pty Ltd'
+      copyright: 'Copyright © 2026 <a href="https://darkmine.ai" target="_blank" rel="noopener">Darkmine Pty Ltd</a>'
     },
 
     search: {

@@ -3,6 +3,9 @@
 .vscode
 .features
 
+docs/node_modules/
+docs/.vitepress/
+
 demo-viewer-dash/__pycache__/
 
 demo-viewer-dash/assets/baselode-module.js

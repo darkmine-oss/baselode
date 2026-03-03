@@ -32,6 +32,25 @@ The React demo is the primary showcase for the `baselode` JavaScript library.
 | `/drillhole` | **3D viewer** — Three.js scene with desurveyed drillhole traces and structural disc markers. |
 | `/drillhole2d` | **2D strip logs** — Multi-track Plotly strip logs for a selected hole (numeric, categorical, comments, and tadpole tracks). |
 
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1.5rem 0">
+  <figure style="margin:0">
+    <img src="/screenshots/v0.1.5-map.png" alt="Map page — collar locations with strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">Map — collar locations</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <img src="/screenshots/v0.1.5-striplogs.png" alt="2D strip log page" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">2D strip logs</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">3D drillhole viewer</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">3D block model viewer</figcaption>
+  </figure>
+</div>
+
 ### Setup and run
 
 1. Clone the repository:
