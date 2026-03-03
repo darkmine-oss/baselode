@@ -1,0 +1,447 @@
+# JavaScript API Reference
+
+Complete reference for the `baselode` npm package (v0.1.x).
+
+All exports are available as named imports from `'baselode'`:
+
+```js
+import { loadCollars, desurveyTraces, TracePlot } from 'baselode';
+```
+
+---
+
+## Data Model Constants
+
+```js
+import {
+  HOLE_ID, LATITUDE, LONGITUDE, ELEVATION,
+  AZIMUTH, DIP, FROM, TO, MID, DEPTH,
+  PROJECT_ID, EASTING, NORTHING, CRS, STRIKE,
+  BASELODE_DATA_MODEL_DRILL_COLLAR,
+  BASELODE_DATA_MODEL_DRILL_SURVEY,
+  BASELODE_DATA_MODEL_DRILL_ASSAY,
+  BASELODE_DATA_MODEL_STRUCTURAL_POINT,
+  DEFAULT_COLUMN_MAP
+} from 'baselode';
+```
+
+These are string constants (`"hole_id"`, `"latitude"`, etc.) that match the [Python data model](/guide/python#data-model).
+
+---
+
+## Data Layer
+
+### Column utilities
+
+#### `normalizeFieldName(name)`
+Normalise a column name to lowercase, trimmed string.
+
+#### `standardizeColumns(rows, columnMap?)`
+Rename fields in an array of row objects using the default column map (and an optional override).
+
+```js
+const normalised = standardizeColumns(rawRows);
+```
+
+#### `standardizeRowArray(rows)`
+Apply column standardisation to an array of rows.
+
+---
+
+### Collar / survey / assay loaders
+
+#### `loadCollars(source, options?)`
+Load collar data from a CSV text string or row array.  Returns a normalised array of collar objects.
+
+#### `loadSurveys(source, options?)`
+Load survey data.  Returns a normalised array sorted by `hole_id`, `depth`.
+
+#### `loadAssays(source, options?)`
+Load assay interval data.  Computes a `mid` field.  Returns a normalised array.
+
+#### `loadTable(source, options?)`
+Low-level loader shared by all high-level loaders.
+
+#### `assembleDataset({ collars, surveys, assays, structures, geotechnical, metadata? })`
+Assemble pre-loaded arrays into a dataset object.
+
+```js
+const dataset = assembleDataset({ collars, surveys, assays });
+// { collars, surveys, assays, structures, geotechnical, metadata }
+```
+
+#### `joinAssaysToTraces(assays, traces, onCols?)`
+Left-join 3D trace positions onto assay rows.
+
+#### `filterByProject(rows, projectId)`
+Filter rows to a specific `project_id`.
+
+#### `coerceNumeric(rows, columns)`
+Convert listed fields to numbers (or `NaN`) for each row.
+
+---
+
+### Assay-focused loaders
+
+#### `parseAssayHoleIds(csvText)`
+Parse a CSV and return the list of unique `hole_id` values.
+
+#### `parseAssayHoleIdsWithAssays(csvText)`
+Parse a CSV and return `{ holeIds, assayColumns }`.
+
+#### `parseAssayHole(csvText, holeId)`
+Parse all rows for a single hole.
+
+#### `parseAssaysCSV(csvText)`
+Parse the full assay CSV.
+
+#### `loadAssayMetadata(csvText)`
+Extract column metadata without loading all rows.
+
+#### `loadAssayHole(csvText, holeId)`
+Load assay rows for one hole.
+
+#### `buildAssayState(csvText)`
+Build a full assay state object (hole IDs + column names + data).
+
+#### `loadAssayFile(csvText)`
+Load all assay data into memory.
+
+#### `reorderHoleIds(holeIds)`
+Sort hole IDs in a natural order.
+
+#### `deriveAssayProps(rows)`
+Derive the list of assay property columns from a row array.
+
+---
+
+### CSV row utilities
+
+#### `normalizeCsvRow(row)`
+Normalise a single parsed CSV row (trim strings, coerce numbers).
+
+#### `pickFirstPresent(row, candidates)`
+Return the first non-null value found in `row` by key list.
+
+---
+
+### Error utilities
+
+#### `toError(value)`
+Coerce any value to an `Error` instance.
+
+#### `withDataErrorContext(fn, context)`
+Wrap a function with contextual error messages.
+
+#### `logDataWarning(message, ...args)`
+Log a data-related warning.
+
+#### `logDataInfo(message, ...args)`
+Log a data-related info message.
+
+---
+
+### Field sets
+
+#### `ASSAY_NON_VALUE_FIELDS`
+Set of column names that are structural/metadata (not analyte values).
+
+---
+
+### Drillhole loaders
+
+#### `parseDrillholesCSV(csvText)`
+Parse a combined drillhole CSV (collars + surveys in one file).
+
+---
+
+### Block model loaders
+
+#### `parseBlockModelCSV(csvText)`
+Parse a block model CSV.  Returns an array of block objects.
+
+#### `normalizeBlockRow(row)`
+Normalise a single block model row.
+
+#### `loadBlockModelMetadata(csvText)`
+Extract metadata (column names, coordinate ranges) from a block model CSV.
+
+#### `calculatePropertyStats(blocks, property)`
+Compute min/max/mean for a property across all blocks.
+
+#### `getBlockStats(blocks, property)`
+Return `{ min, max, mean }` for a property.
+
+#### `filterBlocks(blocks, { property, min, max })`
+Filter blocks by a property value range.
+
+#### `calculateBlockVolume(block)`
+Compute the volume of a single block.
+
+#### `getColorForValue(value, colorScale)`
+Get the hex colour for a value from a color scale.
+
+---
+
+### Structural loaders
+
+#### `parseStructuralPointsCSV(csvText)`
+Parse a structural points CSV.  Returns an array of `{ hole_id, depth, dip, azimuth, alpha, beta, comments }`.
+
+#### `parseStructuralIntervalsCSV(csvText)`
+Parse a structural intervals CSV.
+
+#### `parseStructuralCSV(csvText)`
+Auto-detect point vs interval schema and parse accordingly.
+
+#### `validateStructuralPoints(rows)`
+Validate structural point rows.  Returns `{ valid, errors }`.
+
+#### `groupRowsByHole(rows)`
+Group an array of rows into a `Map<holeId, row[]>`.
+
+---
+
+### Unified loader
+
+#### `parseAssayCsvTextToHoles(csvText)`
+Parse an assay CSV and group rows by hole.
+
+#### `parseUnifiedDataset(assaysCsvText, structuralCsvText)`
+Load and merge assays and structural data.  Returns a combined array tagged with `_source`.
+
+---
+
+### Structural positions
+
+#### `interpolateTrace(trace, depth)`
+Interpolate a 3D position along a hole trace at the given measured depth.
+
+#### `alphaBetaToNormal(alpha, beta, traceOrientation)`
+Convert alpha/beta angles to a 3D normal vector.
+
+#### `computeStructuralPositions(structuralRows, traces)`
+Attach 3D positions and normal vectors to all structural measurement rows.
+
+---
+
+## Column Metadata
+
+#### `classifyColumns(rows)`
+Classify each column in a row array as one of:
+`DISPLAY_NUMERIC | DISPLAY_CATEGORICAL | DISPLAY_COMMENT | DISPLAY_TADPOLE | DISPLAY_HIDDEN`
+
+#### `getChartOptions(colName, rows)`
+Return available chart types for a column.
+
+#### `defaultChartType(colName, rows)`
+Return the default chart type for a column.
+
+#### Constants
+
+| Constant | Value | Description |
+|---|---|---|
+| `DISPLAY_NUMERIC` | `"numeric"` | Numeric assay column |
+| `DISPLAY_CATEGORICAL` | `"categorical"` | Categorical / lithology column |
+| `DISPLAY_COMMENT` | `"comment"` | Free-text comment column |
+| `DISPLAY_HIDDEN` | `"hidden"` | Non-display metadata column |
+| `DISPLAY_TADPOLE` | `"tadpole"` | Structural alpha/beta tadpole symbol |
+| `CHART_OPTIONS` | — | Map of chart type labels |
+| `HIDDEN_COLUMNS` | `Set<string>` | Column names hidden by default |
+| `COMMENT_COLUMN_NAMES` | `Set<string>` | Column names treated as comments |
+
+---
+
+## Visualization Layer
+
+### drillholeViz
+
+#### `buildIntervalPoints(rows, property)`
+Convert assay rows into interval point objects for plotting.
+
+#### `buildPlotConfig(points, property, options?)`
+Build a Plotly trace/layout config for a property.
+
+#### `holeHasData(rows, property)`
+Return `true` if the hole has at least one non-null value for `property`.
+
+#### Constants
+`NUMERIC_LINE_COLOR`, `NUMERIC_MARKER_COLOR`, `ERROR_COLOR`
+
+---
+
+### React component — TracePlot
+
+```jsx
+import { TracePlot } from 'baselode';
+
+<TracePlot
+  rows={holeRows}           // array of row objects for one hole
+  properties={['au_ppm']}   // columns to render
+  height={600}              // optional height in px
+/>
+```
+
+Renders a multi-track Plotly strip log with depth increasing downward.
+
+---
+
+### React hook — useDrillholeTraceGrid
+
+```jsx
+import { useDrillholeTraceGrid } from 'baselode';
+
+const { plots } = useDrillholeTraceGrid({ holes, property });
+```
+
+Returns an array of plot configs for a drill-hole comparison grid.
+
+---
+
+### Color scales
+
+#### `buildEqualRangeColorScale(values, palette?)`
+Build an equal-range color scale from a numeric array.
+
+#### `getEqualRangeBinIndex(scale, value)`
+Return the bin index for `value` in a pre-built scale.
+
+#### `getEqualRangeColor(scale, value)`
+Return the hex color for `value` in a pre-built scale.
+
+#### `ASSAY_COLOR_PALETTE_10`
+Default 10-color palette array for assay visualisation.
+
+---
+
+### 2D projections
+
+#### `projectTraceToSection(traces, origin, azimuth)`
+Project 3D trace points onto a vertical cross-section.
+
+#### `sectionWindow(traces, origin, azimuth, width)`
+Filter traces to points within `width` metres of the section plane.
+
+#### `planView(traces, depthSlice?, colorBy?)`
+Prepare traces for a plan (top-down) view.
+
+#### `sectionView(traces, origin, azimuth, width, colorBy?)`
+Prepare traces for a vertical section view.
+
+---
+
+### 3D payload builders
+
+#### `tracesAsSegments(traces, colorBy?)`
+Convert trace rows into segment arrays for the 3D scene.
+
+#### `intervalsAsTubes(intervals, options?)`
+Convert interval rows into tube descriptor objects for 3D rendering.
+
+#### `annotationsFromIntervals(intervals)`
+Build annotation label objects from interval rows.
+
+---
+
+### Structural visualisation
+
+#### `buildTadpoleConfig(structuralRows, holeRows)`
+Build a Plotly trace config for tadpole symbols on a strip log.
+
+#### `buildStructuralStripConfig(structuralRows)`
+Build a Plotly config for a structural strip track.
+
+#### `buildCommentsConfig(rows, commentsColumn)`
+Build a Plotly config for a free-text comments track.
+
+#### `buildStrikeDipSymbol(dip, azimuth)`
+Return SVG path data for a strike/dip symbol.
+
+---
+
+### Structural scene
+
+#### `dipAzimuthToNormal(dip, azimuth)`
+Convert dip/azimuth to a Three.js-compatible normal vector.
+
+#### `buildStructuralDiscs(structuralPoints, traces)`
+Build disc descriptor objects for the 3D scene.
+
+---
+
+## 3D Scene
+
+### Baselode3DScene (default export)
+
+```js
+import Baselode3DScene from 'baselode';
+// or
+import Baselode3DScene from 'baselode/viz/baselode3dScene';
+```
+
+Core Three.js scene manager.
+
+| Method | Description |
+|---|---|
+| `new Baselode3DScene(canvas)` | Create a new scene attached to a canvas element |
+| `loadTraces(segments)` | Load hole trace segments into the scene |
+| `loadStructuralDiscs(discs)` | Load structural disc markers |
+| `loadTubes(tubes)` | Load interval tubes |
+| `clear()` | Remove all objects from the scene |
+| `dispose()` | Clean up Three.js resources |
+
+---
+
+### React component — Baselode3DControls
+
+```jsx
+import { Baselode3DControls } from 'baselode';
+import 'baselode/style.css';
+
+<Baselode3DControls
+  traces={segments}
+  structuralDiscs={discs}
+  colorBy="au_ppm"
+/>
+```
+
+Drop-in React component wrapping `Baselode3DScene` with orbit controls, viewport gizmo, and a controls panel.
+
+---
+
+### React component — BlockModelWidget
+
+```jsx
+import { BlockModelWidget } from 'baselode';
+import 'baselode/style.css';
+
+<BlockModelWidget
+  blocks={blocks}
+  colorProperty="grade"
+/>
+```
+
+Interactive 3D block model viewer.
+
+---
+
+## Camera Controls
+
+Camera control helpers operate on a `Baselode3DScene` instance.
+
+| Function | Description |
+|---|---|
+| `fitCameraToBounds(scene, bounds)` | Fit camera to a bounding box |
+| `recenterCameraToOrigin(scene)` | Move camera to the scene origin |
+| `lookDown(scene)` | Rotate camera to look straight down |
+| `pan(scene, dx, dy)` | Pan camera by screen-space delta |
+| `dolly(scene, delta)` | Zoom camera in/out |
+| `focusOnLastBounds(scene)` | Return camera to the last computed bounds |
+| `setControlMode(scene, mode)` | Switch orbit/pan/zoom control mode |
+| `setFov(scene, degrees)` | Set the camera field of view |
+| `buildViewSignature(scene)` | Serialise the current view state |
+| `getViewState(scene)` | Return the current view state object |
+| `setViewState(scene, state)` | Restore a previously saved view state |
+| `emitViewChangeIfNeeded(scene)` | Fire a view-change event if the camera moved |
+
+**Constants:** `FOV_MIN_DEG`, `FOV_MAX_DEG`
