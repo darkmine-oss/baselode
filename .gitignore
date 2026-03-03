@@ -10,6 +10,10 @@ demo-viewer-dash/assets/baselode-module.js
 demo-viewer-react/app/dist/
 demo-viewer-react/app/node_modules/
 
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/node_modules/
+
 javascript/packages/baselode/dist/
 javascript/packages/baselode/node_modules/
 
