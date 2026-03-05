@@ -68,6 +68,9 @@ function PolygonBlocks() {
     const group = addGradeBlocksToScene(scene.scene, blockSet);
     gradeGroupRef.current = group;
 
+    // Register meshes with the scene's selection glow system
+    scene.selectables = Array.from(group.children);
+
     // Compute bounding box from all vertices across all blocks to fit camera
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
@@ -111,10 +114,15 @@ function PolygonBlocks() {
       const hits = scene.raycaster.intersectObjects(group.children, false);
       if (hits.length > 0) {
         setSelectedBlock(hits[0].object.userData);
+      } else {
+        setSelectedBlock(null);
       }
     };
     scene.renderer.domElement.addEventListener('click', handleClick);
-    return () => scene.renderer?.domElement.removeEventListener('click', handleClick);
+    return () => {
+      scene.renderer?.domElement.removeEventListener('click', handleClick);
+      scene.selectables = [];
+    };
   }, [blockSet]);
 
   useEffect(() => {
