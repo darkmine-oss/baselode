@@ -97,8 +97,6 @@ export function gradeBlockToThreeGeometry(block) {
   });
   geometry.setIndex(new THREE.BufferAttribute(indexData, 1));
 
-  geometry.computeVertexNormals();
-
   return geometry;
 }
 
@@ -131,6 +129,7 @@ export function addGradeBlocksToScene(scene, blockSet, options = {}) {
       opacity,
       transparent,
       side: THREE.DoubleSide,
+      flatShading: true,
     });
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -138,6 +137,13 @@ export function addGradeBlocksToScene(scene, blockSet, options = {}) {
       id: block.id,
       attributes: block.attributes,
     };
+
+    // Edge highlight — hidden by default, shown on selection
+    const edgeGeo = new THREE.EdgesGeometry(geometry, 15);
+    const edgeMat = new THREE.LineBasicMaterial({ color: '#ffffbb', linewidth: 1 });
+    const edgeLines = new THREE.LineSegments(edgeGeo, edgeMat);
+    edgeLines.visible = false;
+    mesh.add(edgeLines);
 
     group.add(mesh);
   });

@@ -125,6 +125,16 @@ function PolygonBlocks() {
     };
   }, [blockSet]);
 
+  // Toggle edge-line overlay on the selected block mesh
+  useEffect(() => {
+    const group = gradeGroupRef.current;
+    if (!group) return;
+    group.children.forEach((mesh) => {
+      const edgeLines = mesh.children[0];
+      if (edgeLines) edgeLines.visible = mesh.userData.id === selectedBlock?.id;
+    });
+  }, [selectedBlock]);
+
   useEffect(() => {
     sceneRef.current?.setControlMode(controlMode);
   }, [controlMode]);
