@@ -6,22 +6,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Baselode3DScene,
   Baselode3DControls,
-  loadAssayFile,
   parseDrillholesCSV,
   parseSurveyCSV,
   desurveyTraces,
-  parseStructuralCSV
+  classifyColumns,
+  getCategoryHexColor,
 } from 'baselode';
 import 'baselode/style.css';
 import proj4 from 'proj4';
 import './Drillhole.css';
 import {
-  loadDemoGswaAssayFile,
   loadDemoPrecomputedDesurveyFile,
   loadDemoSurveyCsvText,
-  loadDemoStructuralCsvText
 } from '../data/demoGswaData.js';
 import { createPortal } from 'react-dom';
+import { useDemoData } from '../context/DemoDataContext.jsx';
 
 const ASSAY_COLOR_PALETTE_10 = [
   '#313695',
@@ -46,36 +45,59 @@ function Drillhole() {
   const renderedHolesRef = useRef(null);
   const restoredCameraRef = useRef(false);
 
+  const { collars, assayState, structureRows, geologyHoles } = useDemoData();
+
   const [holes, setHoles] = useState(null);
   const [selectedHole, setSelectedHole] = useState(null);
   const [controlMode, setControlMode] = useState('orbit');
-  const [collars, setCollars] = useState([]);
   const [error, setError] = useState('');
   const [desurveyMs, setDesurveyMs] = useState(null);
-  const [assayVariables, setAssayVariables] = useState([]);
-  const [assayIntervalsByHole, setAssayIntervalsByHole] = useState({});
   const [colorByVariable, setColorByVariable] = useState('None');
   const [precomputedAttempted, setPrecomputedAttempted] = useState(false);
   const [usingPrecomputed, setUsingPrecomputed] = useState(false);
-  const [structureRows, setStructureRows] = useState(null);
   const [showStructuralDiscs, setShowStructuralDiscs] = useState(true);
   const [perspectiveLevel, setPerspectiveLevel] = useState(FOV_STEPS.length - 1);
 
+  const assayVariables = useMemo(() => {
+    const numeric = (assayState?.numericProps || []).filter(Boolean);
+    return ['__HAS_ASSAY__', ...numeric];
+  }, [assayState]);
+
+  const geologyCategories = useMemo(() => {
+    if (!geologyHoles?.length) return [];
+    return classifyColumns(geologyHoles.flatMap((h) => h.points || [])).categoricalCols;
+  }, [geologyHoles]);
+
+  const isCategorical = useMemo(
+    () => geologyCategories.includes(colorByVariable),
+    [geologyCategories, colorByVariable]
+  );
+
+  const geologyCategoryIntervalsByHole = useMemo(() => {
+    if (!isCategorical || !colorByVariable) return null;
+    return buildCategoryIntervalsByHole(geologyHoles, colorByVariable);
+  }, [isCategorical, geologyHoles, colorByVariable]);
+
+  const assayIntervalsByHole = useMemo(
+    () => buildAssayIntervalsByHole(assayState?.holes || []),
+    [assayState]
+  );
+
   const selectedAssayIntervalsByHole = useMemo(() => {
-    if (colorByVariable === 'None') return null;
+    if (colorByVariable === 'None' || isCategorical) return null;
     // For "Has Assay Data" mode, return all intervals (not filtered by variable)
     if (colorByVariable === '__HAS_ASSAY__') return assayIntervalsByHole;
     return mapIntervalsForVariable(assayIntervalsByHole, colorByVariable);
-  }, [assayIntervalsByHole, colorByVariable]);
+  }, [assayIntervalsByHole, colorByVariable, isCategorical]);
 
   const legendScale = useMemo(() => {
-    if (!selectedAssayIntervalsByHole || colorByVariable === '__HAS_ASSAY__') return null;
+    if (!selectedAssayIntervalsByHole || isCategorical || colorByVariable === '__HAS_ASSAY__') return null;
     const values = Object.values(selectedAssayIntervalsByHole)
       .flatMap((intervals) => (intervals || []).map((interval) => Number(interval?.value)))
       .filter((value) => Number.isFinite(value));
     const scale = buildEqualRangeColorScale(values, ASSAY_COLOR_PALETTE_10);
     return scale?.bins?.length ? scale : null;
-  }, [selectedAssayIntervalsByHole, colorByVariable]);
+  }, [selectedAssayIntervalsByHole, colorByVariable, isCategorical]);
 
   const projectTo28350 = useMemo(() => {
     const def = '+proj=utm +zone=50 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
@@ -119,28 +141,6 @@ function Drillhole() {
       })
       .finally(() => setPrecomputedAttempted(true));
   }, [holes]);
-
-  useEffect(() => {
-    loadDemoGswaAssayFile()
-      .then((demoGswaAssayFile) => loadAssayFile(demoGswaAssayFile, ''))
-      .then((state) => {
-        const numeric = (state?.numericProps || []).filter(Boolean);
-        // Add special "Has Assay Data" option at the beginning
-        setAssayVariables(['__HAS_ASSAY__', ...numeric]);
-        setAssayIntervalsByHole(buildAssayIntervalsByHole(state?.holes || []));
-      })
-      .catch((err) => {
-        console.info('Auto-load of GSWA assays for 3D coloring skipped:', err.message);
-      });
-  }, []);
-
-  // Load and parse structural CSV on mount
-  useEffect(() => {
-    loadDemoStructuralCsvText()
-      .then((text) => parseStructuralCSV(text))
-      .then(({ rows }) => setStructureRows(rows))
-      .catch((err) => console.info('Structural load skipped:', err.message));
-  }, []);
 
   // Render structural discs once both holes and structureRows are available
   useEffect(() => {
@@ -224,13 +224,14 @@ function Drillhole() {
       const preserveView = renderedHolesRef.current === holes || restoredCameraRef.current;
       sceneRef.current.setDrillholes(holes, {
         selectedAssayVariable: colorByVariable === 'None' ? '' : colorByVariable,
-        assayIntervalsByHole: selectedAssayIntervalsByHole,
-        preserveView
+        assayIntervalsByHole: isCategorical ? geologyCategoryIntervalsByHole : selectedAssayIntervalsByHole,
+        preserveView,
+        isCategoricalVariable: isCategorical,
       });
       renderedHolesRef.current = holes;
       restoredCameraRef.current = false;
     }
-  }, [holes, colorByVariable, selectedAssayIntervalsByHole]);
+  }, [holes, colorByVariable, selectedAssayIntervalsByHole, isCategorical, geologyCategoryIntervalsByHole]);
 
   const processAndSetHoles = (surveyRows) => {
     if (!collars.length) {
@@ -320,6 +321,13 @@ function Drillhole() {
                   {variable === '__HAS_ASSAY__' ? 'Has Assay Data' : variable}
                 </option>
               ))}
+              {geologyCategories.length > 0 && (
+                <optgroup label="Geology">
+                  {geologyCategories.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
           {structureRows?.length > 0 && (
@@ -368,7 +376,27 @@ function Drillhole() {
               </div>
             </div>
           )}
-          {colorByVariable !== 'None' && colorByVariable !== '__HAS_ASSAY__' && legendScale && (
+          {isCategorical && geologyCategoryIntervalsByHole && (() => {
+            const cats = [...new Set(
+              Object.values(geologyCategoryIntervalsByHole)
+                .flatMap((ivs) => ivs.map((iv) => iv.value))
+                .filter(Boolean)
+            )].sort();
+            return cats.length ? (
+              <div className="drillhole-legend" aria-label={`Color legend for ${colorByVariable}`}>
+                <div className="drillhole-legend-title">Legend ({colorByVariable})</div>
+                <div className="drillhole-legend-grid">
+                  {cats.map((cat) => (
+                    <div key={cat} className="drillhole-legend-item">
+                      <span className="drillhole-legend-swatch" style={{ background: getCategoryHexColor(cat) }} />
+                      <span className="drillhole-legend-label">{cat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+          {!isCategorical && colorByVariable !== 'None' && colorByVariable !== '__HAS_ASSAY__' && legendScale && (
             <div className="drillhole-legend" aria-label={`Color legend for ${colorByVariable}`}>
               <div className="drillhole-legend-title">Legend ({colorByVariable})</div>
               <div className="drillhole-legend-grid">
@@ -560,6 +588,31 @@ function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALETTE_10)
 
 function normalizeHoleKey(value) {
   return `${value ?? ''}`.trim().toLowerCase();
+}
+
+function buildCategoryIntervalsByHole(holes, variable) {
+  const byHole = {};
+  (holes || []).forEach((hole) => {
+    const holeId = hole?.id || hole?.holeId;
+    if (!holeId) return;
+    const seen = new Set();
+    const intervals = [];
+    (hole.points || []).forEach((point) => {
+      const from = Number(point?.from);
+      const to = Number(point?.to);
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return;
+      const key = `${from}:${to}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const value = point[variable];
+      if (value == null || String(value).trim() === '') return;
+      intervals.push({ from, to, value: String(value).trim() });
+    });
+    if (intervals.length) {
+      byHole[normalizeHoleKey(holeId)] = intervals.sort((a, b) => a.from - b.from);
+    }
+  });
+  return byHole;
 }
 
 function isFfCompanyHole(hole) {

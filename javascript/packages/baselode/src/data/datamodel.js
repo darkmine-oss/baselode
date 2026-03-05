@@ -29,7 +29,8 @@ export const DEPTH = "depth";
 export const ALPHA = "alpha";
 export const BETA = "beta";
 export const STRIKE = "strike";
-
+export const GEOLOGY_CODE = "geology_code";
+export const GEOLOGY_DESCRIPTION = "geology_description";
 
 /**
  * Minimum expected columns for drillhole collars
@@ -82,6 +83,15 @@ export const BASELODE_DATA_MODEL_DRILL_ASSAY = {
   // Assays may be flattened (one column per assay type) or long (one row per assay type with an additional 'assay_type' column)
 };
 
+export const BASELODE_DATA_MODEL_DRILL_GEOLOGY = {
+  [HOLE_ID]: "string",
+  [FROM]: "number",
+  [TO]: "number",
+  [MID]: "number",
+  [GEOLOGY_CODE]: "string",
+  [GEOLOGY_DESCRIPTION]: "string"
+};
+
 /**
  * Structural point data model schema
  */
@@ -114,10 +124,32 @@ export const DEFAULT_COLUMN_MAP = {
   [CRS]: ["crs", "epsg", "projection"],
   [FROM]: ["from", "depth_from", "from_depth", "samp_from", "sample_from", "sampfrom", "fromdepth"],
   [TO]: ["to", "depth_to", "to_depth", "samp_to", "sample_to", "sampto", "todepth"],
-  [AZIMUTH]: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn", "dipdirection", "dip_dir", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg", "dipdrn", "dipdir_calc", "dipdirect_calc"],
+  [GEOLOGY_CODE]: [
+    "geology_code",
+    "geologycode",
+    "lith1",
+    "lith1code",
+    "lith1_code",
+    "lithology",
+    "plot_lithology",
+    "rock1"
+  ],
+  [GEOLOGY_DESCRIPTION]: [
+    "geology_description",
+    "geologydescription",
+    "geology_comment",
+    "geologycomment",
+    "geology comment",
+    "lithology_comment",
+    "lithology comment",
+    "description",
+    "comments"
+  ],
+  [AZIMUTH]: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn", "dipdirection", "dip_dir", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg", "dipdir_calc", "dipdirect_calc"],
   [DIP]: ["dip", "computed_plane_dip", "calc_dip", "calc_dip_deg", "dip_calc"],
   [ALPHA]: ["alpha", "alpha_angle", "alpha_angle_deg", "alpha_2"],
   [BETA]: ["beta", "beta_angle", "beta_angle_deg", "beta_2"],
+  "declination": ["declination", "dec"],
   [DEPTH]: ["depth", "survey_depth", "surveydepth"],
   [STRIKE]: ["strike", "str"]
 };

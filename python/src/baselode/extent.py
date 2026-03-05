@@ -51,15 +51,15 @@ class Extent():
         xmin, ymin, xmax, ymax = self.bbox.bounds
         return [[ymin, xmin], [ymax, xmax]]
 
-    def center(self, latlon=False):
-        """Return the bbox center as (y, x) in the extent's CRS, or lat/lon if requested.
+    def center(self, lonlat=False):
+        """Return the bbox center as (x, y) in the extent's CRS, or (lon, lat) if requested.
 
-        When latlon=True and the extent has a CRS attribute, the centroid is reprojected to EPSG:4326.
+        When lonlat=True and the extent has a CRS attribute, the centroid is reprojected to EPSG:4326.
         """
         xmin, ymin, xmax, ymax = self.bbox.bounds
-        cy, cx = (ymin + ymax) / 2.0, (xmin + xmax) / 2.0
-        if not latlon:
-            return cy, cx
+        cx, cy = (xmin + xmax) / 2.0, (ymin + ymax) / 2.0
+        if not lonlat:
+            return cx, cy
         try:
             import pyproj
 
@@ -67,8 +67,8 @@ class Extent():
             target_crs = pyproj.CRS.from_epsg(4326)
             transformer = pyproj.Transformer.from_crs(source_crs, target_crs, always_xy=True)
             lon, lat = transformer.transform(cx, cy)
-            return lat, lon
+            return lon, lat
         except Exception:
             # Fallback to raw center if reprojection fails
-            return cy, cx
+            return cx, cy
 

@@ -82,6 +82,7 @@ export const COMMENT_COLUMN_NAMES = new Set([
   'comments', 'comment', 'notes', 'note',
   'description', 'remarks', 'remark',
   'log_description', 'struct_comment', 'structcomment',
+  'geology_description',
 ]);
 
 /**

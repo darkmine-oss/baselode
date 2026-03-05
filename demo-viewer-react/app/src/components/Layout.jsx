@@ -5,16 +5,19 @@
 import Sidebar from './Sidebar.jsx';
 import '../App.css';
 import { ZoomProvider } from '../context/ZoomContext.jsx';
+import { DemoDataProvider } from '../context/DemoDataContext.jsx';
 
 function Layout({ children }) {
   return (
     <ZoomProvider>
-      <div className="app-container">
-        <Sidebar />
-        <main className="main-content">
-          {children}
-        </main>
-      </div>
+      <DemoDataProvider>
+        <div className="app-container">
+          <Sidebar />
+          <main className="main-content">
+            {children}
+          </main>
+        </div>
+      </DemoDataProvider>
     </ZoomProvider>
   );
 }

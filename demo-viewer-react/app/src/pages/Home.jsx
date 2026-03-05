@@ -6,18 +6,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import maplibregl from 'maplibre-gl';
-import Papa from 'papaparse';
 import Plotly from 'plotly.js-dist-min';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './Home.css';
 import { useZoomContext } from '../context/ZoomContext.jsx';
+import { useDemoData } from '../context/DemoDataContext.jsx';
 import {
-  loadAssayFile,
   buildIntervalPoints,
   buildPlotConfig,
   getChartOptions,
   defaultChartType,
-  standardizeColumns,
   HOLE_ID
 } from 'baselode';
 
@@ -26,7 +24,6 @@ function Home() {
   const defaultPosition = useMemo(() => [-24.5, 122.0], []);
   const mapViewCacheKey = 'baselode-map-view-v1';
   const assayPreferenceKey = 'baselode-map-open-mode';
-  const [collars, setCollars] = useState([]);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchError, setSearchError] = useState('');
@@ -35,13 +32,9 @@ function Home() {
   const [popupHoleId, setPopupHoleId] = useState('');
   const [popupProperty, setPopupProperty] = useState('');
   const [popupChartType, setPopupChartType] = useState('line');
-  const [assayState, setAssayState] = useState(null);
-  const [assayMeta, setAssayMeta] = useState(null);
-  const [assayLoading, setAssayLoading] = useState(false);
   const navigate = useNavigate();
   const { zoomLevel, setZoomLevel } = useZoomContext();
-
-  const cacheKey = 'baselode-collars-cache-v1';
+  const { collars, assayState } = useDemoData();
   const mapRef = useRef(null);
   const mapContainerRef = useRef(null);
   const popupRef = useRef(null);
@@ -74,112 +67,6 @@ function Home() {
 
   const hasCenteredRef = useRef(initialView.fromStorage);
 
-  // Helper to parse collar CSV text for demo auto-load
-  const parseCollarCSV = (csvText, sourceName) => {
-    Papa.parse(csvText, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const parsed = [];
-        const detectedColumns = new Set();
-        const totalRows = results.data.length;
-        let skippedInvalidCoords = 0;
-        let skippedMissingKey = 0;
-
-        const pick = (normalized, keys) => {
-          for (const key of keys) {
-            if (normalized[key] !== undefined && normalized[key] !== null && `${normalized[key]}`.trim() !== '') {
-              return normalized[key];
-            }
-          }
-          return undefined;
-        };
-
-        results.data.forEach((row) => {
-          const standardized = standardizeColumns(row);
-          const lat = parseFloat(standardized.latitude);
-          const lng = parseFloat(standardized.longitude);
-          const project = (standardized.project_id || standardized.dataset || '').toString().trim();
-          const holeId = (standardized[HOLE_ID] || '').toString().trim();
-
-          const hasValidLatLng = Number.isFinite(lat) && Number.isFinite(lng);
-          const latLngInRange = hasValidLatLng && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
-
-          if (!holeId) {
-            skippedMissingKey += 1;
-            return;
-          }
-
-          if (hasValidLatLng && latLngInRange && holeId) {
-            parsed.push({ lat, lng, project: project || 'Unknown', holeId });
-          } else if (!latLngInRange || !hasValidLatLng) {
-            skippedInvalidCoords += 1;
-          }
-        });
-
-        if (!parsed.length) {
-          setCollars([]);
-          setError('No valid rows found. Ensure columns include latitude, longitude, project_code, and hole_id. Lat/Lon must be in degrees.');
-          console.warn('Collar CSV parsed with zero valid rows.', {
-            source: sourceName,
-            totalRows,
-            detectedColumns: Array.from(detectedColumns),
-            skippedInvalidCoords
-          });
-          return;
-        }
-
-        setCollars(parsed);
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(parsed));
-        } catch (e) {
-          console.warn('Failed to cache collars', e);
-        }
-      },
-      error: (err) => {
-        setError(`Failed to read ${sourceName}: ${err.message}`);
-        console.error('Collar CSV failed to parse', err);
-      }
-    });
-  };
-
-  // Load collars from cache on mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(cacheKey);
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        const valid = parsed.filter((p) =>
-          Number.isFinite(p.lat) && Number.isFinite(p.lng) && p.project && p.holeId
-        );
-        if (valid.length) {
-          setCollars(valid);
-          console.info('Loaded collars from cache', { cachedRows: valid.length });
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load collars cache', e);
-    }
-  }, [cacheKey]);
-
-  // Auto-load canonical GSWA collars if cache is empty
-  useEffect(() => {
-    if (collars.length > 0) return;
-    fetch('/data/gswa/gswa_sample_collars.csv')
-      .then((res) => {
-        if (!res.ok) return null;
-        return res.text();
-      })
-      .then((csvText) => {
-        if (!csvText) return;
-        parseCollarCSV(csvText, 'gswa_sample_collars.csv (auto)');
-      })
-      .catch((err) => {
-        console.info('Auto-load of GSWA collars skipped:', err.message);
-      });
-  }, [collars.length]);
-
   useEffect(() => {
     try {
       const pref = localStorage.getItem(assayPreferenceKey);
@@ -191,38 +78,6 @@ function Home() {
     }
   }, [assayPreferenceKey]);
 
-
-  useEffect(() => {
-    if (assayState || assayLoading) return;
-    setAssayLoading(true);
-    fetch('/data/gswa/gswa_sample_assays.csv')
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        return res.text();
-      })
-      .then((csvText) => {
-        const blob = new Blob([csvText], { type: 'text/csv' });
-        const demoGswaAssayFile = new File([blob], 'gswa_sample_assays.csv', { type: 'text/csv' });
-        return loadAssayFile(demoGswaAssayFile, '');
-      })
-      .then((state) => {
-        setAssayState(state);
-        setAssayMeta({
-          numericProps: state.numericProps,
-          categoricalProps: state.categoricalProps,
-          defaultProp: state.defaultProp,
-          holeCount: state.holes.length,
-          updatedAt: Date.now()
-        });
-        setPopupProperty((prev) => prev || state.defaultProp || '');
-      })
-      .catch((err) => {
-        console.info('Auto-load of GSWA assays skipped:', err.message);
-      })
-      .finally(() => setAssayLoading(false));
-  }, [assayState, assayLoading]);
 
   const runSearch = (term, sourceCollars = collars) => {
     const query = term.trim().toLowerCase();
@@ -278,14 +133,9 @@ function Home() {
   const renderedCollars = useMemo(() => filteredCollars || collars, [filteredCollars, collars]);
 
   const propertyOptions = useMemo(() => {
-    if (assayState) {
-      return [...assayState.numericProps, ...assayState.categoricalProps];
-    }
-    if (assayMeta) {
-      return [...(assayMeta.numericProps || []), ...(assayMeta.categoricalProps || [])];
-    }
-    return [];
-  }, [assayState, assayMeta]);
+    if (!assayState) return [];
+    return [...assayState.numericProps, ...assayState.categoricalProps];
+  }, [assayState]);
 
   const popupHole = useMemo(() => {
     if (!popupHoleId || !assayState?.holes) return null;
@@ -295,17 +145,6 @@ function Home() {
       return hId && `${hId}`.toLowerCase() === searchId;
     }) || null;
   }, [assayState, popupHoleId]);
-
-  useEffect(() => {
-    if (!assayState) return;
-    setAssayMeta({
-      numericProps: assayState.numericProps || [],
-      categoricalProps: assayState.categoricalProps || [],
-      defaultProp: assayState.defaultProp || '',
-      holeCount: assayState.holes?.length || 0,
-      updatedAt: Date.now()
-    });
-  }, [assayState]);
 
   const geojsonData = useMemo(() => ({
     type: 'FeatureCollection',

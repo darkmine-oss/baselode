@@ -7,6 +7,7 @@ import { standardizeColumns } from './keying.js';
 import { HOLE_ID, FROM, TO, MID, DEPTH, DIP, AZIMUTH } from './datamodel.js';
 import { parseStructuralCSV, groupRowsByHole } from './structuralLoader.js';
 
+
 /**
  * Parse assay CSV text into an array of hole objects.
  *
@@ -62,6 +63,53 @@ export function parseAssayCsvTextToHoles(csvText) {
 }
 
 /**
+ * Parse geology CSV text into an array of hole objects, keyed by hole_id.
+ *
+ * @param {string} csvText - Geology CSV content as a text string
+ * @returns {Promise<{holes: Array<{holeId: string, points: Array<Object>}>}>}
+ */
+export function parseGeologyCsvText(csvText) {
+  return new Promise((resolve) => {
+    Papa.parse(csvText, {
+      header: true,
+      dynamicTyping: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const byHole = new Map();
+        for (const rawRow of results.data) {
+          const row = standardizeColumns(rawRow);
+          const holeId = (row[HOLE_ID] ?? '').toString().trim();
+          if (!holeId) continue;
+          const from = Number(row[FROM]);
+          const to = Number(row[TO]);
+          if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) continue;
+          const mid = (from + to) / 2;
+          // eslint-disable-next-line no-unused-vars
+          const { [DIP]: _dip, [AZIMUTH]: _az, ...rest } = row;
+          const point = {
+            ...rest,
+            [HOLE_ID]: holeId,
+            [FROM]: from,
+            [TO]: to,
+            [MID]: mid,
+            [DEPTH]: mid,
+            _source: 'geology',
+          };
+          if (!byHole.has(holeId)) byHole.set(holeId, []);
+          byHole.get(holeId).push(point);
+        }
+        resolve({
+          holes: Array.from(byHole.entries()).map(([holeId, points]) => ({
+            holeId,
+            points: points.sort((a, b) => a[FROM] - b[FROM]),
+          })),
+        });
+      },
+    });
+  });
+}
+
+/**
  * Build a unified drillhole dataset by merging assay intervals and structural
  * point/interval measurements from their respective CSV text sources.
  *
@@ -80,21 +128,23 @@ export function parseAssayCsvTextToHoles(csvText) {
  * @param {Object} options
  * @param {string} [options.assayCsv]      - Assay CSV text
  * @param {string} [options.structuralCsv] - Structural CSV text
+ * @param {string} [options.geologyCsv]    - Geology CSV text
  * @returns {Promise<{holes: Array<{holeId: string, points: Array<Object>}>}>}
  */
-export async function parseUnifiedDataset({ assayCsv, structuralCsv } = {}) {
-  const [assayHoles, structuralHoles] = await Promise.all([
+export async function parseUnifiedDataset({ assayCsv, structuralCsv, geologyCsv } = {}) {
+  const [assayHoles, structuralHoles, geologyHoles] = await Promise.all([
     assayCsv ? parseAssayCsvTextToHoles(assayCsv) : Promise.resolve([]),
     structuralCsv
       ? parseStructuralCSV(structuralCsv).then(({ rows }) =>
           groupRowsByHole(rows.map((r) => ({ ...r, _source: 'structural' })))
         )
       : Promise.resolve([]),
+    geologyCsv ? parseGeologyCsvText(geologyCsv).then(({ holes }) => holes) : Promise.resolve([]),
   ]);
 
-  // Merge holes from both sources by holeId
+  // Merge holes from all sources by holeId
   const byId = new Map(assayHoles.map((h) => [h.holeId, { ...h, points: [...h.points] }]));
-  for (const sh of structuralHoles) {
+  for (const sh of [...structuralHoles, ...geologyHoles]) {
     const id = sh.holeId;
     if (!id) continue;
     if (byId.has(id)) {

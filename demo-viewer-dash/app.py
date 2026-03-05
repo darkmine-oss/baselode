@@ -35,12 +35,29 @@ if not _BASELODE_MODULE.exists():
     )
     print("baselode-module.js built successfully.")
 
-DATA_DIR = REPO_ROOT / "test" / "data" / "gswa"
-COLLARS_CSV = DATA_DIR / "gswa_sample_collars.csv"
-SURVEY_CSV = DATA_DIR / "gswa_sample_survey.csv"
-ASSAYS_CSV = DATA_DIR / "gswa_sample_assays.csv"
-STRUCTURES_CSV = DATA_DIR / "gswa_sample_structure.csv"
-PRECOMPUTED_DESURVEY_CSV = DATA_DIR / "demo_gswa_precomputed_desurveyed.csv"
+DATA_DIR_CANDIDATES = [
+    REPO_ROOT / "test" / "data" / "gswa",
+    REPO_ROOT / "demo-viewer-react" / "app" / "public" / "data" / "gswa",
+    REPO_ROOT / "demo-viewer-react" / "app" / "dist" / "data" / "gswa",
+]
+
+
+def _resolve_demo_csv(filename_candidates):
+    for data_dir in DATA_DIR_CANDIDATES:
+        for filename in filename_candidates:
+            candidate = data_dir / filename
+            if candidate.exists():
+                return candidate
+    # fallback to first candidate path for predictable errors later
+    return DATA_DIR_CANDIDATES[0] / filename_candidates[0]
+
+
+COLLARS_CSV = _resolve_demo_csv(["gswa_sample_collars.csv", "demo_gswa_sample_collars.csv"])
+SURVEY_CSV = _resolve_demo_csv(["gswa_sample_survey.csv", "demo_gswa_sample_survey.csv"])
+ASSAYS_CSV = _resolve_demo_csv(["gswa_sample_assays.csv", "demo_gswa_sample_assays.csv"])
+STRUCTURES_CSV = _resolve_demo_csv(["gswa_sample_structure.csv", "demo_gswa_sample_structure.csv"])
+GEOLOGY_CSV = _resolve_demo_csv(["gswa_sample_geology.csv", "demo_gswa_sample_geology.csv"])
+PRECOMPUTED_DESURVEY_CSV = _resolve_demo_csv(["demo_gswa_precomputed_desurveyed.csv"])
 
 # Chart type options formatted for Dash Dropdown
 def _dash_chart_options(display_type):
@@ -186,7 +203,7 @@ def build_structural_rows_for_scene(structures_df, hole_ids):
     return rows
 
 
-def load_demo_dataset(collars_csv, survey_csv, assays_csv, structures_csv, precomputed_desurvey_csv=None):
+def load_demo_dataset(collars_csv, survey_csv, assays_csv, geology_csv, structures_csv=None, precomputed_desurvey_csv=None):
     """Load demo dataset using library's standardization.
     
     The library automatically maps common column name variations to standard names
@@ -241,16 +258,25 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv, structures_csv, preco
         kind="csv"
     )
 
-    structures = baselode.drill.data.load_structures(
-        structures_csv,
-        kind="csv",
-        keep_all=True,
+    geology = baselode.drill.data.load_geology(
+        geology_csv,
+        kind="csv"
     )
-    
+
+    structures = None
+    if structures_csv is not None and Path(structures_csv).exists():
+        structures = baselode.drill.data.load_structures(
+            structures_csv,
+            kind="csv",
+            keep_all=True,
+        )
+
     # Clean string columns
     if "hole_id" in assays.columns:
         assays["hole_id"] = assays["hole_id"].astype(str).str.strip()
-    if "hole_id" in structures.columns:
+    if "hole_id" in geology.columns:
+        geology["hole_id"] = geology["hole_id"].astype(str).str.strip()
+    if structures is not None and "hole_id" in structures.columns:
         structures["hole_id"] = structures["hole_id"].astype(str).str.strip()
     if "hole_id" in traces.columns:
         traces["hole_id"] = traces["hole_id"].astype(str).str.strip()
@@ -277,6 +303,7 @@ def load_demo_dataset(collars_csv, survey_csv, assays_csv, structures_csv, preco
     return {
         "collars": collars,
         "assays": assays_with_positions,
+        "geology": geology,
         "structures": structures,
         "traces": traces,
     }
@@ -485,13 +512,22 @@ def build_popup_figure(assays_df, selected_hole, selected_property, categorical_
 
 
 # Initialize app with demo data
-DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV, STRUCTURES_CSV, PRECOMPUTED_DESURVEY_CSV)
+DATASET = load_demo_dataset(COLLARS_CSV, SURVEY_CSV, ASSAYS_CSV, GEOLOGY_CSV, STRUCTURES_CSV, PRECOMPUTED_DESURVEY_CSV)
 ASSAY_PROPERTY_INFO = infer_property_lists(DATASET["assays"])
-STRUCTURE_PROPERTY_INFO = infer_property_lists(DATASET["structures"])
+GEOLOGY_PROPERTY_INFO = infer_property_lists(DATASET["geology"])
+DEFAULT_GEOLOGY_PROPERTY = (GEOLOGY_PROPERTY_INFO["categorical"] + GEOLOGY_PROPERTY_INFO["all"] + [""])[0]
+_structures_df = DATASET.get("structures")
+STRUCTURE_PROPERTY_INFO = infer_property_lists(_structures_df if _structures_df is not None else pd.DataFrame())
 # Unified strip-log dataset: assay intervals + structural measurements merged by hole_id.
 # Rows are tagged with _source='assay'|'structural'; depth = mid for assay rows so
 # both data types share a consistent y-axis.
-STRIPLOG_DATASET = load_unified_dataset(ASSAYS_CSV, STRUCTURES_CSV, kind="csv")
+if _structures_df is not None:
+    STRIPLOG_DATASET = load_unified_dataset(ASSAYS_CSV, STRUCTURES_CSV, kind="csv")
+else:
+    STRIPLOG_DATASET = DATASET["assays"].copy()
+    if not STRIPLOG_DATASET.empty and "mid" in STRIPLOG_DATASET.columns:
+        import numpy as np
+        STRIPLOG_DATASET["depth"] = STRIPLOG_DATASET["mid"]
 STRIPLOG_PROPERTY_INFO = infer_property_lists(STRIPLOG_DATASET)
 DEFAULT_STRIPLOG_PROPERTY = (STRIPLOG_PROPERTY_INFO["numeric"] + STRIPLOG_PROPERTY_INFO["categorical"] + STRIPLOG_PROPERTY_INFO["comment"] + [""])[0]
 
@@ -1241,11 +1277,13 @@ def update_sidebar_footer(pathname):
     """Display data source info in sidebar footer."""
     collars_count = len(DATASET["collars"])
     assays_count = len(DATASET["assays"]["hole_id"].unique()) if not DATASET["assays"].empty else 0
-    structures_count = len(DATASET["structures"]["hole_id"].unique()) if not DATASET["structures"].empty else 0
+    geology_count = len(DATASET["geology"]["hole_id"].unique()) if not DATASET["geology"].empty else 0
+    _str = DATASET.get("structures")
+    structures_count = len(_str["hole_id"].unique()) if _str is not None and not _str.empty else 0
     surveys_count = len(DATASET["traces"]["hole_id"].unique()) if not DATASET["traces"].empty else 0
-    
+
     data_source_text = html.Div(
-        f"demo_gswa ({collars_count} collars, {surveys_count} surveys, {assays_count} assays, {structures_count} structures)",
+        f"demo_gswa ({collars_count} collars, {surveys_count} surveys, {assays_count} assays, {geology_count} geology, {structures_count} structures)",
         className="data-source-info"
     )
     
