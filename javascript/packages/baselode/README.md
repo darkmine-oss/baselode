@@ -79,6 +79,8 @@ Future releases may include:
 | `sceneClickHandler.js` | Canvas click/hover raycasting |
 | `selectionGlow.js` | EffectComposer + OutlinePass per-object glow |
 | `baselode3dCameraControls.js` | Orbit, fly, FOV, pan, dolly |
+| `helpers/SectionHelper.js` | Orthographic cross-section viewing (axis-aligned clipping) |
+| `helpers/SliceHelper.js` | Arbitrary-plane slab-slice viewing (dual clipping planes) |
 
 ## License
 
