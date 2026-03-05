@@ -122,6 +122,12 @@ describe('loadGradeBlocksFromJson', () => {
       schema_version: '1.0', blocks: [{ id: 'X', name: 'X', triangles: [] }],
     })).toThrow(/vertices/);
   });
+
+  it('throws when a block is missing triangles', () => {
+    expect(() => loadGradeBlocksFromJson({
+      schema_version: '1.0', blocks: [{ id: 'X', name: 'X', vertices: [] }],
+    })).toThrow(/triangles/);
+  });
 });
 
 // ---------------------------------------------------------------------------
