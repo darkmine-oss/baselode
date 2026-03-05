@@ -1,9 +1,38 @@
 # Releasing Baselode
 
 Both the Python (`baselode` on PyPI) and JavaScript (`baselode` on npm) packages
-are versioned from a single git tag in this repository. One tag triggers both
-releases. There is no automated CI publish step — releases are done manually from
-your local machine.
+are versioned from a single git tag in this repository.
+
+## Automated releases (CI)
+
+Merging to `main` triggers the `.github/workflows/release.yml` workflow, which:
+
+1. Reads the latest `vX.Y.Z` tag and creates the next patch tag automatically
+   (e.g. `v0.1.5` → `v0.1.6`).
+2. Runs the Python test suite (`pytest test -q`).
+3. Runs the JavaScript test suite (`npm test`).
+4. Builds the Python package and publishes it to PyPI using trusted publishing
+   (OIDC — no long-lived token required).
+5. Builds the JavaScript package and publishes it to npm using the `NPM_TOKEN`
+   repository secret.
+
+Both publish jobs run against a GitHub Actions environment named **`release`**.
+Configure that environment in *Settings → Environments → release* to add any
+required reviewers or deployment protection rules.
+
+Required secrets / configurations:
+
+| Secret / setting | Where | Purpose |
+|---|---|---|
+| `NPM_TOKEN` | Repository secret | Authenticate `npm publish` |
+| PyPI trusted publisher | PyPI project settings | OIDC publish from Actions |
+
+---
+
+## Manual releases
+
+The steps below describe how to publish a release manually from your local
+machine when bypassing CI is necessary.
 
 ## Version scheme
 
