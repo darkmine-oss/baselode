@@ -13,6 +13,7 @@ Both demos use the **GSWA Geochemistry** sample data included in the repository 
 | `gswa_sample_assays.csv` | Geochemical assay intervals |
 | `gswa_sample_structure.csv` | Structural point measurements |
 | `demo_gswa_precomputed_desurveyed.csv` | Pre-built 3D traces (UTM Zone 50S) |
+| `grade_blocks/demo_grade_blocks.json` | Synthetic polygonal grade block set (schema v1.0) |
 
 Data is derived from the GSWA Geochemistry dataset (CC BY 4.0, Government of Western Australia).  See [`ATTRIBUTION.md`](https://github.com/darkmine-oss/baselode/blob/main/ATTRIBUTION.md) for the required attribution statement.
 
@@ -30,7 +31,9 @@ The React demo is the primary showcase for the `baselode` JavaScript library.
 |---|---|
 | `/` | **Map** — MapLibre map of collar locations.  Click a collar to open a strip-log popup with a property selector.  Search bar filters visible collars by hole ID. |
 | `/drillhole` | **3D viewer** — Three.js scene with desurveyed drillhole traces and structural disc markers. |
-| `/drillhole2d` | **2D strip logs** — Multi-track Plotly strip logs for a selected hole (numeric, categorical, comments, and tadpole tracks). |
+| `/drillhole-2d` | **2D strip logs** — Multi-track Plotly strip logs for a selected hole (numeric, categorical, comments, and tadpole tracks). |
+| `/block-model` | **Block models** — 3D merged-mesh block model viewer with per-property colour mapping and opacity control. |
+| `/polygon-blocks` | **Polygon Blocks** — 3D viewer for polygonal grade blocks loaded from a JSON grade-block set.  Click a block to see its attributes; selected block edges are highlighted. |
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1.5rem 0">
   <figure style="margin:0">
