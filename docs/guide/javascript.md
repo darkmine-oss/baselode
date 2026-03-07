@@ -395,6 +395,93 @@ setFov(scene, 45);
 
 ---
 
+## Section and Slice Viewing Helpers
+
+Two interactive helpers for geological cross-section and slab-slice workflows.  Only one may be active at a time — activating one automatically deactivates the other.
+
+### SectionHelper
+
+A **section** is a vertical planar view aligned to a principal axis.  When active the camera switches to orthographic projection, rotation is disabled, and a clipping plane hides geometry **in front of** the section (toward the camera) so only geology **behind** the section is visible.
+
+```js
+import { SectionHelper } from 'baselode';
+
+const section = new SectionHelper(scene);
+
+// Activate an East–West section (camera looks in −X direction)
+section.enableSectionMode('x');         // 'x' | 'y'
+
+// Move the section plane
+section.setSectionPosition(4500);       // X = 4500 m
+section.stepSection(-10);              // step 10 m west
+
+// Query position
+const pos = section.getSectionPosition();
+
+// Deactivate
+section.disableSectionMode();
+```
+
+| Method | Description |
+|---|---|
+| `enableSectionMode(axis)` | Activate section mode (`'x'` or `'y'`) |
+| `disableSectionMode()` | Deactivate and restore perspective camera |
+| `setSectionPosition(distance)` | Move section plane to world coordinate |
+| `stepSection(delta)` | Relative step along the section axis |
+| `getSectionPosition()` | Return current section position |
+| `dispose()` | Alias for `disableSectionMode()` |
+
+### SliceHelper
+
+A **slice** (slab slice) displays only geometry within a finite thickness around an arbitrary plane.  Two clipping planes form a bounded slab: `distance ± width/2`.
+
+```js
+import { SliceHelper } from 'baselode';
+import * as THREE from 'three';
+
+const slice = new SliceHelper(scene);
+
+// Activate
+slice.enableSliceMode();
+
+// Define the slice plane (normal + signed distance from origin)
+slice.setSlicePlane(new THREE.Vector3(1, 0, 0), 4500);  // YZ plane at X=4500
+slice.setSliceWidth(50);                                  // ±25 m slab
+
+// Scan through the scene
+slice.moveSlice(10);                                      // advance 10 m
+
+// Derive a plane from a knife line drawn on the canvas
+const result = slice.createSlicePlaneFromScreenLine(
+  { x: 100, y: 300 },   // start pixel coordinate
+  { x: 700, y: 300 }    // end pixel coordinate
+);
+if (result) {
+  slice.setSlicePlane(result.normal, result.distance);
+}
+
+// Query state
+const { normal, distance } = slice.getSlicePlane();
+const width = slice.getSliceWidth();
+
+// Deactivate
+slice.disableSliceMode();
+```
+
+| Method | Description |
+|---|---|
+| `enableSliceMode()` | Activate slice mode |
+| `disableSliceMode()` | Deactivate and remove clipping planes |
+| `setSlicePlane(normal, distance)` | Set the slice plane (unit normal + signed distance) |
+| `setSliceWidth(width)` | Set total slab thickness |
+| `moveSlice(delta)` | Translate slice plane along its normal |
+| `getSlicePlane()` | Return `{ normal, distance }` |
+| `getSliceWidth()` | Return current slab thickness |
+| `createSlicePlaneFromScreenLine(start, end)` | Derive a vertical plane from pixel coordinates |
+| `dispose()` | Alias for `disableSliceMode()` |
+
+---
+
 ## Standalone Bundle
 
 For non-React environments (e.g. embedding in a plain HTML page or a Python Dash iframe), `baselode` ships a standalone UMD/IIFE module that registers itself as `window.baselode`:

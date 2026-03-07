@@ -2,10 +2,12 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import {
   Baselode3DScene,
   Baselode3DControls,
+  SectionHelper,
+  SliceHelper,
   parseDrillholesCSV,
   parseSurveyCSV,
   desurveyTraces,
@@ -42,8 +44,11 @@ const CAMERA_CACHE_KEY = 'baselode-drillhole-camera-v1';
 function Drillhole() {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
+  const sectionHelperRef = useRef(null);
+  const sliceHelperRef = useRef(null);
   const renderedHolesRef = useRef(null);
   const restoredCameraRef = useRef(false);
+  const drawStartRef = useRef(null);
 
   const { collars, assayState, structureRows, geologyHoles } = useDemoData();
 
@@ -57,6 +62,15 @@ function Drillhole() {
   const [usingPrecomputed, setUsingPrecomputed] = useState(false);
   const [showStructuralDiscs, setShowStructuralDiscs] = useState(true);
   const [perspectiveLevel, setPerspectiveLevel] = useState(FOV_STEPS.length - 1);
+  const [sectionMode, setSectionMode] = useState(null);
+  const [sectionPosition, setSectionPosition] = useState(0);
+  const [sliceActive, setSliceActive] = useState(false);
+  const [slicePosition, setSlicePosition] = useState(0);
+  const [sliceWidth, setSliceWidth] = useState(50);
+  // Plain {x,y,z} — updated when a draw-derived plane is applied.
+  const [sliceNormal, setSliceNormal] = useState({ x: 1, y: 0, z: 0 });
+  const [drawingSlice, setDrawingSlice] = useState(false);
+  const [drawLine, setDrawLine] = useState(null); // {x1,y1,x2,y2} canvas-relative px
 
   const assayVariables = useMemo(() => {
     const numeric = (assayState?.numericProps || []).filter(Boolean);
@@ -98,6 +112,44 @@ function Drillhole() {
     const scale = buildEqualRangeColorScale(values, ASSAY_COLOR_PALETTE_10);
     return scale?.bins?.length ? scale : null;
   }, [selectedAssayIntervalsByHole, colorByVariable, isCategorical]);
+
+  // Bounding box across all desurveyed hole points (local scene coords).
+  const holeBounds = useMemo(() => {
+    if (!holes?.length) return null;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const h of holes) {
+      for (const p of h.points || []) {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    return Number.isFinite(minX) ? { minX, maxX, minY, maxY } : null;
+  }, [holes]);
+
+  // Slider range for the active section axis.
+  const sectionRange = useMemo(() => {
+    if (!holeBounds || !sectionMode) return null;
+    return sectionMode === 'x'
+      ? { min: holeBounds.minX, max: holeBounds.maxX }
+      : { min: holeBounds.minY, max: holeBounds.maxY };
+  }, [holeBounds, sectionMode]);
+
+  // Slider range for the slice — project all hole points onto the slice normal.
+  const sliceRange = useMemo(() => {
+    if (!holes?.length || !sliceActive) return null;
+    const n = sliceNormal;
+    let min = Infinity, max = -Infinity;
+    for (const h of holes) {
+      for (const p of h.points || []) {
+        const d = p.x * n.x + p.y * n.y; // Z component intentionally omitted (vertical slices)
+        if (d < min) min = d;
+        if (d > max) max = d;
+      }
+    }
+    return Number.isFinite(min) ? { min, max } : null;
+  }, [holes, sliceActive, sliceNormal]);
 
   const projectTo28350 = useMemo(() => {
     const def = '+proj=utm +zone=50 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
@@ -201,6 +253,11 @@ function Drillhole() {
     }
     sceneRef.current = scene;
 
+    const sectionHelper = new SectionHelper(scene);
+    sectionHelperRef.current = sectionHelper;
+    const sliceHelper = new SliceHelper(scene);
+    sliceHelperRef.current = sliceHelper;
+
     const handleResize = () => scene.resize();
     window.addEventListener('resize', handleResize);
 
@@ -209,6 +266,8 @@ function Drillhole() {
       const viewState = getSceneViewState(scene);
       if (viewState) saveCachedCameraView(viewState);
       window.removeEventListener('resize', handleResize);
+      sectionHelper.dispose();
+      sliceHelper.dispose();
       scene.dispose();
     };
   }, []);
@@ -232,6 +291,120 @@ function Drillhole() {
       restoredCameraRef.current = false;
     }
   }, [holes, colorByVariable, selectedAssayIntervalsByHole, isCategorical, geologyCategoryIntervalsByHole]);
+
+  const handleToggleSectionX = useCallback(() => {
+    const helper = sectionHelperRef.current;
+    if (!helper) return;
+    if (sectionMode === 'x') {
+      helper.disableSectionMode();
+      setSectionMode(null);
+    } else {
+      helper.enableSectionMode('x');
+      setSectionMode('x');
+      setSliceActive(false);
+    }
+  }, [sectionMode]);
+
+  const handleToggleSectionY = useCallback(() => {
+    const helper = sectionHelperRef.current;
+    if (!helper) return;
+    if (sectionMode === 'y') {
+      helper.disableSectionMode();
+      setSectionMode(null);
+    } else {
+      helper.enableSectionMode('y');
+      setSectionMode('y');
+      setSliceActive(false);
+    }
+  }, [sectionMode]);
+
+  const handleStepSection = useCallback((delta) => {
+    sectionHelperRef.current?.stepSection(delta);
+    setSectionPosition((prev) => prev + delta);
+  }, []);
+
+  const handleSetSectionPosition = useCallback((newPos) => {
+    sectionHelperRef.current?.setSectionPosition(newPos);
+    setSectionPosition(newPos);
+  }, []);
+
+  const handleToggleSlice = useCallback(() => {
+    const helper = sliceHelperRef.current;
+    if (!helper) return;
+    if (sliceActive) {
+      helper.disableSliceMode();
+      setSliceActive(false);
+    } else {
+      helper.enableSliceMode();
+      setSliceActive(true);
+      setSectionMode(null);
+    }
+  }, [sliceActive]);
+
+  const handleStepSlice = useCallback((delta) => {
+    sliceHelperRef.current?.moveSlice(delta);
+    setSlicePosition((prev) => prev + delta);
+  }, []);
+
+  const handleSetSlicePosition = useCallback((newPos) => {
+    // moveSlice is relative so compute delta from tracked state.
+    sliceHelperRef.current?.moveSlice(newPos - slicePosition);
+    setSlicePosition(newPos);
+  }, [slicePosition]);
+
+  const handleSetSliceWidth = useCallback((width) => {
+    sliceHelperRef.current?.setSliceWidth(width);
+    setSliceWidth(width);
+  }, []);
+
+  // Drawing mode — pointer events on the canvas overlay.
+  const handleDrawStart = useCallback((e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    drawStartRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    setDrawLine({ x1: drawStartRef.current.x, y1: drawStartRef.current.y,
+                  x2: drawStartRef.current.x, y2: drawStartRef.current.y });
+  }, []);
+
+  const handleDrawMove = useCallback((e) => {
+    if (!drawStartRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x2 = e.clientX - rect.left;
+    const y2 = e.clientY - rect.top;
+    setDrawLine({ x1: drawStartRef.current.x, y1: drawStartRef.current.y, x2, y2 });
+  }, []);
+
+  const handleDrawEnd = useCallback((e) => {
+    if (!drawStartRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const start = drawStartRef.current;
+    const end = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    drawStartRef.current = null;
+    setDrawLine(null);
+    setDrawingSlice(false);
+
+    const helper = sliceHelperRef.current;
+    if (!helper) return;
+    const result = helper.createSlicePlaneFromScreenLine(start, end);
+    if (!result) return;
+
+    // result.normal is a THREE.Vector3 returned from the library — pass it
+    // back to setSlicePlane without needing to import THREE in the demo.
+    helper.setSlicePlane(result.normal, result.distance);
+    setSliceNormal({ x: result.normal.x, y: result.normal.y, z: result.normal.z });
+    setSlicePosition(result.distance);
+
+    if (!sliceActive) {
+      helper.enableSliceMode();
+      setSliceActive(true);
+      setSectionMode(null);
+    }
+  }, [sliceActive]);
+
+  const handleCancelDraw = useCallback(() => {
+    drawStartRef.current = null;
+    setDrawLine(null);
+    setDrawingSlice(false);
+  }, []);
 
   const processAndSetHoles = (surveyRows) => {
     if (!collars.length) {
@@ -419,12 +592,52 @@ function Drillhole() {
             <p>Loading demo survey and cached collars...</p>
           </div>
         )}
+        {drawingSlice && (
+          <div
+            className="slice-draw-overlay"
+            onMouseDown={handleDrawStart}
+            onMouseMove={handleDrawMove}
+            onMouseUp={handleDrawEnd}
+            onMouseLeave={handleCancelDraw}
+          >
+            <svg className="slice-draw-svg">
+              {drawLine && (
+                <line
+                  x1={drawLine.x1} y1={drawLine.y1}
+                  x2={drawLine.x2} y2={drawLine.y2}
+                  stroke="#ff9900" strokeWidth="2.5" strokeDasharray="8 4"
+                />
+              )}
+            </svg>
+            <div className="slice-draw-hint">
+              Click and drag to define the slice plane — release to apply
+            </div>
+          </div>
+        )}
         <Baselode3DControls
           controlMode={controlMode}
           onToggleFly={() => setControlMode((m) => (m === 'orbit' ? 'fly' : 'orbit'))}
           onRecenter={() => sceneRef.current?.recenterCameraToOrigin(2000)}
           onLookDown={() => sceneRef.current?.lookDown(3000)}
           onFit={() => sceneRef.current?.focusOnLastBounds(1.2)}
+          sectionMode={sectionMode}
+          onToggleSectionX={handleToggleSectionX}
+          onToggleSectionY={handleToggleSectionY}
+          onStepSection={handleStepSection}
+          sectionPosition={sectionPosition}
+          sectionRange={sectionRange}
+          onSetSectionPosition={handleSetSectionPosition}
+          sliceActive={sliceActive}
+          onToggleSlice={handleToggleSlice}
+          onStepSlice={handleStepSlice}
+          slicePosition={slicePosition}
+          sliceRange={sliceRange}
+          onSetSlicePosition={handleSetSlicePosition}
+          sliceWidth={sliceWidth}
+          onSetSliceWidth={handleSetSliceWidth}
+          onDrawSlice={() => setDrawingSlice(true)}
+          drawingSlice={drawingSlice}
+          onCancelDraw={handleCancelDraw}
         />
         {selectedHole && (
           <div className="selection-popup">

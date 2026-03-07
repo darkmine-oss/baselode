@@ -221,3 +221,6 @@ export {
   gradeBlockToThreeGeometry,
   addGradeBlocksToScene,
 } from './grade_blocks/gradeBlockLoader.js';
+
+export { SectionHelper } from './viz/helpers/SectionHelper.js';
+export { SliceHelper } from './viz/helpers/SliceHelper.js';

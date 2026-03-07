@@ -75,6 +75,8 @@ class Baselode3DScene {
     this._composer = null;
     this._blockHighlightMesh = null;
     this._outlinePass = null;
+    /** @type {import('./helpers/SectionHelper.js').SectionHelper|import('./helpers/SliceHelper.js').SliceHelper|null} */
+    this._activeViewingHelper = null;
   }
 
   init(container) {
