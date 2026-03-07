@@ -14,15 +14,33 @@ const testDataDir = path.resolve(__dirname, '../../test/data');
 console.log('[serve-test-data] testDataDir:', testDataDir);
 console.log('[serve-test-data] exists:', fs.existsSync(testDataDir));
 
-const baselodeDist = path.resolve(__dirname, '../../javascript/packages/baselode/dist');
+const baselodeSrc = path.resolve(__dirname, '../../javascript/packages/baselode/src');
 
 export default defineConfig({
+  resolve: {
+    // Alias baselode to its source so the demo app works without a prior
+    // library build (dist/ is gitignored).  The CSS sub-path needs its own
+    // entry so import 'baselode/style.css' resolves to the source CSS file.
+    alias: [
+      {
+        find: /^baselode\/style\.css$/,
+        replacement: path.join(baselodeSrc, 'style.css'),
+      },
+      {
+        find: 'baselode',
+        replacement: path.join(baselodeSrc, 'index.js'),
+      },
+    ],
+    // Ensure only one instance of shared peer deps regardless of where they
+    // are hoisted in the nested node_modules tree.
+    dedupe: ['react', 'react-dom', 'three', 'three-viewport-gizmo', 'papaparse', 'plotly.js-dist-min'],
+  },
   server: {
     watch: {
-      // Vite ignores node_modules by default; un-ignore the symlinked baselode dist
-      // so the dev server hot-reloads when the library is rebuilt.
-      ignored: (p) => p.includes('node_modules') && !p.startsWith(baselodeDist)
-    }
+      // Vite ignores node_modules by default; un-ignore the baselode source
+      // so the dev server hot-reloads when library source files change.
+      ignored: (p) => p.includes('node_modules') && !p.startsWith(baselodeSrc),
+    },
   },
   plugins: [
     react(),
