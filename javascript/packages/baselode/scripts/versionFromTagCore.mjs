@@ -7,14 +7,15 @@ export function runGit(args) {
 }
 
 export function getTagFromEnv(env = process.env) {
+  // Only trust GITHUB_REF_NAME if it looks like a semver tag. When a workflow
+  // is triggered by a branch push, GitHub sets GITHUB_REF_NAME to the branch
+  // name (e.g. "main") and step-level env cannot override it — so we must
+  // validate the value before using it.
+  const refName = String(env.GITHUB_REF_NAME || '').trim();
+  if (refName && isValidSemver(normalizeTag(refName))) return refName;
+
   const ref = String(env.GITHUB_REF || '').trim();
-  // Only trust GITHUB_REF_NAME when GITHUB_REF confirms we are on a tag push.
-  // When triggered by a branch push GITHUB_REF_NAME is the branch name (e.g.
-  // "main") and cannot be overridden by step-level env in GitHub Actions.
-  if (ref.startsWith('refs/tags/')) {
-    const refName = String(env.GITHUB_REF_NAME || '').trim();
-    return refName || ref.slice('refs/tags/'.length);
-  }
+  if (ref.startsWith('refs/tags/')) return ref.slice('refs/tags/'.length);
   return '';
 }
 
