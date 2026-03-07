@@ -2,9 +2,9 @@
 
 Baselode ships two full-featured demo applications built on the same GSWA drillhole dataset.  They are the best way to see every feature working together, and serve as reference implementations for building your own apps.
 
-## Sample Dataset
+## Sample Datasets
 
-Both demos use the **GSWA Geochemistry** sample data included in the repository under `test/data/gswa/`:
+### GSWA Geochemistry (`test/data/gswa/`)
 
 | File | Description |
 |---|---|
@@ -13,9 +13,14 @@ Both demos use the **GSWA Geochemistry** sample data included in the repository 
 | `gswa_sample_assays.csv` | Geochemical assay intervals |
 | `gswa_sample_structure.csv` | Structural point measurements |
 | `demo_gswa_precomputed_desurveyed.csv` | Pre-built 3D traces (UTM Zone 50S) |
-| `grade_blocks/demo_grade_blocks.json` | Synthetic polygonal grade block set (schema v1.0) |
 
 Data is derived from the GSWA Geochemistry dataset (CC BY 4.0, Government of Western Australia).  See [`ATTRIBUTION.md`](https://github.com/darkmine-oss/baselode/blob/main/ATTRIBUTION.md) for the required attribution statement.
+
+### Grade blocks (`test/data/grade_blocks/`)
+
+| File | Description |
+|---|---|
+| `demo_grade_blocks.json` | Synthetic polygonal grade block set (schema v1.0) |
 
 ---
 

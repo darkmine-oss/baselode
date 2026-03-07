@@ -59,6 +59,10 @@ function PolygonBlocks() {
     if (gradeGroupRef.current) {
       scene.scene.remove(gradeGroupRef.current);
       gradeGroupRef.current.children.forEach((mesh) => {
+        mesh.children.forEach((child) => {
+          child.geometry?.dispose();
+          child.material?.dispose();
+        });
         mesh.geometry?.dispose();
         mesh.material?.dispose();
       });
@@ -92,7 +96,6 @@ function PolygonBlocks() {
     const cz = (minZ + maxZ) / 2;
     group.position.set(-cx, -cy, -cz);
 
-    const halfExtent = Math.max(maxX - minX, maxY - minY, maxZ - minZ) / 2;
     scene._fitCameraToBounds({
       minX: minX - cx, maxX: maxX - cx,
       minY: minY - cy, maxY: maxY - cy,

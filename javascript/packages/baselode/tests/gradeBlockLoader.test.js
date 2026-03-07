@@ -154,10 +154,10 @@ describe('gradeBlockToThreeGeometry', () => {
     expect(geo.getIndex().count).toBe(36); // 12 triangles × 3
   });
 
-  it('computes vertex normals (normal attribute present)', () => {
+  it('does not attach a normal attribute (flat shading via material)', () => {
     const { blocks } = loadGradeBlocksFromJson(EXAMPLE_JSON);
     const geo = gradeBlockToThreeGeometry(blocks[0]);
-    expect(geo.getAttribute('normal')).toBeDefined();
+    expect(geo.getAttribute('normal')).toBeUndefined();
   });
 });
 

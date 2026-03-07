@@ -85,7 +85,7 @@ def _example_json_str():
     return json.dumps(EXAMPLE_DATA)
 
 
-def _simple_block(id_="T", n_verts=4, n_tris=2):
+def _simple_block(id_="T"):
     """Return a minimal GradeBlock with a non-degenerate triangle fan."""
     vertices = np.array([
         [0.0, 0.0, 0.0],
