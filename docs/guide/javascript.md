@@ -97,6 +97,55 @@ const stats  = getBlockStats(blocks, 'au_ppm');
 const subset = filterBlocks(blocks, { property: 'au_ppm', min: 1.0 });
 ```
 
+### Polygonal grade blocks
+
+Grade blocks are closed polyhedral meshes — grade shells, geologic domains, or any volumetric solid defined by triangulated vertices.  They are loaded from a structured JSON format:
+
+```js
+import { loadGradeBlocksFromJson, addGradeBlocksToScene } from 'baselode';
+
+// Parse and validate the JSON (accepts a parsed object or a JSON string)
+const blockSet = loadGradeBlocksFromJson(json);
+
+// Render into an existing THREE.Scene (e.g. from Baselode3DScene)
+const group = addGradeBlocksToScene(scene.scene, blockSet);
+// Returns a THREE.Group whose children are one THREE.Mesh per block
+```
+
+#### JSON schema (version `"1.0"`)
+
+```json
+{
+  "schema_version": "1.0",
+  "units": "m",
+  "blocks": [
+    {
+      "id": "HG",
+      "name": "High grade",
+      "vertices": [[0,0,0], [10,0,0], [10,10,0], [0,10,0],
+                   [0,0,5], [10,0,5], [10,10,5], [0,10,5]],
+      "triangles": [[0,1,2],[0,2,3], [4,5,6],[4,6,7],
+                    [0,1,5],[0,5,4], [1,2,6],[1,6,5],
+                    [2,3,7],[2,7,6], [3,0,4],[3,4,7]],
+      "attributes": { "grade_class": "HG", "au_ppm": 4.2 },
+      "material": { "color": "#B02020", "opacity": 1.0 }
+    }
+  ]
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `schema_version` | yes | Must be `"1.0"` |
+| `units` | no | Coordinate units string (e.g. `"m"`) |
+| `blocks[].id` | yes | Unique identifier |
+| `blocks[].name` | yes | Display name |
+| `blocks[].vertices` | yes | `[[x,y,z], ...]` array of 3-D vertex positions |
+| `blocks[].triangles` | yes | `[[i,j,k], ...]` zero-based triangle index triples |
+| `blocks[].attributes` | no | Arbitrary key-value metadata shown in selection panel |
+| `blocks[].material.color` | no | CSS hex colour (default `#888888`) |
+| `blocks[].material.opacity` | no | 0–1 opacity (default `1.0`) |
+
 ### Unified dataset (assays + structural)
 
 ```js
@@ -292,6 +341,37 @@ import { buildStructuralDiscs } from 'baselode';
 const discs = buildStructuralDiscs(structuralPoints, traces);
 // Returns Three.js-ready disc descriptors for each structural measurement
 ```
+
+### Polygonal grade blocks — 3D rendering
+
+`addGradeBlocksToScene` renders each block as a `THREE.Mesh` with flat-shaded `MeshStandardMaterial` and an edge-highlight `LineSegments` child (hidden by default, shown on selection).
+
+```js
+import { Baselode3DScene, loadGradeBlocksFromJson, addGradeBlocksToScene } from 'baselode';
+
+const scene = new Baselode3DScene();
+scene.init(containerElement);
+
+const blockSet = loadGradeBlocksFromJson(json);
+const group    = addGradeBlocksToScene(scene.scene, blockSet, { defaultOpacity: 0.85 });
+
+// Register meshes so the built-in selection glow fires on click
+scene.selectables = Array.from(group.children);
+```
+
+**Click selection and edge highlight**
+
+When a mesh is clicked the scene's built-in raycast handler applies a glow outline (`OutlinePass`) around the outer silhouette.  Each mesh also carries a hidden `LineSegments` child built from `EdgesGeometry` — showing it on selection highlights every polyhedral edge explicitly:
+
+```js
+// Show/hide the edge overlay when selection changes
+group.children.forEach((mesh) => {
+  const edgeLines = mesh.children[0];
+  if (edgeLines) edgeLines.visible = mesh.userData.id === selectedId;
+});
+```
+
+`mesh.userData` contains `{ id, attributes }` from the source JSON, available in the click callback.
 
 ---
 

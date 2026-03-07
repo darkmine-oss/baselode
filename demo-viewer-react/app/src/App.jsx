@@ -8,6 +8,7 @@ import Home from './pages/Home';
 import Drillhole from './pages/Drillhole';
 import Drillhole2D from './pages/Drillhole2D';
 import BlockModel from './pages/BlockModel';
+import PolygonBlocks from './pages/PolygonBlocks';
 import './App.css';
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Route path="/drillhole" element={<Drillhole />} />
         <Route path="/drillhole-2d" element={<Drillhole2D />} />
         <Route path="/block-model" element={<BlockModel />} />
+        <Route path="/polygon-blocks" element={<PolygonBlocks />} />
       </Routes>
     </Layout>
   );

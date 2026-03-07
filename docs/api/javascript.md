@@ -183,6 +183,36 @@ Get the hex colour for a value from a color scale.
 
 ---
 
+### Grade block loaders
+
+#### `loadGradeBlocksFromJson(input)`
+Parse and validate a grade block set from a JSON object or JSON string.  Throws if `schema_version` is not `"1.0"` or required fields are missing.  Returns a `GradeBlockSet`:
+
+```js
+{
+  schema_version: "1.0",
+  units: "m",
+  blocks: [{ id, name, vertices, triangles, attributes, material }, ...]
+}
+```
+
+#### `gradeBlockToThreeGeometry(block)`
+Convert a single grade block to a `THREE.BufferGeometry` (positions + triangle indices).  No normal attribute is computed — `flatShading: true` on the material handles per-face lighting correctly for hard-edged polyhedral geometry.
+
+#### `addGradeBlocksToScene(scene, blockSet, options?)`
+Create `THREE.Mesh` objects for all blocks and add them to a `THREE.Scene`.  Each mesh uses a flat-shaded `MeshStandardMaterial` and carries a hidden `THREE.LineSegments` child (`EdgesGeometry`, 15° threshold) for per-edge highlight on selection.  Returns the `THREE.Group` containing all meshes.
+
+`options`: `{ defaultOpacity }` — fallback opacity when `block.material.opacity` is not set (default `1.0`).
+
+`mesh.userData` per mesh:
+
+| Field | Description |
+|---|---|
+| `id` | Block id from JSON |
+| `attributes` | Arbitrary attributes object from JSON |
+
+---
+
 ### Structural loaders
 
 #### `parseStructuralPointsCSV(csvText)`
