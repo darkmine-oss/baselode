@@ -883,6 +883,126 @@ def plot_point_log(df,
     return _apply_striplog_defaults(fig)
 
 
+def plot_core_photo_log(images,
+    from_col="from",
+    to_col="to",
+    url_col="image_url",
+    mode_col="image_mode",
+    depth_range=None):
+    """Render a depth-registered core photography strip log track.
+
+    Places images at their registered depth intervals using Plotly layout images.
+    Each image record must supply a from-depth, to-depth, and an image URL or
+    base64 data URI. Images are depth-registered and remain aligned with other
+    strip log tracks sharing the same y (depth) axis.
+
+    Two image modes are recognised (via ``mode_col``):
+
+    * ``"core_box"`` / ``"core_tray"`` – full tray photograph displayed at the
+      registered depth interval.
+    * ``"single_core"`` – individual core segment photograph displayed at the
+      registered depth interval.
+
+    The mode does not change rendering; it is stored as metadata and surfaced
+    in hover text.
+
+    Parameters
+    ----------
+    images : list[dict] or pd.DataFrame
+        Image records. Each record must contain from-depth, to-depth, and an
+        image URL (HTTP URL or base64 data URI).
+    from_col : str
+        Key / column for the shallow end of each image interval.
+    to_col : str
+        Key / column for the deep end of each image interval.
+    url_col : str
+        Key / column for the image source (URL or ``data:image/…`` URI).
+    mode_col : str
+        Key / column for the image mode (``"core_box"``, ``"core_tray"``,
+        ``"single_core"``). Records without this key default to
+        ``"core_box"``.
+    depth_range : tuple[float, float] or None
+        Optional ``(min_depth, max_depth)`` to fix the y-axis range. If
+        *None*, the range is derived from the image intervals.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        A Plotly figure ready to be placed as a track in a strip log view.
+        The y-axis is reversed (depth increases downward) and the x-axis is
+        hidden, matching the convention used by all other strip log helpers.
+    """
+    if isinstance(images, pd.DataFrame):
+        if images.empty:
+            return go.Figure()
+        records = images.to_dict("records")
+    else:
+        records = list(images)
+
+    if not records:
+        return go.Figure()
+
+    valid = []
+    for rec in records:
+        try:
+            f = float(rec.get(from_col, rec.get("from_depth", None)))
+            t = float(rec.get(to_col, rec.get("to_depth", None)))
+        except (TypeError, ValueError):
+            continue
+        if not (t > f):
+            continue
+        url = rec.get(url_col, rec.get("url", ""))
+        if not url or not str(url).strip():
+            continue
+        mode = str(rec.get(mode_col, "core_box")).strip() or "core_box"
+        valid.append({"from": f, "to": t, "url": str(url), "mode": mode})
+
+    if not valid:
+        return go.Figure()
+
+    valid = sorted(valid, key=lambda r: r["from"])
+
+    if depth_range is not None:
+        y_min, y_max = float(depth_range[0]), float(depth_range[1])
+    else:
+        y_min = min(r["from"] for r in valid)
+        y_max = max(r["to"] for r in valid)
+
+    # Invisible anchor trace to define the depth axis range.
+    anchor_trace = go.Scatter(
+        x=[0.5, 0.5],
+        y=[y_min, y_max],
+        mode="markers",
+        marker=dict(size=0, opacity=0),
+        showlegend=False,
+        hoverinfo="skip",
+    )
+
+    fig = go.Figure(data=[anchor_trace])
+
+    for rec in valid:
+        fig.add_layout_image(dict(
+            source=rec["url"],
+            xref="x",
+            yref="y",
+            x=0,
+            y=rec["from"],
+            sizex=1,
+            sizey=rec["to"] - rec["from"],
+            xanchor="left",
+            yanchor="top",
+            sizing="stretch",
+            layer="below",
+        ))
+
+    fig.update_layout(
+        xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
+        yaxis=dict(title="Depth (m)", autorange="reversed"),
+        showlegend=False,
+    )
+    return _apply_striplog_defaults(fig)
+
+
 def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col=EASTING, northing_col=NORTHING, dip_col=DIP, az_col=AZIMUTH, label_col="defect"):
     """2D map view with strike/dip symbols.
 
