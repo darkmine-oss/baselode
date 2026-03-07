@@ -118,6 +118,15 @@
       ]
     },
     {
+      "name": "core_photography",
+      "jsExports": [
+        "buildCorePhotoConfig"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.view", "plot_core_photo_log"]
+      ]
+    },
+    {
       "name": "column_metadata",
       "jsExports": [
         "DISPLAY_NUMERIC",

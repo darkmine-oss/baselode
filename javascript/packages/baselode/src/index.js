@@ -186,6 +186,10 @@ export {
 } from './viz/structuralViz.js';
 
 export {
+  buildCorePhotoConfig
+} from './viz/corePhotoViz.js';
+
+export {
   dipAzimuthToNormal,
   buildStructuralDiscs
 } from './viz/structuralScene.js';
