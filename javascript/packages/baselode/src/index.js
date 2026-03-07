@@ -166,6 +166,15 @@ export {
 } from './viz/assayColorScale.js';
 
 export {
+  FALLBACK_COLOUR,
+  COMMODITY_COLOURS,
+  LITHOLOGY_COLOURS,
+  BUILTIN_COLOUR_MAPS,
+  getColour,
+  resolveColourMap
+} from './viz/colourMap.js';
+
+export {
   projectTraceToSection,
   sectionWindow,
   planView,
