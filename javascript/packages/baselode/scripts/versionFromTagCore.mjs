@@ -7,9 +7,14 @@ export function runGit(args) {
 }
 
 export function getTagFromEnv(env = process.env) {
-  if (env.GITHUB_REF_NAME) return String(env.GITHUB_REF_NAME).trim();
   const ref = String(env.GITHUB_REF || '').trim();
-  if (ref.startsWith('refs/tags/')) return ref.slice('refs/tags/'.length);
+  // Only trust GITHUB_REF_NAME when GITHUB_REF confirms we are on a tag push.
+  // When triggered by a branch push GITHUB_REF_NAME is the branch name (e.g.
+  // "main") and cannot be overridden by step-level env in GitHub Actions.
+  if (ref.startsWith('refs/tags/')) {
+    const refName = String(env.GITHUB_REF_NAME || '').trim();
+    return refName || ref.slice('refs/tags/'.length);
+  }
   return '';
 }
 
