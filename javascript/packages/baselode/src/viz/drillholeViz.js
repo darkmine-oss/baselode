@@ -5,6 +5,8 @@
 // Shared drillhole 2D visualization helpers for reuse beyond the UI layer.
 // These helpers build Plotly-ready data/layout objects based on interval points.
 
+import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
+
 /** Default color for numeric line traces */
 export const NUMERIC_LINE_COLOR = '#8b1e3f';
 
@@ -145,9 +147,10 @@ export function buildIntervalPoints(hole, property, isCategorical) {
  * @private
  * @param {Array<Object>} points - Interval points array
  * @param {string} property - Property name for title
+ * @param {Object} [template] - Plotly template to include in layout
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildCategoricalConfig(points, property) {
+function buildCategoricalConfig(points, property, template) {
   if (!points.length) return { data: [], layout: {} };
   const safe = points
     .filter((point) => Number.isFinite(point?.from) && Number.isFinite(point?.to) && point.to > point.from)
@@ -201,7 +204,8 @@ function buildCategoricalConfig(points, property) {
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     showlegend: false,
-    title: property || undefined
+    title: property || undefined,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
   return { data: traces, layout: applyStriplogLayoutDefaults(layout) };
@@ -213,9 +217,10 @@ function buildCategoricalConfig(points, property) {
  * @param {Array<Object>} points - Interval points array
  * @param {string} property - Property name for axis label
  * @param {string} chartType - Chart type ('bar', 'markers', 'line', 'markers+line')
+ * @param {Object} [template] - Plotly template to include in layout
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildNumericConfig(points, property, chartType) {
+function buildNumericConfig(points, property, chartType, template) {
   if (!points.length) return { data: [], layout: {} };
   const isBar = chartType === 'bar';
   const isMarkersOnly = chartType === 'markers';
@@ -259,7 +264,8 @@ function buildNumericConfig(points, property, chartType) {
     xaxis: { title: property, zeroline: false },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     barmode: 'overlay',
-    showlegend: false
+    showlegend: false,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
   return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
@@ -272,14 +278,15 @@ function buildNumericConfig(points, property, chartType) {
  * @param {boolean} options.isCategorical - Whether property is categorical
  * @param {string} options.property - Property name
  * @param {string} options.chartType - Chart type ('bar', 'markers', 'line', 'categorical', etc.)
+ * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {{data: Array, layout: Object}} Complete Plotly configuration
  */
-export function buildPlotConfig({ points, isCategorical, property, chartType }) {
+export function buildPlotConfig({ points, isCategorical, property, chartType, template }) {
   if (!points || !points.length || !property) return { data: [], layout: {} };
   if (isCategorical || chartType === 'categorical') {
-    return buildCategoricalConfig(points, property);
+    return buildCategoricalConfig(points, property, template);
   }
-  return buildNumericConfig(points, property, chartType);
+  return buildNumericConfig(points, property, chartType, template);
 }
 
 /**
@@ -289,6 +296,7 @@ export function buildPlotConfig({ points, isCategorical, property, chartType }) 
  * @param {string} options.fromCol - From-depth column
  * @param {string} options.toCol - To-depth column
  * @param {string} options.categoryCol - Category label column
+ * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {{data: Array, layout: Object}} Plotly configuration for strip-log rendering
  */
 export function buildCategoricalStripLogConfig(
@@ -296,7 +304,8 @@ export function buildCategoricalStripLogConfig(
   {
     fromCol = 'from',
     toCol = 'to',
-    categoryCol = 'geology_code'
+    categoryCol = 'geology_code',
+    template = undefined,
   } = {}
 ) {
   const points = [];
@@ -322,6 +331,7 @@ export function buildCategoricalStripLogConfig(
     points,
     isCategorical: true,
     property: categoryCol,
-    chartType: 'categorical'
+    chartType: 'categorical',
+    template,
   });
 }
