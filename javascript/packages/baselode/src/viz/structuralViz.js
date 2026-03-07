@@ -13,6 +13,7 @@
  */
 
 import { AZIMUTH, DEPTH, DIP, FROM, TO } from '../data/datamodel.js';
+import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
 
 const DEFAULT_PALETTE = [
   '#0f172a', '#1e3a5f', '#7c3aed', '#dc2626', '#16a34a',
@@ -75,6 +76,7 @@ function applyStriplogLayoutDefaults(layout = {}) {
  * @param {string} [opts.depthCol='depth'] - Column for measured depth
  * @param {string} [opts.dipCol='dip'] - Column for dip angle
  * @param {string} [opts.azCol='azimuth'] - Column for dip direction
+ * @param {Object} [opts.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {{ data: Array, layout: Object }} Plotly figure config
  */
 export function buildTadpoleConfig(points, {
@@ -84,6 +86,7 @@ export function buildTadpoleConfig(points, {
   depthCol = DEPTH,
   dipCol = DIP,
   azCol = AZIMUTH,
+  template = undefined,
 } = {}) {
   const valid = points.filter(p =>
     p[depthCol] != null && p[dipCol] != null && p[azCol] != null
@@ -166,6 +169,7 @@ export function buildTadpoleConfig(points, {
     },
     yaxis: { title: 'Depth (m)', autorange: 'reversed' },
     showlegend: !!showLegend,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
   return { data, layout };
@@ -180,6 +184,7 @@ export function buildTadpoleConfig(points, {
  * @param {string[]} [opts.palette] - Color palette
  * @param {string} [opts.fromCol='from'] - From depth column
  * @param {string} [opts.toCol='to'] - To depth column
+ * @param {Object} [opts.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {{ data: Array, layout: Object }} Plotly figure config
  */
 export function buildStructuralStripConfig(intervals, {
@@ -187,6 +192,7 @@ export function buildStructuralStripConfig(intervals, {
   palette = DEFAULT_PALETTE,
   fromCol = FROM,
   toCol = TO,
+  template = undefined,
 } = {}) {
   const records = intervals
     .filter(iv => iv[fromCol] != null && iv[toCol] != null && Number(iv[toCol]) > Number(iv[fromCol]))
@@ -238,6 +244,7 @@ export function buildStructuralStripConfig(intervals, {
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed' },
     showlegend: false,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
   return { data, layout: applyStriplogLayoutDefaults(layout) };
@@ -283,6 +290,7 @@ function wrapComment(text, charsPerLine) {
  * @param {string} [opts.borderColor='#cbd5e1'] - Rectangle border color
  * @param {string} [opts.textColor='#1e293b'] - Comment text color
  * @param {number} [opts.charsPerLine=18] - Characters before word-wrapping
+ * @param {Object} [opts.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {{ data: Array, layout: Object }} Plotly figure config
  */
 export function buildCommentsConfig(intervals, {
@@ -293,6 +301,7 @@ export function buildCommentsConfig(intervals, {
   borderColor = '#cbd5e1',
   textColor = '#1e293b',
   charsPerLine = 18,
+  template = undefined,
 } = {}) {
   const records = intervals
     .filter(iv => iv[fromCol] != null && iv[toCol] != null && Number(iv[toCol]) > Number(iv[fromCol]))
@@ -356,6 +365,7 @@ export function buildCommentsConfig(intervals, {
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed' },
     showlegend: false,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
   return { data, layout: applyStriplogLayoutDefaults(layout) };

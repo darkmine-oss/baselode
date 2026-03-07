@@ -46,6 +46,19 @@
       ]
     },
     {
+      "name": "plotly_template",
+      "jsExports": [
+        "BASELODE_TEMPLATE_NAME",
+        "BASELODE_TEMPLATE",
+        "BASELODE_COLORWAY"
+      ],
+      "pythonSymbols": [
+        ["baselode.template", "BASELODE_TEMPLATE_NAME"],
+        ["baselode.template", "BASELODE_TEMPLATE"],
+        ["baselode.template", "BASELODE_COLORWAY"]
+      ]
+    },
+    {
       "name": "strip_log_1d",
       "jsExports": [
         "buildIntervalPoints",
