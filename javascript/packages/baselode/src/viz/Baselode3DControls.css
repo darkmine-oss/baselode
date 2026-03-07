@@ -34,3 +34,86 @@
   padding: 8px 12px;
   border-radius: 8px;
 }
+
+.baselode-3d-controls .ghost-button.active {
+  background: #e8f0fe;
+  border-color: #4a90d9;
+  color: #1a6cb5;
+}
+
+.baselode-3d-controls-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border-left: 1px solid #e0e0e0;
+  padding-left: 10px;
+}
+
+.baselode-3d-slider {
+  width: 130px;
+  cursor: pointer;
+  accent-color: #4a90d9;
+  vertical-align: middle;
+}
+
+.baselode-3d-position-label {
+  font-size: 11px;
+  color: #666;
+  min-width: 46px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.baselode-3d-width-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #666;
+  border-left: 1px solid #e0e0e0;
+  padding-left: 8px;
+  margin-left: 2px;
+}
+
+.baselode-3d-width-input {
+  width: 52px;
+  padding: 3px 5px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 12px;
+  text-align: center;
+  background: #fff;
+  color: #333;
+}
+
+/* ---------------------------------------------------------------------------
+ * Draw-slice canvas overlay — used by any page that hosts a 3D scene
+ * ------------------------------------------------------------------------ */
+.slice-draw-overlay {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  z-index: 20;
+}
+
+.slice-draw-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.slice-draw-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  padding: 5px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  pointer-events: none;
+  white-space: nowrap;
+}

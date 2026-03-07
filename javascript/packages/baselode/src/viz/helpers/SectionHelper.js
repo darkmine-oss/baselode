@@ -66,6 +66,11 @@ class SectionHelper {
    * Activating section mode automatically deactivates any currently-active
    * SliceHelper registered on the same scene context.
    *
+   * If the scene is currently in fly mode, fly mode is automatically suspended
+   * for the duration of the section view and restored when
+   * {@link disableSectionMode} is called. Section mode requires orbit controls
+   * in order to constrain the camera to pan and zoom only.
+   *
    * @param {'x'|'y'} axis - Section orientation: `'x'` for an East–West
    *   section (camera looks in −X direction), `'y'` for a North–South section
    *   (camera looks in −Y direction).
@@ -198,6 +203,21 @@ class SectionHelper {
     const ctx = this._ctx;
     if (!ctx.container || !ctx.camera || !ctx.controls) return;
 
+    // Save all state before making any modifications.
+    const savedControlMode = ctx.controlMode ?? 'orbit';
+    this._savedCamera = ctx.camera;
+    this._savedControlsState = {
+      enableRotate: ctx.controls.enableRotate,
+      target: ctx.controls.target.clone(),
+      controlMode: savedControlMode
+    };
+
+    // Section mode requires orbit controls so that only pan and zoom remain
+    // active. If the scene is in fly mode, suspend it now and restore on exit.
+    if (savedControlMode === 'fly' && typeof ctx.setControlMode === 'function') {
+      ctx.setControlMode('orbit');
+    }
+
     const width = ctx.container.clientWidth || 800;
     const height = ctx.container.clientHeight || 600;
     const aspect = width / height;
@@ -210,12 +230,6 @@ class SectionHelper {
     const halfH = frustumHeight / 2;
     const halfW = halfH * aspect;
 
-    this._savedCamera = ctx.camera;
-    this._savedControlsState = {
-      enableRotate: ctx.controls.enableRotate,
-      target: ctx.controls.target.clone()
-    };
-
     const ortho = new THREE.OrthographicCamera(
       -halfW, halfW, halfH, -halfH,
       -100000, 100000
@@ -223,6 +237,10 @@ class SectionHelper {
     ortho.up.set(0, 0, 1);
 
     const target = ctx.controls.target.clone();
+    // For orthographic projection the camera position only determines the look
+    // direction; the actual distance from the target has no effect on the
+    // rendered image. 10 000 m is chosen to be safely within the ±100 000
+    // near/far bounds defined above.
     if (this._axis === 'x') {
       // Camera at +X relative to target, looking in −X direction.
       ortho.position.set(target.x + 10000, target.y, target.z);
@@ -274,6 +292,13 @@ class SectionHelper {
 
     if (ctx._composer?.passes?.[0]) {
       ctx._composer.passes[0].camera = this._savedCamera;
+    }
+
+    // Restore fly mode after the perspective camera is back in place, so that
+    // setControlMode can reference the correct ctx.camera.
+    const savedMode = this._savedControlsState?.controlMode ?? 'orbit';
+    if (savedMode === 'fly' && typeof ctx.setControlMode === 'function') {
+      ctx.setControlMode('fly');
     }
 
     this._savedCamera = null;
