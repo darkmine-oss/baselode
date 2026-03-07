@@ -1,0 +1,171 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  test-python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r python/requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: python -m pytest test -q
+
+  test-js:
+    name: JavaScript tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: javascript/packages/baselode
+        run: npm ci
+
+      - name: Run tests
+        working-directory: javascript/packages/baselode
+        run: npm test
+
+  tag:
+    name: Bump patch version tag
+    needs: [test-python, test-js]
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.bump.outputs.new_tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump patch version and push tag
+        id: bump
+        run: |
+          # Find the latest semver tag (vX.Y.Z) reachable from any branch.
+          latest=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
+            | sort -t. -k1.2,1n -k2,2n -k3,3n | tail -n 1)
+
+          if [ -z "$latest" ]; then
+            new_tag="v0.0.1"
+          else
+            # Strip leading 'v', split on '.', increment patch.
+            IFS='.' read -r major minor patch <<< "${latest#v}"
+            new_tag="v${major}.${minor}.$((patch + 1))"
+          fi
+
+          echo "Previous tag: ${latest:-none}"
+          echo "New tag:      ${new_tag}"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${new_tag}" -m "Release ${new_tag}"
+          git push origin "${new_tag}"
+
+          echo "new_tag=${new_tag}" >> "$GITHUB_OUTPUT"
+
+  publish-python:
+    name: Publish Python package to PyPI
+    needs: tag
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build distribution
+        working-directory: python
+        run: python -m build
+
+      - name: Check distribution
+        working-directory: python
+        run: python -m twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/
+
+  publish-npm:
+    name: Publish JavaScript package to npm
+    needs: tag
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        working-directory: javascript/packages/baselode
+        run: npm ci
+
+      - name: Warm up version stamp (first dry-run)
+        working-directory: javascript/packages/baselode
+        run: npm pack --dry-run
+        env:
+          GITHUB_REF_NAME: ${{ needs.tag.outputs.new_tag }}
+
+      - name: Verify version stamp (second dry-run)
+        working-directory: javascript/packages/baselode
+        run: npm pack --dry-run
+        env:
+          GITHUB_REF_NAME: ${{ needs.tag.outputs.new_tag }}
+
+      - name: Publish to npm
+        working-directory: javascript/packages/baselode
+        run: npm publish
+        env:
+          GITHUB_REF_NAME: ${{ needs.tag.outputs.new_tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

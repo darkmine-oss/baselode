@@ -1,0 +1,116 @@
+name: Test and Build (no publish)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test-python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r python/requirements.txt
+          pip install pytest
+
+      - name: Run tests
+        run: python -m pytest test -q
+
+  test-js:
+    name: JavaScript tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: javascript/packages/baselode
+        run: npm ci
+
+      - name: Run tests
+        working-directory: javascript/packages/baselode
+        run: npm test
+
+  build-python:
+    name: Build Python package
+    needs: test-python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build twine
+
+      - name: Build distribution
+        working-directory: python
+        run: python -m build
+
+      - name: Check distribution
+        working-directory: python
+        run: python -m twine check dist/*
+
+      - name: Upload Python artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: python/dist/
+
+  build-npm:
+    name: Build JavaScript package
+    needs: test-js
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: javascript/packages/baselode
+        run: npm ci
+
+      - name: Warm up version stamp (first dry-run)
+        working-directory: javascript/packages/baselode
+        run: npm pack --dry-run
+
+      - name: Create package tarball (second dry-run confirms version)
+        working-directory: javascript/packages/baselode
+        run: npm pack
+
+      - name: Upload npm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: javascript/packages/baselode/*.tgz
