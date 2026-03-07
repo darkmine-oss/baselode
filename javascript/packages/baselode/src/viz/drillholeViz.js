@@ -6,6 +6,7 @@
 // These helpers build Plotly-ready data/layout objects based on interval points.
 
 import { getColour, resolveColourMap, COMMODITY_COLOURS } from './colourMap.js';
+import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
 
 /** Default color for numeric line traces */
 export const NUMERIC_LINE_COLOR = '#8b1e3f';
@@ -171,9 +172,10 @@ export function buildIntervalPoints(hole, property, isCategorical) {
  * @param {Array<Object>} points - Interval points array
  * @param {string} property - Property name for title
  * @param {Object|string|null} [colourMap] - Optional semantic colour map (object or built-in name)
+ * @param {Object} [template] - Plotly template to include in layout
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildCategoricalConfig(points, property, colourMap) {
+function buildCategoricalConfig(points, property, colourMap, template) {
   if (!points.length) return { data: [], layout: {} };
   const safe = points
     .filter((point) => Number.isFinite(point?.from) && Number.isFinite(point?.to) && point.to > point.from)
@@ -240,7 +242,8 @@ function buildCategoricalConfig(points, property, colourMap) {
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     showlegend: false,
-    title: property || undefined
+    title: property || undefined,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
   return { data: traces, layout: applyStriplogLayoutDefaults(layout) };
@@ -252,9 +255,11 @@ function buildCategoricalConfig(points, property, colourMap) {
  * @param {Array<Object>} points - Interval points array
  * @param {string} property - Property name for axis label
  * @param {string} chartType - Chart type ('bar', 'markers', 'line', 'markers+line')
+ * @param {string} [color] - Override colour for line/markers (e.g. commodity colour)
+ * @param {Object} [template] - Plotly template to include in layout
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildNumericConfig(points, property, chartType, color) {
+function buildNumericConfig(points, property, chartType, color, template) {
   if (!points.length) return { data: [], layout: {} };
   const isBar = chartType === 'bar';
   const isMarkersOnly = chartType === 'markers';
@@ -301,7 +306,8 @@ function buildNumericConfig(points, property, chartType, color) {
     xaxis: { title: property, zeroline: false },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     barmode: 'overlay',
-    showlegend: false
+    showlegend: false,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
   return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
@@ -315,15 +321,16 @@ function buildNumericConfig(points, property, chartType, color) {
  * @param {string} options.property - Property name
  * @param {string} options.chartType - Chart type ('bar', 'markers', 'line', 'categorical', etc.)
  * @param {Object|string|null} [options.colourMap] - Optional semantic colour map (object or built-in name)
+ * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {{data: Array, layout: Object}} Complete Plotly configuration
  */
-export function buildPlotConfig({ points, isCategorical, property, chartType, colourMap }) {
+export function buildPlotConfig({ points, isCategorical, property, chartType, colourMap, template }) {
   if (!points || !points.length || !property) return { data: [], layout: {} };
   if (isCategorical || chartType === 'categorical') {
-    return buildCategoricalConfig(points, property, colourMap);
+    return buildCategoricalConfig(points, property, colourMap, template);
   }
   const colour = commodityColourForProperty(property);
-  return buildNumericConfig(points, property, chartType, colour);
+  return buildNumericConfig(points, property, chartType, colour, template);
 }
 
 /**
@@ -334,6 +341,7 @@ export function buildPlotConfig({ points, isCategorical, property, chartType, co
  * @param {string} options.toCol - To-depth column
  * @param {string} options.categoryCol - Category label column
  * @param {Object|string|null} [options.colourMap] - Optional semantic colour map (object or built-in name)
+ * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {{data: Array, layout: Object}} Plotly configuration for strip-log rendering
  */
 export function buildCategoricalStripLogConfig(
@@ -342,7 +350,8 @@ export function buildCategoricalStripLogConfig(
     fromCol = 'from',
     toCol = 'to',
     categoryCol = 'geology_code',
-    colourMap = null
+    colourMap = null,
+    template = undefined,
   } = {}
 ) {
   const points = [];
@@ -369,6 +378,7 @@ export function buildCategoricalStripLogConfig(
     isCategorical: true,
     property: categoryCol,
     chartType: 'categorical',
-    colourMap
+    colourMap,
+    template,
   });
 }

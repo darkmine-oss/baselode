@@ -95,6 +95,31 @@
   font-size: 13px;
 }
 
+.template-toggle {
+  margin-left: auto;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: white;
+  color: #555;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.template-toggle:hover {
+  border-color: #888;
+  color: #222;
+}
+
+.template-toggle.active {
+  background: #1b1b1f;
+  color: #ffffbb;
+  border-color: #3a3a3f;
+}
+
 .plots-grid {
   flex: 1;
   min-height: 0;

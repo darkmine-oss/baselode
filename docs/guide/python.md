@@ -229,6 +229,110 @@ The strip-log renderer automatically classifies columns as:
 - **Structural** — tadpole symbols for alpha/beta measurements
 - **Comments** — free-text annotations at depth
 
+### Plotly templates
+
+Baselode ships two named Plotly templates.
+
+| Module | Template name | Appearance |
+|---|---|---|
+| `baselode.template` | `"baselode"` | White background, Inter font, neutral grey grid |
+| `baselode.baselode_dark_template` | `"baselode-dark"` | Dark background (`#1b1b1f`), Inter font, subtle warm grid |
+
+Importing either module registers the template with Plotly's global registry:
+
+```python
+import baselode.template                  # registers "baselode"
+import baselode.baselode_dark_template    # registers "baselode-dark"
+
+fig = view.plot_striplog(assays, hole_id="MY_001", columns=["au_ppm"])
+fig.update_layout(template="baselode-dark")
+fig.show()
+```
+
+You can also pass a template directly to the view helpers to avoid globals:
+
+```python
+from baselode.baselode_dark_template import BASELODE_DARK_TEMPLATE
+
+fig = view.plot_drillhole_trace(df, "au_ppm", template=BASELODE_DARK_TEMPLATE)
+```
+
+#### Building a custom template
+
+Any `plotly.graph_objects.layout.Template` object (or plain dict with a `layout` key) can be passed as `template`.  You do not need to register it in the Plotly registry.
+
+```python
+import plotly.graph_objects as go
+
+MY_TEMPLATE = go.layout.Template(
+    layout=go.Layout(
+        paper_bgcolor="#0f1117",
+        plot_bgcolor="#0f1117",
+        font=dict(family="JetBrains Mono, monospace", color="#e2e8f0", size=13),
+        colorway=["#38bdf8", "#34d399", "#fb923c", "#f472b6", "#a78bfa"],
+        xaxis=dict(showline=False, showgrid=True, gridcolor="#1e293b",
+                   tickfont=dict(color="#94a3b8")),
+        yaxis=dict(showline=False, showgrid=True, gridcolor="#1e293b",
+                   tickfont=dict(color="#94a3b8")),
+        hoverlabel=dict(bgcolor="#1e293b", bordercolor="#38bdf8",
+                        font=dict(color="#e2e8f0", size=12)),
+    )
+)
+
+fig = view.plot_drillhole_trace(df, "au_ppm", template=MY_TEMPLATE)
+```
+
+### Colour mapping
+
+#### Automatic commodity colours
+
+Baselode automatically detects commodity elements in column names and applies a matching colour.  A column called `Au_ppm`, `au_ppb`, or `AU` will all render in gold; `Cu_pct` will render in copper-brown.
+
+No configuration is required — pass the column name to `plot_drillhole_trace` and detection is automatic.
+
+#### Built-in semantic colour maps
+
+For categorical strip logs (geology codes, lithology, alteration) two built-in maps are available:
+
+| Name | Contents |
+|---|---|
+| `'commodity'` | 18 commodity elements (Au, Ag, Cu, Fe, Ni, …) |
+| `'lithology'` | ~30 common rock types (granite, basalt, shale, …) |
+
+```python
+from baselode.colours import get_colour, LITHOLOGY_COLOURS
+
+fig = view.plot_geology_strip_log(
+    geology_df,
+    colour_map="lithology",    # use the built-in lithology map
+)
+
+# Or look up individual values
+colour = get_colour("granite", LITHOLOGY_COLOURS)   # '#EF9A9A'
+```
+
+#### Custom colour maps
+
+Supply any dict mapping category strings to CSS colour values:
+
+```python
+ALTERATION_COLOURS = {
+    "potassic":       "#e53e3e",
+    "phyllic":        "#d69e2e",
+    "propylitic":     "#38a169",
+    "argillic":       "#3182ce",
+    "silicification": "#805ad5",
+}
+
+fig = view.plot_geology_strip_log(
+    geology_df,
+    label_col="alteration_type",
+    colour_map=ALTERATION_COLOURS,
+)
+```
+
+Lookup is case-insensitive, so `"Potassic"` and `"potassic"` both match.  Categories absent from the map fall back to a built-in rotation palette.
+
 ### 3D Payload
 
 Prepare 3D geometry payloads for the JS Baselode3DScene viewer:

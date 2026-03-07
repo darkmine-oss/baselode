@@ -247,6 +247,139 @@ function MyGrid({ holes, selectedProperty }) {
 }
 ```
 
+### Plotly templates
+
+Baselode ships two built-in Plotly templates that can be applied to any strip log.
+
+| Export | Appearance |
+|---|---|
+| `BASELODE_TEMPLATE` / `BASELODE_LIGHT_TEMPLATE` | White background, Inter font, neutral grey grid |
+| `BASELODE_DARK_TEMPLATE` | Dark background (`#1b1b1f`), Inter font, subtle warm grid |
+
+Pass a template to the low-level builder or to `TracePlot`:
+
+```js
+import { buildPlotConfig, BASELODE_DARK_TEMPLATE } from 'baselode';
+
+const config = buildPlotConfig({
+  points,
+  isCategorical: false,
+  property: 'au_ppm',
+  chartType: 'markers+line',
+  template: BASELODE_DARK_TEMPLATE,   // omit to use the default light template
+});
+
+Plotly.newPlot('container', config.data, config.layout);
+```
+
+With `TracePlot`:
+
+```jsx
+import { TracePlot, BASELODE_DARK_TEMPLATE } from 'baselode';
+
+<TracePlot
+  config={config}
+  graph={graph}
+  holeOptions={holeOptions}
+  propertyOptions={propertyOptions}
+  onConfigChange={handleChange}
+  template={BASELODE_DARK_TEMPLATE}
+/>
+```
+
+#### Building a custom template
+
+A Baselode template is a plain object with a `layout` key (and optionally a `data` key for trace defaults) — the same shape as a [Plotly template object](https://plotly.com/javascript/layout-template/).  You do not need to register it anywhere; just pass it directly.
+
+```js
+const MY_TEMPLATE = {
+  layout: {
+    paper_bgcolor: '#0f1117',
+    plot_bgcolor:  '#0f1117',
+    font: { family: 'JetBrains Mono, monospace', color: '#e2e8f0', size: 13 },
+    colorway: ['#38bdf8', '#34d399', '#fb923c', '#f472b6', '#a78bfa'],
+    xaxis: {
+      showline: false,
+      showgrid: true,
+      gridcolor: '#1e293b',
+      tickfont: { color: '#94a3b8' },
+    },
+    yaxis: {
+      showline: false,
+      showgrid: true,
+      gridcolor: '#1e293b',
+      tickfont: { color: '#94a3b8' },
+    },
+    hoverlabel: {
+      bgcolor: '#1e293b',
+      bordercolor: '#38bdf8',
+      font: { color: '#e2e8f0', size: 12 },
+    },
+  },
+};
+
+const config = buildPlotConfig({ points, property, chartType, template: MY_TEMPLATE });
+```
+
+### Colour mapping
+
+#### Automatic commodity colours
+
+Baselode automatically detects commodity elements in column names and applies a matching colour.  A column called `Au_ppm`, `au_ppb`, or `AU` will all render in gold; `Cu_pct` will render in copper-brown.
+
+No configuration is required — pass the column name to `buildPlotConfig` and detection is automatic.
+
+#### Built-in semantic colour maps
+
+For categorical strip logs (geology codes, lithology, alteration) two built-in maps are available:
+
+| Name | Contents |
+|---|---|
+| `'commodity'` | 18 commodity elements (Au, Ag, Cu, Fe, Ni, …) |
+| `'lithology'` | ~30 common rock types (granite, basalt, shale, …) |
+
+```js
+import { buildCategoricalStripLogConfig } from 'baselode';
+
+const config = buildCategoricalStripLogConfig(rows, {
+  fromCol: 'from',
+  toCol:   'to',
+  categoryCol: 'geology_code',
+  colourMap: 'lithology',          // use the built-in lithology map
+});
+```
+
+You can also look up individual values:
+
+```js
+import { getColour, LITHOLOGY_COLOURS } from 'baselode';
+
+const colour = getColour('granite', LITHOLOGY_COLOURS);  // '#EF9A9A'
+```
+
+#### Custom colour maps
+
+Supply any plain object mapping category strings to CSS colour values:
+
+```js
+const ALTERATION_COLOURS = {
+  'potassic':     '#e53e3e',
+  'phyllic':      '#d69e2e',
+  'propylitic':   '#38a169',
+  'argillic':     '#3182ce',
+  'silicification': '#805ad5',
+};
+
+const config = buildCategoricalStripLogConfig(rows, {
+  fromCol:     'from',
+  toCol:       'to',
+  categoryCol: 'alteration_type',
+  colourMap:   ALTERATION_COLOURS,
+});
+```
+
+Lookup is case-insensitive, so `"Potassic"` and `"potassic"` both match.  Categories absent from the map fall back to a built-in rotation palette.
+
 ### Color scale
 
 Continuous numeric color scales for 3D viewers and maps:

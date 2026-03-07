@@ -30,9 +30,10 @@ function resolveChartType(displayType, requestedChartType) {
  * @param {Array} props.holeOptions - Available holes for dropdown
  * @param {Array} props.propertyOptions - Available properties for dropdown
  * @param {Function} props.onConfigChange - Handler for configuration changes
+ * @param {Object} [props.template] - Plotly template to apply. Defaults to the Baselode template.
  * @returns {JSX.Element}
  */
-function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onConfigChange }) {
+function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onConfigChange, template }) {
   const containerRef = useRef(null);
   const hole = graph?.hole;
   const points = graph?.points || [];
@@ -70,7 +71,8 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
           points,
           isCategorical: displayType === DISPLAY_CATEGORICAL,
           property,
-          chartType: effectiveChartType
+          chartType: effectiveChartType,
+          template,
         });
       }
     } catch (err) {
@@ -112,7 +114,7 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
         }
       }
     };
-  }, [hole, property, effectiveChartType, displayType, points]);
+  }, [hole, property, effectiveChartType, displayType, points, template]);
 
   useEffect(() => {
     const target = containerRef.current;

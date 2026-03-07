@@ -2,11 +2,12 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   TracePlot,
   useDrillholeTraceGrid,
+  BASELODE_DARK_TEMPLATE,
 } from 'baselode';
 import './Drillhole2D.css';
 import { createPortal } from 'react-dom';
@@ -15,6 +16,8 @@ import { useDemoData } from '../context/DemoDataContext.jsx';
 function Drillhole2D() {
   const location = useLocation();
   const { combinedHoles } = useDemoData();
+  const [useDarkTemplate, setUseDarkTemplate] = useState(false);
+  const activeTemplate = useDarkTemplate ? BASELODE_DARK_TEMPLATE : undefined;
 
   const {
     error,
@@ -46,6 +49,13 @@ function Drillhole2D() {
         <h2>Drillhole Strip Logs</h2>
         <div className="drillhole2d-controls">
           {error && <span className="error-text">{error}</span>}
+          <button
+            className={`template-toggle${useDarkTemplate ? ' active' : ''}`}
+            onClick={() => setUseDarkTemplate((v) => !v)}
+            title={useDarkTemplate ? 'Switch to Baselode Light theme' : 'Switch to Baselode Dark theme'}
+          >
+            {useDarkTemplate ? 'Dark' : 'Light'}
+          </button>
         </div>
       </div>
 
@@ -58,6 +68,7 @@ function Drillhole2D() {
             holeOptions={labeledHoleOptions}
             propertyOptions={traceGraphs[idx]?.propertyOptions || []}
             onConfigChange={(patch) => handleConfigChange(idx, patch)}
+            template={activeTemplate}
           />
         ))}
       </div>
