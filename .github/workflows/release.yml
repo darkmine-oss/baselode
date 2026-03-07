@@ -154,18 +154,13 @@ jobs:
       - name: Warm up version stamp (first dry-run)
         working-directory: javascript/packages/baselode
         run: npm pack --dry-run
-        env:
-          GITHUB_REF_NAME: ${{ needs.tag.outputs.new_tag }}
 
       - name: Verify version stamp (second dry-run)
         working-directory: javascript/packages/baselode
         run: npm pack --dry-run
-        env:
-          GITHUB_REF_NAME: ${{ needs.tag.outputs.new_tag }}
 
       - name: Publish to npm
         working-directory: javascript/packages/baselode
         run: npm publish
         env:
-          GITHUB_REF_NAME: ${{ needs.tag.outputs.new_tag }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
