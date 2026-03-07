@@ -101,16 +101,12 @@ jobs:
         working-directory: javascript/packages/baselode
         run: npm ci
 
-      - name: Warm up version stamp (first dry-run)
+      - name: Build package
         working-directory: javascript/packages/baselode
-        run: npm pack --dry-run
-
-      - name: Create package tarball (second dry-run confirms version)
-        working-directory: javascript/packages/baselode
-        run: npm pack
+        run: npm run build
 
       - name: Upload npm artifact
         uses: actions/upload-artifact@v4
         with:
           name: npm-package
-          path: javascript/packages/baselode/*.tgz
+          path: javascript/packages/baselode/dist/
