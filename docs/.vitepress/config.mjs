@@ -20,7 +20,8 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Python', link: '/guide/python' },
-          { text: 'JavaScript', link: '/guide/javascript' }
+          { text: 'JavaScript', link: '/guide/javascript' },
+          { text: 'Core Photo Viewer', link: '/guide/core-photo-viewer' }
         ]
       },
       { text: 'Demos', link: '/demos' },
@@ -74,6 +75,22 @@ export default defineConfig({
             { text: 'Plotly Templates', link: '/guide/javascript#plotly-templates' },
             { text: 'Colour Mapping', link: '/guide/javascript#colour-mapping' },
             { text: '3D Scene', link: '/guide/javascript#3d-scene' }
+          ]
+        },
+        {
+          text: 'Core Photo Viewer',
+          collapsed: false,
+          items: [
+            { text: 'Overview', link: '/guide/core-photo-viewer' },
+            { text: 'What you must provide', link: '/guide/core-photo-viewer#what-you-must-provide' },
+            { text: 'Tray depths', link: '/guide/core-photo-viewer#1-tray-depth-intervals-trays' },
+            { text: 'Image directories', link: '/guide/core-photo-viewer#2-image-directories-thumbbaseurl-fullbaseurl' },
+            { text: 'Filename conventions', link: '/guide/core-photo-viewer#filename-conventions' },
+            { text: 'Multiple photo sets', link: '/guide/core-photo-viewer#multiple-photo-sets-side-by-side-columns' },
+            { text: 'Local development', link: '/guide/core-photo-viewer#local-development' },
+            { text: 'Production hosting', link: '/guide/core-photo-viewer#production-hosting' },
+            { text: 'API reference', link: '/guide/core-photo-viewer#full-api-reference' },
+            { text: 'CorePhotoTable (low-level)', link: '/guide/core-photo-viewer#corephotatable-low-level-api' }
           ]
         }
       ],

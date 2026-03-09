@@ -1107,3 +1107,163 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
         showlegend=False,
     )
     return fig
+
+
+def plot_core_photo_log(df,
+    from_col="from_depth",
+    to_col="to_depth",
+    image_url_col="image_url",
+    photo_set_col="photo_set",
+    photo_sets=None,
+    depth_range=None,
+    image_width=0.8,
+    template=None):
+    """Render depth-registered core box photographs as a Plotly figure.
+
+    Images are placed as Plotly layout images anchored to the y (depth) axis so
+    they align precisely with the depth interval they represent.  Multiple photo
+    sets can be plotted side-by-side in separate subplot columns.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Core photo table.  Must contain columns for ``from_col``, ``to_col``,
+        and ``image_url_col``.  An optional ``photo_set_col`` column allows
+        photos to be grouped into named sets.
+    from_col : str
+        Column holding the top depth (metres) of each core box. Default ``"from_depth"``.
+    to_col : str
+        Column holding the bottom depth (metres) of each core box. Default ``"to_depth"``.
+    image_url_col : str
+        Column holding the image URL or data-URI. Default ``"image_url"``.
+    photo_set_col : str
+        Column holding the photo set label (e.g. ``"Wet"`` / ``"Dry"``).
+        Rows without this column or with null values are treated as a single
+        ``"default"`` set. Default ``"photo_set"``.
+    photo_sets : list of str, optional
+        Ordered list of photo sets to display.  If *None*, all unique sets found
+        in ``df`` are used in the order they first appear.
+    depth_range : tuple of (float, float), optional
+        ``(min_depth, max_depth)`` in metres.  Defaults to the full extent of
+        the data.
+    image_width : float
+        Fractional width of each image relative to its subplot column (0–1).
+        Default 0.8.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        A figure with one subplot column per photo set, each containing the
+        depth-registered core box images on the y-axis.
+    """
+    required = [from_col, to_col, image_url_col]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise ValueError(f"plot_core_photo_log: missing columns {missing}")
+
+    # Normalise the photo_set column.
+    if photo_set_col in df.columns:
+        df = df.copy()
+        df[photo_set_col] = df[photo_set_col].fillna("default").astype(str).str.strip()
+        df.loc[df[photo_set_col] == "", photo_set_col] = "default"
+    else:
+        df = df.copy()
+        df[photo_set_col] = "default"
+
+    # Determine which sets to render and their order.
+    if photo_sets is None:
+        photo_sets = list(dict.fromkeys(df[photo_set_col].tolist()))
+
+    if not photo_sets:
+        return go.Figure()
+
+    # Determine depth extent.
+    all_from = pd.to_numeric(df[from_col], errors="coerce").dropna()
+    all_to   = pd.to_numeric(df[to_col],   errors="coerce").dropna()
+    if all_from.empty:
+        return go.Figure()
+
+    min_depth = float(all_from.min()) if depth_range is None else float(depth_range[0])
+    max_depth = float(all_to.max())   if depth_range is None else float(depth_range[1])
+
+    # Filter rows to the depth range so images outside the visible window are
+    # not added as layout images.
+    df = df.copy()
+    df[from_col] = pd.to_numeric(df[from_col], errors="coerce")
+    df[to_col]   = pd.to_numeric(df[to_col],   errors="coerce")
+    df = df[(df[from_col] < max_depth) & (df[to_col] > min_depth)]
+
+    n_sets = len(photo_sets)
+    fig = make_subplots(
+        rows=1,
+        cols=n_sets,
+        shared_yaxes=True,
+        horizontal_spacing=0.02,
+        subplot_titles=photo_sets,
+    )
+
+    for col_idx, set_name in enumerate(photo_sets, start=1):
+        subset = df[df[photo_set_col] == set_name].copy()
+        subset[from_col] = pd.to_numeric(subset[from_col], errors="coerce")
+        subset[to_col]   = pd.to_numeric(subset[to_col],   errors="coerce")
+        subset = subset.dropna(subset=[from_col, to_col]).sort_values(from_col)
+
+        # Invisible scatter trace to anchor the y-axis.
+        fig.add_trace(
+            go.Scatter(
+                x=[0.5] * 2,
+                y=[min_depth, max_depth],
+                mode="markers",
+                marker=dict(opacity=0),
+                showlegend=False,
+                hoverinfo="skip",
+            ),
+            row=1,
+            col=col_idx,
+        )
+
+        # Determine which x-axis / y-axis pair this subplot uses.
+        axis_suffix = "" if col_idx == 1 else str(col_idx)
+
+        for _, row in subset.iterrows():
+            from_d = float(row[from_col])
+            to_d   = float(row[to_col])
+            url    = str(row[image_url_col])
+            if not url:
+                continue
+
+            fig.add_layout_image(
+                dict(
+                    source=url,
+                    xref=f"x{axis_suffix}",
+                    yref=f"y{axis_suffix}",
+                    x=0.5 - image_width / 2,
+                    y=from_d,
+                    sizex=image_width,
+                    sizey=to_d - from_d,
+                    xanchor="left",
+                    yanchor="top",
+                    sizing="stretch",
+                    layer="below",
+                )
+            )
+
+    # Shared y-axis configuration: depth increases downward.
+    fig.update_yaxes(
+        autorange="reversed",
+        range=[max_depth, min_depth],
+        title_text="Depth (m)",
+        row=1,
+        col=1,
+    )
+    for col_idx in range(2, n_sets + 1):
+        fig.update_yaxes(autorange="reversed", range=[max_depth, min_depth], row=1, col=col_idx)
+
+    fig.update_xaxes(range=[0, 1], visible=False, fixedrange=True)
+    fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
+        margin=dict(l=40, r=10, t=30, b=40),
+    )
+    return fig

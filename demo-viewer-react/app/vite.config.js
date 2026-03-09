@@ -55,6 +55,11 @@ export default defineConfig({
       // so the dev server hot-reloads when library source files change.
       ignored: (p) => p.includes('node_modules') && !p.startsWith(baselodeSrc),
     },
+    fs: {
+      // Allow serving static assets that are symlinked to external volumes
+      // (e.g. NVCL core photo images on /Volumes/TheVault).
+      allow: ['..', '/Volumes'],
+    },
   },
   plugins: [
     react(),
