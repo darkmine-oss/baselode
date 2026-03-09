@@ -24,6 +24,7 @@ function Sidebar() {
       <div className="sidebar-header">
         <h2>Baselode</h2>
         <h2>Demo Viewer</h2>
+        <span className="sidebar-version">v{__APP_VERSION__}</span>
       </div>
       <ul className="sidebar-menu">
         {menuItems.map((item) => (

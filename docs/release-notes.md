@@ -2,6 +2,16 @@
 
 ---
 
+## v0.1.12
+**Demo viewer Vercel deployment**
+
+- Demo viewer now deploys to Vercel via GitHub Apps; `vercel.json` configures the build command, output directory, and SPA rewrites
+- Build script (`scripts/vercel-build.sh`) builds the baselode library from source before building the demo app, resolving the local `file:` dependency
+- GSWA sample data copied from `test/data/gswa/` at build time so it is served by the deployed app without committing large CSV files to the demo app directory
+- Added Data Attribution page listing the GSWA Geochemistry dataset source, CC BY 4.0 licence, and required credit lines
+
+---
+
 ## v0.1.11
 **Plotly template system**
 

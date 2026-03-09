@@ -15,8 +15,12 @@ console.log('[serve-test-data] testDataDir:', testDataDir);
 console.log('[serve-test-data] exists:', fs.existsSync(testDataDir));
 
 const baselodeSrc = path.resolve(__dirname, '../../javascript/packages/baselode/src');
+const baselodePkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../javascript/packages/baselode/package.json'), 'utf-8'));
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(baselodePkg.version),
+  },
   resolve: {
     // Alias baselode to its source so the demo app works without a prior
     // library build (dist/ is gitignored).  The CSS sub-path needs its own

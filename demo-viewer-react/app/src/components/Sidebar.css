@@ -25,6 +25,13 @@
   margin-bottom: 20px;
 }
 
+.sidebar-version {
+  display: block;
+  font-size: 11px;
+  color: #999;
+  margin-top: 4px;
+}
+
 .sidebar-header h2 {
   font-family: 'Lexend', sans-serif;
   font-size: 18px;
