@@ -244,7 +244,7 @@ Importing either module registers the template with Plotly's global registry:
 import baselode.template                  # registers "baselode"
 import baselode.baselode_dark_template    # registers "baselode-dark"
 
-fig = view.plot_striplog(assays, hole_id="MY_001", columns=["au_ppm"])
+fig = view.plot_strip_log(assays, hole_id="MY_001", columns=["au_ppm"])
 fig.update_layout(template="baselode-dark")
 fig.show()
 ```
