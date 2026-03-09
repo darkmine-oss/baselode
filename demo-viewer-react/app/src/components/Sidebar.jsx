@@ -45,6 +45,10 @@ function Sidebar() {
         )}
       </div>
       <div className="sidebar-source-link">
+        <Link to="/attribution" className={location.pathname === '/attribution' ? 'active' : ''}>
+          Data Attribution
+        </Link>
+        <br />
         <a href="https://github.com/darkmine-oss/baselode" target="_blank" rel="noopener noreferrer">
           Source Code
         </a>

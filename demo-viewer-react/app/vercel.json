@@ -1,4 +1,6 @@
 {
+  "buildCommand": "sh scripts/vercel-build.sh",
+  "outputDirectory": "dist",
   "rewrites": [
     { "source": "/((?!data/).*)", "destination": "/index.html" }
   ]
