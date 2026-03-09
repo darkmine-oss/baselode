@@ -6,7 +6,7 @@
 /**
  * Baselode Dark Plotly template.
  *
- * Applies the Baselode Dark visual identity: dark warm backgrounds, Lexend
+ * Applies the Baselode Dark visual identity: dark warm backgrounds, Inter
  * typography, subtle warm grid lines, and light ink primary colours accented
  * with the signature highlight yellow.
  *
