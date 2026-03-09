@@ -20,9 +20,9 @@
 """Baselode Dark Plotly template.
 
 Defines and registers a named Plotly template called ``baselode-dark`` that
-applies the Baselode Dark visual identity: dark warm backgrounds, Lexend
-typography, subtle warm grid lines, and light ink primary colours accented
-with the signature highlight yellow.
+applies the Baselode Dark visual identity: dark warm backgrounds, Inter-based
+sans-serif typography, subtle warm grid lines, and light ink primary colours
+accented with the signature highlight yellow.
 
 Importing this module registers the template with Plotly's template
 registry so it can be referenced by name::
