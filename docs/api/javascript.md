@@ -407,7 +407,7 @@ Build disc descriptor objects for the 3D scene.
 import { Baselode3DScene } from 'baselode';
 ```
 
-Thin Three.js orchestrator.  Rendering is delegated to internal domain modules (`drillholeScene`, `blockModelScene`, `structuralScene`, `sceneClickHandler`, `selectionGlow`).
+Thin Three.js orchestrator.  Rendering is delegated to internal domain modules (`drillholeScene`, `stripLogScene`, `blockModelScene`, `structuralScene`, `sceneClickHandler`, `selectionGlow`).
 
 **Lifecycle**
 
@@ -426,6 +426,26 @@ Thin Three.js orchestrator.  Rendering is delegated to internal domain modules (
 | `setDrillholeClickHandler(fn)` | Register `({ holeId, project })` or `{ type:'structure', ... }` click callback |
 
 `options`: `{ preserveView, assayIntervalsByHole, selectedAssayVariable }`
+
+**Strip logs (floating 2D panels)**
+
+| Method | Description |
+|---|---|
+| `setStripLogs(holes, stripLogs)` | Add floating 2D line-graph panels beside drillholes |
+| `clearStripLogs()` | Remove all strip log panels and free GPU resources |
+
+`stripLogs` is an array of objects, each containing:
+
+| Property | Type | Description |
+|---|---|---|
+| `holeId` | `string` | Must match a `hole.id` from the `holes` array |
+| `depths` | `number[]` | Downhole depth positions for each sample |
+| `values` | `number[]` | Numeric value at each depth |
+| `options.panelWidth` | `number` | Scene-unit width of the panel (default `20`) |
+| `options.lateralOffset` | `number` | Scene-unit lateral offset from the hole collar (default `15`) |
+| `options.color` | `string` | CSS/hex line colour (default `'#00bcd4'`) |
+| `options.valueMin` | `number` | Explicit minimum value for horizontal scale (auto if omitted) |
+| `options.valueMax` | `number` | Explicit maximum value for horizontal scale (auto if omitted) |
 
 **Block model**
 

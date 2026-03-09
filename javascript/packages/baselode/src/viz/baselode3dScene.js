@@ -27,6 +27,7 @@ import {
   disposeSelectionGlow
 } from './selectionGlow.js';
 import { setDrillholes as _setDrillholes, clearDrillholes as _clearDrillholes } from './drillholeScene.js';
+import { setStripLogs as _setStripLogs, clearStripLogs as _clearStripLogs } from './stripLogScene.js';
 import { setBlocks as _setBlocks, clearBlocks as _clearBlocks, setBlockOpacity as _setBlockOpacity } from './blockModelScene.js';
 import {
   setStructuralDiscs as _setStructuralDiscs,
@@ -68,6 +69,7 @@ class Baselode3DScene {
     this.drillMeshes = [];
     this.structuralGroup = null;
     this.structuralMeshes = [];
+    this.stripLogGroups = [];
     this.frameId = null;
     this.clock = new THREE.Clock();
     this.handleCanvasClick = null;
@@ -211,6 +213,7 @@ class Baselode3DScene {
     this.viewChangeHandler = null;
     _clearBlocks(this);
     _clearDrillholes(this);
+    _clearStripLogs(this);
     _clearStructuralDiscs(this);
     _clearRasterOverlays(this);
     disposeSelectionGlow(this);
@@ -229,6 +232,25 @@ class Baselode3DScene {
   // ---------------------------------------------------------------------------
 
   setDrillholes(holes, options = {}) { _setDrillholes(this, holes, options); }
+
+  /**
+   * Add floating 2D strip log panels beside drillholes in the 3D scene.
+   * Each panel is a flat rectangle offset from the hole collar, depth-registered
+   * to the hole's vertical extent and containing a line graph of numeric data.
+   *
+   * @param {Array<object>} holes - Hole objects (same array as passed to setDrillholes)
+   * @param {Array<object>} stripLogs - Strip log definitions.  Each must contain:
+   *   - `holeId`  {string}    — must match a hole id
+   *   - `depths`  {number[]}  — downhole depth positions for each sample
+   *   - `values`  {number[]}  — numeric value at each depth
+   *   - `options` {object}    — optional: panelWidth, lateralOffset, color, valueMin, valueMax
+   */
+  setStripLogs(holes, stripLogs) { _setStripLogs(this, holes, stripLogs); }
+
+  /**
+   * Remove all strip log panels from the scene and free GPU resources.
+   */
+  clearStripLogs() { _clearStripLogs(this); }
 
   /**
    * Render block model data as a single merged mesh of exterior faces only.

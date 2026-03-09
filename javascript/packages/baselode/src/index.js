@@ -252,6 +252,18 @@ export {
   getCategoryHexColor,
 } from './viz/drillholeScene.js';
 
+export {
+  STRIP_LOG_DEFAULT_PANEL_WIDTH,
+  STRIP_LOG_DEFAULT_LATERAL_OFFSET,
+  STRIP_LOG_DEFAULT_COLOR,
+  normalizeStripLogOptions,
+  getHoleVerticalExtent,
+  buildStripLogLinePoints,
+  buildStripLogGroup,
+  setStripLogs,
+  clearStripLogs,
+} from './viz/stripLogScene.js';
+
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';
 export { default as BlockModelWidget } from './viz/BlockModelWidget.jsx';
