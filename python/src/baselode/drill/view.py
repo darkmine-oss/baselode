@@ -32,6 +32,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from baselode.datamodel import MID, AZIMUTH, DIP, HOLE_ID, DEPTH, COMMENTS, NORTHING, EASTING
+from baselode.colours import get_colour, resolve_colour_map, commodity_colour_for_property
 
 
 STRIPLOG_COMPACT_MARGIN = dict(l=4, r=4, t=4, b=4)
@@ -202,8 +203,26 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     return _apply_striplog_defaults(fig)
 
 
-def plot_categorical_trace(interval_df, value_col, palette=None):
+def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None):
     """Plot categorical assay intervals as colored bands with labels.
+
+    Parameters
+    ----------
+    interval_df : pd.DataFrame
+        Interval data (output of :func:`compute_interval_points`).
+    value_col : str
+        Name of the value column (used in hover text).
+    palette : list of str, optional
+        Fallback colour palette (cycled by category index) used when a value
+        is absent from *colour_map*.
+    colour_map : dict or str or None, optional
+        Semantic colour map. May be:
+
+        * ``None`` – use *palette* only.
+        * A ``dict`` mapping category strings to CSS colour strings.
+        * A built-in map name (``"commodity"`` or ``"lithology"``).
+
+        Values not found in the map fall back to *palette* cycling.
 
     Returns a plotly.graph_objects.Figure.
     """
@@ -223,6 +242,8 @@ def plot_categorical_trace(interval_df, value_col, palette=None):
         "#7f7f7f",  # grey
     ]
 
+    resolved_cmap = resolve_colour_map(colour_map)
+
     safe = interval_df.dropna(subset=["from_val", "to_val", "val"]).copy()
     if safe.empty:
         return go.Figure()
@@ -233,7 +254,15 @@ def plot_categorical_trace(interval_df, value_col, palette=None):
 
     categories = [str(v) for v in safe["val"].tolist()]
     unique_categories = list(dict.fromkeys(categories))
-    color_map = {cat: palette[idx % len(palette)] for idx, cat in enumerate(unique_categories)}
+
+    def _pick_color(cat, idx):
+        if resolved_cmap:
+            c = get_colour(cat, resolved_cmap, fallback=None)
+            if c is not None:
+                return c
+        return palette[idx % len(palette)]
+
+    color_map = {cat: _pick_color(cat, idx) for idx, cat in enumerate(unique_categories)}
 
     # One bar trace per unique category; barmode='overlay' lets non-overlapping
     # depth intervals from different traces coexist at the same x position.
@@ -273,9 +302,10 @@ def plot_drillhole_trace(df,
     chart_type=None,
     categorical_props=None,
     numeric_chart="markers+line",
-    color="#8b1e3f",
+    color=None,
     use_mid=False,
-    intervals=True):
+    intervals=True,
+    colour_map=None):
     """
     Plot a 2D downhole trace or strip log for a single drillhole, for a single variable.
 
@@ -285,6 +315,9 @@ def plot_drillhole_trace(df,
     intervals : bool, optional
         When True (default) draw error-bar style markers showing the depth extent of each
         sample interval (from/to range). Set to False for point markers only.
+    colour_map : dict or str or None, optional
+        Semantic colour map for categorical traces. Passed through to
+        :func:`plot_categorical_trace`. Has no effect on numeric traces.
     """
     categorical_props = set(categorical_props or [])
     is_cat = value_col in categorical_props
@@ -306,25 +339,39 @@ def plot_drillhole_trace(df,
     else:
         interval_df = compute_interval_points(df, value_col)
     if is_cat or resolved_chart == "categorical":
-        return plot_categorical_trace(interval_df, value_col)
-    return plot_numeric_trace(interval_df, value_col, chart_type=resolved_chart, color=color, intervals=intervals)
+        return plot_categorical_trace(interval_df, value_col, colour_map=colour_map)
+    resolved_color = color or commodity_colour_for_property(value_col) or "#8b1e3f"
+    return plot_numeric_trace(interval_df, value_col, chart_type=resolved_chart, color=resolved_color, intervals=intervals)
 
 
 def combine_trace_configs(configs, df, categorical_props=None):
     """Build figures for multiple trace configs.
 
-    configs: iterable of dicts with keys hole_id, value_col, chart_type (optional).
-    Returns list of plotly Figure objects (len = len(configs)).
+    Parameters
+    ----------
+    configs : iterable of dict
+        Each dict may contain ``hole_id`` / ``holeId``, ``value_col`` /
+        ``property``, and optionally ``chart_type`` / ``chartType``.
+        When ``hole_id`` is present ``df`` is pre-filtered to that hole before
+        being passed to :func:`plot_drillhole_trace`.
+    df : pandas.DataFrame
+        Full (or pre-filtered) dataset.
+    categorical_props : list of str, optional
+
+    Returns
+    -------
+    list of plotly.graph_objects.Figure
+        One figure per config entry.
     """
     figs = []
     for cfg in configs:
         hole_id = cfg.get(HOLE_ID) or cfg.get("holeId")
         value_col = cfg.get("value_col") or cfg.get("property")
         chart_type = cfg.get("chart_type") or cfg.get("chartType")
+        subset = df[df[HOLE_ID] == hole_id] if hole_id else df
         figs.append(
             plot_drillhole_trace(
-                df=df,
-                hole_id=hole_id,
+                df=subset,
                 value_col=value_col,
                 chart_type=chart_type,
                 categorical_props=categorical_props,
@@ -551,8 +598,26 @@ def plot_strip_log(df,
     from_col="from",
     to_col="to",
     label_col="lithology",
-    palette=None):
-    """Render a simple strip log (categorical intervals) as colored bands."""
+    palette=None,
+    colour_map=None):
+    """Render a simple strip log (categorical intervals) as colored bands.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Interval data with *from_col*, *to_col*, and *label_col*.
+    from_col, to_col : str
+        Depth interval columns.
+    label_col : str
+        Column containing category labels.
+    palette : list of str, optional
+        Fallback colour palette cycled by category order when a value is
+        absent from *colour_map*.
+    colour_map : dict or str or None, optional
+        Semantic colour map. May be ``None``, a ``dict``, or a built-in
+        map name (``"commodity"`` or ``"lithology"``). Values not found
+        in the map fall back to *palette* cycling.
+    """
     if df.empty:
         return go.Figure()
     palette = palette or [
@@ -565,6 +630,7 @@ def plot_strip_log(df,
         "#7f7f7f",
         "#bcbd22",
     ]
+    resolved_cmap = resolve_colour_map(colour_map)
     records = []
     for _, row in df.iterrows():
         try:
@@ -584,7 +650,15 @@ def plot_strip_log(df,
 
     # Build a stable colour map so every occurrence of the same label gets the same colour
     unique_labels = sorted({label for _, _, label in records})
-    color_map = {label: palette[i % len(palette)] for i, label in enumerate(unique_labels)}
+
+    def _pick_color(lbl, idx):
+        if resolved_cmap:
+            c = get_colour(lbl, resolved_cmap, fallback=None)
+            if c is not None:
+                return c
+        return palette[idx % len(palette)]
+
+    color_map = {lbl: _pick_color(lbl, i) for i, lbl in enumerate(unique_labels)}
 
     # One bar trace per unique label; barmode='overlay' lets non-overlapping
     # depth intervals coexist at the same x position.
@@ -629,8 +703,17 @@ def plot_geology_strip_log(df,
     to_col="to",
     category_col="geology_code",
     fallback_category_col="comments",
-    palette=None):
-    """Render a geology categorical strip log using standardized geology fields."""
+    palette=None,
+    colour_map=None):
+    """Render a geology categorical strip log using standardized geology fields.
+
+    Parameters
+    ----------
+    colour_map : dict or str or None, optional
+        Semantic colour map passed through to :func:`plot_strip_log`.
+        Accepts ``"lithology"`` to use the built-in lithology palette or a
+        custom ``dict``.
+    """
     if category_col not in df.columns and fallback_category_col not in df.columns:
         return go.Figure()
 
@@ -641,6 +724,7 @@ def plot_geology_strip_log(df,
         to_col=to_col,
         label_col=resolved_col,
         palette=palette,
+        colour_map=colour_map,
     )
 
 

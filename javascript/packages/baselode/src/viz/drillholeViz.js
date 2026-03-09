@@ -5,11 +5,36 @@
 // Shared drillhole 2D visualization helpers for reuse beyond the UI layer.
 // These helpers build Plotly-ready data/layout objects based on interval points.
 
+import { getColour, resolveColourMap, COMMODITY_COLOURS } from './colourMap.js';
+
 /** Default color for numeric line traces */
 export const NUMERIC_LINE_COLOR = '#8b1e3f';
 
 /** Default color for numeric markers */
 export const NUMERIC_MARKER_COLOR = '#a8324f';
+
+/**
+ * Auto-detect a commodity colour for a column name such as "Au_ppm" or "Cu_eq".
+ * Splits on `_`, `-`, `/`, or whitespace and checks each token against
+ * COMMODITY_COLOURS (exact match first, then case-insensitive).
+ * Returns null when no commodity element is recognised.
+ * @param {string} property
+ * @returns {string|null}
+ */
+function commodityColourForProperty(property) {
+  if (!property) return null;
+  const tokens = property.split(/[_\-/\s]+/);
+  for (const token of tokens) {
+    if (Object.prototype.hasOwnProperty.call(COMMODITY_COLOURS, token)) {
+      return COMMODITY_COLOURS[token];
+    }
+    const low = token.toLowerCase();
+    for (const [key, colour] of Object.entries(COMMODITY_COLOURS)) {
+      if (key.toLowerCase() === low) return colour;
+    }
+  }
+  return null;
+}
 
 /** Color for error bars */
 export const ERROR_COLOR = '#6b7280';
@@ -145,9 +170,10 @@ export function buildIntervalPoints(hole, property, isCategorical) {
  * @private
  * @param {Array<Object>} points - Interval points array
  * @param {string} property - Property name for title
+ * @param {Object|string|null} [colourMap] - Optional semantic colour map (object or built-in name)
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildCategoricalConfig(points, property) {
+function buildCategoricalConfig(points, property, colourMap) {
   if (!points.length) return { data: [], layout: {} };
   const safe = points
     .filter((point) => Number.isFinite(point?.from) && Number.isFinite(point?.to) && point.to > point.from)
@@ -157,7 +183,9 @@ function buildCategoricalConfig(points, property) {
 
   if (!safe.length) return { data: [], layout: {} };
 
-  const palette = [
+  const resolvedCmap = resolveColourMap(colourMap);
+
+  const fallbackPalette = [
     '#1f77b4', // blue
     '#ff7f0e', // orange
     '#2ca02c', // green
@@ -174,7 +202,18 @@ function buildCategoricalConfig(points, property) {
     '#636363', // dark gray
   ];
   const uniqueCategories = [...new Set(safe.map((point) => point.category))];
-  const colorByCategory = new Map(uniqueCategories.map((category, idx) => [category, palette[idx % palette.length]]));
+
+  function pickColour(cat, idx) {
+    if (resolvedCmap && Object.keys(resolvedCmap).length > 0) {
+      const c = getColour(cat, resolvedCmap, null);
+      if (c !== null) return c;
+    }
+    return fallbackPalette[idx % fallbackPalette.length];
+  }
+
+  const colorByCategory = new Map(
+    uniqueCategories.map((category, idx) => [category, pickColour(category, idx)])
+  );
 
   // One bar trace per unique category. Each bar starts at `base` (from depth)
   // and has height (to - from). barmode:'overlay' lets non-overlapping intervals
@@ -215,11 +254,14 @@ function buildCategoricalConfig(points, property) {
  * @param {string} chartType - Chart type ('bar', 'markers', 'line', 'markers+line')
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildNumericConfig(points, property, chartType) {
+function buildNumericConfig(points, property, chartType, color) {
   if (!points.length) return { data: [], layout: {} };
   const isBar = chartType === 'bar';
   const isMarkersOnly = chartType === 'markers';
   const isLineOnly = chartType === 'line';
+
+  const lineColor = color || NUMERIC_LINE_COLOR;
+  const markerColor = color || NUMERIC_MARKER_COLOR;
 
   const baseTrace = {
     x: points.map((p) => p.val),
@@ -243,15 +285,15 @@ function buildNumericConfig(points, property, chartType) {
         ...baseTrace,
         type: 'bar',
         orientation: 'h',
-        marker: { color: NUMERIC_LINE_COLOR },
+        marker: { color: lineColor },
         error_y: errorConfig
       }
     : {
         ...baseTrace,
         type: 'scatter',
         mode: isMarkersOnly ? 'markers' : isLineOnly ? 'lines' : 'lines+markers',
-        line: { color: NUMERIC_LINE_COLOR, width: 2 },
-        marker: { size: 7, color: NUMERIC_MARKER_COLOR },
+        line: { color: lineColor, width: 2 },
+        marker: { size: 7, color: markerColor },
         error_y: isLineOnly ? undefined : errorConfig
       };
 
@@ -272,14 +314,16 @@ function buildNumericConfig(points, property, chartType) {
  * @param {boolean} options.isCategorical - Whether property is categorical
  * @param {string} options.property - Property name
  * @param {string} options.chartType - Chart type ('bar', 'markers', 'line', 'categorical', etc.)
+ * @param {Object|string|null} [options.colourMap] - Optional semantic colour map (object or built-in name)
  * @returns {{data: Array, layout: Object}} Complete Plotly configuration
  */
-export function buildPlotConfig({ points, isCategorical, property, chartType }) {
+export function buildPlotConfig({ points, isCategorical, property, chartType, colourMap }) {
   if (!points || !points.length || !property) return { data: [], layout: {} };
   if (isCategorical || chartType === 'categorical') {
-    return buildCategoricalConfig(points, property);
+    return buildCategoricalConfig(points, property, colourMap);
   }
-  return buildNumericConfig(points, property, chartType);
+  const colour = commodityColourForProperty(property);
+  return buildNumericConfig(points, property, chartType, colour);
 }
 
 /**
@@ -289,6 +333,7 @@ export function buildPlotConfig({ points, isCategorical, property, chartType }) 
  * @param {string} options.fromCol - From-depth column
  * @param {string} options.toCol - To-depth column
  * @param {string} options.categoryCol - Category label column
+ * @param {Object|string|null} [options.colourMap] - Optional semantic colour map (object or built-in name)
  * @returns {{data: Array, layout: Object}} Plotly configuration for strip-log rendering
  */
 export function buildCategoricalStripLogConfig(
@@ -296,7 +341,8 @@ export function buildCategoricalStripLogConfig(
   {
     fromCol = 'from',
     toCol = 'to',
-    categoryCol = 'geology_code'
+    categoryCol = 'geology_code',
+    colourMap = null
   } = {}
 ) {
   const points = [];
@@ -322,6 +368,7 @@ export function buildCategoricalStripLogConfig(
     points,
     isCategorical: true,
     property: categoryCol,
-    chartType: 'categorical'
+    chartType: 'categorical',
+    colourMap
   });
 }

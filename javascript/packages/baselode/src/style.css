@@ -1,0 +1,10 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Source entry for library CSS — used when consuming the library via source
+ * alias (e.g. in the demo-viewer dev setup).  The built dist collapses these
+ * into a single dist/style.css via vite build.
+ */
+@import './viz/Baselode3DControls.css';
+@import './viz/BlockModelWidget.css';
