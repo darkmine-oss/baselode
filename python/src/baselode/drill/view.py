@@ -33,6 +33,7 @@ from plotly.subplots import make_subplots
 
 from baselode.datamodel import MID, AZIMUTH, DIP, HOLE_ID, DEPTH, COMMENTS, NORTHING, EASTING
 from baselode.colours import get_colour, resolve_colour_map, commodity_colour_for_property
+from baselode.template import BASELODE_TEMPLATE_NAME
 
 
 STRIPLOG_COMPACT_MARGIN = dict(l=4, r=4, t=4, b=4)
@@ -47,27 +48,26 @@ def _first_present(row, candidates):
     return None
 
 
-def _apply_striplog_defaults(fig):
+def _apply_striplog_defaults(fig, template=None):
+    """Apply compact strip-log layout defaults and the Baselode template.
+
+    The ``template`` argument defaults to the Baselode template. Pass a
+    different Plotly template name or object to override the visual style.
+    """
     fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
         margin=STRIPLOG_COMPACT_MARGIN,
         autosize=True,
         height=None,
         width=None,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        modebar_remove=["select2d", "lasso2d", "autoScale2d"],
     )
     fig.update_xaxes(
         tickfont=dict(size=STRIPLOG_AXIS_TICK_FONT_SIZE),
         title_font=dict(size=STRIPLOG_AXIS_TITLE_FONT_SIZE),
-        gridcolor="#e8e8e8",
-        linecolor="#d0d0d0",
     )
     fig.update_yaxes(
         tickfont=dict(size=STRIPLOG_AXIS_TICK_FONT_SIZE),
         title_font=dict(size=STRIPLOG_AXIS_TITLE_FONT_SIZE),
-        gridcolor="#e8e8e8",
-        linecolor="#d0d0d0",
     )
     return fig
 
@@ -136,7 +136,7 @@ def compute_interval_points(df,
     return out.sort_values("z", ascending=False).reset_index(drop=True)
 
 
-def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color="#8b1e3f", intervals=True):
+def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color="#8b1e3f", intervals=True, template=None):
     """Plot numeric assay intervals with mid-depth markers and optional interval extent markers.
 
     chart_type options:
@@ -149,6 +149,9 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
         When True (default) draw error-bar style markers that show the depth extent
         of each sample interval (from/to range). Set to False to show point markers
         only, without interval extent indicators.
+
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
 
     Returns a plotly.graph_objects.Figure.
     """
@@ -200,10 +203,10 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     )
 
     fig = go.Figure(data=[trace], layout=layout)
-    return _apply_striplog_defaults(fig)
+    return _apply_striplog_defaults(fig, template=template)
 
 
-def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None):
+def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None, template=None):
     """Plot categorical assay intervals as colored bands with labels.
 
     Parameters
@@ -223,6 +226,8 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
         * A built-in map name (``"commodity"`` or ``"lithology"``).
 
         Values not found in the map fall back to *palette* cycling.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
 
     Returns a plotly.graph_objects.Figure.
     """
@@ -294,7 +299,7 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
     )
 
     fig = go.Figure(data=traces, layout=layout)
-    return _apply_striplog_defaults(fig)
+    return _apply_striplog_defaults(fig, template=template)
 
 
 def plot_drillhole_trace(df,
@@ -305,7 +310,8 @@ def plot_drillhole_trace(df,
     color=None,
     use_mid=False,
     intervals=True,
-    colour_map=None):
+    colour_map=None,
+    template=None):
     """
     Plot a 2D downhole trace or strip log for a single drillhole, for a single variable.
 
@@ -318,6 +324,8 @@ def plot_drillhole_trace(df,
     colour_map : dict or str or None, optional
         Semantic colour map for categorical traces. Passed through to
         :func:`plot_categorical_trace`. Has no effect on numeric traces.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
     """
     categorical_props = set(categorical_props or [])
     is_cat = value_col in categorical_props
@@ -339,9 +347,9 @@ def plot_drillhole_trace(df,
     else:
         interval_df = compute_interval_points(df, value_col)
     if is_cat or resolved_chart == "categorical":
-        return plot_categorical_trace(interval_df, value_col, colour_map=colour_map)
+        return plot_categorical_trace(interval_df, value_col, colour_map=colour_map, template=template)
     resolved_color = color or commodity_colour_for_property(value_col) or "#8b1e3f"
-    return plot_numeric_trace(interval_df, value_col, chart_type=resolved_chart, color=resolved_color, intervals=intervals)
+    return plot_numeric_trace(interval_df, value_col, chart_type=resolved_chart, color=resolved_color, intervals=intervals, template=template)
 
 
 def combine_trace_configs(configs, df, categorical_props=None):
@@ -387,10 +395,14 @@ def plot_drillhole_traces_subplots(df,
     chart_type="markers+line",
     categorical_props=None,
     colors=None,
-    use_mid=False):
+    use_mid=False,
+    template=None):
     """Plot multiple drillhole traces side-by-side with shared depth axis.
 
     Only numeric traces are handled; categorical props will still render as numeric markers/lines.
+
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
     """
     categorical_props = set(categorical_props or [])
     hole_ids = list(hole_ids) if hole_ids is not None else sorted(df[hole_id_col].unique())
@@ -423,7 +435,11 @@ def plot_drillhole_traces_subplots(df,
         fig.update_xaxes(title_text=str(hid), row=1, col=idx + 1)
 
     fig.update_yaxes(title_text="Depth (m)", autorange="reversed")
-    fig.update_layout(showlegend=False, margin=dict(l=40, r=10, t=10, b=40))
+    fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
+        showlegend=False,
+        margin=dict(l=40, r=10, t=10, b=40),
+    )
     return fig
 
 
@@ -434,8 +450,13 @@ def plot_drillhole_traces(df,
     chart_type="markers+line",
     categorical_props=None,
     colors=None,
-    use_mid=False):
-    """Plot multiple tracks for a single hole side-by-side with shared depth axis."""
+    use_mid=False,
+    template=None):
+    """Plot multiple tracks for a single hole side-by-side with shared depth axis.
+
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
+    """
     categorical_props = set(categorical_props or [])
     if hole_id is None:
         raise ValueError("hole_id is required")
@@ -472,7 +493,11 @@ def plot_drillhole_traces(df,
         fig.update_xaxes(title_text=str(col), row=1, col=idx + 1)
 
     fig.update_yaxes(title_text="Depth (m)", autorange="reversed")
-    fig.update_layout(showlegend=False, margin=dict(l=40, r=10, t=10, b=40))
+    fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
+        showlegend=False,
+        margin=dict(l=40, r=10, t=10, b=40),
+    )
     return fig
 
 
@@ -501,7 +526,8 @@ def plot_comments_log(df,
     bg_color="#f1f5f9",
     border_color="#cbd5e1",
     text_color="#1e293b",
-    chars_per_line=18):
+    chars_per_line=18,
+    template=None):
     """Render a comments log track — depth intervals with text annotations overlaid.
 
     Only intervals with a non-empty comment are rendered; rows with blank or null
@@ -524,8 +550,8 @@ def plot_comments_log(df,
         Comment text color.
     chars_per_line : int
         Approximate characters before wrapping to next line.
-    height, width : int
-        Figure dimensions in pixels.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty:
         return go.Figure()
@@ -591,7 +617,7 @@ def plot_comments_log(df,
         shapes=shapes,
         showlegend=False,
     )
-    return _apply_striplog_defaults(fig)
+    return _apply_striplog_defaults(fig, template=template)
 
 
 def plot_strip_log(df,
@@ -599,7 +625,8 @@ def plot_strip_log(df,
     to_col="to",
     label_col="lithology",
     palette=None,
-    colour_map=None):
+    colour_map=None,
+    template=None):
     """Render a simple strip log (categorical intervals) as colored bands.
 
     Parameters
@@ -617,6 +644,8 @@ def plot_strip_log(df,
         Semantic colour map. May be ``None``, a ``dict``, or a built-in
         map name (``"commodity"`` or ``"lithology"``). Values not found
         in the map fall back to *palette* cycling.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty:
         return go.Figure()
@@ -685,15 +714,13 @@ def plot_strip_log(df,
 
     fig = go.Figure(data=traces)
     fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
         barmode="overlay",
         bargap=0,
         margin=dict(l=40, r=10, t=10, b=40),
         xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
         yaxis=dict(title="Depth (m)", autorange="reversed"),
         showlegend=False,
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        modebar_remove=["select2d", "lasso2d", "autoScale2d"],
     )
     return fig
 
@@ -704,7 +731,8 @@ def plot_geology_strip_log(df,
     category_col="geology_code",
     fallback_category_col="comments",
     palette=None,
-    colour_map=None):
+    colour_map=None,
+    template=None):
     """Render a geology categorical strip log using standardized geology fields.
 
     Parameters
@@ -713,6 +741,8 @@ def plot_geology_strip_log(df,
         Semantic colour map passed through to :func:`plot_strip_log`.
         Accepts ``"lithology"`` to use the built-in lithology palette or a
         custom ``dict``.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
     """
     if category_col not in df.columns and fallback_category_col not in df.columns:
         return go.Figure()
@@ -725,6 +755,7 @@ def plot_geology_strip_log(df,
         label_col=resolved_col,
         palette=palette,
         colour_map=colour_map,
+        template=template,
     )
 
 
@@ -741,7 +772,8 @@ def plot_tadpole_log(df,
     size_col=None,
     color_by=None,
     palette=None,
-    tail_scale=10.0):
+    tail_scale=10.0,
+    template=None):
     """Plot a tadpole log for structural measurements.
 
     Each measurement renders a circle (head) at (dip, depth) with a tail whose
@@ -768,8 +800,8 @@ def plot_tadpole_log(df,
     tail_scale : float
         Maximum tail length in dip-degree units. Tail length scales linearly
         with dip magnitude (0° → no tail, 90° → tail_scale degrees).
-    height, width : int
-        Figure dimensions.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty or md_col not in df.columns or dip_col not in df.columns or az_col not in df.columns:
         return go.Figure()
@@ -843,6 +875,7 @@ def plot_tadpole_log(df,
         fig.add_shape(**shape)
 
     fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
         margin=dict(l=40, r=10, t=10, b=40),
         xaxis=dict(
             title="Dip (°)",
@@ -874,7 +907,8 @@ def plot_point_log(df,
     label_col="defect",
     palette=None,
     marker_symbols=None,
-    marker_size=8):
+    marker_size=8,
+    template=None):
     """Plot categorical point data as a strip log with unique x-position, colour, and marker per category.
 
     Unlike :func:`plot_strip_log` which requires from/to interval depths, this
@@ -901,8 +935,8 @@ def plot_point_log(df,
         Plotly marker symbol names, one per category. Cycles if needed.
     marker_size : int, optional
         Marker size in pixels. Defaults to 8.
-    height, width : int
-        Figure dimensions.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
 
     Returns
     -------
@@ -964,10 +998,10 @@ def plot_point_log(df,
         legend=dict(title=label_col, font=dict(size=9)),
         showlegend=True,
     )
-    return _apply_striplog_defaults(fig)
+    return _apply_striplog_defaults(fig, template=template)
 
 
-def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col=EASTING, northing_col=NORTHING, dip_col=DIP, az_col=AZIMUTH, label_col="defect"):
+def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col=EASTING, northing_col=NORTHING, dip_col=DIP, az_col=AZIMUTH, label_col="defect", template=None):
     """2D map view with strike/dip symbols.
 
     Renders each structural measurement as a line (strike direction) with a
@@ -982,6 +1016,8 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
         Collar locations to overlay.
     symbol_size : float
         Strike line half-length in map units.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
     """
     if structures.empty:
         return go.Figure()
@@ -1064,6 +1100,7 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
             pass
 
     fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
         margin=dict(l=40, r=10, t=10, b=40),
         xaxis=dict(title="Easting (m)", scaleanchor="y", scaleratio=1),
         yaxis=dict(title="Northing (m)"),

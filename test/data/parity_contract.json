@@ -46,6 +46,30 @@
       ]
     },
     {
+      "name": "plotly_template",
+      "jsExports": [
+        "BASELODE_TEMPLATE_NAME",
+        "BASELODE_TEMPLATE",
+        "BASELODE_COLORWAY"
+      ],
+      "pythonSymbols": [
+        ["baselode.template", "BASELODE_TEMPLATE_NAME"],
+        ["baselode.template", "BASELODE_TEMPLATE"],
+        ["baselode.template", "BASELODE_COLORWAY"]
+      ]
+    },
+    {
+      "name": "plotly_template_dark",
+      "jsExports": [
+        "BASELODE_DARK_TEMPLATE_NAME",
+        "BASELODE_DARK_TEMPLATE"
+      ],
+      "pythonSymbols": [
+        ["baselode.baselode_dark_template", "BASELODE_DARK_TEMPLATE_NAME"],
+        ["baselode.baselode_dark_template", "BASELODE_DARK_TEMPLATE"]
+      ]
+    },
+    {
       "name": "strip_log_1d",
       "jsExports": [
         "buildIntervalPoints",

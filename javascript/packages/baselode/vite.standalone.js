@@ -25,6 +25,12 @@ export default defineConfig({
         'papaparse',
         'plotly.js-dist-min',
       ],
+      treeshake: {
+        // Don't preserve side-effect imports of external packages. The 3D scene class
+        // doesn't rely on papaparse side effects, so omitting them keeps the bundle
+        // self-contained for blob-URL and file:// usage.
+        moduleSideEffects: false,
+      },
       output: {
         entryFileNames: 'baselode-module.js',
       },

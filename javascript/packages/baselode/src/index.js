@@ -146,6 +146,21 @@ export {
 
 // --- Visualization layer ---
 export {
+  BASELODE_TEMPLATE_NAME,
+  BASELODE_TEMPLATE,
+  BASELODE_COLORWAY,
+  BASELODE_LIGHT,
+  BASELODE_LIGHT_TEMPLATE_NAME,
+  BASELODE_LIGHT_TEMPLATE,
+} from './viz/baselodeTemplate.js';
+
+export {
+  BASELODE_DARK,
+  BASELODE_DARK_TEMPLATE_NAME,
+  BASELODE_DARK_TEMPLATE,
+} from './viz/baselodeDarkTemplate.js';
+
+export {
   NUMERIC_LINE_COLOR,
   NUMERIC_MARKER_COLOR,
   ERROR_COLOR,

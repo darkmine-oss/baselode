@@ -4,8 +4,8 @@ layout: home
 
 hero:
   name: "Baselode"
-  text: "Open-source geoscience toolkit"
-  tagline: Free, multi-language tooling for the mineral exploration and mining industries — built for developers, geologists, and data scientists.
+  text: "Open-source mining and exploration toolkit"
+  tagline: Free, multi-language tooling for the mineral exploration and mining industries — built for developers and data scientists, geologists and mining engineers, and anyone else looking for reusable domain-specific tooling.
   image:
     src: /baselode_logo.png
     alt: Baselode logo

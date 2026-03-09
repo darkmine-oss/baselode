@@ -240,3 +240,53 @@ def test_plot_tadpole_log_shapes():
     df = pd.DataFrame({"depth": [10, 20], "dip": [45, 60], "azimuth": [90, 180]})
     fig = view.plot_tadpole_log(df)
     assert len(fig.layout.shapes) == 2
+
+
+def test_baselode_template_registered():
+    """Baselode template is registered in Plotly's template registry."""
+    import plotly.io as pio
+    from baselode.template import BASELODE_TEMPLATE_NAME, BASELODE_TEMPLATE, BASELODE_COLORWAY
+    assert BASELODE_TEMPLATE_NAME == "baselode"
+    assert BASELODE_TEMPLATE_NAME in pio.templates
+    assert isinstance(BASELODE_COLORWAY, list)
+    assert len(BASELODE_COLORWAY) > 0
+
+
+def test_plot_functions_use_baselode_template_by_default():
+    """Key plotting functions apply the Baselode template by default."""
+    from baselode.template import BASELODE_TEMPLATE_NAME
+    import plotly.io as pio
+
+    df = pd.DataFrame({"from": [0, 10], "to": [10, 20], "grade": [1.0, 2.0], "lith": ["A", "B"]})
+
+    # Numeric trace
+    num_fig = view.plot_numeric_trace(view.compute_interval_points(df, "grade"), "grade")
+    assert num_fig.layout.template is not None
+    assert num_fig.layout.template.layout.paper_bgcolor == "#ffffff"
+
+    # Categorical trace
+    cat_fig = view.plot_categorical_trace(view.compute_interval_points(df, "lith"), "lith")
+    assert cat_fig.layout.template is not None
+    assert cat_fig.layout.template.layout.paper_bgcolor == "#ffffff"
+
+    # Drillhole trace (delegates)
+    dh_fig = view.plot_drillhole_trace(df, value_col="grade")
+    assert dh_fig.layout.template is not None
+
+    # Strip log
+    strip_fig = view.plot_strip_log(df, label_col="lith")
+    assert strip_fig.layout.template is not None
+
+
+def test_plot_functions_accept_template_override():
+    """Plotting functions accept a template override."""
+    df = pd.DataFrame({"from": [0, 10], "to": [10, 20], "grade": [1.0, 2.0]})
+
+    fig = view.plot_drillhole_trace(df, value_col="grade", template="plotly_white")
+    # With an override, the layout.template should not be the baselode template object
+    from baselode.template import BASELODE_TEMPLATE
+    # The template in the layout should now be the plotly_white template, not baselode
+    assert fig.layout.template is not BASELODE_TEMPLATE
+
+    fig2 = view.plot_strip_log(df, label_col="grade", template="plotly_dark")
+    assert fig2.layout.template is not BASELODE_TEMPLATE
