@@ -240,3 +240,60 @@ def test_plot_tadpole_log_shapes():
     df = pd.DataFrame({"depth": [10, 20], "dip": [45, 60], "azimuth": [90, 180]})
     fig = view.plot_tadpole_log(df)
     assert len(fig.layout.shapes) == 2
+
+
+def test_plot_core_photo_log_places_images():
+    images = [
+        {"from": 0, "to": 10, "image_url": "https://example.com/tray1.jpg", "image_mode": "core_box"},
+        {"from": 10, "to": 20, "image_url": "https://example.com/tray2.jpg", "image_mode": "core_tray"},
+    ]
+    fig = view.plot_core_photo_log(images)
+    assert len(fig.layout.images) == 2
+    assert fig.layout.images[0].y == 0
+    assert fig.layout.images[0].sizey == 10
+    assert fig.layout.images[1].y == 10
+    assert fig.layout.images[1].sizey == 10
+
+
+def test_plot_core_photo_log_empty_returns_figure():
+    import plotly.graph_objects as go
+    fig = view.plot_core_photo_log([])
+    assert isinstance(fig, go.Figure)
+    assert len(fig.layout.images) == 0
+
+
+def test_plot_core_photo_log_dataframe():
+    images = pd.DataFrame({
+        "from": [0, 10],
+        "to": [10, 20],
+        "image_url": ["https://example.com/a.jpg", "https://example.com/b.jpg"],
+        "image_mode": ["single_core", "single_core"],
+    })
+    fig = view.plot_core_photo_log(images)
+    assert len(fig.layout.images) == 2
+
+
+def test_plot_core_photo_log_skips_invalid_intervals():
+    images = [
+        {"from": 10, "to": 5, "image_url": "https://example.com/bad.jpg"},
+        {"from": 0, "to": 10, "image_url": "https://example.com/good.jpg"},
+    ]
+    fig = view.plot_core_photo_log(images)
+    assert len(fig.layout.images) == 1
+
+
+def test_plot_core_photo_log_skips_missing_url():
+    images = [
+        {"from": 0, "to": 10, "image_url": ""},
+        {"from": 10, "to": 20, "image_url": "https://example.com/valid.jpg"},
+    ]
+    fig = view.plot_core_photo_log(images)
+    assert len(fig.layout.images) == 1
+
+
+def test_plot_core_photo_log_depth_range():
+    images = [{"from": 5, "to": 15, "image_url": "https://example.com/core.jpg"}]
+    fig = view.plot_core_photo_log(images, depth_range=(0, 50))
+    anchor = fig.data[0]
+    assert 0 in anchor.y
+    assert 50 in anchor.y
