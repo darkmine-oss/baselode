@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "baselode": "file:../../javascript/packages/baselode",
     "maplibre-gl": "^5.16.0",
     "papaparse": "^5.4.1",
@@ -16,10 +17,10 @@
     "three-viewport-gizmo": "^2.2.0"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^9.2.1",
     "vite": "^5.0.8"
   },
   "scripts": {

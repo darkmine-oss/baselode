@@ -20,7 +20,9 @@ function Baselode3DControls({
   onToggleFly = () => {},
   onRecenter = () => {},
   onLookDown = () => {},
-  onFit = () => {}
+  onFit = () => {},
+  darkBackground = false,
+  onToggleDarkBackground = () => {},
 }) {
   return (
     <div className="baselode-3d-controls">
@@ -36,6 +38,14 @@ function Baselode3DControls({
       <button type="button" className="ghost-button" onClick={onToggleFly}>
         {controlMode === 'orbit' ? 'Enable fly controls' : 'Disable fly controls'}
       </button>
+      <label className="baselode-3d-controls-checkbox">
+        <input
+          type="checkbox"
+          checked={darkBackground}
+          onChange={onToggleDarkBackground}
+        />
+        Dark background
+      </label>
     </div>
   );
 }

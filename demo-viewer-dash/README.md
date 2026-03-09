@@ -51,6 +51,7 @@ test/data/gswa/
   gswa_sample_assays.csv
   gswa_sample_survey.csv
   gswa_sample_structure.csv
+  gswa_sample_geophysics.csv             # downhole geophysics (gamma, density, resistivity, mag susc)
   demo_gswa_precomputed_desurveyed.csv   # pre-built 3D traces with true elevation
 ```
 

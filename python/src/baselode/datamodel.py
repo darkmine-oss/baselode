@@ -44,3 +44,4 @@ ALPHA = "alpha"
 BETA = "beta"
 COMMENTS = "comments"
 GEOLOGY_CODE = "geology_code"
+GEOPHYSICS_NULL = -999.25
