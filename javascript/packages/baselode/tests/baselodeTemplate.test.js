@@ -35,8 +35,8 @@ describe('baselodeTemplate', () => {
   });
 
   it('BASELODE_TEMPLATE has white paper and plot backgrounds', () => {
-    expect(BASELODE_TEMPLATE.layout.paper_bgcolor).toBe('white');
-    expect(BASELODE_TEMPLATE.layout.plot_bgcolor).toBe('white');
+    expect(BASELODE_TEMPLATE.layout.paper_bgcolor).toBe('#ffffff');
+    expect(BASELODE_TEMPLATE.layout.plot_bgcolor).toBe('#ffffff');
   });
 
   it('BASELODE_TEMPLATE has axis grid and line colors', () => {

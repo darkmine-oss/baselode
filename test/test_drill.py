@@ -262,12 +262,12 @@ def test_plot_functions_use_baselode_template_by_default():
     # Numeric trace
     num_fig = view.plot_numeric_trace(view.compute_interval_points(df, "grade"), "grade")
     assert num_fig.layout.template is not None
-    assert num_fig.layout.template.layout.paper_bgcolor == "white"
+    assert num_fig.layout.template.layout.paper_bgcolor == "#ffffff"
 
     # Categorical trace
     cat_fig = view.plot_categorical_trace(view.compute_interval_points(df, "lith"), "lith")
     assert cat_fig.layout.template is not None
-    assert cat_fig.layout.template.layout.paper_bgcolor == "white"
+    assert cat_fig.layout.template.layout.paper_bgcolor == "#ffffff"
 
     # Drillhole trace (delegates)
     dh_fig = view.plot_drillhole_trace(df, value_col="grade")

@@ -65,8 +65,8 @@
         "BASELODE_DARK_TEMPLATE"
       ],
       "pythonSymbols": [
-        ["baselode.template", "BASELODE_DARK_TEMPLATE_NAME"],
-        ["baselode.template", "BASELODE_DARK_TEMPLATE"]
+        ["baselode.baselode_dark_template", "BASELODE_DARK_TEMPLATE_NAME"],
+        ["baselode.baselode_dark_template", "BASELODE_DARK_TEMPLATE"]
       ]
     },
     {
