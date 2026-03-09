@@ -31,7 +31,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-import baselode.template as _template_mod
 from baselode.datamodel import MID, AZIMUTH, DIP, HOLE_ID, DEPTH, COMMENTS, NORTHING, EASTING
 from baselode.colours import get_colour, resolve_colour_map, commodity_colour_for_property
 from baselode.template import BASELODE_TEMPLATE_NAME
