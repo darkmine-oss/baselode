@@ -23,6 +23,7 @@
     "vite": "^5.0.8"
   },
   "scripts": {
+    "copy-data": "mkdir -p public/data/gswa public/data/blockmodel public/data/grade_blocks && cp ../../test/data/gswa/gswa_sample_collars.csv ../../test/data/gswa/gswa_sample_assays.csv ../../test/data/gswa/gswa_sample_geology.csv ../../test/data/gswa/gswa_sample_survey.csv ../../test/data/gswa/gswa_sample_structure.csv ../../test/data/gswa/demo_gswa_precomputed_desurveyed.csv public/data/gswa/ && cp ../../test/data/blockmodel/demo_blockmodel.csv public/data/blockmodel/ && cp ../../test/data/grade_blocks/demo_grade_blocks.json public/data/grade_blocks/",
     "dev": "vite",
     "dev:local": "concurrently -k -n LIB,APP -c cyan,green \"npm --prefix ../../javascript/packages/baselode run dev\" \"vite\"",
     "generate:precomputed-desurvey": "node scripts/generate_precomputed_desurvey.mjs",

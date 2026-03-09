@@ -1,0 +1,52 @@
+.attribution-page {
+  margin-left: 200px;
+  padding: 2rem;
+  max-width: 760px;
+  min-height: 100vh;
+  background: #fff;
+  color: #222;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.attribution-page h1 {
+  font-size: 1.4rem;
+  margin-bottom: 1.5rem;
+  color: #111;
+}
+
+.attribution-section {
+  margin-bottom: 1.75rem;
+}
+
+.attribution-section h2 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.attribution-section ul {
+  padding-left: 1.25rem;
+}
+
+.attribution-section li {
+  margin-bottom: 0.25rem;
+}
+
+.attribution-section a {
+  color: #1a5fa8;
+}
+
+.attribution-section a:hover {
+  color: #0d3d6e;
+}
+
+.attribution-section blockquote {
+  border-left: 3px solid #ccc;
+  margin: 0.75rem 0 0;
+  padding: 0.5rem 1rem;
+  color: #555;
+  font-style: italic;
+}

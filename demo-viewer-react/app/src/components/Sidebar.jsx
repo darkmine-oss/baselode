@@ -24,6 +24,7 @@ function Sidebar() {
       <div className="sidebar-header">
         <h2>Baselode</h2>
         <h2>Demo Viewer</h2>
+        <span className="sidebar-version">v{__APP_VERSION__}</span>
       </div>
       <ul className="sidebar-menu">
         {menuItems.map((item) => (
@@ -45,6 +46,10 @@ function Sidebar() {
         )}
       </div>
       <div className="sidebar-source-link">
+        <Link to="/attribution" className={location.pathname === '/attribution' ? 'active' : ''}>
+          Data Attribution
+        </Link>
+        <br />
         <a href="https://github.com/darkmine-oss/baselode" target="_blank" rel="noopener noreferrer">
           Source Code
         </a>

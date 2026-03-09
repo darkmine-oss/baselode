@@ -24,6 +24,7 @@ export default defineConfig({
         ]
       },
       { text: 'Demos', link: '/demos' },
+      { text: 'Release Notes', link: '/release-notes' },
       {
         text: 'API Reference',
         items: [
