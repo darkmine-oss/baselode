@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -17,9 +18,18 @@ console.log('[serve-test-data] exists:', fs.existsSync(testDataDir));
 const baselodeSrc = path.resolve(__dirname, '../../javascript/packages/baselode/src');
 const baselodePkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../javascript/packages/baselode/package.json'), 'utf-8'));
 
+function resolveAppVersion() {
+  try {
+    const tag = execFileSync('git', ['describe', '--tags', '--abbrev=0'], { encoding: 'utf8' }).trim();
+    return tag.startsWith('v') ? tag.slice(1) : tag;
+  } catch {
+    return baselodePkg.version;
+  }
+}
+
 export default defineConfig({
   define: {
-    __APP_VERSION__: JSON.stringify(baselodePkg.version),
+    __APP_VERSION__: JSON.stringify(resolveAppVersion()),
   },
   resolve: {
     // Alias baselode to its source so the demo app works without a prior
