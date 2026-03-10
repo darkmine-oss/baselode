@@ -21,6 +21,7 @@ import pandas as pd
 
 from baselode.drill import data
 from baselode.drill import desurvey, view
+from baselode.drill.intercepts import significant_intercepts
 
 
 def _sample_collars_surveys():
@@ -290,3 +291,93 @@ def test_plot_functions_accept_template_override():
 
     fig2 = view.plot_strip_log(df, label_col="grade", template="plotly_dark")
     assert fig2.layout.template is not BASELODE_TEMPLATE
+
+def test_significant_intercepts_basic():
+    assays = pd.DataFrame({
+        "hole_id": ["DH001"] * 3,
+        "from": [0.0, 10.0, 20.0],
+        "to": [10.0, 20.0, 30.0],
+        "CU_PCT": [0.20, 0.40, 0.30],
+    })
+    result = significant_intercepts(assays, assay_field="CU_PCT", min_grade=0.10, min_length=25.0)
+    assert len(result) == 1
+    row = result.iloc[0]
+    assert row["hole_id"] == "DH001"
+    assert row["from"] == 0.0
+    assert row["to"] == 30.0
+    assert row["length"] == 30.0
+    assert abs(row["avg_grade"] - 0.30) < 1e-9
+    assert row["n_samples"] == 3
+    assert row["assay_field"] == "CU_PCT"
+    assert "30.0 m @ 0.30 CU_PCT" == row["label"]
+
+
+def test_significant_intercepts_minimum_length_filter():
+    assays = pd.DataFrame({
+        "hole_id": ["DH001"] * 2,
+        "from": [0.0, 10.0],
+        "to": [10.0, 20.0],
+        "CU_PCT": [0.50, 0.50],
+    })
+    result = significant_intercepts(assays, assay_field="CU_PCT", min_grade=0.10, min_length=25.0)
+    assert len(result) == 0
+
+
+def test_significant_intercepts_grade_threshold_splits_runs():
+    assays = pd.DataFrame({
+        "hole_id": ["DH001"] * 5,
+        "from": [0.0, 10.0, 20.0, 30.0, 40.0],
+        "to": [10.0, 20.0, 30.0, 40.0, 50.0],
+        "AU_PPM": [1.0, 1.5, 0.05, 2.0, 2.5],
+    })
+    result = significant_intercepts(assays, assay_field="AU_PPM", min_grade=0.10, min_length=15.0)
+    assert len(result) == 2
+    froms = sorted(result["from"].tolist())
+    tos = sorted(result["to"].tolist())
+    assert froms == [0.0, 30.0]
+    assert tos == [20.0, 50.0]
+
+
+def test_significant_intercepts_empty_input():
+    assays = pd.DataFrame(columns=["hole_id", "from", "to", "AU_PPM"])
+    result = significant_intercepts(assays, assay_field="AU_PPM", min_grade=0.10, min_length=5.0)
+    assert result.empty
+
+
+def test_significant_intercepts_missing_assay_field_raises():
+    assays = pd.DataFrame({
+        "hole_id": ["DH001"],
+        "from": [0.0],
+        "to": [10.0],
+        "AU_PPM": [1.0],
+    })
+    try:
+        significant_intercepts(assays, assay_field="CU_PCT", min_grade=0.10, min_length=5.0)
+        assert False, "Expected ValueError"
+    except ValueError as exc:
+        assert "CU_PCT" in str(exc)
+
+
+def test_significant_intercepts_multi_hole():
+    assays = pd.DataFrame({
+        "hole_id": ["DH001", "DH001", "DH002", "DH002"],
+        "from": [0.0, 10.0, 0.0, 10.0],
+        "to": [10.0, 20.0, 10.0, 20.0],
+        "CU_PCT": [0.50, 0.60, 0.05, 0.05],
+    })
+    result = significant_intercepts(assays, assay_field="CU_PCT", min_grade=0.10, min_length=15.0)
+    assert len(result) == 1
+    assert result.iloc[0]["hole_id"] == "DH001"
+
+
+def test_significant_intercepts_weighted_average_grade():
+    assays = pd.DataFrame({
+        "hole_id": ["DH001"] * 3,
+        "from": [0.0, 10.0, 20.0],
+        "to": [10.0, 20.0, 30.0],
+        "CU_PCT": [0.10, 0.50, 0.10],
+    })
+    result = significant_intercepts(assays, assay_field="CU_PCT", min_grade=0.05, min_length=25.0)
+    assert len(result) == 1
+    expected_avg = (0.10 * 10 + 0.50 * 10 + 0.10 * 10) / 30
+    assert abs(result.iloc[0]["avg_grade"] - expected_avg) < 1e-9
