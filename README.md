@@ -1,5 +1,7 @@
 # Baselode
 
+[-> Interactive Demo Here<-](demo.baselode.net)
+
 <img src="docs/assets/baselode_logo.png" style="max-width:100px;">
 
 Baselode is a (work in progress) open-source toolkit designed for the mineral exploration and mining industries. It provides a suite of tools for processing, managing, and visualizing geological and mining data, initially focused on drillhole and spatial datasets.
