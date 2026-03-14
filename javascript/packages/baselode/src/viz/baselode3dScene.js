@@ -99,8 +99,10 @@ class Baselode3DScene {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xffffff);
 
-    // Camera — lower near plane allows ultra-close zoom without clipping
-    this.camera = new THREE.PerspectiveCamera(28, width / height, 0.001, 100000);
+    // Camera — lower near plane allows ultra-close zoom without clipping;
+    // far plane set large enough for ultra-low-FOV (near-ortho) modes where
+    // the camera must retreat several hundred kilometres to show a km-scale scene.
+    this.camera = new THREE.PerspectiveCamera(28, width / height, 0.001, 10_000_000);
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(50, 50, 50);
     this.camera.lookAt(0, 0, 0);
@@ -130,7 +132,7 @@ class Baselode3DScene {
     this.controls.enableZoom = true;
     this.controls.zoomSpeed = 1.2;
     this.controls.minDistance = 0.003;
-    this.controls.maxDistance = 40000;
+    this.controls.maxDistance = 5_000_000;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,
       MIDDLE: THREE.MOUSE.DOLLY,

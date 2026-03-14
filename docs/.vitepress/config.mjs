@@ -74,7 +74,8 @@ export default defineConfig({
             { text: 'Visualization', link: '/guide/javascript#visualization' },
             { text: 'Plotly Templates', link: '/guide/javascript#plotly-templates' },
             { text: 'Colour Mapping', link: '/guide/javascript#colour-mapping' },
-            { text: '3D Scene', link: '/guide/javascript#3d-scene' }
+            { text: '3D Scene', link: '/guide/javascript#3d-scene' },
+            { text: 'Raster Overlays', link: '/guide/javascript#raster-overlays' }
           ]
         },
         {
