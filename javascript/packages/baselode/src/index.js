@@ -215,6 +215,19 @@ export {
 } from './viz/structuralScene.js';
 
 export {
+  createRasterOverlay,
+  normalizeBounds,
+  addRasterOverlay,
+  removeRasterOverlay,
+  setRasterOverlayOpacity,
+  setRasterOverlayVisibility,
+  setRasterOverlayElevation,
+  getRasterOverlay,
+  listRasterOverlays,
+  clearRasterOverlays,
+} from './viz/rasterOverlayScene.js';
+
+export {
   buildViewSignature,
   getViewState,
   setViewState,

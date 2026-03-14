@@ -508,6 +508,158 @@ group.children.forEach((mesh) => {
 
 ---
 
+## Raster Overlays
+
+A raster overlay drapes a georeferenced image (geology map, satellite photo, survey grid, etc.) as a flat plane in the 3D scene.  The image is placed at a specified elevation and bounded to real-world coordinates so it aligns with drillhole traces.
+
+### Image format
+
+`Baselode3DScene` uses Three.js's built-in `TextureLoader`, which supports formats the browser can decode natively: **PNG, JPEG, WebP**.  GeoTIFF is not supported directly — convert it first:
+
+```bash
+# Using GDAL
+gdal_translate -of PNG my_map_georeferenced.tif my_map.png
+```
+
+### Coordinate system
+
+Overlay bounds are expressed in the same **local scene coordinate system** as the drillhole traces (`x` = Easting offset, `y` = Northing offset, `z` = elevation in metres).  If your traces are offset from a survey origin, subtract the same origin from the GeoTIFF corner coordinates:
+
+```js
+// GeoTIFF corners in MGA zone 50 (metres):
+//   Upper Left:  (693 545, 7 675 285)
+//   Lower Right: (700 469, 7 667 027)
+// Scene origin chosen as centroid of drillhole collars, e.g. (697 007, 7 671 156):
+
+const ORIGIN_E = 697_007;
+const ORIGIN_N = 7_671_156;
+
+const bounds = {
+  minX: 693_545 - ORIGIN_E,   // ≈ -3 462
+  maxX: 700_469 - ORIGIN_E,   // ≈  3 462
+  minY: 7_667_027 - ORIGIN_N, // ≈ -4 129
+  maxY: 7_675_285 - ORIGIN_N, // ≈  4 129
+};
+```
+
+Bounds can also be expressed as an origin + size object:
+
+```js
+const bounds = { x: -3462, y: -4129, width: 6924, height: 8258 };
+```
+
+### Loading a raster overlay
+
+```js
+import { createRasterOverlay } from 'baselode';
+
+const layer = await createRasterOverlay({
+  id: 'geology-map',          // unique identifier (auto-generated if omitted)
+  name: 'Regional geology',   // display name
+  source: { type: 'url', url: '/maps/geology.png' },
+  bounds,                     // placement bounds in scene coordinates
+  elevation: 350,             // Z position (metres above datum); default 0
+  opacity: 0.85,              // initial opacity 0–1; default 1
+  visible: true,              // initial visibility; default true
+});
+
+scene.addRasterOverlay(layer);
+```
+
+#### Loading from a browser File object
+
+When the user uploads a file via `<input type="file">`:
+
+```js
+const [file] = event.target.files;
+const layer = await createRasterOverlay({
+  source: { type: 'file', file },
+  bounds,
+  elevation: 350,
+});
+scene.addRasterOverlay(layer);
+```
+
+#### Supplying a pre-built Three.js texture
+
+```js
+import * as THREE from 'three';
+
+const texture = new THREE.TextureLoader().load('/maps/geology.png');
+const layer = await createRasterOverlay({
+  source: { type: 'texture', texture },
+  bounds,
+});
+scene.addRasterOverlay(layer);
+```
+
+### Runtime controls
+
+Opacity, visibility, and elevation can be changed at any time without recreating the overlay:
+
+```js
+scene.setRasterOverlayOpacity('geology-map', 0.5);
+scene.setRasterOverlayVisibility('geology-map', false);
+scene.setRasterOverlayElevation('geology-map', 400);  // shift Z
+```
+
+### Listing and removing overlays
+
+```js
+// Retrieve a layer by id
+const layer = scene.getRasterOverlay('geology-map');
+
+// List all active overlays
+const layers = scene.listRasterOverlays();
+
+// Remove one overlay and free its GPU resources
+scene.removeRasterOverlay('geology-map');
+
+// Remove all overlays
+scene.clearRasterOverlays();
+```
+
+### Complete example (React)
+
+```jsx
+import { useEffect, useRef } from 'react';
+import { Baselode3DScene, createRasterOverlay } from 'baselode';
+
+const BOUNDS = { minX: -3462, maxX: 3462, minY: -4129, maxY: 4129 };
+
+export default function MapScene({ holes }) {
+  const containerRef = useRef(null);
+  const sceneRef = useRef(null);
+
+  useEffect(() => {
+    const scene = new Baselode3DScene();
+    scene.init(containerRef.current);
+    sceneRef.current = scene;
+
+    scene.setDrillholes(holes, { preserveView: false });
+
+    createRasterOverlay({
+      id: 'geology',
+      source: { type: 'url', url: '/maps/geology.png' },
+      bounds: BOUNDS,
+      elevation: 350,
+      opacity: 0.8,
+    }).then((layer) => scene.addRasterOverlay(layer));
+
+    const onResize = () => scene.resize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      scene.dispose();
+    };
+  }, []);
+
+  return <div ref={containerRef} style={{ width: '100%', height: '100vh' }} />;
+}
+```
+
+---
+
 ## Camera Controls
 
 Programmatic camera control helpers for the 3D scene:

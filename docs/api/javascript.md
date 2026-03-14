@@ -505,6 +505,94 @@ Interactive 3D block model viewer.
 
 ---
 
+## Raster Overlays
+
+### `normalizeBounds(bounds)`
+
+Normalise a bounds descriptor to the canonical `{ minX, minY, maxX, maxY }` form.
+
+Accepts either:
+- `{ minX, minY, maxX, maxY }` — explicit corners
+- `{ x, y, width, height }` — origin + size
+
+Throws if the resulting width or height is zero or negative.
+
+---
+
+### `createRasterOverlay(options)`
+
+Create a raster overlay layer from an image source.  Returns a `Promise<layer>`.
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `source` | object | required | Image source (see below) |
+| `bounds` | object | required | Placement bounds in scene coordinates |
+| `id` | string | auto | Unique identifier |
+| `name` | string | id | Human-readable display name |
+| `elevation` | number | `0` | Z position in scene units (metres) |
+| `opacity` | number | `1` | Initial opacity clamped to `[0, 1]` |
+| `visible` | boolean | `true` | Initial visibility |
+| `renderOrder` | number | `0` | Three.js `renderOrder` for draw-order control |
+
+**Source types:**
+
+| `source.type` | Extra fields | Description |
+|---|---|---|
+| `'url'` | `url: string` | Load from a URL or data URI |
+| `'file'` | `file: File` | Load from a browser `File` object |
+| `'texture'` | `texture: THREE.Texture` | Use a pre-built Three.js texture |
+
+The returned layer object has shape `{ id, name, mesh, texture, bounds, elevation, opacity, visible }`.
+
+---
+
+### Scene-level raster functions
+
+These functions are also available as methods on `Baselode3DScene` (without the `sceneCtx` argument):
+
+#### `addRasterOverlay(sceneCtx, layer)`
+Add a layer (from `createRasterOverlay`) to the scene.  If a layer with the same `id` already exists it is removed first.
+
+#### `removeRasterOverlay(sceneCtx, id)`
+Remove a layer from the scene and dispose its geometry, material, and texture.
+
+#### `setRasterOverlayOpacity(sceneCtx, id, opacity)`
+Update opacity at runtime.  Value is clamped to `[0, 1]`.
+
+#### `setRasterOverlayVisibility(sceneCtx, id, visible)`
+Show or hide a layer without destroying it.
+
+#### `setRasterOverlayElevation(sceneCtx, id, elevation)`
+Update the Z position of a layer at runtime.
+
+#### `getRasterOverlay(sceneCtx, id)`
+Return the layer descriptor for `id`, or `undefined` if not found.
+
+#### `listRasterOverlays(sceneCtx)`
+Return all layers as an array in insertion order.
+
+#### `clearRasterOverlays(sceneCtx)`
+Remove all layers from the scene and dispose all GPU resources.
+
+---
+
+### `Baselode3DScene` — raster overlay methods
+
+These delegate to the functions above with `sceneCtx = scene`:
+
+| Method | Description |
+|---|---|
+| `scene.addRasterOverlay(layer)` | Add a layer to the scene |
+| `scene.removeRasterOverlay(id)` | Remove and dispose a layer |
+| `scene.setRasterOverlayOpacity(id, opacity)` | Update opacity (0–1) |
+| `scene.setRasterOverlayVisibility(id, visible)` | Show or hide |
+| `scene.setRasterOverlayElevation(id, elevation)` | Update Z position |
+| `scene.getRasterOverlay(id)` | Get layer by id |
+| `scene.listRasterOverlays()` | Get all layers |
+| `scene.clearRasterOverlays()` | Remove all layers |
+
+---
+
 ## Camera Controls
 
 Camera control helpers operate on a `Baselode3DScene` instance.

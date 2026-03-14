@@ -35,6 +35,16 @@ import {
 } from './structuralScene.js';
 import { attachCanvasClickHandler as _attachCanvasClickHandler, updateSelectionFromPointer as _updateSelectionFromPointer } from './sceneClickHandler.js';
 import { syncSelectables } from './sceneSelectables.js';
+import {
+  addRasterOverlay as _addRasterOverlay,
+  removeRasterOverlay as _removeRasterOverlay,
+  setRasterOverlayOpacity as _setRasterOverlayOpacity,
+  setRasterOverlayVisibility as _setRasterOverlayVisibility,
+  setRasterOverlayElevation as _setRasterOverlayElevation,
+  getRasterOverlay as _getRasterOverlay,
+  listRasterOverlays as _listRasterOverlays,
+  clearRasterOverlays as _clearRasterOverlays,
+} from './rasterOverlayScene.js';
 
 /**
  * Baselode 3D Scene Manager
@@ -75,6 +85,7 @@ class Baselode3DScene {
     this._composer = null;
     this._blockHighlightMesh = null;
     this._outlinePass = null;
+    this.rasterOverlays = new Map();
   }
 
   init(container) {
@@ -88,8 +99,10 @@ class Baselode3DScene {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xffffff);
 
-    // Camera — lower near plane allows ultra-close zoom without clipping
-    this.camera = new THREE.PerspectiveCamera(28, width / height, 0.001, 100000);
+    // Camera — lower near plane allows ultra-close zoom without clipping;
+    // far plane set large enough for ultra-low-FOV (near-ortho) modes where
+    // the camera must retreat several hundred kilometres to show a km-scale scene.
+    this.camera = new THREE.PerspectiveCamera(28, width / height, 0.001, 10_000_000);
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(50, 50, 50);
     this.camera.lookAt(0, 0, 0);
@@ -119,7 +132,7 @@ class Baselode3DScene {
     this.controls.enableZoom = true;
     this.controls.zoomSpeed = 1.2;
     this.controls.minDistance = 0.003;
-    this.controls.maxDistance = 40000;
+    this.controls.maxDistance = 5_000_000;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,
       MIDDLE: THREE.MOUSE.DOLLY,
@@ -199,6 +212,7 @@ class Baselode3DScene {
     _clearBlocks(this);
     _clearDrillholes(this);
     _clearStructuralDiscs(this);
+    _clearRasterOverlays(this);
     disposeSelectionGlow(this);
     if (this.controls) this.controls.dispose();
     if (this.flyControls) this.flyControls.dispose();
@@ -316,6 +330,56 @@ class Baselode3DScene {
 
   /** @private */
   _updateSelectionFromPointer() { _updateSelectionFromPointer(this); }
+
+  // ---------------------------------------------------------------------------
+  // Raster overlay API — delegate to rasterOverlayScene
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Add a raster overlay layer (created with createRasterOverlay) to the scene.
+   * @param {object} layer - Layer descriptor returned by createRasterOverlay()
+   */
+  addRasterOverlay(layer) { _addRasterOverlay(this, layer); }
+
+  /**
+   * Remove a raster overlay from the scene and dispose its GPU resources.
+   * @param {string} id - Overlay id
+   */
+  removeRasterOverlay(id) { _removeRasterOverlay(this, id); }
+
+  /**
+   * Set the opacity of a raster overlay at runtime.
+   * @param {string} id - Overlay id
+   * @param {number} opacity - New opacity [0, 1]
+   */
+  setRasterOverlayOpacity(id, opacity) { _setRasterOverlayOpacity(this, id, opacity); }
+
+  /**
+   * Show or hide a raster overlay.
+   * @param {string} id - Overlay id
+   * @param {boolean} visible
+   */
+  setRasterOverlayVisibility(id, visible) { _setRasterOverlayVisibility(this, id, visible); }
+
+  /**
+   * Update the elevation (Z position) of a raster overlay.
+   * @param {string} id - Overlay id
+   * @param {number} elevation
+   */
+  setRasterOverlayElevation(id, elevation) { _setRasterOverlayElevation(this, id, elevation); }
+
+  /**
+   * Return a raster overlay by id, or undefined if not found.
+   * @param {string} id
+   * @returns {object|undefined}
+   */
+  getRasterOverlay(id) { return _getRasterOverlay(this, id); }
+
+  /**
+   * Return all raster overlay layers in insertion order.
+   * @returns {object[]}
+   */
+  listRasterOverlays() { return _listRasterOverlays(this); }
 }
 
 export default Baselode3DScene;
