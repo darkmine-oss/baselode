@@ -362,8 +362,8 @@ function HoleSelector({ id, label, value, onChange }) {
 }
 
 function CorePhoto() {
-  const [leftHole, setLeftHole]   = useState('09RTD001');
-  const [rightHole, setRightHole] = useState('12CADD001');
+  const [leftHole, setLeftHole]   = useState('GSWA-001');
+  const [rightHole, setRightHole] = useState('GSWA-003');
   const [linked, setLinked]       = useState(true);
 
 const leftPhotos  = useMemo(() => getHolePhotos(leftHole  === NONE ? null : leftHole),  [leftHole]);
@@ -376,6 +376,9 @@ const leftPhotos  = useMemo(() => getHolePhotos(leftHole  === NONE ? null : left
 
   return (
     <div className="core-photo-page">
+      <div className="core-photo-page-notice">
+        See the <a href="https://docs.baselode.net/guide/core-photo-viewer" target="_blank" rel="noreferrer">docs</a> for how to test this locally with real NVCL examples.
+      </div>
       <div className="core-photo-page-header">
         <h2>Core Photo Table</h2>
         <HoleSelector id="left-hole-select"  label="Left"  value={leftHole}  onChange={setLeftHole}  />

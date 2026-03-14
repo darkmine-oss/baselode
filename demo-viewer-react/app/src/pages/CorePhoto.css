@@ -11,6 +11,20 @@
   padding-left: 200px;
 }
 
+.core-photo-page-notice {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 12px;
+  color: #1e40af;
+}
+
+.core-photo-page-notice a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
 .core-photo-page-header {
   display: flex;
   align-items: center;

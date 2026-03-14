@@ -55,7 +55,7 @@ export function CorePhotoTable({
   transformRef.current = transform;
 
   const [dragging, setDragging] = useState(false);
-  const dragOrigin = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
+  const dragOrigin = useRef(null);
 
   const viewportRef = useRef(null);
 
