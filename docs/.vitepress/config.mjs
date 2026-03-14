@@ -82,15 +82,15 @@ export default defineConfig({
           collapsed: false,
           items: [
             { text: 'Overview', link: '/guide/core-photo-viewer' },
-            { text: 'What you must provide', link: '/guide/core-photo-viewer#what-you-must-provide' },
-            { text: 'Tray depths', link: '/guide/core-photo-viewer#1-tray-depth-intervals-trays' },
-            { text: 'Image directories', link: '/guide/core-photo-viewer#2-image-directories-thumbbaseurl-fullbaseurl' },
-            { text: 'Filename conventions', link: '/guide/core-photo-viewer#filename-conventions' },
+            { text: 'Preparing your data', link: '/guide/core-photo-viewer#preparing-your-data' },
+            { text: 'Single hole', link: '/guide/core-photo-viewer#single-hole-corephotaviewer' },
             { text: 'Multiple photo sets', link: '/guide/core-photo-viewer#multiple-photo-sets-side-by-side-columns' },
+            { text: 'Multiple datasets for one hole', link: '/guide/core-photo-viewer#multiple-datasets-for-one-hole' },
+            { text: 'Comparing multiple holes', link: '/guide/core-photo-viewer#comparing-multiple-holes' },
+            { text: 'Linked pan/zoom', link: '/guide/core-photo-viewer#linked-panzoom-across-independent-viewers' },
+            { text: 'Filename conventions', link: '/guide/core-photo-viewer#filename-conventions' },
             { text: 'Local development', link: '/guide/core-photo-viewer#local-development' },
-            { text: 'Production hosting', link: '/guide/core-photo-viewer#production-hosting' },
-            { text: 'API reference', link: '/guide/core-photo-viewer#full-api-reference' },
-            { text: 'CorePhotoTable (low-level)', link: '/guide/core-photo-viewer#corephotatable-low-level-api' }
+            { text: 'API reference', link: '/guide/core-photo-viewer#full-api-reference' }
           ]
         }
       ],
