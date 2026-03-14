@@ -23,9 +23,6 @@ import numpy as np
 import pandas as pd
 
 
-_EMPTY_COLUMNS = ["hole_id", "assay_field", "from", "to", "length", "avg_grade", "n_samples", "label"]
-
-
 def significant_intercepts(
     df,
     assay_field,

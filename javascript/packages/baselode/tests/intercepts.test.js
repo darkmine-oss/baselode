@@ -74,6 +74,15 @@ describe('significantIntercepts', () => {
     expect(result[0].hole_id).toBe('DH001');
   });
 
+  it('returns empty array when assay field is not present on rows', () => {
+    const intervals = [
+      { hole_id: 'DH001', from: 0, to: 10, AU_PPM: 1.0 },
+      { hole_id: 'DH001', from: 10, to: 20, AU_PPM: 2.0 },
+    ];
+    // CU_PCT does not exist — undefined coerces to NaN, filtered by isFinite
+    expect(significantIntercepts(intervals, 'CU_PCT', 0.10, 5)).toEqual([]);
+  });
+
   it('calculates weighted average grade correctly', () => {
     const intervals = [
       { hole_id: 'DH001', from: 0, to: 10, CU_PCT: 0.10 },
