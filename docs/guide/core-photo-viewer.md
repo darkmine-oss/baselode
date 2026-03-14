@@ -173,7 +173,7 @@ npm install react react-dom
 
 ## Usage
 
-### Single hole — `CorePhotoViewer`
+### Single hole
 
 The simplest case: one hole, one scan directory, filenames follow the default pattern.
 
@@ -204,7 +204,7 @@ const trays = [
 
 ---
 
-### Multiple photo sets — side-by-side columns
+### Multiple photo sets
 
 If you have parallel scans of the same hole (e.g. Wet and Dry, or visible-light and SWIR), tag each tray with a `photoSet` string. Trays sharing the same `photoSet` are grouped into one column; columns appear left-to-right in the order they are first encountered.
 

@@ -49,10 +49,23 @@ export function CorePhotoTable({
   // Supports both uncontrolled (internal state) and controlled modes.
   // Pass transform + onTransformChange to share state across multiple tables.
   const [internalTransform, setInternalTransform] = useState({ scale: 1, tx: 0, ty: 0 });
-  const transform    = controlledTransform ?? internalTransform;
-  const setTransform = onTransformChange   ?? setInternalTransform;
+  const transform = controlledTransform ?? internalTransform;
   const transformRef = useRef(transform);
   transformRef.current = transform;
+
+  // Always resolves functional updaters to a plain object before dispatching,
+  // so onTransformChange is always called with a transform object, never a function.
+  const setTransform = useCallback(
+    (updater) => {
+      const next = typeof updater === 'function' ? updater(transformRef.current) : updater;
+      if (onTransformChange) {
+        onTransformChange(next);
+      } else {
+        setInternalTransform(next);
+      }
+    },
+    [onTransformChange],
+  );
 
   const [dragging, setDragging] = useState(false);
   const dragOrigin = useRef(null);
@@ -123,7 +136,7 @@ export function CorePhotoTable({
         ty: cy - (cy - prev.ty) * ratio,
       };
     });
-  }, []);
+  }, [setTransform]);
 
   useEffect(() => {
     const el = viewportRef.current;
@@ -168,7 +181,7 @@ export function CorePhotoTable({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [setTransform]);
 
   // ── Render ──────────────────────────────────────────────────────────────
 

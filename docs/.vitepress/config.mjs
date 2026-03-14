@@ -83,8 +83,8 @@ export default defineConfig({
           items: [
             { text: 'Overview', link: '/guide/core-photo-viewer' },
             { text: 'Preparing your data', link: '/guide/core-photo-viewer#preparing-your-data' },
-            { text: 'Single hole', link: '/guide/core-photo-viewer#single-hole-corephotaviewer' },
-            { text: 'Multiple photo sets', link: '/guide/core-photo-viewer#multiple-photo-sets-side-by-side-columns' },
+            { text: 'Single hole', link: '/guide/core-photo-viewer#single-hole' },
+            { text: 'Multiple photo sets', link: '/guide/core-photo-viewer#multiple-photo-sets' },
             { text: 'Multiple datasets for one hole', link: '/guide/core-photo-viewer#multiple-datasets-for-one-hole' },
             { text: 'Comparing multiple holes', link: '/guide/core-photo-viewer#comparing-multiple-holes' },
             { text: 'Linked pan/zoom', link: '/guide/core-photo-viewer#linked-panzoom-across-independent-viewers' },

@@ -12,13 +12,17 @@ const _fetchCache = new Map();
 
 function loadDemoCsvText({ url, label }) {
   if (!_fetchCache.has(url)) {
-    _fetchCache.set(
-      url,
-      fetch(url).then((r) => {
+    const promise = fetch(url)
+      .then((r) => {
         if (!r.ok) throw new Error(`Failed to load ${label} (${r.status})`);
         return r.text();
-      }),
-    );
+      })
+      .catch((err) => {
+        // Remove failed entry so callers can retry after transient errors.
+        _fetchCache.delete(url);
+        throw err;
+      });
+    _fetchCache.set(url, promise);
   }
   return _fetchCache.get(url);
 }

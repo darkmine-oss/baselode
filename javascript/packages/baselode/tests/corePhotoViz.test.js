@@ -9,6 +9,8 @@ import {
   BASE_PIXELS_PER_METRE,
   DEFAULT_LOD_BREAKPOINTS,
   buildDepthMarkers,
+  buildTrayPhotos,
+  defaultTrayFilename,
   depthIntervalToPixels,
   depthMarkerInterval,
   groupPhotosBySet,
@@ -244,17 +246,16 @@ describe('depthIntervalToPixels', () => {
     expect(depthIntervalToPixels(1, 5)).toBe(BASE_PIXELS_PER_METRE);
   });
 
-  it('doubles height when zoom doubles (from 5 to 10)', () => {
-    const h5 = depthIntervalToPixels(1, 5);
+  it('doubles height when zoom doubles (5 → 10)', () => {
+    const h5  = depthIntervalToPixels(1, 5);
     const h10 = depthIntervalToPixels(1, 10);
     expect(h10).toBe(h5 * 2);
   });
 
-  it('halves height when zoom halves (from 5 to 2.5 → zoom 2 approximately)', () => {
-    // zoom 5 → baseline; zoom 2.5 → half (we test with real proportions)
-    const h5 = depthIntervalToPixels(10, 5);
-    const h10 = depthIntervalToPixels(10, 10);
-    expect(h10 / h5).toBeCloseTo(2, 1);
+  it('halves height when zoom halves (5 → 2.5)', () => {
+    const h5   = depthIntervalToPixels(10, 5);
+    const h2_5 = depthIntervalToPixels(10, 2.5);
+    expect(h2_5 / h5).toBeCloseTo(0.5, 1);
   });
 
   it('returns at least 1 for tiny intervals', () => {
@@ -264,5 +265,99 @@ describe('depthIntervalToPixels', () => {
 
   it('respects a custom basePixelsPerMetre', () => {
     expect(depthIntervalToPixels(1, 5, 40)).toBe(40);
+  });
+});
+
+
+// ── defaultTrayFilename ───────────────────────────────────────────────────
+
+describe('defaultTrayFilename', () => {
+  it('generates zero-padded three-digit filenames', () => {
+    expect(defaultTrayFilename(0)).toBe('tray_000.jpg');
+    expect(defaultTrayFilename(1)).toBe('tray_001.jpg');
+    expect(defaultTrayFilename(99)).toBe('tray_099.jpg');
+    expect(defaultTrayFilename(100)).toBe('tray_100.jpg');
+  });
+});
+
+
+// ── buildTrayPhotos ───────────────────────────────────────────────────────
+
+describe('buildTrayPhotos', () => {
+  const trays = [
+    { fromDepth: 0.0, toDepth: 3.4 },
+    { fromDepth: 3.4, toDepth: 6.8 },
+  ];
+
+  it('returns one photo entry per tray', () => {
+    const photos = buildTrayPhotos('DDH-001', trays, '/thumb', '/full');
+    expect(photos).toHaveLength(2);
+  });
+
+  it('sets hole_id, from_depth, and to_depth correctly', () => {
+    const [p0, p1] = buildTrayPhotos('DDH-001', trays, '/thumb', '/full');
+    expect(p0.hole_id).toBe('DDH-001');
+    expect(p0.from_depth).toBe(0.0);
+    expect(p0.to_depth).toBe(3.4);
+    expect(p1.from_depth).toBe(3.4);
+  });
+
+  it('builds thumb and full URLs using default filename pattern', () => {
+    const [p0, p1] = buildTrayPhotos('DDH-001', trays, '/thumb', '/full');
+    expect(p0.lod_urls.thumb).toBe('/thumb/tray_000.jpg');
+    expect(p0.lod_urls.full).toBe('/full/tray_000.jpg');
+    expect(p1.lod_urls.thumb).toBe('/thumb/tray_001.jpg');
+    expect(p1.lod_urls.full).toBe('/full/tray_001.jpg');
+  });
+
+  it('strips trailing slashes from base URLs', () => {
+    const [p0] = buildTrayPhotos('DDH-001', trays, '/thumb/', '/full/');
+    expect(p0.lod_urls.thumb).toBe('/thumb/tray_000.jpg');
+    expect(p0.lod_urls.full).toBe('/full/tray_000.jpg');
+  });
+
+  it('sets image_url to the thumb URL', () => {
+    const [p0] = buildTrayPhotos('DDH-001', trays, '/thumb', '/full');
+    expect(p0.image_url).toBe('/thumb/tray_000.jpg');
+  });
+
+  it('uses the default photoSet when none supplied', () => {
+    const [p0] = buildTrayPhotos('DDH-001', trays, '/thumb', '/full');
+    expect(p0.photo_set).toBe('Tray Images');
+  });
+
+  it('uses a custom photoSet when supplied', () => {
+    const [p0] = buildTrayPhotos('DDH-001', trays, '/thumb', '/full', 'Wet');
+    expect(p0.photo_set).toBe('Wet');
+  });
+
+  it('overrides photoSet per tray via tray.photoSet', () => {
+    const mixed = [
+      { fromDepth: 0, toDepth: 3.4, photoSet: 'Dry' },
+      { fromDepth: 3.4, toDepth: 6.8 },
+    ];
+    const [p0, p1] = buildTrayPhotos('DDH-001', mixed, '/thumb', '/full', 'Wet');
+    expect(p0.photo_set).toBe('Dry');
+    expect(p1.photo_set).toBe('Wet');
+  });
+
+  it('uses per-tray filename override when tray.filename is set', () => {
+    const custom = [{ fromDepth: 0, toDepth: 3.4, filename: 'box_001.jpg' }];
+    const [p0] = buildTrayPhotos('DDH-001', custom, '/thumb', '/full');
+    expect(p0.lod_urls.thumb).toBe('/thumb/box_001.jpg');
+    expect(p0.lod_urls.full).toBe('/full/box_001.jpg');
+  });
+
+  it('accepts a custom getFilename generator', () => {
+    const [p0, p1] = buildTrayPhotos(
+      'DDH-001', trays, '/thumb', '/full', 'Tray Images',
+      (i) => `mosaic_${String(i).padStart(3, '0')}.jpg`,
+    );
+    expect(p0.lod_urls.thumb).toBe('/thumb/mosaic_000.jpg');
+    expect(p1.lod_urls.thumb).toBe('/thumb/mosaic_001.jpg');
+  });
+
+  it('returns an empty array for empty trays input', () => {
+    expect(buildTrayPhotos('DDH-001', [], '/thumb', '/full')).toEqual([]);
   });
 });
