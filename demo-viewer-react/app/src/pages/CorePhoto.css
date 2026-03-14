@@ -1,0 +1,104 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+.core-photo-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding-left: 200px;
+}
+
+.core-photo-page-notice {
+  flex-shrink: 0;
+  padding: 6px 16px;
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 12px;
+  color: #1e40af;
+}
+
+.core-photo-page-notice a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.core-photo-page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.core-photo-page-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.core-photo-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.core-photo-page-label {
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.core-photo-page-select {
+  padding: 4px 8px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.core-photo-page-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.core-photo-page-viewer {
+  flex: 1;
+  overflow: hidden;
+}
+
+.core-photo-page-panels {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  gap: 1px;
+  background: #cbd5e1;
+}
+
+.core-photo-page-panel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.core-photo-page-link-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}

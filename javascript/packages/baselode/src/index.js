@@ -239,6 +239,22 @@ export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';
 export { default as BlockModelWidget } from './viz/BlockModelWidget.jsx';
 
+export {
+  DEFAULT_LOD_BREAKPOINTS,
+  BASE_PIXELS_PER_METRE,
+  selectPhotoLodUrl,
+  sortPhotosByDepth,
+  groupPhotosBySet,
+  buildDepthMarkers,
+  depthMarkerInterval,
+  depthIntervalToPixels,
+  buildTrayPhotos,
+  defaultTrayFilename,
+} from './viz/corePhotoViz.js';
+
+export { default as CorePhotoTable } from './viz/CorePhotoTable.jsx';
+export { CorePhotoViewer } from './viz/CorePhotoViewer.jsx';
+
 // --- Grade blocks ---
 export {
   loadGradeBlocksFromJson,

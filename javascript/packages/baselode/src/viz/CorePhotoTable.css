@@ -1,0 +1,215 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+.core-photo-table {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 12px;
+  color: #1e293b;
+}
+
+/* ── Controls bar ─────────────────────────────────────────────────────────── */
+
+.core-photo-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #cbd5e1;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.core-photo-hole-id {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #0f172a;
+  margin-right: 4px;
+}
+
+.core-photo-zoom-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s;
+}
+
+.core-photo-zoom-btn:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.core-photo-zoom-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.core-photo-zoom-label {
+  min-width: 52px;
+  text-align: center;
+  color: #475569;
+}
+
+/* ── Column header strip ──────────────────────────────────────────────────── */
+
+.core-photo-col-headers {
+  display: flex;
+  flex-direction: row;
+  flex-shrink: 0;
+  border-bottom: 1px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.core-photo-ruler-spacer {
+  flex-shrink: 0;
+  width: 64px;
+  border-right: 2px solid #334155;
+}
+
+.core-photo-set-header {
+  flex-shrink: 0;
+  padding: 4px 8px;
+  text-align: center;
+  font-weight: 600;
+  color: #334155;
+  letter-spacing: 0.05em;
+  border-right: 1px solid #cbd5e1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+/* ── Scrollable body ─────────────────────────────────────────────────────── */
+
+.core-photo-scroll {
+  flex: 1;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+}
+
+.core-photo-scroll.is-dragging {
+  cursor: grabbing;
+}
+
+.core-photo-inner {
+  display: flex;
+  flex-direction: row;
+  position: relative;
+  min-width: min-content;
+}
+
+/* ── Depth ruler ─────────────────────────────────────────────────────────── */
+
+.core-photo-depth-ruler {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  border-right: 2px solid #334155;
+  background: #ffffff;
+}
+
+.core-photo-depth-marker {
+  position: absolute;
+  left: 0;
+  width: 60px;
+  padding-right: 6px;
+  font-size: 10px;
+  text-align: right;
+  color: #475569;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+  line-height: 1;
+}
+
+.core-photo-depth-marker::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 50%;
+  width: 4px;
+  height: 1px;
+  background: #94a3b8;
+}
+
+/* ── Photo columns ───────────────────────────────────────────────────────── */
+
+.core-photo-col-body {
+  position: relative;
+  flex-shrink: 0;
+  border-right: 1px solid #e2e8f0;
+}
+
+/* ── Individual photo items ─────────────────────────────────────────────── */
+
+.core-photo-item {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.core-photo-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+
+/* Shown when image_url is absent */
+.core-photo-no-image {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    #ffffff,
+    #ffffff 6px,
+    #f1f5f9 6px,
+    #f1f5f9 12px
+  );
+}
+
+.core-photo-item-label {
+  position: absolute;
+  bottom: 2px;
+  left: 2px;
+  font-size: 9px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f8fafc;
+  padding: 1px 4px;
+  border-radius: 2px;
+  pointer-events: none;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+
+.core-photo-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 14px;
+}

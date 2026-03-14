@@ -5,6 +5,34 @@
 import Papa from 'papaparse';
 import { standardizeColumns, HOLE_ID } from 'baselode';
 
+// Module-level cache: url → Promise<string>
+// Ensures each CSV is fetched exactly once regardless of how many callers
+// request it (including React 18 Strict Mode's double effect invocation).
+const _fetchCache = new Map();
+
+function loadDemoCsvText({ url, label }) {
+  if (!_fetchCache.has(url)) {
+    const promise = fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Failed to load ${label} (${r.status})`);
+        return r.text();
+      })
+      .catch((err) => {
+        // Remove failed entry so callers can retry after transient errors.
+        _fetchCache.delete(url);
+        throw err;
+      });
+    _fetchCache.set(url, promise);
+  }
+  return _fetchCache.get(url);
+}
+
+async function loadDemoCsvFile({ url, fileName, label }) {
+  const csvText = await loadDemoCsvText({ url, label });
+  const blob = new Blob([csvText], { type: 'text/csv' });
+  return new File([blob], fileName, { type: 'text/csv' });
+}
+
 export async function loadDemoCollarRows({
   url = '/data/gswa/gswa_sample_collars.csv'
 } = {}) {
@@ -29,61 +57,47 @@ export async function loadDemoCollarRows({
   });
 }
 
-export async function loadDemoGswaAssayFile({
+export function loadDemoGswaAssayFile({
   url = '/data/gswa/gswa_sample_assays.csv',
   fileName = 'gswa_sample_assays.csv'
 } = {}) {
   return loadDemoCsvFile({ url, fileName, label: 'demo assays' });
 }
 
-export async function loadDemoGswaAssayCsvText({
+export function loadDemoGswaAssayCsvText({
   url = '/data/gswa/gswa_sample_assays.csv'
 } = {}) {
   return loadDemoCsvText({ url, label: 'demo assays' });
 }
 
-export async function loadDemoGswaGeologyFile({
+export function loadDemoGswaGeologyFile({
   url = '/data/gswa/gswa_sample_geology.csv',
   fileName = 'gswa_sample_geology.csv'
 } = {}) {
   return loadDemoCsvFile({ url, fileName, label: 'demo geology' });
 }
 
-export async function loadDemoGswaGeologyCsvText({
+export function loadDemoGswaGeologyCsvText({
   url = '/data/gswa/gswa_sample_geology.csv'
 } = {}) {
   return loadDemoCsvText({ url, label: 'demo geology' });
 }
 
-export async function loadDemoPrecomputedDesurveyFile({
+export function loadDemoPrecomputedDesurveyFile({
   url = '/data/gswa/demo_gswa_precomputed_desurveyed.csv',
   fileName = 'demo_gswa_precomputed_desurveyed.csv'
 } = {}) {
   return loadDemoCsvFile({ url, fileName, label: 'precomputed desurvey data' });
 }
 
-export async function loadDemoSurveyCsvText({
+export function loadDemoSurveyCsvText({
   url = '/data/gswa/gswa_sample_survey.csv'
 } = {}) {
   return loadDemoCsvText({ url, label: 'demo survey data' });
 }
 
-export async function loadDemoStructuralCsvText({
+export function loadDemoStructuralCsvText({
   url = '/data/gswa/gswa_sample_structure.csv'
 } = {}) {
   return loadDemoCsvText({ url, label: 'demo structural' });
-}
-
-async function loadDemoCsvFile({ url, fileName, label }) {
-  const csvText = await loadDemoCsvText({ url, label });
-  const blob = new Blob([csvText], { type: 'text/csv' });
-  return new File([blob], fileName, { type: 'text/csv' });
-}
-
-async function loadDemoCsvText({ url, label }) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to load ${label} (${response.status})`);
-  }
-  return response.text();
 }

@@ -10,6 +10,7 @@ import Drillhole2D from './pages/Drillhole2D';
 import BlockModel from './pages/BlockModel';
 import PolygonBlocks from './pages/PolygonBlocks';
 import Attribution from './pages/Attribution';
+import CorePhoto from './pages/CorePhoto';
 import './App.css';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
         <Route path="/block-model" element={<BlockModel />} />
         <Route path="/polygon-blocks" element={<PolygonBlocks />} />
         <Route path="/attribution" element={<Attribution />} />
+        <Route path="/core-photo" element={<CorePhoto />} />
       </Routes>
     </Layout>
   );

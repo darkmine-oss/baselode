@@ -160,6 +160,23 @@
         ["baselode.drill.columns", "classify_columns"],
         ["baselode.drill.columns", "available_chart_types"]
       ]
+    },
+    {
+      "name": "core_photo_table",
+      "jsExports": [
+        "DEFAULT_LOD_BREAKPOINTS",
+        "BASE_PIXELS_PER_METRE",
+        "selectPhotoLodUrl",
+        "sortPhotosByDepth",
+        "groupPhotosBySet",
+        "buildDepthMarkers",
+        "depthMarkerInterval",
+        "depthIntervalToPixels",
+        "CorePhotoTable"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.view", "plot_core_photo_log"]
+      ]
     }
   ]
 }

@@ -20,7 +20,8 @@ export default defineConfig({
         text: 'Guide',
         items: [
           { text: 'Python', link: '/guide/python' },
-          { text: 'JavaScript', link: '/guide/javascript' }
+          { text: 'JavaScript', link: '/guide/javascript' },
+          { text: 'Core Photo Viewer', link: '/guide/core-photo-viewer' }
         ]
       },
       { text: 'Demos', link: '/demos' },
@@ -74,6 +75,22 @@ export default defineConfig({
             { text: 'Plotly Templates', link: '/guide/javascript#plotly-templates' },
             { text: 'Colour Mapping', link: '/guide/javascript#colour-mapping' },
             { text: '3D Scene', link: '/guide/javascript#3d-scene' }
+          ]
+        },
+        {
+          text: 'Core Photo Viewer',
+          collapsed: false,
+          items: [
+            { text: 'Overview', link: '/guide/core-photo-viewer' },
+            { text: 'Preparing your data', link: '/guide/core-photo-viewer#preparing-your-data' },
+            { text: 'Single hole', link: '/guide/core-photo-viewer#single-hole' },
+            { text: 'Multiple photo sets', link: '/guide/core-photo-viewer#multiple-photo-sets' },
+            { text: 'Multiple datasets for one hole', link: '/guide/core-photo-viewer#multiple-datasets-for-one-hole' },
+            { text: 'Comparing multiple holes', link: '/guide/core-photo-viewer#comparing-multiple-holes' },
+            { text: 'Linked pan/zoom', link: '/guide/core-photo-viewer#linked-panzoom-across-independent-viewers' },
+            { text: 'Filename conventions', link: '/guide/core-photo-viewer#filename-conventions' },
+            { text: 'Local development', link: '/guide/core-photo-viewer#local-development' },
+            { text: 'API reference', link: '/guide/core-photo-viewer#full-api-reference' }
           ]
         }
       ],

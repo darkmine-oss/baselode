@@ -70,3 +70,5 @@ npm install baselode      # JavaScript
   <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer with assay colouring" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
   <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
 </div>
+
+<p style="font-size:0.8em;color:#94a3b8;margin-top:2rem">These docs are primarily written with AI. Please notify the maintainer if inaccuracies exist.</p>
