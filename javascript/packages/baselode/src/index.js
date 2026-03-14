@@ -124,6 +124,10 @@ export {
 } from './data/unifiedLoader.js';
 
 export {
+  significantIntercepts
+} from './data/intercepts.js';
+
+export {
   interpolateTrace,
   alphaBetaToNormal,
   computeStructuralPositions

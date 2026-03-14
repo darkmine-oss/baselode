@@ -142,6 +142,15 @@
       ]
     },
     {
+      "name": "significant_intercepts",
+      "jsExports": [
+        "significantIntercepts"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.intercepts", "significant_intercepts"]
+      ]
+    },
+    {
       "name": "column_metadata",
       "jsExports": [
         "DISPLAY_NUMERIC",
