@@ -427,25 +427,41 @@ Thin Three.js orchestrator.  Rendering is delegated to internal domain modules (
 
 `options`: `{ preserveView, assayIntervalsByHole, selectedAssayVariable }`
 
-**Strip logs (floating 2D panels)**
+**Strip logs (floating 3D traces)**
+
+Floating line traces rendered beside drillholes in 3D space.  Each trace is a solid ribbon mesh with no background panel — the scene is fully visible through it.  Traces are depth-registered: `depth = 0` anchors at the collar and each sample appears at its true position along the hole axis, aligned with the drillstring geometry.
 
 | Method | Description |
 |---|---|
-| `setStripLogs(holes, stripLogs)` | Add floating 2D line-graph panels beside drillholes |
-| `clearStripLogs()` | Remove all strip log panels and free GPU resources |
+| `setStripLogs(holes, stripLogs)` | Add floating line traces beside drillholes; clears previous traces first |
+| `clearStripLogs()` | Remove all traces and free GPU resources |
 
-`stripLogs` is an array of objects, each containing:
+`setStripLogs(holes, stripLogs)` — `holes` is the same desurveyed array passed to `setDrillholes`.  `stripLogs` is an array of objects:
 
 | Property | Type | Description |
 |---|---|---|
 | `holeId` | `string` | Must match a `hole.id` from the `holes` array |
-| `depths` | `number[]` | Downhole depth positions for each sample |
+| `depths` | `number[]` | Measured downhole depths for each sample (metres from collar) |
 | `values` | `number[]` | Numeric value at each depth |
-| `options.panelWidth` | `number` | Scene-unit width of the panel (default `20`) |
-| `options.lateralOffset` | `number` | Scene-unit lateral offset from the hole collar (default `15`) |
-| `options.color` | `string` | CSS/hex line colour (default `'#00bcd4'`) |
-| `options.valueMin` | `number` | Explicit minimum value for horizontal scale (auto if omitted) |
-| `options.valueMax` | `number` | Explicit maximum value for horizontal scale (auto if omitted) |
+| `options.panelWidth` | `number` | Scene-unit horizontal extent of the value axis (default `20`) |
+| `options.lateralOffset` | `number` | Scene-unit offset from the hole collar perpendicular to the hole axis (default `15`) |
+| `options.color` | `string` | CSS/hex ribbon colour (default `'#00bcd4'`) |
+| `options.valueMin` | `number` | Explicit minimum for horizontal scaling (auto if omitted) |
+| `options.valueMax` | `number` | Explicit maximum for horizontal scaling (auto if omitted) |
+
+The trace orientation is derived from the collar→toe vector of each hole.  The lateral offset direction is perpendicular to that vector in the horizontal plane.  Depth positions are normalised against the hole's measured depth at the toe (read from `point.md`), so dense geophysics logs (e.g. gamma at 0.1 m intervals) render correctly alongside sparse assay intervals.
+
+**Pure helpers (exported for testing)**
+
+| Symbol | Description |
+|---|---|
+| `normalizeStripLogOptions(options?)` | Apply defaults to a strip log options object |
+| `getHoleVerticalExtent(points)` | Return `{ topZ, botZ, height }` from desurveyed hole points |
+| `buildStripLogLinePoints(depths, values, panelWidth, panelHeight, valueMin, valueMax, depthScale?)` | Map depth/value arrays to panel-local `THREE.Vector3` points.  `depthScale` (hole measured depth at toe) anchors depth 0 at the collar; omit to auto-scale across the data range. |
+| `buildStripLogGroup(hole, stripLog)` | Build the `THREE.Group` for one hole/log pair |
+| `STRIP_LOG_DEFAULT_PANEL_WIDTH` | `20` |
+| `STRIP_LOG_DEFAULT_LATERAL_OFFSET` | `15` |
+| `STRIP_LOG_DEFAULT_COLOR` | `'#00bcd4'` |
 
 **Block model**
 

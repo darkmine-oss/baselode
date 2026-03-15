@@ -128,6 +128,11 @@ export {
 } from './data/intercepts.js';
 
 export {
+  parseGeophysicsCSV,
+  geophysicsToStripLogs,
+} from './data/geophysicsLoader.js';
+
+export {
   interpolateTrace,
   alphaBetaToNormal,
   computeStructuralPositions
