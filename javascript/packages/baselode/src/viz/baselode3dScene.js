@@ -132,8 +132,8 @@ class Baselode3DScene {
     this.controls.enableDamping = false;
     this.controls.screenSpacePanning = true;
     this.controls.enableZoom = true;
-    this.controls.zoomSpeed = 1.2;
-    this.controls.minDistance = 0.003;
+    this.controls.zoomSpeed = 10;
+    this.controls.minDistance = 0.0001;
     this.controls.maxDistance = 5_000_000;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,
@@ -142,7 +142,7 @@ class Baselode3DScene {
     };
     this.controls.touches = {
       ONE: THREE.TOUCH.ROTATE,
-      TWO: THREE.TOUCH.PAN
+      TWO: THREE.TOUCH.DOLLY_PAN
     };
     this.controls.maxPolarAngle = Math.PI;
 
@@ -165,6 +165,29 @@ class Baselode3DScene {
     this.gizmo.attachControls(this.controls);
 
     _attachCanvasClickHandler(this);
+
+    // On macOS, Chrome latches wheel events to whichever element is under the
+    // cursor at the start of a gesture.  If that element is an overlaid UI panel
+    // (zoom slider, controls buttons) rather than the canvas, OrbitControls never
+    // receives the event.  Relay any wheel event that bubbles up to the container
+    // but did NOT originate from the canvas itself.
+    this._wheelRelay = (e) => {
+      if (e.target === this.renderer.domElement) return; // already going to OrbitControls
+      e.preventDefault();
+      this.renderer.domElement.dispatchEvent(new WheelEvent('wheel', {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaZ: e.deltaZ,
+        deltaMode: e.deltaMode,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
+        altKey: e.altKey,
+        bubbles: false,
+      }));
+    };
+    this.container.addEventListener('wheel', this._wheelRelay, { passive: false });
 
     // Selection glow post-processing
     initSelectionGlow(this);
@@ -217,6 +240,9 @@ class Baselode3DScene {
     _clearStructuralDiscs(this);
     _clearRasterOverlays(this);
     disposeSelectionGlow(this);
+    if (this.container && this._wheelRelay) {
+      this.container.removeEventListener('wheel', this._wheelRelay);
+    }
     if (this.controls) this.controls.dispose();
     if (this.flyControls) this.flyControls.dispose();
     if (this.renderer) {
@@ -316,6 +342,15 @@ class Baselode3DScene {
    * @param {number} fovDeg - Desired FOV in degrees
    */
   setCameraFov(fovDeg) { setFov(this, fovDeg); }
+
+  /**
+   * Set the scene background colour.
+   * @param {'white'|'black'} colour
+   */
+  setBackground(colour) {
+    if (!this.scene) return;
+    this.scene.background = new THREE.Color(colour === 'black' ? 0x000000 : 0xffffff);
+  }
 
   setControlMode(mode = 'orbit') { setControlMode(this, mode); }
 

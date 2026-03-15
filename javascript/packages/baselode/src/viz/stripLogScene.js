@@ -49,32 +49,37 @@ export function normalizeStripLogOptions(options = {}) {
  */
 export function getHoleVerticalExtent(points) {
   if (!points || points.length < 2) return null;
-  let topY = -Infinity;
-  let botY = Infinity;
+  let topZ = -Infinity;
+  let botZ = Infinity;
   for (const p of points) {
-    if (p.y > topY) topY = p.y;
-    if (p.y < botY) botY = p.y;
+    if (p.z > topZ) topZ = p.z;
+    if (p.z < botZ) botZ = p.z;
   }
-  const height = topY - botY;
+  const height = topZ - botZ;
   if (height < 0.001) return null;
-  return { topY, botY, height };
+  return { topZ, botZ, height };
 }
 
 /**
  * Map depth/value data pairs onto panel-local 2D coordinates.
  *
  * Panel-local space: X runs left (min value) to right (max value); Y runs top
- * (shallow) to bottom (deep).
+ * (shallow) to bottom (deep) along the hole direction.  Z = 0.01 offsets the line
+ * slightly in front of the panel face.  The caller is responsible for applying the
+ * panel's world-space quaternion to these local-space points.
  *
- * @param {number[]} depths
+ * @param {number[]} depths      - downhole measured depths for each sample
  * @param {number[]} values
  * @param {number} panelWidth
- * @param {number} panelHeight
- * @param {number|null} valueMin  - explicit min override (null = auto)
- * @param {number|null} valueMax  - explicit max override (null = auto)
- * @returns {THREE.Vector3[]} panel-local points (Z = 0.01 to sit above the panel face)
+ * @param {number} panelHeight   - total length of the panel (= hole measured depth at toe)
+ * @param {number|null} valueMin - explicit min override (null = auto)
+ * @param {number|null} valueMax - explicit max override (null = auto)
+ * @param {number|null} depthScale - measured depth at toe used to anchor depth=0 at the
+ *   collar and scale positions correctly along the hole.  When null the depths are
+ *   auto-scaled between their own min/max (legacy behaviour).
+ * @returns {THREE.Vector3[]} panel-local points (Z = 0.01 to sit in front of the panel)
  */
-export function buildStripLogLinePoints(depths, values, panelWidth, panelHeight, valueMin, valueMax) {
+export function buildStripLogLinePoints(depths, values, panelWidth, panelHeight, valueMin, valueMax, depthScale) {
   if (!Array.isArray(depths) || !Array.isArray(values)) return [];
 
   const len = Math.min(depths.length, values.length);
@@ -86,8 +91,12 @@ export function buildStripLogLinePoints(depths, values, panelWidth, panelHeight,
   }
   if (valid.length < 2) return [];
 
-  const minDepth = Math.min(...valid.map((p) => p.d));
-  const maxDepth = Math.max(...valid.map((p) => p.d));
+  // When depthScale is provided, depth 0 = collar and depthScale = toe, so each
+  // sample lands at its true position along the hole axis.  Otherwise fall back
+  // to auto-scaling across the data's own depth range (legacy behaviour).
+  const depthRef = (depthScale != null && depthScale > 0) ? depthScale : null;
+  const minDepth = depthRef != null ? 0 : Math.min(...valid.map((p) => p.d));
+  const maxDepth = depthRef != null ? depthRef : Math.max(...valid.map((p) => p.d));
   const depthRange = maxDepth - minDepth || 1;
 
   const autoMin = Math.min(...valid.map((p) => p.v));
@@ -97,21 +106,73 @@ export function buildStripLogLinePoints(depths, values, panelWidth, panelHeight,
   const valRange = vMax - vMin || 1;
 
   return valid.map(({ d, v }) => {
-    const tDepth = (d - minDepth) / depthRange; // 0=shallow → 1=deep
+    const tDepth = (d - minDepth) / depthRange; // 0=collar → 1=toe
     const tVal = Math.max(0, Math.min(1, (v - vMin) / valRange));
     const localX = -panelWidth / 2 + tVal * panelWidth;
-    const localY = panelHeight / 2 - tDepth * panelHeight; // top=shallow
+    // localY increases along +holeDir (downhole). Mesh origin is at the collar,
+    // so localY = 0 → collar and localY = +panelHeight → toe.
+    const localY = tDepth * panelHeight;
     return new THREE.Vector3(localX, localY, 0.01);
   });
 }
 
 /**
- * Build a Three.js Group containing the strip log panel geometry for one hole.
+ * Build a flat ribbon BufferGeometry by extruding a polyline in the XY plane.
  *
- * The panel is a flat rectangle placed beside the hole collar, offset in the
- * scene +X direction by `lateralOffset` scene units.  The panel faces +Z
- * (toward the viewer at the default viewpoint) and spans the hole's full
- * vertical extent.
+ * For each consecutive pair of points a quad is generated perpendicular to the
+ * segment direction, giving a solid filled line of the requested half-width.
+ * Using a Mesh + MeshBasicMaterial avoids the WebGL line-width restriction and
+ * the LineMaterial shader complexity.
+ *
+ * @param {THREE.Vector3[]} points - Line points in panel-local XY space
+ * @param {number} halfWidth - Half the desired ribbon width
+ * @returns {THREE.BufferGeometry|null}
+ */
+function buildLineRibbonGeometry(points, halfWidth) {
+  const n = points.length;
+  if (n < 2) return null;
+
+  const positions = [];
+  const indices = [];
+  let vi = 0;
+
+  for (let i = 0; i < n - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1e-6) continue;
+
+    // Perpendicular unit vector in XY, scaled to half-width
+    const nx = (-dy / len) * halfWidth;
+    const ny = (dx / len) * halfWidth;
+    const z = 0.01;
+
+    positions.push(
+      p1.x + nx, p1.y + ny, z,
+      p1.x - nx, p1.y - ny, z,
+      p2.x + nx, p2.y + ny, z,
+      p2.x - nx, p2.y - ny, z,
+    );
+    indices.push(vi, vi + 1, vi + 2, vi + 1, vi + 3, vi + 2);
+    vi += 4;
+  }
+
+  if (positions.length === 0) return null;
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geom.setIndex(indices);
+  return geom;
+}
+
+/**
+ * Build a Three.js Group containing the strip log trace for one hole.
+ *
+ * No backing panel or border — just a solid ribbon tracing the assay values
+ * floating in scene space beside the hole.  The trace is oriented parallel to
+ * the collar→toe axis and offset laterally from the hole by `lateralOffset`
+ * scene units.
  *
  * @param {object} hole - Hole object with `id` and `points`
  * @param {object} stripLog - Strip log definition (holeId, depths, values, options)
@@ -119,67 +180,75 @@ export function buildStripLogLinePoints(depths, values, panelWidth, panelHeight,
  */
 export function buildStripLogGroup(hole, stripLog) {
   const points = hole.points || [];
-  const extent = getHoleVerticalExtent(points);
-  if (!extent) return null;
+  if (points.length < 2) return null;
 
-  const { topY, botY, height } = extent;
   const collar = points[0];
+  const toe = points[points.length - 1];
+
+  // Hole axis: collar → toe
+  const holeDirRaw = new THREE.Vector3(
+    toe.x - collar.x,
+    toe.y - collar.y,
+    toe.z - collar.z,
+  );
+  const holeLength = holeDirRaw.length();
+  if (holeLength < 0.001) return null;
+  const holeDir = holeDirRaw.clone().normalize();
 
   const opts = normalizeStripLogOptions(stripLog.options);
   const { panelWidth, lateralOffset, color, valueMin, valueMax } = opts;
 
-  const panelCenterX = collar.x + lateralOffset + panelWidth / 2;
-  const panelCenterY = (topY + botY) / 2;
-  const panelCenterZ = collar.z;
+  // Lateral direction: perpendicular to hole axis, as horizontal as possible
+  const worldZ = new THREE.Vector3(0, 0, 1);
+  let lateralDir = new THREE.Vector3().crossVectors(holeDir, worldZ);
+  if (lateralDir.lengthSq() < 1e-6) {
+    lateralDir.set(1, 0, 0);
+  } else {
+    lateralDir.normalize();
+  }
 
-  const group = new THREE.Group();
-  group.userData = { holeId: hole.id, isStripLog: true };
+  const panelNormal = new THREE.Vector3().crossVectors(lateralDir, holeDir).normalize();
 
-  // Background panel — PlaneGeometry sits in XY plane, normal = +Z
-  const panelGeom = new THREE.PlaneGeometry(panelWidth, height);
-  const panelMat = new THREE.MeshBasicMaterial({
-    color: 0xf5f5f5,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.85,
-  });
-  const panelMesh = new THREE.Mesh(panelGeom, panelMat);
-  panelMesh.position.set(panelCenterX, panelCenterY, panelCenterZ);
-  group.add(panelMesh);
+  // Origin of the trace: collar shifted laterally by the offset
+  const traceOrigin = new THREE.Vector3(collar.x, collar.y, collar.z)
+    .addScaledVector(lateralDir, lateralOffset);
 
-  // Border line loop (slight +Z offset so it renders in front of the panel)
-  const hw = panelWidth / 2;
-  const hh = height / 2;
-  const borderPts = [
-    new THREE.Vector3(-hw, hh, 0.005),
-    new THREE.Vector3(hw, hh, 0.005),
-    new THREE.Vector3(hw, -hh, 0.005),
-    new THREE.Vector3(-hw, -hh, 0.005),
-    new THREE.Vector3(-hw, hh, 0.005),
-  ];
-  const borderGeom = new THREE.BufferGeometry().setFromPoints(borderPts);
-  const borderMat = new THREE.LineBasicMaterial({ color: 0x888888 });
-  const borderLine = new THREE.Line(borderGeom, borderMat);
-  borderLine.position.set(panelCenterX, panelCenterY, panelCenterZ);
-  group.add(borderLine);
+  // Rotation: local X → lateralDir (value axis), local Y → holeDir (depth axis)
+  const rotMatrix = new THREE.Matrix4().makeBasis(lateralDir, holeDir, panelNormal);
+  const quaternion = new THREE.Quaternion().setFromRotationMatrix(rotMatrix);
 
-  // Line graph
+  // Use the hole's measured depth at the toe as the depth scale so that each
+  // sample's depth maps to its true position along the hole axis.
+  const measuredDepths = points.map((p) => p.md).filter(Number.isFinite);
+  const depthScale = measuredDepths.length > 0 ? Math.max(...measuredDepths) : holeLength;
+
   const linePoints = buildStripLogLinePoints(
     stripLog.depths,
     stripLog.values,
     panelWidth,
-    height,
+    holeLength,
     valueMin,
-    valueMax
+    valueMax,
+    depthScale,
   );
 
-  if (linePoints.length >= 2) {
-    const lineGeom = new THREE.BufferGeometry().setFromPoints(linePoints);
-    const lineMat = new THREE.LineBasicMaterial({ color: new THREE.Color(color) });
-    const lineMesh = new THREE.Line(lineGeom, lineMat);
-    lineMesh.position.set(panelCenterX, panelCenterY, panelCenterZ);
-    group.add(lineMesh);
-  }
+  if (linePoints.length < 2) return null;
+
+  const group = new THREE.Group();
+  group.userData = { holeId: hole.id, isStripLog: true };
+
+  const halfWidth = panelWidth * 0.025;
+  const ribbonGeom = buildLineRibbonGeometry(linePoints, halfWidth);
+  if (!ribbonGeom) return null;
+
+  const ribbonMat = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(color),
+    side: THREE.DoubleSide,
+  });
+  const ribbonMesh = new THREE.Mesh(ribbonGeom, ribbonMat);
+  ribbonMesh.position.copy(traceOrigin);
+  ribbonMesh.quaternion.copy(quaternion);
+  group.add(ribbonMesh);
 
   return group;
 }
