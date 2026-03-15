@@ -27,6 +27,7 @@ import {
   disposeSelectionGlow
 } from './selectionGlow.js';
 import { setDrillholes as _setDrillholes, clearDrillholes as _clearDrillholes } from './drillholeScene.js';
+import { setStripLogs as _setStripLogs, clearStripLogs as _clearStripLogs } from './stripLogScene.js';
 import { setBlocks as _setBlocks, clearBlocks as _clearBlocks, setBlockOpacity as _setBlockOpacity } from './blockModelScene.js';
 import {
   setStructuralDiscs as _setStructuralDiscs,
@@ -68,6 +69,7 @@ class Baselode3DScene {
     this.drillMeshes = [];
     this.structuralGroup = null;
     this.structuralMeshes = [];
+    this.stripLogGroups = [];
     this.frameId = null;
     this.clock = new THREE.Clock();
     this.handleCanvasClick = null;
@@ -130,8 +132,8 @@ class Baselode3DScene {
     this.controls.enableDamping = false;
     this.controls.screenSpacePanning = true;
     this.controls.enableZoom = true;
-    this.controls.zoomSpeed = 1.2;
-    this.controls.minDistance = 0.003;
+    this.controls.zoomSpeed = 10;
+    this.controls.minDistance = 0.0001;
     this.controls.maxDistance = 5_000_000;
     this.controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,
@@ -140,7 +142,7 @@ class Baselode3DScene {
     };
     this.controls.touches = {
       ONE: THREE.TOUCH.ROTATE,
-      TWO: THREE.TOUCH.PAN
+      TWO: THREE.TOUCH.DOLLY_PAN
     };
     this.controls.maxPolarAngle = Math.PI;
 
@@ -163,6 +165,29 @@ class Baselode3DScene {
     this.gizmo.attachControls(this.controls);
 
     _attachCanvasClickHandler(this);
+
+    // On macOS, Chrome latches wheel events to whichever element is under the
+    // cursor at the start of a gesture.  If that element is an overlaid UI panel
+    // (zoom slider, controls buttons) rather than the canvas, OrbitControls never
+    // receives the event.  Relay any wheel event that bubbles up to the container
+    // but did NOT originate from the canvas itself.
+    this._wheelRelay = (e) => {
+      if (e.target === this.renderer.domElement) return; // already going to OrbitControls
+      e.preventDefault();
+      this.renderer.domElement.dispatchEvent(new WheelEvent('wheel', {
+        clientX: e.clientX,
+        clientY: e.clientY,
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaZ: e.deltaZ,
+        deltaMode: e.deltaMode,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
+        altKey: e.altKey,
+        bubbles: false,
+      }));
+    };
+    this.container.addEventListener('wheel', this._wheelRelay, { passive: false });
 
     // Selection glow post-processing
     initSelectionGlow(this);
@@ -211,9 +236,13 @@ class Baselode3DScene {
     this.viewChangeHandler = null;
     _clearBlocks(this);
     _clearDrillholes(this);
+    _clearStripLogs(this);
     _clearStructuralDiscs(this);
     _clearRasterOverlays(this);
     disposeSelectionGlow(this);
+    if (this.container && this._wheelRelay) {
+      this.container.removeEventListener('wheel', this._wheelRelay);
+    }
     if (this.controls) this.controls.dispose();
     if (this.flyControls) this.flyControls.dispose();
     if (this.renderer) {
@@ -229,6 +258,25 @@ class Baselode3DScene {
   // ---------------------------------------------------------------------------
 
   setDrillholes(holes, options = {}) { _setDrillholes(this, holes, options); }
+
+  /**
+   * Add floating 2D strip log panels beside drillholes in the 3D scene.
+   * Each panel is a flat rectangle offset from the hole collar, depth-registered
+   * to the hole's vertical extent and containing a line graph of numeric data.
+   *
+   * @param {Array<object>} holes - Hole objects (same array as passed to setDrillholes)
+   * @param {Array<object>} stripLogs - Strip log definitions.  Each must contain:
+   *   - `holeId`  {string}    — must match a hole id
+   *   - `depths`  {number[]}  — downhole depth positions for each sample
+   *   - `values`  {number[]}  — numeric value at each depth
+   *   - `options` {object}    — optional: panelWidth, lateralOffset, color, valueMin, valueMax
+   */
+  setStripLogs(holes, stripLogs) { _setStripLogs(this, holes, stripLogs); }
+
+  /**
+   * Remove all strip log panels from the scene and free GPU resources.
+   */
+  clearStripLogs() { _clearStripLogs(this); }
 
   /**
    * Render block model data as a single merged mesh of exterior faces only.
@@ -294,6 +342,15 @@ class Baselode3DScene {
    * @param {number} fovDeg - Desired FOV in degrees
    */
   setCameraFov(fovDeg) { setFov(this, fovDeg); }
+
+  /**
+   * Set the scene background colour.
+   * @param {'white'|'black'} colour
+   */
+  setBackground(colour) {
+    if (!this.scene) return;
+    this.scene.background = new THREE.Color(colour === 'black' ? 0x000000 : 0xffffff);
+  }
 
   setControlMode(mode = 'orbit') { setControlMode(this, mode); }
 
