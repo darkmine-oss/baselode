@@ -301,3 +301,34 @@ export {
   gradeBlockToThreeGeometry,
   addGradeBlocksToScene,
 } from './grade_blocks/gradeBlockLoader.js';
+
+// --- 3D IDW interpolation ---
+export {
+  buildInterpSamplesFromAssays,
+} from './interpolation/InterpSamplePoint.js';
+
+export {
+  computeVolumeBounds,
+  buildVolumeBoundsFromMinMax,
+} from './interpolation/computeVolumeBounds.js';
+
+export {
+  SpatialHash3D,
+} from './interpolation/SpatialHash3D.js';
+
+export {
+  IDWSampler,
+} from './interpolation/IDWSampler.js';
+
+export {
+  buildVoxelGrid,
+  voxelGridStats,
+} from './interpolation/buildVoxelGrid.js';
+
+export {
+  IDWVolumeRenderer,
+} from './renderers/IDWVolumeRenderer.js';
+
+export {
+  IDWVolumeLayer,
+} from './layers/IDWVolumeLayer.js';
