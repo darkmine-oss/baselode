@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import Drillhole from './pages/Drillhole';
@@ -16,6 +17,8 @@ import './App.css';
 
 function App() {
   return (
+    <>
+    <Analytics />
     <Layout>
       <Routes>
         <Route path="/" element={<Home />} />
@@ -28,6 +31,7 @@ function App() {
         {/* <Route path="/raster-demo" element={<RasterDemo />} /> */}
       </Routes>
     </Layout>
+    </>
   );
 }
 

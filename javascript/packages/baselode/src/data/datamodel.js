@@ -106,6 +106,22 @@ export const BASELODE_DATA_MODEL_STRUCTURAL_POINT = {
 };
 
 /**
+ * Geophysics interval data model schema.
+ * Value columns (gamma, density, resistivity, etc.) are variable and not standardized.
+ * Null sentinels (e.g. -999.25 from LAS-derived sources) are replaced with null on load.
+ */
+export const BASELODE_DATA_MODEL_GEOPHYSICS = {
+  [HOLE_ID]: "string",
+  [FROM]: "number",
+  [TO]: "number",
+  [MID]: "number",
+  // value columns are variable — not standardized here
+};
+
+/** Standard null sentinel value in LAS-derived geophysics data */
+export const GEOPHYSICS_NULL_SENTINEL = -999.25;
+
+/**
  * This column map is used to make a 'best guess' for mapping common variations in source column names to the baselode data model.
  * It is applied in the standardizeColumns function, but users can also provide their own column map to override or extend this mapping as needed.
  * The keys from the input source are normalized to lowercase and stripped of whitespace for more robust matching.
@@ -150,7 +166,7 @@ export const DEFAULT_COLUMN_MAP = {
   [ALPHA]: ["alpha", "alpha_angle", "alpha_angle_deg", "alpha_2"],
   [BETA]: ["beta", "beta_angle", "beta_angle_deg", "beta_2"],
   "declination": ["declination", "dec"],
-  [DEPTH]: ["depth", "survey_depth", "surveydepth"],
+  [DEPTH]: ["depth", "survey_depth", "surveydepth", "md", "measured_depth", "dept"],
   [STRIKE]: ["strike", "str"]
 };
 

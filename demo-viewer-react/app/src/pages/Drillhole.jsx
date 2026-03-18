@@ -11,6 +11,7 @@ import {
   desurveyTraces,
   classifyColumns,
   getCategoryHexColor,
+  COMMODITY_COLOURS,
 } from 'baselode';
 import 'baselode/style.css';
 import proj4 from 'proj4';
@@ -44,6 +45,7 @@ function Drillhole() {
   const sceneRef = useRef(null);
   const renderedHolesRef = useRef(null);
   const restoredCameraRef = useRef(false);
+  const zoomSliderPrevRef = useRef(50);
 
   const { collars, assayState, structureRows, geologyHoles } = useDemoData();
 
@@ -56,6 +58,8 @@ function Drillhole() {
   const [precomputedAttempted, setPrecomputedAttempted] = useState(false);
   const [usingPrecomputed, setUsingPrecomputed] = useState(false);
   const [showStructuralDiscs, setShowStructuralDiscs] = useState(true);
+  const [showStripLogs, setShowStripLogs] = useState(false);
+  const [darkBackground, setDarkBackground] = useState(false);
   const [perspectiveLevel, setPerspectiveLevel] = useState(FOV_STEPS.length - 1);
 
   const assayVariables = useMemo(() => {
@@ -89,6 +93,27 @@ function Drillhole() {
     if (colorByVariable === '__HAS_ASSAY__') return assayIntervalsByHole;
     return mapIntervalsForVariable(assayIntervalsByHole, colorByVariable);
   }, [assayIntervalsByHole, colorByVariable, isCategorical]);
+
+  const stripLogData = useMemo(() => {
+    if (!showStripLogs || !holes?.length || !selectedAssayIntervalsByHole || isCategorical
+      || colorByVariable === 'None' || colorByVariable === '__HAS_ASSAY__') return null;
+    const allValues = Object.values(selectedAssayIntervalsByHole)
+      .flatMap((ivs) => ivs.map((iv) => Number(iv.value)))
+      .filter(Number.isFinite);
+    const valueMin = allValues.length ? Math.min(...allValues) : null;
+    const valueMax = allValues.length ? Math.max(...allValues) : null;
+    const color = commodityColorForVariable(colorByVariable);
+    const logs = holes.flatMap((hole) => {
+      const key = normalizeHoleKey(hole.id);
+      const intervals = selectedAssayIntervalsByHole[key];
+      if (!intervals?.length) return [];
+      const depths = intervals.map((iv) => (iv.from + iv.to) / 2);
+      const values = intervals.map((iv) => Number(iv.value));
+      if (values.filter(Number.isFinite).length < 2) return [];
+      return [{ holeId: hole.id, depths, values, options: { color, valueMin, valueMax } }];
+    });
+    return logs.length ? logs : null;
+  }, [showStripLogs, holes, selectedAssayIntervalsByHole, isCategorical, colorByVariable]);
 
   const legendScale = useMemo(() => {
     if (!selectedAssayIntervalsByHole || isCategorical || colorByVariable === '__HAS_ASSAY__') return null;
@@ -153,6 +178,21 @@ function Drillhole() {
   useEffect(() => {
     sceneRef.current?.setStructuralDiscsVisible(showStructuralDiscs);
   }, [showStructuralDiscs]);
+
+  // Background colour
+  useEffect(() => {
+    sceneRef.current?.setBackground(darkBackground ? 'black' : 'white');
+  }, [darkBackground]);
+
+  // Strip logs
+  useEffect(() => {
+    if (!sceneRef.current || !holes?.length) return;
+    if (stripLogData?.length) {
+      sceneRef.current.setStripLogs(holes, stripLogData);
+    } else {
+      sceneRef.current.clearStripLogs?.();
+    }
+  }, [holes, stripLogData]);
 
   // Perspective slider
   useEffect(() => {
@@ -340,6 +380,16 @@ function Drillhole() {
               Structural discs
             </label>
           )}
+          {!isCategorical && colorByVariable !== 'None' && colorByVariable !== '__HAS_ASSAY__' && (
+            <label className="drillhole-color-control">
+              <input
+                type="checkbox"
+                checked={showStripLogs}
+                onChange={(e) => setShowStripLogs(e.target.checked)}
+              />
+              Strip logs
+            </label>
+          )}
           <label className="drillhole-projection-slider">
             Ortho
             <input
@@ -413,6 +463,28 @@ function Drillhole() {
       </div>
 
       <div className="canvas-container" ref={containerRef}>
+        <div className="zoom-slider-overlay">
+          <span className="zoom-label">+</span>
+          <div className="zoom-slider-track">
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              defaultValue={50}
+              className="zoom-slider"
+              onChange={(e) => {
+                const newVal = Number(e.target.value);
+                const delta = newVal - zoomSliderPrevRef.current;
+                // Reset to centre so the slider can always be dragged again
+                e.target.value = 50;
+                zoomSliderPrevRef.current = 50;
+                sceneRef.current?.dolly(Math.pow(0.95, delta));
+              }}
+            />
+          </div>
+          <span className="zoom-label">−</span>
+        </div>
         {!holes && (
           <div className="placeholder-message">
             <div className="icon">🔍</div>
@@ -425,6 +497,8 @@ function Drillhole() {
           onRecenter={() => sceneRef.current?.recenterCameraToOrigin(2000)}
           onLookDown={() => sceneRef.current?.lookDown(3000)}
           onFit={() => sceneRef.current?.focusOnLastBounds(1.2)}
+          darkBackground={darkBackground}
+          onToggleDarkBackground={(e) => setDarkBackground(e.target.checked)}
         />
         {selectedHole && (
           <div className="selection-popup">
@@ -613,6 +687,23 @@ function buildCategoryIntervalsByHole(holes, variable) {
     }
   });
   return byHole;
+}
+
+/**
+ * Return a commodity-aware line colour for the given assay variable name,
+ * falling back to a neutral dark red if the element is not recognised.
+ */
+function commodityColorForVariable(variable) {
+  if (!variable) return '#8b1e3f';
+  const tokens = variable.split(/[_\-/\s]+/);
+  for (const token of tokens) {
+    if (Object.prototype.hasOwnProperty.call(COMMODITY_COLOURS, token)) return COMMODITY_COLOURS[token];
+    const low = token.toLowerCase();
+    for (const [key, colour] of Object.entries(COMMODITY_COLOURS)) {
+      if (key.toLowerCase() === low) return colour;
+    }
+  }
+  return '#8b1e3f';
 }
 
 function isFfCompanyHole(hole) {

@@ -35,7 +35,8 @@ dependencies = [
 [project.optional-dependencies]
 viz = ["folium>=0.15"]
 sql = ["sqlalchemy>=2.0"]
-all = ["folium>=0.15", "sqlalchemy>=2.0"]
+las = ["lasio>=0.31"]
+all = ["folium>=0.15", "sqlalchemy>=2.0", "lasio>=0.31"]
 
 [project.urls]
 Homepage = "https://github.com/darkmine-oss/baselode"

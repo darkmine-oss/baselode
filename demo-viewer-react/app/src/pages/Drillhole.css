@@ -143,6 +143,48 @@
   height: 100%;
 }
 
+.zoom-slider-overlay {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  padding: 8px 6px;
+}
+
+.zoom-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+  line-height: 1;
+  user-select: none;
+}
+
+.zoom-slider-track {
+  /* The range input is rotated 90° so we need a square container sized to the
+     slider's width, preventing layout overflow. */
+  width: 20px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.zoom-slider {
+  width: 120px;
+  transform: rotate(-90deg);
+  cursor: pointer;
+  accent-color: var(--accent, #2563eb);
+}
+
 .placeholder-message {
   position: absolute;
   top: 50%;

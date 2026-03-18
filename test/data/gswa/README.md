@@ -34,7 +34,9 @@ The GSWA HoleId is used as primary key (assumed globally unique) and all dataset
 
 * `gswa_sample_collars.csv` filters on collar location after joining tables `dbo.Collar` and `dbo.CollarElevation`
 * `gswa_sample_survey.csv` using the collars above, uses `dbo.DHSurvey` and takes only the latest survey results when there are duplicates
-* `gswa_sample_assays.csv` using the collars above, uses `gsd.dhAssayFlat` 
+* `gswa_sample_assays.csv` using the collars above, uses `gsd.dhAssayFlat`
+* `gswa_sample_geophysics.csv` using the collars above, uses downhole geophysics tables; contains channels DENSITY, GAMMA, MAGSUSC, Resistivity at ~0.1 m intervals. Values of -999.25 are null sentinels (LAS convention) and are replaced with NaN on load.
+* `gswa_sample_geophysics.las` LAS 2.0 equivalent of the first 10 rows of the CSV above (hole MKC435), for testing the LAS loader. Depth column is the interval midpoint; channels are DENSITY, GAMMA, RESISTIVITY. 
 
 ## No endorsement
 

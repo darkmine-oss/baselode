@@ -46,6 +46,7 @@ from baselode.datamodel import (
     BETA,
     COMMENTS,
     GEOLOGY_CODE,
+    GEOPHYSICS_NULL,
 )
 
 
@@ -136,6 +137,19 @@ BASELODE_DATA_MODEL_DRILL_GEOLOGY = {
     GEOLOGY_CODE: str,
 }
 
+BASELODE_DATA_MODEL_GEOPHYSICS = {
+    # The unique hole id that maps to the collar and any other data tables
+    HOLE_ID: str,
+    # The depth along the hole where the geophysics measurement interval starts
+    FROM: float,
+    # The depth along the hole where the geophysics measurement interval ends
+    TO: float,
+    # The midpoint depth of the measurement interval (computed)
+    MID: float,
+    # Value columns are variable and not standardized here (e.g. gamma, density, resistivity).
+    # Null sentinels (e.g. -999.25 from LAS-derived sources) are replaced with NaN on load.
+}
+
 
 # This column map is used to make a 'best guess' for mapping common variations in source column names to the baselode data model.
 # It is applied in the standardize_columns function, but users can also provide their own column map to override or extend this mapping as needed.
@@ -166,7 +180,7 @@ DEFAULT_COLUMN_MAP = {
     ],
     AZIMUTH: ["azimuth", "az", "dip_direction", "dipdir", "dip direction", "dipdrn", "dipdirection", "dip_dir", "computed_plane_azimuth", "calc_dipdir", "calc_dipdir_deg", "dipdir_calc", "dipdirect_calc"],
     DIP: ["dip", "computed_plane_dip", "calc_dip", "calc_dip_deg", "dip_calc"],
-    DEPTH: ["depth", "survey_depth", "surveydepth"],
+    DEPTH: ["depth", "survey_depth", "surveydepth", "md", "measured_depth", "dept"],
     ALPHA: ["alpha", "alpha_angle", "alpha_angle_deg", "alpha_2"],
     BETA: ["beta", "beta_angle", "beta_angle_deg", "beta_2"],
     "declination": ["declination", "dec"],
@@ -524,6 +538,67 @@ def load_geology(source, source_column_map=None, flat=True, keep_all=True, **kwa
     return df.sort_values([HOLE_ID, FROM, TO])
 
 
+def load_geophysics(source, source_column_map=None, keep_all=True, null_sentinel=GEOPHYSICS_NULL, **kwargs):
+    """Load geophysics interval data (gamma, density, resistivity, magnetic susceptibility, etc.).
+
+    Accepts interval tables (hole_id, from, to, ...) with one or more numeric value columns.
+    Null sentinels (default -999.25, common in LAS-derived sources) are replaced with NaN.
+
+    Parameters
+    ----------
+    source : path, file-like, or DataFrame
+    source_column_map : dict, optional
+        Extra column-name overrides (e.g. ``{'HoleId': 'hole_id'}``).
+    keep_all : bool, optional
+        If False, drop columns outside the base schema (hole_id, from, to, mid).
+        Default True retains all value columns.
+    null_sentinel : float, optional
+        Value to replace with NaN. Default -999.25.
+    **kwargs
+        Forwarded to :func:`load_table`.
+    """
+    df = load_table(source, source_column_map=source_column_map, **kwargs)
+
+    if HOLE_ID not in df.columns:
+        raise ValueError(f"Geophysics table missing column: {HOLE_ID}")
+
+    required = [FROM, TO]
+    for col in required:
+        if col not in df.columns:
+            raise ValueError(f"Geophysics table missing column: {col}")
+
+    df[HOLE_ID] = df[HOLE_ID].astype(str).str.strip()
+    df = _normalize_interval_bounds(df)
+
+    invalid = (
+        df[HOLE_ID].isna()
+        | (df[HOLE_ID] == "")
+        | df[FROM].isna()
+        | df[TO].isna()
+        | (df[TO] < df[FROM])
+    )
+    if invalid.any():
+        df = df.loc[~invalid].copy()
+
+    # Replace null sentinel with NaN across all numeric columns
+    if null_sentinel is not None:
+        value_cols = [
+            col for col in df.columns
+            if col not in {HOLE_ID, FROM, TO, MID}
+            and pd.api.types.is_numeric_dtype(df[col])
+        ]
+        for col in value_cols:
+            df[col] = df[col].replace(null_sentinel, float("nan"))
+
+    df[MID] = 0.5 * (df[FROM] + df[TO])
+
+    if not keep_all:
+        base_cols = [col for col in BASELODE_DATA_MODEL_GEOPHYSICS.keys() if col in df.columns]
+        df = df[base_cols]
+
+    return df.sort_values([HOLE_ID, FROM])
+
+
 def join_assays_to_traces(assays, traces, on_cols=(HOLE_ID,)):
     if traces.empty:
         return assays.copy()
@@ -545,7 +620,7 @@ def coerce_numeric(df, columns):
     return out
 
 
-def assemble_dataset(collars=None, surveys=None, assays=None, geology=None, structures=None, geotechnical=None, metadata=None):
+def assemble_dataset(collars=None, surveys=None, assays=None, geology=None, structures=None, geotechnical=None, geophysics=None, metadata=None):
     return {
         "collars": _frame(collars),
         "surveys": _frame(surveys),
@@ -553,6 +628,7 @@ def assemble_dataset(collars=None, surveys=None, assays=None, geology=None, stru
         "geology": _frame(geology),
         "structures": _frame(structures),
         "geotechnical": _frame(geotechnical),
+        "geophysics": _frame(geophysics),
         "metadata": metadata or {},
     }
 

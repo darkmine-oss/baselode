@@ -27,6 +27,8 @@ export {
   BASELODE_DATA_MODEL_DRILL_ASSAY,
   BASELODE_DATA_MODEL_DRILL_GEOLOGY,
   BASELODE_DATA_MODEL_STRUCTURAL_POINT,
+  BASELODE_DATA_MODEL_GEOPHYSICS,
+  GEOPHYSICS_NULL_SENTINEL,
   DEFAULT_COLUMN_MAP
 } from './data/datamodel.js';
 
@@ -126,6 +128,15 @@ export {
 export {
   significantIntercepts
 } from './data/intercepts.js';
+
+export {
+  parseGeophysicsCSV,
+  geophysicsToStripLogs,
+} from './data/geophysicsLoader.js';
+
+export {
+  parseLasFile,
+} from './data/lasLoader.js';
 
 export {
   interpolateTrace,
@@ -251,6 +262,18 @@ export {
 export {
   getCategoryHexColor,
 } from './viz/drillholeScene.js';
+
+export {
+  STRIP_LOG_DEFAULT_PANEL_WIDTH,
+  STRIP_LOG_DEFAULT_LATERAL_OFFSET,
+  STRIP_LOG_DEFAULT_COLOR,
+  normalizeStripLogOptions,
+  getHoleVerticalExtent,
+  buildStripLogLinePoints,
+  buildStripLogGroup,
+  setStripLogs,
+  clearStripLogs,
+} from './viz/stripLogScene.js';
 
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';
