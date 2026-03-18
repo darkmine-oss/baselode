@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-The docs site is available at **http://localhost:5173**.
+The docs site is available at **`http://localhost:5173`**.
 
 To build and preview the production output:
 
