@@ -182,10 +182,15 @@ export {
   holeHasData,
   buildIntervalPoints,
   buildPlotConfig,
-  buildCategoricalStripLogConfig
+  buildCategoricalStripLogConfig,
+  buildStripLogPlotConfig,
+  getDefaultPlotlyConfig,
 } from './viz/drillholeViz.js';
 
 export { default as TracePlot } from './viz/TracePlot.jsx';
+export { default as StripLogPlot } from './viz/StripLogPlot.jsx';
+export { default as StripLogControls } from './viz/StripLogControls.jsx';
+export { default as useStripLogConfig } from './viz/useStripLogConfig.js';
 export { default as useDrillholeTraceGrid } from './viz/useDrillholeTraceGrid.jsx';
 
 export {
@@ -301,3 +306,14 @@ export {
   gradeBlockToThreeGeometry,
   addGradeBlocksToScene,
 } from './grade_blocks/gradeBlockLoader.js';
+
+// --- Chat attachment schema ---
+export {
+  ATTACHMENT_TYPE_COLLAR_LIST,
+  ATTACHMENT_TYPE_COLLAR_MAP,
+  ATTACHMENT_TYPE_STRIP_LOG,
+  buildCollarListAttachment,
+  buildCollarMapAttachment,
+  buildStripLogAttachment,
+  isChatAttachment,
+} from './chat/index.js';

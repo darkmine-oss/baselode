@@ -18,9 +18,11 @@
   "type": "module",
   "main": "./dist/baselode.js",
   "module": "./dist/baselode.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/baselode.js"
+      "import": "./dist/baselode.js",
+      "types": "./dist/index.d.ts"
     },
     "./style.css": "./dist/style.css"
   },
@@ -28,6 +30,7 @@
     "dist/baselode.js",
     "dist/baselode.js.map",
     "dist/style.css",
+    "dist/**/*.d.ts",
     "README.md"
   ],
   "sideEffects": [
@@ -35,7 +38,8 @@
   ],
   "scripts": {
     "version:from-tag": "node ./scripts/set-version-from-tag.mjs",
-    "build": "vite build",
+    "build": "vite build && tsc --project tsconfig.json",
+    "build:types": "tsc --project tsconfig.json",
     "build:module": "vite build --config vite.standalone.js && cp dist/baselode-module.js ../../../demo-viewer-dash/assets/baselode-module.js",
     "prepack": "npm run version:from-tag && npm run build",
     "pack:check": "npm pack --dry-run",
@@ -54,7 +58,9 @@
     "three-viewport-gizmo": ">=2.0.0"
   },
   "devDependencies": {
+    "@types/react": "^19.2.14",
     "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.9.3",
     "vite": "^5.0.8",
     "vitest": "^2.1.8"
   }

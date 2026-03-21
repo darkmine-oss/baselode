@@ -7,6 +7,8 @@
 
 import { getColour, resolveColourMap, COMMODITY_COLOURS } from './colourMap.js';
 import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
+import { standardizeRowArray } from '../data/keying.js';
+import { classifyColumns, DISPLAY_CATEGORICAL } from '../data/columnMeta.js';
 
 /** Default color for numeric line traces */
 export const NUMERIC_LINE_COLOR = '#8b1e3f';
@@ -381,4 +383,64 @@ export function buildCategoricalStripLogConfig(
     colourMap,
     template,
   });
+}
+
+/**
+ * Build a Plotly strip log config directly from raw interval rows.
+ * Handles column normalization, property type classification, and delegates to
+ * the appropriate plot builder. Suitable for non-React consumers who want a
+ * ready-to-render Plotly config without replicating internal logic.
+ *
+ * @param {Object} options
+ * @param {Array<Object>} options.rows - Flat array of interval rows (raw or pre-standardized)
+ * @param {string} options.property - Column/property to visualize
+ * @param {string} [options.dataType] - 'assay' | 'geology' | string. 'geology' forces categorical rendering.
+ * @param {string} [options.chartType] - Chart type ('bar', 'markers', 'line', 'markers+line'). Default 'markers+line' for numeric.
+ * @param {Object|string|null} [options.colourMap] - Optional colour map (object or built-in name)
+ * @param {Object} [options.template] - Plotly template override. Defaults to the Baselode template.
+ * @returns {{ data: Array, layout: Object }} Plotly-ready data and layout config
+ */
+export function buildStripLogPlotConfig({ rows, property, dataType, chartType, colourMap, template }) {
+  if (!rows?.length || !property) return { data: [], layout: {} };
+
+  const standardizedRows = standardizeRowArray(rows);
+  const { byType } = classifyColumns(standardizedRows);
+
+  const isCategorical = dataType === 'geology' || byType[property] === DISPLAY_CATEGORICAL;
+
+  if (isCategorical) {
+    return buildCategoricalStripLogConfig(standardizedRows, {
+      fromCol: 'from',
+      toCol: 'to',
+      categoryCol: property,
+      colourMap,
+      template,
+    });
+  }
+
+  const hole = { points: standardizedRows };
+  const points = buildIntervalPoints(hole, property, false);
+  return buildPlotConfig({
+    points,
+    isCategorical: false,
+    property,
+    chartType: chartType || 'markers+line',
+    colourMap,
+    template,
+  });
+}
+
+/**
+ * Return the standard Plotly config object used by Baselode components.
+ * Pass this as the fourth argument to `Plotly.react` / `Plotly.newPlot`.
+ *
+ * @returns {{ displayModeBar: boolean, responsive: boolean, useResizeHandler: boolean, modeBarButtonsToRemove: string[] }}
+ */
+export function getDefaultPlotlyConfig() {
+  return {
+    displayModeBar: true,
+    responsive: true,
+    useResizeHandler: true,
+    modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d'],
+  };
 }
