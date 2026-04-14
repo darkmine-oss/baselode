@@ -83,22 +83,22 @@ Cross-language API parity checks are defined in:
 
 This repository contains **software code** and **third-party data**, which are licensed under **different terms**.
 
-1. **Software code** is licensed under the **GNU General Public License v3.0 or later (GPL-3.0-or-later)**.
-  See [`LICENSE`](./LICENSE).  Copyright (C) 2026 Darkmine Pty Ltd (software code only).
+### 1. Software Code
 
-2. **Sample data files** derived from the **GSWA Geochemistry dataset** are licensed under the
-  **Creative Commons Attribution 4.0 International Licence (CC BY 4.0)**.
-  See [`DATA_LICENSE.md`](./DATA_LICENSE.md) and [`ATTRIBUTION.md`](./ATTRIBUTION.md).
+The software code in this repository is licensed under the  
+**GNU General Public License v3.0 or later (GPL-3.0-or-later)**.
 
-## Data source and attribution
+See [`LICENSE`](./LICENSE).
 
-This repository includes sample CSV files derived from the **GSWA Geochemistry** dataset published by the
-Geological Survey of Western Australia (GSWA), Government of Western Australia.
+Copyright (C) 2026 Darkmine Pty Ltd.
 
-- Source portal: https://dasc.dmirs.wa.gov.au/home?productAlias=GSWAGeochem
-- Licence: https://creativecommons.org/licenses/by/4.0/
+### 2. Sample Data
 
-Required attribution wording and modification notes are provided in [`ATTRIBUTION.md`](./ATTRIBUTION.md).
+Sample data files derived from the **GSWA Geochemistry dataset** are licensed under the  
+**Creative Commons Attribution 4.0 International Licence (CC BY 4.0)**.
+
+See:
+- [`DATA_LICENSE.md`](./DATA_LICENSE.md)  
+- [`ATTRIBUTION.md`](./ATTRIBUTION.md)
 
 The State of Western Australia and GSWA **do not endorse** this project or its use of the data.
-
