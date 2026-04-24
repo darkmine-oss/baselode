@@ -7,9 +7,12 @@ export default defineConfig({
   build: {
     emptyOutDir: true,
     lib: {
-      entry: resolve(__dirname, 'src/index.js'),
+      entry: {
+        baselode: resolve(__dirname, 'src/index.js'),
+        'tool-ui': resolve(__dirname, 'src/tool-ui/index.js'),
+      },
       formats: ['es'],
-      fileName: 'baselode'
+      fileName: (_format, entryName) => `${entryName}.js`
     },
     rollupOptions: {
       external: [
@@ -20,7 +23,8 @@ export default defineConfig({
         /^three\//,
         'three-viewport-gizmo',
         'papaparse',
-        'plotly.js-dist-min'
+        'plotly.js-dist-min',
+        'zod'
       ],
       output: {
         preserveModules: false,

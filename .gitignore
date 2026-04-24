@@ -18,6 +18,8 @@ docs/.vitepress/cache/
 docs/.vitepress/dist/
 docs/node_modules/
 
+examples/tool-ui/node_modules/
+
 javascript/packages/baselode/dist/
 javascript/packages/baselode/node_modules/
 

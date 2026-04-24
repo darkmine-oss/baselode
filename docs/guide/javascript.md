@@ -247,6 +247,70 @@ function MyGrid({ holes, selectedProperty }) {
 }
 ```
 
+### Tool UI examples
+
+Baselode includes JavaScript-only Tool UI-style examples at
+`examples/tool-ui`.
+
+The examples follow Tool UI's schema-first rendering pattern:
+
+1. A backend AI SDK tool returns a structured Baselode visualisation JSON payload.
+2. A Zod schema validates the result in the frontend renderer.
+3. The renderer uses Baselode's existing Plotly strip-log and Three.js scene helpers
+   inside the assistant conversation.
+
+```jsx
+import { AssistantRuntimeProvider } from '@assistant-ui/react';
+import { AssistantChatTransport, useChatRuntime } from '@assistant-ui/react-ai-sdk';
+import { useBaselodeToolUi } from './toolkit.jsx';
+import 'baselode/tool-ui/style.css';
+
+export default function App() {
+  const runtime = useChatRuntime({
+    transport: new AssistantChatTransport({ api: '/api/chat' }),
+  });
+  const aui = useBaselodeToolUi();
+
+  return (
+    <AssistantRuntimeProvider runtime={runtime} aui={aui}>
+      {/* assistant-ui thread */}
+    </AssistantRuntimeProvider>
+  );
+}
+```
+
+The serializable result is intentionally compact:
+
+```js
+{
+  id: 'strip-log-BLDD001',
+  hole: {
+    id: 'BLDD001',
+    points: [
+      { from: 0, to: 12, au_ppm: 0.11, lithology: 'SAP' },
+      { from: 12, to: 24, au_ppm: 0.35, lithology: 'BAS' },
+    ],
+  },
+  tracks: [
+    { property: 'au_ppm', label: 'Au ppm', displayType: 'numeric' },
+    { property: 'lithology', label: 'Lithology', displayType: 'categorical' },
+  ],
+}
+```
+
+The `baselode/tool-ui` entry exports:
+
+```js
+import {
+  BaselodeStripLogToolUI,
+  Baselode3DSceneToolUI,
+  SerializableBaselodeStripLogSchema,
+  SerializableBaselode3DSceneSchema,
+  safeParseSerializableBaselodeStripLog,
+  safeParseSerializableBaselode3DScene,
+} from 'baselode/tool-ui';
+```
+
 ### Plotly templates
 
 Baselode ships two built-in Plotly templates that can be applied to any strip log.
