@@ -57,14 +57,10 @@
     "three-viewport-gizmo": ">=2.0.0",
     "zod": ">=3.0.0"
   },
-  "peerDependenciesMeta": {
-    "zod": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
     "vite": "^5.0.8",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "zod": "^3.25.76"
   }
 }

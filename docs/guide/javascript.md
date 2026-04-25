@@ -247,12 +247,19 @@ function MyGrid({ holes, selectedProperty }) {
 }
 ```
 
-### Tool UI examples
+### Tool UI
 
-Baselode includes JavaScript-only Tool UI-style examples at
-`examples/tool-ui`.
+Baselode includes a JavaScript-only Tool UI entrypoint for rendering Baselode
+visualisations as structured tool results.
 
-The examples follow Tool UI's schema-first rendering pattern:
+Install `zod` alongside Baselode when importing `baselode/tool-ui`; it is a
+required peer dependency for the Tool UI schemas and is not bundled.
+
+```bash
+npm install baselode zod
+```
+
+The integration follows Tool UI's schema-first rendering pattern:
 
 1. A backend AI SDK tool returns a structured Baselode visualisation JSON payload.
 2. A Zod schema validates the result in the frontend renderer.
@@ -309,6 +316,37 @@ import {
   safeParseSerializableBaselodeStripLog,
   safeParseSerializableBaselode3DScene,
 } from 'baselode/tool-ui';
+```
+
+#### Theming Tool UI chrome
+
+Plotly-rendered strip logs use the selected Baselode Plotly template. The
+surrounding Tool UI chrome, including headers, controls, legends, error states,
+and 3D scene frames, uses CSS custom properties derived from the same Baselode
+light and dark palettes.
+
+`BaselodeStripLogToolUI` uses light chrome by default and switches to dark chrome
+when `template="baselode-dark"`. `Baselode3DSceneToolUI` uses light chrome by
+default and switches to dark chrome when `background="black"`.
+
+Override the CSS variables on a parent container when your app needs to theme
+Tool UI elements that Plotly templates do not cover:
+
+```css
+.my-assistant-theme .baselode-tool-strip-log,
+.my-assistant-theme .baselode-tool-3d-scene {
+  --baselode-tool-bg: #ffffff;
+  --baselode-tool-panel: #f8fafc;
+  --baselode-tool-ink: #1e293b;
+  --baselode-tool-ink-soft: #64748b;
+  --baselode-tool-grid: #e8e8e8;
+  --baselode-tool-line: #d0d0d0;
+  --baselode-tool-accent: #f59e0b;
+  --baselode-tool-muted-1: #94a3b8;
+  --baselode-tool-muted-2: #cbd5e1;
+  --baselode-tool-muted-3: #e2e8f0;
+  --baselode-tool-primary: #8b1e3f;
+}
 ```
 
 ### Plotly templates

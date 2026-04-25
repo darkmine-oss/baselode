@@ -20,6 +20,7 @@ import {
   buildIntervalPoints,
   buildPlotConfig,
 } from '../viz/drillholeViz.js';
+import { getToolUiThemeName, getToolUiThemeStyle } from './theme.js';
 
 function resolveTemplate(template) {
   if (template === 'baselode-dark') return BASELODE_DARK_TEMPLATE;
@@ -68,6 +69,7 @@ function getSelectableProperties(classified, explicitOptions) {
 }
 
 function normalizeTrackConfig(track, {
+  trackIndex = 0,
   selectableProperties,
   classified,
   allowPropertySelection,
@@ -91,7 +93,7 @@ function normalizeTrackConfig(track, {
 
   return {
     ...track,
-    id: track.id || property,
+    id: track.id || `${property}-${trackIndex + 1}`,
     property,
     label: isCustomTrackLabel(track.label, track.property) ? track.label : undefined,
     displayType,
@@ -336,7 +338,8 @@ export function BaselodeStripLogToolUI({
     [classified, propertyOptions]
   );
   const normalizedInitialTracks = useMemo(
-    () => tracks.map((track) => normalizeTrackConfig(track, {
+    () => tracks.map((track, trackIndex) => normalizeTrackConfig(track, {
+      trackIndex,
       selectableProperties,
       classified,
       allowPropertySelection,
@@ -404,7 +407,12 @@ export function BaselodeStripLogToolUI({
   }
 
   return (
-    <article className="baselode-tool-strip-log" data-tool-ui-id={id}>
+    <article
+      className="baselode-tool-strip-log"
+      data-tool-ui-id={id}
+      data-baselode-theme={getToolUiThemeName(template)}
+      style={getToolUiThemeStyle(template)}
+    >
       <header className="baselode-tool-strip-log__header">
         <div>
           <div className="baselode-tool-strip-log__eyebrow">{hole.id}</div>

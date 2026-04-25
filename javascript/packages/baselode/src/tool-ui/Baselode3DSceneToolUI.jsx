@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Baselode3DScene from '../viz/baselode3dScene.js';
 import { createRasterOverlay } from '../viz/rasterOverlayScene.js';
+import { getToolUiThemeName, getToolUiThemeStyle } from './theme.js';
 
 export function Baselode3DSceneToolUI({
   id,
@@ -115,7 +116,12 @@ export function Baselode3DSceneToolUI({
   ]);
 
   return (
-    <article className="baselode-tool-3d-scene" data-tool-ui-id={id}>
+    <article
+      className="baselode-tool-3d-scene"
+      data-tool-ui-id={id}
+      data-baselode-theme={getToolUiThemeName(background)}
+      style={getToolUiThemeStyle(background)}
+    >
       {(title || subtitle) && (
         <header className="baselode-tool-3d-scene__header">
           {title && <h3>{title}</h3>}
