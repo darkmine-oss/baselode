@@ -2,11 +2,12 @@
 .venv
 .vscode
 .features
+.DS_Store
+
+__pycache__
 
 docs/node_modules/
 docs/.vitepress/
-
-demo-viewer-dash/__pycache__/
 
 demo-viewer-dash/assets/baselode-module.js
 
@@ -19,19 +20,15 @@ docs/.vitepress/dist/
 docs/node_modules/
 
 examples/tool-ui/node_modules/
+examples/tool-ui/dist/
 
 javascript/packages/baselode/dist/
 javascript/packages/baselode/node_modules/
 
-python/src/baselode/__pycache__/
-python/src/baselode/drill/__pycache__/
-python/src/baselode/blockmodel/__pycache__/
-python/src/baselode/grade_blocks/__pycache__/
 python/src/baselode.egg-info/
 python/src/build/
 python/dist/
 
-test/__pycache__/
 test/data/nvcl
 
 .claude

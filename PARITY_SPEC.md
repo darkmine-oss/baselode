@@ -21,6 +21,27 @@ The two implementations should remain aligned for:
 - JS `loadTable` supports CSV/array sources in-browser; SQL/Parquet are out of runtime scope and should fail clearly.
 - 3D parity target is payload-level parity in both languages; interactive renderer remains JS-first.
 
+### Python-first (no JS counterpart yet)
+
+These belong in JS eventually but aren't there today. Listed here so the gap is intentional and tracked, not silent:
+
+- **`baselode.adaptors.raw_gswa`** — HTTP client + SQL builders + DataFrame
+  converters for the GSWA raw schema. Python-only. JS callers wanting GSWA
+  data should hit the HTTP API directly through their own client and feed
+  the results to JS loaders manually until a JS adaptor exists.
+- **`baselode.extent.Extent`** — axis-aligned bbox + CRS class with
+  `set_crs` / `to_crs` reprojection (via `pyproj`). JS has no equivalent
+  spatial primitive yet; the JS spatial helpers operate on raw bounds
+  arrays.
+- **`baselode.drill.data.bundle_extras`** — folds non-canonical columns
+  into a per-row `extra` dict matching the canonical
+  `BASELODE_DATA_MODEL_*` schemas. JS publishes the matching `EXTRA`
+  constant and includes the field in every schema, but does not yet have
+  a JS `bundleExtras` helper to populate it.
+
+When a JS counterpart lands, move the entry into the appropriate parity
+contract capability and remove it from this list.
+
 ## Canonical parity contract
 
 Machine-readable contract lives at:

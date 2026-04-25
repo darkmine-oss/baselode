@@ -33,12 +33,42 @@ All loaders normalise source data to the **Baselode Open Data Model** — a cons
 | `mid` | `MID` | Mid-depth of an interval |
 | `alpha` | `ALPHA` | Alpha angle for structural measurements |
 | `beta` | `BETA` | Beta angle for structural measurements |
+| `extra` | `EXTRA` | Per-row dict of source-specific fields outside the canonical schema |
 
 Constants are importable from `baselode.datamodel`:
 
 ```python
-from baselode.datamodel import HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, DEPTH
+from baselode.datamodel import HOLE_ID, LATITUDE, LONGITUDE, ELEVATION, DEPTH, EXTRA
 ```
+
+### The `extra` column
+
+Every baselode-model DataFrame is extensible via a single `extra` column whose value is a Python `dict` per row. It holds anything the source provided that doesn't map to the canonical schema (e.g. GSWA's `max_depth`, `hole_type`, `anumber`; or per-analyte assay values; or company-specific metadata).
+
+This keeps the top-level columns predictable for plotting / desurveying / intercept work while preserving everything the upstream system gave you.
+
+Use the `bundle_extras` helper to fold non-canonical columns into the dict for any wide DataFrame:
+
+```python
+import baselode.drill.data
+
+slim = baselode.drill.data.bundle_extras(
+    wide_df,
+    baselode.drill.data.BASELODE_DATA_MODEL_DRILL_COLLAR.keys(),
+    reserved={"geometry"},   # preserve GeoDataFrame geometry alongside canonical columns
+)
+# slim has the canonical columns at top level + an 'extra' dict per row.
+```
+
+Reading a value back out:
+
+```python
+slim["max_depth"] = slim["extra"].apply(lambda d: d.get("max_depth"))
+```
+
+Notes:
+- `None` and `NaN` values are skipped — the per-row dict only contains values that are actually present.
+- Bundling is idempotent. If the input already has an `extra` column, new extras are merged with the existing dict (existing values win on conflict).
 
 ### Column mapping
 
