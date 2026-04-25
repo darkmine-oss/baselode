@@ -22,6 +22,7 @@ from baselode.datamodel import (
     HOLE_ID, FROM, TO, MID, DEPTH, AZIMUTH, DIP,
     LATITUDE, LONGITUDE, ELEVATION, EXTRA,
     SAMPLE_ID,
+    DATASOURCE_SAMPLE_ID,
     DATASOURCE_SURFACE_SAMPLE_ID,
     SURFACE_SAMPLE_TYPE,
     BASELODE_DATA_MODEL_SURFACE_SAMPLE,
@@ -298,6 +299,44 @@ def test_convert_surface_samples_extras_spread_keeps_analyte_columns():
                                            extras="spread")
     assert "Au" in out.columns and "Cu" in out.columns
     assert EXTRA not in out.columns
+
+
+def test_convert_surface_samples_gswa_id_goes_to_datasource_sample_id():
+    """GSWA raw ``Id`` maps to datasource_sample_id; ``SampleId`` maps to sample_id."""
+    out = baselode.adaptors.raw_gswa.convert.convert_surface_samples(
+        _surface_sample_eav_fixture(), extras="spread"
+    )
+    assert SAMPLE_ID in out.columns
+    assert out[SAMPLE_ID].tolist() == ["GSWA001", "GSWA002"]
+    # Internal GSWA row Id should land in datasource_sample_id (top-level in spread mode).
+    assert DATASOURCE_SAMPLE_ID in out.columns
+    assert out[DATASOURCE_SAMPLE_ID].astype(str).tolist() == ["101", "102"]
+
+
+def test_surface_sample_postprocess_backfills_sample_id_from_company_id():
+    """When input has no SampleId (flat-table shape), sample_id falls back to CompanySampleId."""
+    flat = pd.DataFrame({
+        "Id":             [1, 2],
+        "CompanySampleId": ["C1", "C2"],
+        "Latitude":       [-32.1, -32.2],
+        "Longitude":      [120.5, 120.6],
+        "SurfaceSampleType": ["Rock", "Soil"],
+    })
+    out = baselode.adaptors.raw_gswa.convert.convert_surface_samples_flat(flat)
+    assert out[SAMPLE_ID].tolist() == ["C1", "C2"]
+    assert out[DATASOURCE_SURFACE_SAMPLE_ID].tolist() == ["C1", "C2"]
+
+
+def test_surface_sample_postprocess_backfills_sample_id_from_datasource_id():
+    """When input has neither SampleId nor CompanySampleId, sample_id falls back to Id."""
+    flat = pd.DataFrame({
+        "Id":             [10, 20],
+        "Latitude":       [-32.1, -32.2],
+        "Longitude":      [120.5, 120.6],
+        "SurfaceSampleType": ["Rock", "Soil"],
+    })
+    out = baselode.adaptors.raw_gswa.convert.convert_surface_samples_flat(flat)
+    assert out[SAMPLE_ID].tolist() == ["10", "20"]
 
 
 # ------------------------------------------------------------ pivot_eav helper

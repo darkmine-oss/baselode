@@ -474,8 +474,17 @@ def _surface_sample_postprocess(df, *, extras, crs):
     that owns the geometry contract — callers that want geometry can use
     ``geopandas.GeoDataFrame(df, geometry=gpd.points_from_xy(...))``.
     """
+    # Backfill ``sample_id`` when the source table had no ``SampleId`` column
+    # (e.g. the already-pivoted ``gsd_ssassayflat`` table maps ``Id`` to
+    # ``datasource_sample_id`` rather than ``sample_id``). Use the company
+    # identifier if available; fall back to the internal datasource id.
     if SAMPLE_ID not in df.columns:
-        raise ValueError(f"Surface sample table missing column: {SAMPLE_ID}")
+        if DATASOURCE_SURFACE_SAMPLE_ID in df.columns:
+            df[SAMPLE_ID] = df[DATASOURCE_SURFACE_SAMPLE_ID]
+        elif DATASOURCE_SAMPLE_ID in df.columns:
+            df[SAMPLE_ID] = df[DATASOURCE_SAMPLE_ID]
+        else:
+            raise ValueError(f"Surface sample table missing column: {SAMPLE_ID}")
 
     df[SAMPLE_ID] = df[SAMPLE_ID].astype(str).str.strip()
     if DATASOURCE_SURFACE_SAMPLE_ID not in df.columns:
@@ -529,12 +538,6 @@ def convert_surface_samples(raw, *, extras="bundle", crs=None, value_col="PPMVal
     else:
         pivoted = raw[keep_cols].drop_duplicates(subset=[parent_key]).reset_index(drop=True)
 
-    # GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE maps both ``Id`` and ``SampleId``
-    # to ``sample_id``; if both are present, dropping ``Id`` here prevents
-    # pandas from creating duplicate columns at rename time. The public
-    # ``SampleId`` is the canonical identifier we want to keep.
-    if "SampleId" in pivoted.columns and "Id" in pivoted.columns:
-        pivoted = pivoted.drop(columns=["Id"])
     pivoted = _rename(pivoted, GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE)
     pivoted = _drop_internal(pivoted)
 
@@ -554,10 +557,6 @@ def convert_surface_samples_flat(raw, *, extras="bundle", crs=None):
                              for c, t in BASELODE_DATA_MODEL_SURFACE_SAMPLE.items()})
 
     df = raw
-    # Avoid `Id` + `SampleId` both renaming to ``sample_id`` (creates a
-    # duplicate-column DataFrame). Prefer the public ``SampleId``.
-    if "SampleId" in df.columns and "Id" in df.columns:
-        df = df.drop(columns=["Id"])
     df = _rename(df, GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE)
     df = _drop_internal(df)
     return _surface_sample_postprocess(df, extras=extras, crs=crs)

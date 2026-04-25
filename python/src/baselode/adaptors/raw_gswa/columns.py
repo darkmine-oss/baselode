@@ -150,7 +150,7 @@ GSWA_GEOLOGY_ATTR_TO_BASELODE = {
 
 GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE = {
     # dbo_surfacesample
-    "Id": SAMPLE_ID,
+    "Id": DATASOURCE_SAMPLE_ID,
     "SampleId": SAMPLE_ID,
     "CompanySampleId": DATASOURCE_SURFACE_SAMPLE_ID,
     "Dataset": PROJECT_ID,
