@@ -22,12 +22,15 @@
     ".": {
       "import": "./dist/baselode.js"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/style.css",
+    "./tool-ui": {
+      "import": "./dist/tool-ui.js"
+    },
+    "./tool-ui/style.css": "./src/tool-ui/style.css"
   },
   "files": [
-    "dist/baselode.js",
-    "dist/baselode.js.map",
-    "dist/style.css",
+    "dist",
+    "src/tool-ui/style.css",
     "README.md"
   ],
   "sideEffects": [
@@ -51,11 +54,13 @@
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0",
     "three": ">=0.150.0",
-    "three-viewport-gizmo": ">=2.0.0"
+    "three-viewport-gizmo": ">=2.0.0",
+    "zod": ">=3.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.1",
     "vite": "^5.0.8",
-    "vitest": "^2.1.8"
+    "vitest": "^2.1.8",
+    "zod": "^3.25.76"
   }
 }
