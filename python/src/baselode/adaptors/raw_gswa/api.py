@@ -186,7 +186,18 @@ class RawGswaApiClient:
         Walks ``offset`` until the API returns fewer rows than the page
         size. Useful for tables that exceed the per-request ``limit``
         cap (10 000 rows).
+
+        ``limit`` and ``offset`` cannot be passed via ``selectors`` —
+        this method controls them itself via ``page_size``. Use
+        :meth:`fetch_table_rows` directly for a single bounded request.
         """
+        for reserved in ("limit", "offset"):
+            if reserved in selectors:
+                raise TypeError(
+                    f"iter_table_rows manages {reserved!r} via page_size — "
+                    "remove it from your selectors, or call fetch_table_rows "
+                    "for a single bounded request."
+                )
         if page_size > MAX_PAGE_SIZE:
             page_size = MAX_PAGE_SIZE
         offset = 0
@@ -375,17 +386,23 @@ def fetch_collars(client, *, hole_ids=None, extent=None, limit=None):
 
     Two paths:
 
-    - ``extent=`` — uses ``GET /tables/dbo_collar/rows`` directly (one
-      request). ``extent`` is a :class:`baselode.extent.Extent`.
-      Projected coordinates / elevation are NOT included because the
-      table endpoint doesn't join them; downstream ``convert_collars``
-      will fall back to lat/lon.
+    - ``extent=`` — uses ``GET /tables/dbo_collar/rows`` (single request
+      when ``limit`` is supplied, otherwise paginated via
+      ``fetch_all_table_rows``). ``extent`` is a
+      :class:`baselode.extent.Extent`. Projected coordinates / elevation
+      are NOT included because the table endpoint doesn't join them;
+      downstream ``convert_collars`` will fall back to lat/lon.
     - ``hole_ids=`` — issues one ``/collar-family`` request per hole and
       merges in ``dbo_collarcoordinate`` + ``dbo_collarelevation``.
       Result matches the SQL builder exactly.
     """
     if extent is not None:
-        return client.fetch_all_table_rows("dbo_collar", extent=extent, limit=limit)
+        if limit is None:
+            return client.fetch_all_table_rows("dbo_collar", extent=extent)
+        # ``fetch_all_table_rows`` controls pagination via its own ``limit``,
+        # so we can't forward a caller-supplied limit through it. Use the
+        # single-page endpoint instead.
+        return client.fetch_table_rows("dbo_collar", extent=extent, limit=limit)
     holes = _ensure_iter(hole_ids)
     if not holes:
         raise ValueError("fetch_collars requires hole_ids or extent")

@@ -22,7 +22,7 @@ from baselode.datamodel import (
     HOLE_ID, FROM, TO, MID, DEPTH, AZIMUTH, DIP,
     LATITUDE, LONGITUDE, ELEVATION, EXTRA,
     SAMPLE_ID,
-    DATASOURCE_SAMPLE_ID,
+    DATASOURCE_SURFACE_SAMPLE_ID,
     SURFACE_SAMPLE_TYPE,
     BASELODE_DATA_MODEL_SURFACE_SAMPLE,
 )
@@ -76,17 +76,18 @@ def test_build_surface_sample_query_joins_three_tables():
 def test_convert_collars_from_sample_csv_default_bundles_extras():
     raw = pd.read_csv(GSWA / "gswa_sample_collars.csv")
     collars = baselode.adaptors.raw_gswa.convert.convert_collars(raw)
-    # Canonical columns always at top level.
+    # Canonical columns always at top level (per BASELODE_DATA_MODEL_DRILL_COLLAR).
+    # `hole_type` is part of the canonical model now, so it stays top-level.
     for col in (HOLE_ID, LATITUDE, LONGITUDE, ELEVATION,
-                "datasource_hole_id", EXTRA, "geometry"):
+                "datasource_hole_id", "hole_type", EXTRA, "geometry"):
         assert col in collars.columns
-    # GSWA-only columns are NOT at top level — they live inside the extra dict.
-    for col in ("max_depth", "hole_type", "anumber", "elevation_uom"):
+    # GSWA-only columns NOT in the canonical model live inside the `extra` dict.
+    for col in ("max_depth", "report_number", "elevation_uom"):
         assert col not in collars.columns
     sample_extra = collars.iloc[0][EXTRA]
     assert isinstance(sample_extra, dict)
     assert "max_depth" in sample_extra
-    assert "hole_type" in sample_extra
+    assert "report_number" in sample_extra
     assert collars[HOLE_ID].notna().all()
 
 
@@ -139,11 +140,13 @@ def test_convert_surveys_from_sample_csv():
 def test_convert_assays_flat_from_sample_csv():
     raw = pd.read_csv(GSWA / "gswa_sample_assays.csv")
     # In bundle mode (default) analyte columns end up inside `extra`.
+    # Note: `load_table.standardize_columns` lowercases all column names,
+    # so analytes appear in extras as e.g. ``"au_ppm"``, not ``"Au_PPM"``.
     assays = baselode.adaptors.raw_gswa.convert.convert_assays_flat(raw)
     for col in (HOLE_ID, FROM, TO, MID, EXTRA):
         assert col in assays.columns
-    assert "Au_PPM" not in assays.columns
-    assert "Au_PPM" in assays.iloc[0][EXTRA]
+    assert "Au_PPM" not in assays.columns and "au_ppm" not in assays.columns
+    assert "au_ppm" in assays.iloc[0][EXTRA]
     assert (assays[TO] >= assays[FROM]).all()
     assert ((assays[MID] - 0.5 * (assays[FROM] + assays[TO])).abs() < 1e-9).all()
 
@@ -151,7 +154,8 @@ def test_convert_assays_flat_from_sample_csv():
 def test_convert_assays_flat_extras_spread_keeps_analytes_top_level():
     raw = pd.read_csv(GSWA / "gswa_sample_assays.csv")
     assays = baselode.adaptors.raw_gswa.convert.convert_assays_flat(raw, extras="spread")
-    assert "Au_PPM" in assays.columns
+    # Column names are lowercased by `standardize_columns` during load.
+    assert "au_ppm" in assays.columns
     assert EXTRA not in assays.columns
 
 
@@ -171,12 +175,15 @@ def test_convert_assays_eav_pivots_attributes_into_extras():
     })
     out = baselode.adaptors.raw_gswa.convert.convert_assays(raw)
     # Default 'bundle' mode: analytes flow into extras.
+    # `standardize_columns` lowercases column names, so analytes appear in
+    # the extra dict as ``"au"`` / ``"cu"``, not ``"Au"`` / ``"Cu"``.
     assert "Au" not in out.columns and "Cu" not in out.columns
+    assert "au" not in out.columns and "cu" not in out.columns
     assert HOLE_ID in out.columns and MID in out.columns and EXTRA in out.columns
     assert len(out) == 2
     by_from = out.set_index(FROM).sort_index()
-    assert pytest.approx(0.05) == by_from.loc[0.0, EXTRA]["Au"]
-    assert pytest.approx(85.0) == by_from.loc[1.0, EXTRA]["Cu"]
+    assert pytest.approx(0.05) == by_from.loc[0.0, EXTRA]["au"]
+    assert pytest.approx(85.0) == by_from.loc[1.0, EXTRA]["cu"]
 
 
 def test_convert_assays_eav_extras_spread_keeps_analyte_columns():
@@ -192,7 +199,8 @@ def test_convert_assays_eav_extras_spread_keeps_analyte_columns():
         "PPMValue":          [0.05, 120.0],
     })
     out = baselode.adaptors.raw_gswa.convert.convert_assays(raw, extras="spread")
-    assert "Au" in out.columns and "Cu" in out.columns
+    # Column names are lowercased by `standardize_columns`.
+    assert "au" in out.columns and "cu" in out.columns
 
 
 # --------------------------------------------------------------- convert_geology
@@ -208,12 +216,15 @@ def test_convert_geology_eav_pivots_lithology_and_comment():
         "AttributeValue":  ["GRA", "fresh granite", "BIF"],
     })
     out = baselode.adaptors.raw_gswa.convert.convert_geology(raw)
-    # geology_code and comments are canonical → top-level even in bundle mode.
+    # `geology_code` is in BASELODE_DATA_MODEL_DRILL_GEOLOGY → top-level.
+    # `comments` is NOT in the canonical geology model → folded into extras.
     assert HOLE_ID in out.columns
     assert "geology_code" in out.columns
-    assert "comments" in out.columns
+    assert "comments" not in out.columns
     assert EXTRA in out.columns
     assert sorted(out["geology_code"].tolist()) == ["BIF", "GRA"]
+    by_from = out.set_index(FROM).sort_index()
+    assert by_from.loc[0.0, EXTRA].get("comments") == "fresh granite"
 
 
 # ------------------------------------------------------------- convert_structures
@@ -263,7 +274,7 @@ def _surface_sample_eav_fixture():
 
 def test_convert_surface_samples_pivots_and_resolves_crs():
     out = baselode.adaptors.raw_gswa.convert.convert_surface_samples(_surface_sample_eav_fixture())
-    for col in (SAMPLE_ID, DATASOURCE_SAMPLE_ID, SURFACE_SAMPLE_TYPE, EXTRA):
+    for col in (SAMPLE_ID, DATASOURCE_SURFACE_SAMPLE_ID, SURFACE_SAMPLE_TYPE, EXTRA):
         assert col in out.columns
     # Default 'bundle' mode → analytes live inside extras.
     assert "Au" not in out.columns and "Cu" not in out.columns
@@ -351,6 +362,49 @@ def test_every_builder_threads_schema_through():
         assert "raw_gswa." not in sql, f"{fn.__name__} leaked legacy schema literal"
 
 
+@pytest.mark.parametrize("bad_schema", [
+    "raw_gswa; DROP TABLE dbo_collar; --",
+    'foo"; SELECT 1; --',
+    "foo bar",       # whitespace
+    "foo.bar",       # dot
+    "1stschema",     # leading digit
+])
+def test_schema_arg_rejects_sql_injection_attempts(bad_schema):
+    """``_schema`` validates against ``[A-Za-z_][A-Za-z0-9_]*`` so the value
+    is safe to interpolate via f-string.
+
+    Note: empty string and ``None`` are intentionally treated as "use
+    DEFAULT_SCHEMA" by the falsy check in ``_schema()``, so they don't raise.
+    """
+    with pytest.raises(ValueError, match="Invalid schema identifier"):
+        baselode.adaptors.raw_gswa.queries.build_collar_query(
+            hole_ids=["X"], schema=bad_schema,
+        )
+
+
+def test_set_default_schema_rejects_invalid_identifier():
+    with pytest.raises(ValueError, match="Invalid schema identifier"):
+        baselode.adaptors.raw_gswa.queries.set_default_schema(
+            "foo; DROP TABLE dbo_collar; --"
+        )
+
+
+@pytest.mark.parametrize("bad_col", [
+    'Au_PPM"; DROP TABLE x; --',
+    "foo bar",
+    "foo.bar",
+    "",
+])
+def test_analyte_columns_arg_rejects_sql_injection_attempts(bad_col):
+    """``analyte_columns`` values are interpolated into the SELECT list, so
+    they go through the same identifier validator as ``schema``.
+    """
+    with pytest.raises(ValueError, match="Invalid analyte column identifier"):
+        baselode.adaptors.raw_gswa.queries.build_assay_flat_query(
+            analyte_columns=["Au_PPM", bad_col],
+        )
+
+
 # --------------------------------------------------------- HTTP API client
 
 class _FakeResponse:
@@ -426,7 +480,7 @@ def test_api_client_fetch_table_rows_extent_explodes_to_four_params():
 
 def test_api_client_fetch_table_rows_rejects_bare_tuple_extent():
     s = _FakeSession()
-    with pytest.raises(TypeError, match="expects an Extent instance"):
+    with pytest.raises(TypeError, match="extent must be a baselode.extent.Extent"):
         _client(s).fetch_table_rows(
             "dbo_collar", extent=(118.0, -32.0, 122.0, -28.0),
         )
@@ -480,26 +534,11 @@ def test_api_client_fetch_table_rows_reprojects_extent_to_wgs84():
     assert abs(params["max_lat"] - (-31.5)) < 1e-3
 
 
-def test_extent_construction_raises_when_pyproj_missing(monkeypatch):
-    """Without pyproj, even constructing a non-WGS84 Extent fails up-front.
-
-    Validation runs at construction now (via :meth:`Extent.set_crs`), so
-    bad CRS values can't sneak through to downstream reprojection.
-    """
-    import builtins
-    import baselode.extent
-    real_import = builtins.__import__
-
-    def fake_import(name, *args, **kwargs):
-        if name == "pyproj":
-            raise ImportError("simulated missing pyproj")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-    with pytest.raises(ValueError, match="pyproj is not installed"):
-        baselode.extent.Extent(
-            xmin=500000, xmax=510000, ymin=6450000, ymax=6460000, crs=28351,
-        )
+# (removed: ``test_extent_construction_raises_when_pyproj_missing`` —
+# pyproj is now a hard dependency imported at module top of
+# ``baselode.extent``, so the missing-pyproj branch no longer exists at
+# CRS-validation time. If pyproj is missing, ``import baselode.extent``
+# itself fails — caught by the install/CI rather than at runtime.)
 
 
 # ---------------------------------------------------- Extent CRS validation
@@ -806,6 +845,44 @@ def test_fetch_collars_requires_filter():
         baselode.adaptors.raw_gswa.api.fetch_collars(_client(s))
 
 
+def test_fetch_collars_extent_with_limit_uses_single_page_endpoint():
+    """Regression: forwarding ``limit`` through ``fetch_all_table_rows`` used
+    to collide with that method's own pagination ``limit=page_size`` and raise
+    ``TypeError: multiple values for limit``. ``fetch_collars`` must take the
+    bounded single-page path when ``limit`` is supplied.
+    """
+    import baselode.extent
+    extent = baselode.extent.Extent(
+        xmin=118.0, xmax=122.0, ymin=-32.5, ymax=-28.0,
+    )
+    page = {"columns": ["Id", "HoleId"],
+            "rows":    [{"Id": 1, "HoleId": "H1"}]}
+    s = _FakeSession().queue(page)
+    df = baselode.adaptors.raw_gswa.api.fetch_collars(
+        _client(s), extent=extent, limit=5,
+    )
+    # Exactly one HTTP call (no pagination loop).
+    assert len(s.calls) == 1
+    assert s.calls[0][0].endswith("/tables/dbo_collar/rows")
+    assert s.calls[0][1]["limit"] == 5
+    # offset must NOT be set — fetch_table_rows leaves it None when omitted.
+    assert "offset" not in s.calls[0][1]
+    assert df.iloc[0]["HoleId"] == "H1"
+
+
+def test_iter_table_rows_rejects_reserved_pagination_selectors():
+    """``iter_table_rows`` owns ``limit`` and ``offset``; passing them via
+    selectors used to silently collide with the per-page call. We now
+    raise a clear ``TypeError`` instead.
+    """
+    s = _FakeSession()
+    client = _client(s)
+    with pytest.raises(TypeError, match="iter_table_rows manages 'limit'"):
+        list(client.iter_table_rows("dbo_collar", limit=5))
+    with pytest.raises(TypeError, match="iter_table_rows manages 'offset'"):
+        list(client.iter_table_rows("dbo_collar", offset=10))
+
+
 def test_fetch_surveys_attaches_hole_id():
     s = _FakeSession().queue(_collar_family_body())
     df = baselode.adaptors.raw_gswa.api.fetch_surveys(_client(s), hole_ids=["H1"])
@@ -852,7 +929,8 @@ def test_fetch_assays_only_with_value_drops_null_ppm():
     df = baselode.adaptors.raw_gswa.api.fetch_assays(_client(s), hole_ids=["H1"])
     assert (df["PPMValue"].notna()).all()
     out = baselode.adaptors.raw_gswa.convert.convert_assays(df, extras="spread")
-    assert "Au" in out.columns and "Cu" in out.columns
+    # Lowercased by `standardize_columns`.
+    assert "au" in out.columns and "cu" in out.columns
 
 
 def test_fetch_structures_pivots_through_convert():
@@ -887,34 +965,38 @@ def test_fetch_surface_samples_flat_filters_by_company_sample_id():
 # ----------------------------------------------------------- bundle_extras
 
 def test_bundle_extras_moves_non_canonical_into_dict():
+    # `max_depth` is NOT in BASELODE_DATA_MODEL_DRILL_COLLAR — it's bundled.
+    # `random_field` is unambiguously non-canonical too.
     df = pd.DataFrame({
-        HOLE_ID:    ["H1", "H2"],
-        LATITUDE:   [-32.0, -32.5],
-        LONGITUDE:  [120.0, 121.0],
-        "max_depth": [100.0, 75.0],
-        "hole_type": ["DD", "RC"],
+        HOLE_ID:        ["H1", "H2"],
+        LATITUDE:       [-32.0, -32.5],
+        LONGITUDE:      [120.0, 121.0],
+        "max_depth":    [100.0, 75.0],
+        "random_field": ["a", "b"],
     })
     out = baselode.drill.data.bundle_extras(
         df, baselode.drill.data.BASELODE_DATA_MODEL_DRILL_COLLAR.keys(),
     )
     assert set(out.columns) == {HOLE_ID, LATITUDE, LONGITUDE, EXTRA}
     row0 = out.iloc[0]
-    assert row0[EXTRA] == {"max_depth": 100.0, "hole_type": "DD"}
+    assert row0[EXTRA] == {"max_depth": 100.0, "random_field": "a"}
 
 
 def test_bundle_extras_skips_nan_values():
     import numpy as np
+    # Using non-canonical names so both fields are bundled (the model now
+    # owns ``hole_type``).
     df = pd.DataFrame({
         HOLE_ID: ["H1"],
-        "anumber": [np.nan],         # should NOT appear in the dict
-        "hole_type": ["DD"],          # should appear
+        "missing_metric": [np.nan],   # should NOT appear in the dict
+        "lab_method": ["ICP"],         # should appear
     })
     out = baselode.drill.data.bundle_extras(
         df, baselode.drill.data.BASELODE_DATA_MODEL_DRILL_COLLAR.keys(),
     )
     extra = out.iloc[0][EXTRA]
-    assert "anumber" not in extra
-    assert extra == {"hole_type": "DD"}
+    assert "missing_metric" not in extra
+    assert extra == {"lab_method": "ICP"}
 
 
 def test_bundle_extras_is_idempotent_with_existing_extra_column():

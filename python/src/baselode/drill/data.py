@@ -37,7 +37,6 @@ from baselode.datamodel import (
     BASELODE_DATA_MODEL_GEOPHYSICS,
     BASELODE_DATA_MODEL_STRUCTURAL_POINT,
     BETA,
-    COLLAR_ID,
     COMMENTS,
     CRS,
     DATASOURCE_HOLE_ID,
@@ -238,24 +237,22 @@ def load_table(source,
 def load_collars(source, crs=None, source_column_map=None, keep_all=True, **kwargs):
     df = load_table(source, source_column_map=source_column_map, **kwargs)
 
+    # Truly required: a hole id and a location pair. Everything else in the
+    # canonical model (project_id, hole_type, max_depth, _collar_id, extra,
+    # ...) is optional metadata that may or may not be present in any
+    # given source. Listing required columns explicitly (rather than
+    # subtracting from ``BASELODE_DATA_MODEL_DRILL_COLLAR.keys()``) keeps
+    # the contract stable when fields are added to the canonical schema.
     if HOLE_ID not in df.columns:
         raise ValueError(f"Collar table missing column: {HOLE_ID}")
 
-    # Auto-generated / internal columns in the canonical model that the
-    # loader should never demand from the input. ``EXTRA`` is added by
-    # ``bundle_extras`` after this loader runs; ``COLLAR_ID`` is an
-    # internal join key that some sources carry and others (CSVs etc.)
-    # don't.
-    _optional_model_cols = {EXTRA, COLLAR_ID}
-
-    required_cols = set(BASELODE_DATA_MODEL_DRILL_COLLAR.keys()) - _optional_model_cols
-
     has_xy = EASTING in df.columns and NORTHING in df.columns
     has_latlon = LATITUDE in df.columns and LONGITUDE in df.columns
-    if not has_xy and has_latlon:
-        required_cols -= {EASTING, NORTHING, CRS}
-    elif has_xy and not has_latlon:
-        required_cols -= {LATITUDE, LONGITUDE}
+    if not (has_xy or has_latlon):
+        raise ValueError(
+            f"Collar table missing location columns: needs either "
+            f"({LATITUDE}, {LONGITUDE}) or ({EASTING}, {NORTHING})"
+        )
 
     if has_latlon:
         geom = gpd.points_from_xy(df[LONGITUDE], df[LATITUDE])
@@ -264,21 +261,17 @@ def load_collars(source, crs=None, source_column_map=None, keep_all=True, **kwar
         geom = gpd.points_from_xy(df[EASTING], df[NORTHING])
         resolved_crs = crs
 
-    # if dataset_hole_id was not populated, copy it from hole_id
-    if "datasource_hole_id" not in df.columns:
+    # If datasource_hole_id wasn't populated, copy it from hole_id.
+    if DATASOURCE_HOLE_ID not in df.columns:
         hole_series = df[HOLE_ID]
         if isinstance(hole_series, pd.DataFrame):
             hole_series = hole_series.bfill(axis=1).iloc[:, 0]
-        df["datasource_hole_id"] = hole_series
-
-    for col in sorted(required_cols):
-        if col not in df.columns:
-            raise ValueError(f"Collar table missing column: {col}")
+        df[DATASOURCE_HOLE_ID] = hole_series
 
     if not keep_all:
-        # Keep every canonical model column that's actually present
-        # (including the optional ones like ``_collar_id`` / ``extra``
-        # when the source did provide them).
+        # Project to the canonical model — but only columns that are
+        # actually present (so optional fields like ``_collar_id`` /
+        # ``extra`` don't trigger KeyError when absent).
         keep_cols = [
             col for col in BASELODE_DATA_MODEL_DRILL_COLLAR.keys()
             if col in df.columns
@@ -290,10 +283,6 @@ def load_collars(source, crs=None, source_column_map=None, keep_all=True, **kwar
 
 def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
     df = load_table(source, source_column_map=source_column_map, **kwargs)
-    required_cols = set(BASELODE_DATA_MODEL_DRILL_SURVEY.keys())
-
-    if TO not in df.columns:
-        required_cols -= {TO}
 
     required = [HOLE_ID, DEPTH, AZIMUTH, DIP]
     for col in required:
@@ -301,7 +290,13 @@ def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
             raise ValueError(f"Survey table missing column: {col}")
 
     if not keep_all:
-        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_SURVEY.keys() if col in required_cols]]
+        # Project to canonical model columns that are actually present.
+        # Optional fields (TO, EXTRA, ...) absent in the input are skipped.
+        keep_cols = [
+            col for col in BASELODE_DATA_MODEL_DRILL_SURVEY.keys()
+            if col in df.columns
+        ]
+        df = df[keep_cols]
 
     return df.sort_values([HOLE_ID, DEPTH])
 
@@ -316,8 +311,6 @@ def load_assays(source, source_column_map=None, flat=True, keep_all=True, **kwar
             code_candidates=["assay_code", "assay_type", "analyte", "element", "code"],
             value_candidates=["assay_value", "value", "result", "assay_result"],
         )
-
-    required_cols = set(BASELODE_DATA_MODEL_DRILL_ASSAY.keys())
 
     required = [HOLE_ID, FROM, TO]
     for col in required:
@@ -341,7 +334,11 @@ def load_assays(source, source_column_map=None, flat=True, keep_all=True, **kwar
     df[MID] = 0.5 * (df[FROM] + df[TO])
 
     if not keep_all:
-        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_ASSAY.keys() if col in required_cols]]
+        keep_cols = [
+            col for col in BASELODE_DATA_MODEL_DRILL_ASSAY.keys()
+            if col in df.columns
+        ]
+        df = df[keep_cols]
 
     return df.sort_values([HOLE_ID, FROM, TO])
 
@@ -541,12 +538,21 @@ def coerce_numeric(df, columns):
 
 
 def _present(value):
+    """True iff ``value`` is a real, present scalar (not None / NaN / NaT / NA).
+
+    Uses ``pd.isna`` so we catch every pandas missing-value sentinel
+    (``pd.NA``, ``pd.NaT``, ``numpy.nan``) — not just ``float('nan')``.
+    Containers like ``dict``/``list`` are short-circuited to True so
+    ``pd.isna`` doesn't try to elementwise-check them.
+    """
     if value is None:
         return False
-    if isinstance(value, float) and value != value:
-        # NaN
-        return False
-    return True
+    if isinstance(value, (dict, list, tuple, set)):
+        return True
+    try:
+        return not pd.isna(value)
+    except (TypeError, ValueError):
+        return True
 
 
 def bundle_extras(df, canonical, extra_col=EXTRA, reserved=None):

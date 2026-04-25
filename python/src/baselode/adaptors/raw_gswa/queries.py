@@ -32,9 +32,32 @@ an optional ``schema`` argument; when omitted, it falls back to
 :func:`set_default_schema` if your project always uses a particular name.
 """
 
+import re
+
 import baselode.extent
 
 DEFAULT_SCHEMA = "postgres_gswa"
+
+# Postgres unquoted-identifier rule: leading letter or underscore, then
+# letters / digits / underscores. We refuse anything outside this so the
+# value is safe to interpolate into SQL via f-string.
+_SAFE_IDENTIFIER = re.compile(r"\A[A-Za-z_][A-Za-z0-9_]*\Z")
+
+
+def _validate_identifier(value, kind):
+    """Reject anything that wouldn't survive ``f'{schema}.dbo_collar'`` cleanly.
+
+    Raises ``ValueError`` for SQL-injection-prone inputs; returns ``value``
+    unchanged on the happy path. ``kind`` is used in the error message
+    (e.g. ``"schema"``, ``"analyte column"``).
+    """
+    if not isinstance(value, str) or not _SAFE_IDENTIFIER.match(value):
+        raise ValueError(
+            f"Invalid {kind} identifier {value!r}: must match "
+            f"[A-Za-z_][A-Za-z0-9_]* (letters, digits, underscores; "
+            "no quotes, dots, or whitespace)."
+        )
+    return value
 
 
 def set_default_schema(name):
@@ -42,14 +65,16 @@ def set_default_schema(name):
 
     Useful as a one-line setup at app startup when the deployment uses a
     schema other than the default ``postgres_gswa`` (e.g.
-    ``set_default_schema("raw_gswa")`` for legacy deployments).
+    ``set_default_schema("raw_gswa")`` for legacy deployments). The name
+    is validated as a plain Postgres identifier — anything outside
+    ``[A-Za-z_][A-Za-z0-9_]*`` is rejected to prevent SQL injection.
     """
     global DEFAULT_SCHEMA
-    DEFAULT_SCHEMA = name
+    DEFAULT_SCHEMA = _validate_identifier(name, "schema")
 
 
 def _schema(schema):
-    return schema if schema else DEFAULT_SCHEMA
+    return _validate_identifier(schema if schema else DEFAULT_SCHEMA, "schema")
 
 
 # ----------------------------------------------------------------------- utils
@@ -218,7 +243,7 @@ def build_assay_flat_query(hole_ids=None, extent=None, analyte_columns=None, sch
         cols = ['Id', 'HoleId', 'Collarid', 'CompanyHoleId', 'Anumber',
                 'Latitude', 'Longitude', 'FromDepth', 'ToDepth', 'Dip', 'Azimuth',
                 'HoleType', 'Elevation']
-        cols.extend(analyte_columns)
+        cols.extend(_validate_identifier(c, "analyte column") for c in analyte_columns)
         select = ", ".join(f'"{c}"' for c in cols)
     else:
         select = "*"
@@ -310,7 +335,7 @@ def build_surface_sample_assay_flat_query(sample_ids=None, extent=None,
     if analyte_columns:
         cols = ['Id', 'SurfaceSampleId', 'CompanySampleId', 'Dataset', 'Anumber',
                 'Latitude', 'Longitude', 'SurfaceSampleType', 'Elevation']
-        cols.extend(analyte_columns)
+        cols.extend(_validate_identifier(c, "analyte column") for c in analyte_columns)
         select = ", ".join(f'"{c}"' for c in cols)
     else:
         select = "*"

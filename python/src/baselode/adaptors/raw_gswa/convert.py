@@ -29,6 +29,7 @@ from baselode.datamodel import (
     DATASOURCE_HOLE_ID,
     SAMPLE_ID,
     DATASOURCE_SAMPLE_ID,
+    DATASOURCE_SURFACE_SAMPLE_ID,
     SURFACE_SAMPLE_TYPE,
     BASELODE_DATA_MODEL_DRILL_COLLAR,
     BASELODE_DATA_MODEL_DRILL_SURVEY,
@@ -198,7 +199,7 @@ def convert_collars(raw, *, extras="bundle", crs=None):
         # so construct an empty GeoDataFrame directly for the empty case.
         return gpd.GeoDataFrame(
             {HOLE_ID: pd.Series(dtype=str),
-             "datasource_hole_id": pd.Series(dtype=str),
+             DATASOURCE_HOLE_ID: pd.Series(dtype=str),
              EXTRA: pd.Series(dtype=object)},
             geometry=gpd.points_from_xy([], []),
             crs=crs or "EPSG:4326",
@@ -462,9 +463,10 @@ def convert_structures(raw, *, extras="bundle", interval_position="from"):
 def _surface_sample_postprocess(df, *, extras, crs):
     """Common tail for surface-sample converters.
 
-    Coerces the sample identifier, backfills ``datasource_sample_id`` from
-    ``sample_id`` when missing, resolves CRS from datum/zone when projected
-    coordinates are present, then applies the chosen extras mode against
+    Coerces the sample identifier, backfills
+    ``datasource_surface_sample_id`` from ``sample_id`` when missing,
+    resolves CRS from datum/zone when projected coordinates are present,
+    then applies the chosen extras mode against
     ``BASELODE_DATA_MODEL_SURFACE_SAMPLE``.
 
     Returns a plain ``pd.DataFrame``. We do not promote to GeoDataFrame
@@ -476,12 +478,12 @@ def _surface_sample_postprocess(df, *, extras, crs):
         raise ValueError(f"Surface sample table missing column: {SAMPLE_ID}")
 
     df[SAMPLE_ID] = df[SAMPLE_ID].astype(str).str.strip()
-    if DATASOURCE_SAMPLE_ID not in df.columns:
-        df[DATASOURCE_SAMPLE_ID] = df[SAMPLE_ID]
+    if DATASOURCE_SURFACE_SAMPLE_ID not in df.columns:
+        df[DATASOURCE_SURFACE_SAMPLE_ID] = df[SAMPLE_ID]
     else:
-        # Backfill rows where the company id is null with the public id.
-        df[DATASOURCE_SAMPLE_ID] = df[DATASOURCE_SAMPLE_ID].where(
-            df[DATASOURCE_SAMPLE_ID].notna(), df[SAMPLE_ID]
+        # Backfill rows where the source-side id is null with the public id.
+        df[DATASOURCE_SURFACE_SAMPLE_ID] = df[DATASOURCE_SURFACE_SAMPLE_ID].where(
+            df[DATASOURCE_SURFACE_SAMPLE_ID].notna(), df[SAMPLE_ID]
         )
 
     has_xy = EASTING in df.columns and NORTHING in df.columns
@@ -527,6 +529,12 @@ def convert_surface_samples(raw, *, extras="bundle", crs=None, value_col="PPMVal
     else:
         pivoted = raw[keep_cols].drop_duplicates(subset=[parent_key]).reset_index(drop=True)
 
+    # GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE maps both ``Id`` and ``SampleId``
+    # to ``sample_id``; if both are present, dropping ``Id`` here prevents
+    # pandas from creating duplicate columns at rename time. The public
+    # ``SampleId`` is the canonical identifier we want to keep.
+    if "SampleId" in pivoted.columns and "Id" in pivoted.columns:
+        pivoted = pivoted.drop(columns=["Id"])
     pivoted = _rename(pivoted, GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE)
     pivoted = _drop_internal(pivoted)
 
@@ -545,6 +553,11 @@ def convert_surface_samples_flat(raw, *, extras="bundle", crs=None):
         return pd.DataFrame({c: pd.Series(dtype=(object if t is dict else t))
                              for c, t in BASELODE_DATA_MODEL_SURFACE_SAMPLE.items()})
 
-    df = _rename(raw, GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE)
+    df = raw
+    # Avoid `Id` + `SampleId` both renaming to ``sample_id`` (creates a
+    # duplicate-column DataFrame). Prefer the public ``SampleId``.
+    if "SampleId" in df.columns and "Id" in df.columns:
+        df = df.drop(columns=["Id"])
+    df = _rename(df, GSWA_RAW_TO_BASELODE_SURFACE_SAMPLE)
     df = _drop_internal(df)
     return _surface_sample_postprocess(df, extras=extras, crs=crs)

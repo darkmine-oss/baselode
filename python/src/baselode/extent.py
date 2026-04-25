@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with baselode.  If not, see <https://www.gnu.org/licenses/>.
 
+import pyproj
 import shapely.geometry
 
 # Canonical default — GeoJSON / OGC convention.
@@ -43,13 +44,6 @@ def _normalise_crs(crs):
             "Extent requires a CRS. Pass crs='EPSG:4326' (default) or any "
             "value pyproj.CRS.from_user_input accepts."
         )
-    try:
-        import pyproj
-    except ImportError as exc:
-        raise ValueError(
-            f"Cannot validate CRS {crs!r} because pyproj is not installed. "
-            "Install pyproj (it's a baselode hard dependency)."
-        ) from exc
     try:
         parsed = pyproj.CRS.from_user_input(crs)
     except Exception as exc:
@@ -141,7 +135,6 @@ class Extent():
                 name=self.name, crs=target,
             )
         try:
-            import pyproj
             transformer = pyproj.Transformer.from_crs(
                 pyproj.CRS.from_user_input(self.crs),
                 pyproj.CRS.from_user_input(target),
@@ -176,8 +169,6 @@ class Extent():
         if not lonlat:
             return cx, cy
         try:
-            import pyproj
-
             source_crs = pyproj.CRS.from_user_input(self.crs) if hasattr(self, "crs") else pyproj.CRS.from_epsg(4326)
             target_crs = pyproj.CRS.from_epsg(4326)
             transformer = pyproj.Transformer.from_crs(source_crs, target_crs, always_xy=True)
