@@ -28,128 +28,34 @@ import pandas as pd
 import geopandas as gpd
 
 from baselode.datamodel import (
+    ALPHA,
+    AZIMUTH,
+    BASELODE_DATA_MODEL_DRILL_ASSAY,
+    BASELODE_DATA_MODEL_DRILL_COLLAR,
+    BASELODE_DATA_MODEL_DRILL_GEOLOGY,
+    BASELODE_DATA_MODEL_DRILL_SURVEY,
+    BASELODE_DATA_MODEL_GEOPHYSICS,
+    BASELODE_DATA_MODEL_STRUCTURAL_POINT,
+    BETA,
+    COMMENTS,
+    CRS,
+    DATASOURCE_HOLE_ID,
+    DEPTH,
+    DIP,
+    EASTING,
+    ELEVATION,
+    EXTRA,
+    FROM,
+    GEOLOGY_CODE,
+    GEOPHYSICS_NULL,
     HOLE_ID,
     LATITUDE,
     LONGITUDE,
-    ELEVATION,
-    AZIMUTH,
-    DIP,
-    FROM,
-    TO,
     MID,
-    PROJECT_ID,
-    EASTING,
     NORTHING,
-    CRS,
-    DEPTH,
-    ALPHA,
-    BETA,
-    COMMENTS,
-    GEOLOGY_CODE,
-    GEOPHYSICS_NULL,
+    PROJECT_ID,
+    TO,
 )
-
-
-"""
-Baselode Open Data Model
-
-Provides a consistent schema for data handling throughout the library.
-
-Individual data loaders apply common column mapping, but also accept user-provided column maps to handle variations in source data.
-"""
-
-# Minimum expected columns for drillhole collars
-# The collar forms the basis for hole_id and spatial location, so it is expected to exist in all datasets and be standardized as much as possible.
-BASELODE_DATA_MODEL_DRILL_COLLAR = {
-    # A unique hole identifier across the entire dataset and all future data sets
-    HOLE_ID: str,
-    # The hole ID from the original collar source
-    "datasource_hole_id": str,
-    # The project ID or project code from the original collar source, if available
-    PROJECT_ID: str,
-    # The latitude of the collar, in decimal degrees (WGS84)
-    LATITUDE: float,
-    # The longitude of the collar, in decimal degrees (WGS84)
-    LONGITUDE: float,
-    # The elevation of the collar, in meters above sea level (WGS84)
-    ELEVATION: float,
-    # The easting coordinate of the collar, in meters (projected CRS)
-    EASTING: float,
-    # The northing coordinate of the collar, in meters (projected CRS)
-    NORTHING: float,
-    # The coordinate reference system of the collar coordinates for easting/northing, as an EPSG code or proj string
-    CRS: str
-}
-
-BASELODE_DATA_MODEL_DRILL_SURVEY = {
-    # The unique hole id that maps to the collar and any other data tables
-    HOLE_ID: str,
-    # The depth along the hole where the survey measurement was taken / started
-    DEPTH: float,
-    # The depth along the hole where the survey measurement ended, if applicable (some surveys are point measurements and may not have a 'to' depth)
-    TO: float,
-    # The azimuth of the hole at the survey depth, in degrees from north
-    AZIMUTH: float,
-    # The dip of the hole at the survey depth, in degrees from horizontal (negative values indicate downward inclination)
-    DIP: float
-}
-
-# The GSWA Structure table has the following potential attributes for structure measurements:
-# Alpha,Beta,Confidence,Defect,Defect_Width,Description,Dip,DipDir_Calc,
-# DipDirect_calc,DipDrn,Dip_Calc,,Fill1,Fill2,FillPC,,Hole_Dip,Hole_Dip_2,Hole_Dir,Hole_dir_2,
-# JWS,,Reliability,Rough,,StructComment,Structure,Type,a,alpha_2,beta_2,d
-
-# Ignored as meta-data not structure data:
-# Id,CollarId,FromDepth,ToDepth,HoleId,Geologist,Drill_code,PRIORITY,ProjectCode,Projectcode_2,Shape
-BASELODE_DATA_MODEL_STRUCTURAL_POINT = {
-    HOLE_ID: str,
-    DEPTH: float,
-    DIP: float,
-    AZIMUTH: float,
-    ALPHA: float,
-    BETA: float,
-    "comments": str,
-}
-
-BASELODE_DATA_MODEL_DRILL_ASSAY = {
-    # The unique hole id that maps to the collar and any other data tables
-    HOLE_ID: str,
-    # The depth along the hole where the assay interval starts
-    FROM: float,
-    # The depth along the hole where the assay interval ends
-    TO: float,
-    # The midpoint depth of the assay interval
-    MID: float,
-    # assay value columns are variable and not standardized here. 
-    # Assays may be flattened (one column per assay type) or long (one row per assay type with an additional 'assay_type' column)
-}
-
-BASELODE_DATA_MODEL_DRILL_GEOLOGY = {
-    # The unique hole id that maps to the collar and any other data tables
-    HOLE_ID: str,
-    # The depth along the hole where the geology interval starts
-    FROM: float,
-    # The depth along the hole where the geology interval ends
-    TO: float,
-    # The midpoint depth of the geology interval
-    MID: float,
-    # Standardized lithology/geology code for categorical strip-log plotting
-    GEOLOGY_CODE: str,
-}
-
-BASELODE_DATA_MODEL_GEOPHYSICS = {
-    # The unique hole id that maps to the collar and any other data tables
-    HOLE_ID: str,
-    # The depth along the hole where the geophysics measurement interval starts
-    FROM: float,
-    # The depth along the hole where the geophysics measurement interval ends
-    TO: float,
-    # The midpoint depth of the measurement interval (computed)
-    MID: float,
-    # Value columns are variable and not standardized here (e.g. gamma, density, resistivity).
-    # Null sentinels (e.g. -999.25 from LAS-derived sources) are replaced with NaN on load.
-}
-
 
 # This column map is used to make a 'best guess' for mapping common variations in source column names to the baselode data model.
 # It is applied in the standardize_columns function, but users can also provide their own column map to override or extend this mapping as needed.
@@ -158,7 +64,7 @@ BASELODE_DATA_MODEL_GEOPHYSICS = {
 # Be cautious of not mapping a source column to multiple baselode columns, as this can lead to unpredictable results. 
 DEFAULT_COLUMN_MAP = {
     HOLE_ID: ["hole_id", "holeid", "hole id", "hole-id"],
-    "datasource_hole_id": ["datasource_hole_id", "datasourceholeid", "datasource hole id", "datasource-hole-id", "company_hole_id", "companyholeid", "company hole id", "company-hole-id"],
+    DATASOURCE_HOLE_ID: ["datasource_hole_id", "datasourceholeid", "datasource hole id", "datasource-hole-id", "company_hole_id", "companyholeid", "company hole id", "company-hole-id"],
     PROJECT_ID: ["project_id", "projectid", "project id", "project-id", "project_code", "projectcode", "project code", "project-code", "companyId", "company_id", "companyid", "company id", "company-id", "dataset", "project"],
     LATITUDE: ["latitude", "lat"],
     LONGITUDE: ["longitude", "lon"],
@@ -183,7 +89,6 @@ DEFAULT_COLUMN_MAP = {
     DEPTH: ["depth", "survey_depth", "surveydepth", "md", "measured_depth", "dept"],
     ALPHA: ["alpha", "alpha_angle", "alpha_angle_deg", "alpha_2"],
     BETA: ["beta", "beta_angle", "beta_angle_deg", "beta_2"],
-    "declination": ["declination", "dec"],
     COMMENTS: ["comment", "comments", "structcomment", "geology_comment", "geologycomment", "geology comment", "lithology_comment", "lithology comment", "geology_description", "geologydescription"]
 }
 
@@ -332,18 +237,23 @@ def load_table(source,
 def load_collars(source, crs=None, source_column_map=None, keep_all=True, **kwargs):
     df = load_table(source, source_column_map=source_column_map, **kwargs)
 
+    # Truly required: a hole id and a location pair. Everything else in the
+    # canonical model (project_id, hole_type, max_depth, _collar_id, extra,
+    # ...) is optional metadata that may or may not be present in any
+    # given source. Listing required columns explicitly (rather than
+    # subtracting from ``BASELODE_DATA_MODEL_DRILL_COLLAR.keys()``) keeps
+    # the contract stable when fields are added to the canonical schema.
     if HOLE_ID not in df.columns:
         raise ValueError(f"Collar table missing column: {HOLE_ID}")
 
-    required_cols = set(BASELODE_DATA_MODEL_DRILL_COLLAR.keys())
-
-    has_xy = EASTING in df.columns and NORTHING in df.columns 
+    has_xy = EASTING in df.columns and NORTHING in df.columns
     has_latlon = LATITUDE in df.columns and LONGITUDE in df.columns
-    if not has_xy and has_latlon:
-        required_cols -= {EASTING, NORTHING, CRS}
-    elif has_xy and not has_latlon:
-        required_cols -= {LATITUDE, LONGITUDE}
-        
+    if not (has_xy or has_latlon):
+        raise ValueError(
+            f"Collar table missing location columns: needs either "
+            f"({LATITUDE}, {LONGITUDE}) or ({EASTING}, {NORTHING})"
+        )
+
     if has_latlon:
         geom = gpd.points_from_xy(df[LONGITUDE], df[LATITUDE])
         resolved_crs = crs or "EPSG:4326"
@@ -351,29 +261,28 @@ def load_collars(source, crs=None, source_column_map=None, keep_all=True, **kwar
         geom = gpd.points_from_xy(df[EASTING], df[NORTHING])
         resolved_crs = crs
 
-    # if dataset_hole_id was not populated, copy it from hole_id
-    if "datasource_hole_id" not in df.columns:
+    # If datasource_hole_id wasn't populated, copy it from hole_id.
+    if DATASOURCE_HOLE_ID not in df.columns:
         hole_series = df[HOLE_ID]
         if isinstance(hole_series, pd.DataFrame):
             hole_series = hole_series.bfill(axis=1).iloc[:, 0]
-        df["datasource_hole_id"] = hole_series
-
-    for col in sorted(required_cols):
-        if col not in df.columns:
-            raise ValueError(f"Collar table missing column: {col}")
+        df[DATASOURCE_HOLE_ID] = hole_series
 
     if not keep_all:
-        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_COLLAR.keys() if col in required_cols]]
+        # Project to the canonical model — but only columns that are
+        # actually present (so optional fields like ``_collar_id`` /
+        # ``extra`` don't trigger KeyError when absent).
+        keep_cols = [
+            col for col in BASELODE_DATA_MODEL_DRILL_COLLAR.keys()
+            if col in df.columns
+        ]
+        df = df[keep_cols]
 
     return gpd.GeoDataFrame(df, geometry=geom, crs=resolved_crs)
 
 
 def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
     df = load_table(source, source_column_map=source_column_map, **kwargs)
-    required_cols = set(BASELODE_DATA_MODEL_DRILL_SURVEY.keys())
-
-    if TO not in df.columns:
-        required_cols -= {TO}
 
     required = [HOLE_ID, DEPTH, AZIMUTH, DIP]
     for col in required:
@@ -381,7 +290,13 @@ def load_surveys(source, source_column_map=None, keep_all=True, **kwargs):
             raise ValueError(f"Survey table missing column: {col}")
 
     if not keep_all:
-        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_SURVEY.keys() if col in required_cols]]
+        # Project to canonical model columns that are actually present.
+        # Optional fields (TO, EXTRA, ...) absent in the input are skipped.
+        keep_cols = [
+            col for col in BASELODE_DATA_MODEL_DRILL_SURVEY.keys()
+            if col in df.columns
+        ]
+        df = df[keep_cols]
 
     return df.sort_values([HOLE_ID, DEPTH])
 
@@ -396,8 +311,6 @@ def load_assays(source, source_column_map=None, flat=True, keep_all=True, **kwar
             code_candidates=["assay_code", "assay_type", "analyte", "element", "code"],
             value_candidates=["assay_value", "value", "result", "assay_result"],
         )
-
-    required_cols = set(BASELODE_DATA_MODEL_DRILL_ASSAY.keys())
 
     required = [HOLE_ID, FROM, TO]
     for col in required:
@@ -421,7 +334,11 @@ def load_assays(source, source_column_map=None, flat=True, keep_all=True, **kwar
     df[MID] = 0.5 * (df[FROM] + df[TO])
 
     if not keep_all:
-        df = df[[col for col in BASELODE_DATA_MODEL_DRILL_ASSAY.keys() if col in required_cols]]
+        keep_cols = [
+            col for col in BASELODE_DATA_MODEL_DRILL_ASSAY.keys()
+            if col in df.columns
+        ]
+        df = df[keep_cols]
 
     return df.sort_values([HOLE_ID, FROM, TO])
 
@@ -620,6 +537,90 @@ def coerce_numeric(df, columns):
     return out
 
 
+def _present(value):
+    """True iff ``value`` is a real, present scalar (not None / NaN / NaT / NA).
+
+    Uses ``pd.isna`` so we catch every pandas missing-value sentinel
+    (``pd.NA``, ``pd.NaT``, ``numpy.nan``) — not just ``float('nan')``.
+    Containers like ``dict``/``list`` are short-circuited to True so
+    ``pd.isna`` doesn't try to elementwise-check them.
+    """
+    if value is None:
+        return False
+    if isinstance(value, (dict, list, tuple, set)):
+        return True
+    try:
+        return not pd.isna(value)
+    except (TypeError, ValueError):
+        return True
+
+
+def bundle_extras(df, canonical, extra_col=EXTRA, reserved=None):
+    """Move non-canonical columns into a per-row dict in ``extra_col``.
+
+    Every baselode-model DataFrame is expected to have a single ``extra``
+    column (a Python ``dict`` per row) holding source-specific fields that
+    don't belong in the canonical schema. This helper produces that shape
+    from a wide DataFrame.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame (may be a ``geopandas.GeoDataFrame``).
+    canonical : iterable of str
+        Column names to keep as top-level columns. Typically pass
+        ``BASELODE_DATA_MODEL_*.keys()``.
+    extra_col : str, optional
+        Name of the dict column (default ``"extra"``).
+    reserved : iterable of str, optional
+        Additional names to keep at top level alongside ``canonical`` —
+        e.g. ``{"geometry"}`` to preserve a GeoDataFrame geometry column.
+
+    Returns
+    -------
+    Same type as ``df`` (GeoDataFrame stays GeoDataFrame).
+
+    Notes
+    -----
+    - ``None`` and ``NaN`` values are skipped — the per-row dict only
+      carries values that are actually present in that row.
+    - If ``df`` already has an ``extra_col``, new extras are merged with
+      the existing dicts (existing values win on conflict). This means
+      bundling is idempotent: applying it twice produces the same result.
+    """
+    canonical_set = set(canonical)
+    reserved_set = set(reserved) if reserved else set()
+    keep = canonical_set | reserved_set | {extra_col}
+    extras_cols = [c for c in df.columns if c not in keep]
+
+    if not extras_cols:
+        if extra_col in df.columns:
+            return df.copy()
+        out = df.copy()
+        out[extra_col] = [{} for _ in range(len(out))]
+        return out
+
+    records = df[extras_cols].to_dict("records")
+    new_extras = [
+        {k: v for k, v in rec.items() if _present(v)}
+        for rec in records
+    ]
+
+    out = df.drop(columns=extras_cols)
+    if extra_col in out.columns:
+        existing = list(out[extra_col])
+        merged = []
+        for new_d, ex in zip(new_extras, existing):
+            base = dict(new_d)
+            if isinstance(ex, dict):
+                base.update(ex)  # existing wins
+            merged.append(base)
+        out[extra_col] = merged
+    else:
+        out[extra_col] = new_extras
+    return out
+
+
 def assemble_dataset(collars=None, surveys=None, assays=None, geology=None, structures=None, geotechnical=None, geophysics=None, metadata=None):
     return {
         "collars": _frame(collars),
@@ -710,4 +711,3 @@ def load_unified_dataset(assays_source, structures_source, source_column_map=Non
         combined = combined.sort_values([HOLE_ID, DEPTH], kind="mergesort").reset_index(drop=True)
 
     return combined
-

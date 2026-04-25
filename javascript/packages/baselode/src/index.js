@@ -5,30 +5,59 @@
 
 // --- Data model ---
 export {
+  // Drilling and sampling primitives
+  DATASOURCE,
   HOLE_ID,
+  COLLAR_ID,
+  DATASOURCE_HOLE_ID,
+  HOLE_TYPE,
+  MAX_DEPTH,
+  SURFACE_SAMPLE_ID,
+  SURFACE_SAMPLE_TYPE,
+  DATASOURCE_SURFACE_SAMPLE_ID,
+  PROJECT_ID,
+  REPORT_NUMBER,
+  // Collar / surface-sample locations
   LATITUDE,
   LONGITUDE,
   ELEVATION,
-  AZIMUTH,
-  DIP,
-  FROM,
-  TO,
-  MID,
-  PROJECT_ID,
   EASTING,
   NORTHING,
   CRS,
+  DATE_START,
+  DATE_END,
+  // Drilling survey primitives
+  AZIMUTH,
+  DIP,
+  SURVEY_TYPE,
+  // Sampling primitives
+  SAMPLE_ID,
+  DATASOURCE_SAMPLE_ID,
+  FROM,
+  TO,
+  MID,
   DEPTH,
+  // Structural geology primitives
   STRIKE,
+  ALPHA,
+  BETA,
   GEOLOGY_CODE,
   GEOLOGY_DESCRIPTION,
+  // Generics
+  COMMENTS,
+  EXTRA,
+  // Constants and defaults
+  GEOPHYSICS_NULL,
+  GEOPHYSICS_NULL_SENTINEL,
+  // Schemas
   BASELODE_DATA_MODEL_DRILL_COLLAR,
   BASELODE_DATA_MODEL_DRILL_SURVEY,
   BASELODE_DATA_MODEL_DRILL_ASSAY,
   BASELODE_DATA_MODEL_DRILL_GEOLOGY,
   BASELODE_DATA_MODEL_STRUCTURAL_POINT,
   BASELODE_DATA_MODEL_GEOPHYSICS,
-  GEOPHYSICS_NULL_SENTINEL,
+  BASELODE_DATA_MODEL_SURFACE_SAMPLE,
+  // Column-name normalisation
   DEFAULT_COLUMN_MAP
 } from './data/datamodel.js';
 
