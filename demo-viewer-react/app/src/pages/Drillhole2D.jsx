@@ -9,6 +9,7 @@ import {
   useDrillholeTraceGrid,
   BASELODE_DARK_TEMPLATE,
 } from 'baselode';
+import 'baselode/style.css';
 import './Drillhole2D.css';
 import { createPortal } from 'react-dom';
 import { useDemoData } from '../context/DemoDataContext.jsx';

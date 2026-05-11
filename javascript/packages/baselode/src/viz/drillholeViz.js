@@ -41,13 +41,16 @@ function commodityColourForProperty(property) {
 export const ERROR_COLOR = '#6b7280';
 
 /** Default compact strip-log margins */
-export const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 30 };
+export const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 36 };
 
 /** Default strip-log axis tick size */
 export const STRIPLOG_AXIS_TICK_FONT_SIZE = 10;
 
 /** Default strip-log axis title size */
-export const STRIPLOG_AXIS_TITLE_FONT_SIZE = 12;
+export const STRIPLOG_AXIS_TITLE_FONT_SIZE = 11;
+
+/** Spacing between the base x-axis tick labels and its title (pixels) */
+export const STRIPLOG_XAXIS_TITLE_STANDOFF = 6;
 
 function normalizeAxisTitle(t) {
   if (!t) return {};
@@ -71,6 +74,7 @@ function applyStriplogLayoutDefaults(layout = {}) {
       title: {
         ...xTitle,
         font: { ...(xTitle.font || {}), size: STRIPLOG_AXIS_TITLE_FONT_SIZE },
+        standoff: xTitle.standoff ?? STRIPLOG_XAXIS_TITLE_STANDOFF,
       },
     },
     yaxis: {
