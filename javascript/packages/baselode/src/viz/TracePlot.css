@@ -1,0 +1,27 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+.plot-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.plot-card__controls {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.plot-card__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.plot-card.empty .plot-card__body {
+  align-items: center;
+  justify-content: center;
+}

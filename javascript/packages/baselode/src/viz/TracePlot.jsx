@@ -7,6 +7,22 @@ import Plotly from 'plotly.js-dist-min';
 import { buildPlotConfig } from './drillholeViz.js';
 import { buildCommentsConfig, buildTadpoleConfig } from './structuralViz.js';
 import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_TADPOLE } from '../data/columnMeta.js';
+import {
+  resolveTracePlotBody,
+  resolveTracePlotSelectVisibility,
+  deriveGroupValue,
+  groupValuesFromHoles,
+  filterHolesByGroup,
+} from './tracePlotState.js';
+import './TracePlot.css';
+
+export {
+  resolveTracePlotBody,
+  resolveTracePlotSelectVisibility,
+  deriveGroupValue,
+  groupValuesFromHoles,
+  filterHolesByGroup,
+};
 
 const DEFAULT_NUMERIC_CHART_TYPE = 'markers+line';
 
@@ -20,9 +36,119 @@ function resolveChartType(displayType, requestedChartType) {
   return chartOptions[0]?.value || DEFAULT_NUMERIC_CHART_TYPE;
 }
 
+function holeOptionAsTuple(h) {
+  const value = typeof h === 'string' ? h : h.holeId;
+  const label = typeof h === 'string' ? h : (h.label || h.holeId);
+  return [value, label];
+}
+
+function genericOptionAsTuple(o) {
+  const value = typeof o === 'string' ? o : o.value;
+  const label = typeof o === 'string' ? o : (o.label ?? o.value);
+  return [value, label];
+}
+
+function renderHoleSelector({ selector, holeOptions, selectedHoleId, onConfigChange }) {
+  const kind = selector?.kind || 'hole';
+
+  if (kind === 'field') {
+    const value = selector.value ?? '';
+    const opts = selector.options || [];
+    const label = selector.label || 'Selection';
+    return (
+      <select
+        className="plot-select plot-select--field"
+        value={value}
+        onChange={(e) => selector.onChange && selector.onChange(e.target.value)}
+        disabled={opts.length === 0}
+        aria-label={label}
+      >
+        {opts.length === 0 && <option value="">—</option>}
+        {!value && opts.length > 0 && (
+          <option value="" disabled hidden>{`Select ${label.toLowerCase()}`}</option>
+        )}
+        {opts.map((o) => {
+          const [v, l] = genericOptionAsTuple(o);
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    );
+  }
+
+  if (kind === 'group+hole') {
+    const groupBy = selector.groupBy;
+    const groupValue = selector.groupValue ?? '';
+    const groupLabel = selector.groupLabel || 'Group';
+    const groupOptions = selector.groupOptions
+      || groupValuesFromHoles(holeOptions, groupBy);
+    const visibleHoles = filterHolesByGroup(holeOptions, groupBy, groupValue);
+    return (
+      <>
+        <select
+          className="plot-select plot-select--group"
+          value={groupValue}
+          onChange={(e) => selector.onGroupChange && selector.onGroupChange(e.target.value)}
+          disabled={groupOptions.length === 0}
+          aria-label={groupLabel}
+        >
+          {groupOptions.length === 0 && <option value="">No {groupLabel.toLowerCase()}s</option>}
+          {!groupValue && groupOptions.length > 0 && (
+            <option value="" disabled hidden>{`Select ${groupLabel.toLowerCase()}`}</option>
+          )}
+          {groupOptions.map((g) => {
+            const [v, l] = genericOptionAsTuple(g);
+            return <option key={v} value={v}>{l}</option>;
+          })}
+        </select>
+        <select
+          className="plot-select plot-select--hole"
+          value={selectedHoleId}
+          onChange={(e) => onConfigChange && onConfigChange({ holeId: e.target.value })}
+          disabled={visibleHoles.length === 0}
+          aria-label="Hole"
+        >
+          {visibleHoles.length === 0 && <option value="">No holes</option>}
+          {!selectedHoleId && visibleHoles.length > 0 && (
+            <option value="" disabled hidden>Select a hole</option>
+          )}
+          {visibleHoles.map((h) => {
+            const [v, l] = holeOptionAsTuple(h);
+            return <option key={v} value={v}>{l}</option>;
+          })}
+        </select>
+      </>
+    );
+  }
+
+  // kind === 'hole' (default)
+  const enabled = holeOptions.length > 0;
+  return (
+    <select
+      className="plot-select plot-select--hole"
+      value={selectedHoleId}
+      onChange={(e) => onConfigChange && onConfigChange({ holeId: e.target.value })}
+      disabled={!enabled}
+      aria-label="Hole"
+    >
+      {!enabled && <option value="">No holes loaded</option>}
+      {!selectedHoleId && enabled && (
+        <option value="" disabled hidden>Select a hole</option>
+      )}
+      {holeOptions.map((h) => {
+        const [v, l] = holeOptionAsTuple(h);
+        return <option key={v} value={v}>{l}</option>;
+      })}
+    </select>
+  );
+}
+
 /**
  * Plotly-based trace plot component for drillhole data.
- * Renders 1D strip logs with chart type options driven by column display type.
+ *
+ * Hole / property / chart-type selects render in every state — including
+ * the empty, loading, no-data and error states — so the user can always
+ * change selection.  The body switches between the Plotly chart and a
+ * placeholder message; the controls do not move.
  *
  * @param {Object} props
  * @param {Object} props.config - Plot configuration {holeId, property, chartType}
@@ -31,9 +157,31 @@ function resolveChartType(displayType, requestedChartType) {
  * @param {Array} props.propertyOptions - Available properties for dropdown
  * @param {Function} props.onConfigChange - Handler for configuration changes
  * @param {Object} [props.template] - Plotly template to apply. Defaults to the Baselode template.
+ * @param {boolean} [props.showHoleSelect=true] - Render the hole selector area.
+ * @param {boolean} [props.showPropertySelect=true] - Render the property select.
+ * @param {boolean} [props.showChartTypeSelect=true] - Render the chart-type select (when >1 option).
+ * @param {Object} [props.holeSelector] - Shape of the hole selector area.
+ *   Defaults to `{ kind: 'hole' }` (single hole dropdown).
+ *   - `{ kind: 'hole' }` — one dropdown over `holeOptions`, value = `config.holeId`.
+ *   - `{ kind: 'group+hole', groupBy, groupValue, onGroupChange, groupLabel?, groupOptions? }` —
+ *     a group dropdown plus a hole dropdown filtered to that group. `groupBy` is
+ *     either a string key on each hole option or a `(holeOption) => value` function.
+ *   - `{ kind: 'field', value, options, onChange, label? }` — a single dropdown
+ *     bound to an arbitrary field, fully controlled by the caller.
  * @returns {JSX.Element}
  */
-function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onConfigChange, template }) {
+function TracePlot({
+  config,
+  graph,
+  holeOptions = [],
+  propertyOptions = [],
+  onConfigChange,
+  template,
+  showHoleSelect = true,
+  showPropertySelect = true,
+  showChartTypeSelect = true,
+  holeSelector,
+}) {
   const containerRef = useRef(null);
   const hole = graph?.hole;
   const points = graph?.points || [];
@@ -50,15 +198,33 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
 
   const [renderError, setRenderError] = useState('');
 
+  const bodyState = resolveTracePlotBody({
+    holeId: selectedHoleId,
+    hole,
+    holeOptions,
+    property,
+    propertyOptions,
+    displayType,
+    points,
+    renderError,
+  });
+  const isPlaceholder = bodyState.kind !== 'chart';
+
+  const visibility = resolveTracePlotSelectVisibility({
+    chartOptions,
+    showHoleSelect,
+    showPropertySelect,
+    showChartTypeSelect,
+  });
+  const propertySelectEnabled = propertyOptions.length > 0;
+
   useEffect(() => {
-    const isComment = displayType === DISPLAY_COMMENT;
-    const isTadpole = displayType === DISPLAY_TADPOLE;
-    if (!hole || !property) return;
-    // For comment type, allow empty points (empty intervals still draw border boxes)
-    // For tadpole, points are raw hole points — allow empty array through so buildTadpoleConfig can return empty gracefully
-    if (!isComment && !isTadpole && points.length === 0) return;
+    if (bodyState.kind !== 'chart') return;
     const target = containerRef.current;
     if (!target) return;
+
+    const isComment = displayType === DISPLAY_COMMENT;
+    const isTadpole = displayType === DISPLAY_TADPOLE;
 
     let plotData;
     try {
@@ -114,7 +280,7 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
         }
       }
     };
-  }, [hole, property, effectiveChartType, displayType, points, template]);
+  }, [bodyState.kind, hole, property, effectiveChartType, displayType, points, template]);
 
   useEffect(() => {
     const target = containerRef.current;
@@ -130,74 +296,63 @@ function TracePlot({ config, graph, holeOptions = [], propertyOptions = [], onCo
     });
     resizeObserver.observe(target);
     return () => resizeObserver.disconnect();
-  }, []);
-
-  if (!hole || !property) {
-    return (
-      <div className="plot-card empty">
-        <div className="placeholder">{config?.holeId ? (graph?.loading ? `Loading ${config.holeId}...` : 'Select a property') : 'Loading demo data...'}</div>
-      </div>
-    );
-  }
-
-  if (displayType !== DISPLAY_COMMENT && displayType !== DISPLAY_TADPOLE && points.length === 0) {
-    return (
-      <div className="plot-card empty">
-        <div className="placeholder">No data</div>
-      </div>
-    );
-  }
-
-  if (renderError) {
-    return (
-      <div className="plot-card empty">
-        <div className="placeholder">Plot error: {renderError}</div>
-      </div>
-    );
-  }
+  }, [bodyState.kind]);
 
   return (
-    <div className="plot-card">
-      <div className="plot-title">
-        <select
-          className="plot-select"
-          value={selectedHoleId}
-          onChange={(e) => onConfigChange && onConfigChange({ holeId: e.target.value })}
-        >
-          {holeOptions.map((h) => {
-            const holeId = typeof h === 'string' ? h : h.holeId;
-            const label = typeof h === 'string' ? h : h.label || h.holeId;
-            return (
-              <option key={holeId} value={holeId}>{label}</option>
-            );
-          })}
-        </select>
-      </div>
-      <div className="plot-controls column">
-        {propertyOptions.length > 0 && (
-          <select
-            className="plot-select"
-            value={property}
-            onChange={(e) => onConfigChange && onConfigChange({ property: e.target.value })}
-          >
-            {propertyOptions.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
+    <div className={`plot-card${isPlaceholder ? ' empty' : ''}`}>
+      <header className="plot-card__controls">
+        {visibility.hole && (
+          <div className="plot-title">
+            {renderHoleSelector({
+              selector: holeSelector,
+              holeOptions,
+              selectedHoleId,
+              onConfigChange,
+            })}
+          </div>
         )}
-        {chartOptions.length > 1 && (
-          <select
-            className="plot-select"
-            value={effectiveChartType}
-            onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
-          >
-            {chartOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+        {(visibility.property || visibility.chartType) && (
+          <div className="plot-controls column">
+            {visibility.property && (
+              <select
+                className="plot-select plot-select--property"
+                value={property}
+                onChange={(e) => onConfigChange && onConfigChange({ property: e.target.value })}
+                disabled={!propertySelectEnabled}
+                aria-label="Property"
+              >
+                {!propertySelectEnabled && (
+                  <option value="">—</option>
+                )}
+                {!property && propertySelectEnabled && (
+                  <option value="" disabled hidden>Select a property</option>
+                )}
+                {propertyOptions.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            )}
+            {visibility.chartType && (
+              <select
+                className="plot-select plot-select--chart-type"
+                value={effectiveChartType}
+                onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
+                aria-label="Chart type"
+              >
+                {chartOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            )}
+          </div>
         )}
+      </header>
+      <div className="plot-card__body">
+        {bodyState.kind === 'chart'
+          ? <div className="plotly-chart" ref={containerRef} />
+          : <div className="placeholder">{bodyState.text}</div>
+        }
       </div>
-      <div className="plotly-chart" ref={containerRef} />
     </div>
   );
 }

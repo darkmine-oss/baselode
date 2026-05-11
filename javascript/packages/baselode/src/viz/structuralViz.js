@@ -20,9 +20,10 @@ const DEFAULT_PALETTE = [
   '#d97706', '#0ea5e9', '#db2777', '#65a30d', '#9333ea',
 ];
 
-const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 30 };
+const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 36 };
 const STRIPLOG_AXIS_TICK_FONT_SIZE = 10;
-const STRIPLOG_AXIS_TITLE_FONT_SIZE = 12;
+const STRIPLOG_AXIS_TITLE_FONT_SIZE = 11;
+const STRIPLOG_XAXIS_TITLE_STANDOFF = 6;
 
 function applyStriplogLayoutDefaults(layout = {}) {
   return {
@@ -42,6 +43,8 @@ function applyStriplogLayoutDefaults(layout = {}) {
           ...(((layout.xaxis && layout.xaxis.title && layout.xaxis.title.font) || {})),
           size: STRIPLOG_AXIS_TITLE_FONT_SIZE,
         },
+        standoff: (layout.xaxis && layout.xaxis.title && layout.xaxis.title.standoff)
+          ?? STRIPLOG_XAXIS_TITLE_STANDOFF,
       },
     },
     yaxis: {
