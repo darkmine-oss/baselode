@@ -1001,7 +1001,7 @@ def plot_point_log(df,
     return _apply_striplog_defaults(fig, template=template)
 
 
-def plot_core_photo_log(images,
+def plot_core_photo_striplog(images,
     from_col="from",
     to_col="to",
     url_col="image_url",

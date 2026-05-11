@@ -250,7 +250,7 @@
         "buildCorePhotoConfig"
       ],
       "pythonSymbols": [
-        ["baselode.drill.view", "plot_core_photo_log"]
+        ["baselode.drill.view", "plot_core_photo_striplog"]
       ]
     },
     {
