@@ -59,6 +59,30 @@ function buildCommentPoints(hole, property) {
 }
 
 /**
+ * Build photo-type interval points from a hole. Only keeps intervals where the
+ * URL property is set; carries image_mode through if present.
+ * @private
+ */
+function buildPhotoPoints(hole, property) {
+  if (!hole || !property) return [];
+  const out = [];
+  for (const p of hole.points || []) {
+    const url = p[property];
+    if (url == null || String(url).trim() === '') continue;
+    const from = Number(p.from ?? p.samp_from ?? p.depth_from ?? p.from_depth);
+    const to = Number(p.to ?? p.samp_to ?? p.depth_to ?? p.to_depth);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) continue;
+    out.push({
+      from,
+      to,
+      [property]: String(url),
+      image_mode: p.image_mode ?? 'core_box',
+    });
+  }
+  return out;
+}
+
+/**
  * React hook for managing a grid of drillhole trace plots.
  * Handles loading assay data, optional extra hole data (e.g. structural intervals),
  * column metadata classification, and trace config coordination.
@@ -81,6 +105,7 @@ export default function useDrillholeTraceGrid({
   const [numericProps, setNumericProps] = useState([]);
   const [categoricalProps, setCategoricalProps] = useState([]);
   const [commentProps, setCommentProps] = useState([]);
+  const [photoProps, setPhotoProps] = useState([]);
   const [columnMeta, setColumnMeta] = useState({});
   const [defaultProp, setDefaultProp] = useState('');
   const [traceConfigs, setTraceConfigs] = useState([]);
@@ -99,6 +124,7 @@ export default function useDrillholeTraceGrid({
     setNumericProps(state.numericProps || []);
     setCategoricalProps(state.categoricalProps || []);
     setCommentProps(state.commentProps || []);
+    setPhotoProps(state.photoProps || []);
     setColumnMeta(state.columnMeta || {});
     setDefaultProp(state.defaultProp || '');
     setTraceConfigs(state.traceConfigs || []);
@@ -120,13 +146,14 @@ export default function useDrillholeTraceGrid({
           defaultProp: '',
           categoricalProps,
           commentProps,
+          photoProps,
           numericDefaultChartType: 'markers+line'
         }));
       })
       .catch((err) => {
         console.info('Assay metadata load skipped:', err.message);
       });
-  }, [sourceFile, focusedHoleId, plotCount, categoricalProps, commentProps]);
+  }, [sourceFile, focusedHoleId, plotCount, categoricalProps, commentProps, photoProps]);
 
   // Inject extra holes (structural etc.) into holeIds — always, regardless of whether
   // an assay sourceFile is also present. This ensures structural-only holes appear in
@@ -163,13 +190,14 @@ export default function useDrillholeTraceGrid({
           chartType: existing.chartType,
           categoricalProps,
           commentProps,
+          photoProps,
           numericDefaultChartType: 'markers+line'
         });
         return { holeId, property, chartType };
       });
       return next;
     });
-  }, [holeIds, focusedHoleId, defaultProp, categoricalProps, commentProps, plotCount]);
+  }, [holeIds, focusedHoleId, defaultProp, categoricalProps, commentProps, photoProps, plotCount]);
 
   // Load assay hole data on demand as trace configs change
   useEffect(() => {
@@ -193,6 +221,7 @@ export default function useDrillholeTraceGrid({
             setNumericProps(props.numericProps);
             setCategoricalProps(props.categoricalProps);
             setCommentProps(props.commentProps);
+            setPhotoProps(props.photoProps);
             setColumnMeta(props.columnMeta);
             if (!defaultProp && props.defaultProp) {
               setDefaultProp(props.defaultProp);
@@ -204,6 +233,7 @@ export default function useDrillholeTraceGrid({
                   chartType: cfg.chartType,
                   categoricalProps: props.categoricalProps,
                   commentProps: props.commentProps,
+                  photoProps: props.photoProps,
                   numericDefaultChartType: 'markers+line'
                 })
               })));
@@ -229,6 +259,7 @@ export default function useDrillholeTraceGrid({
         setNumericProps(props.numericProps);
         setCategoricalProps(props.categoricalProps);
         setCommentProps(props.commentProps);
+        setPhotoProps(props.photoProps);
         setColumnMeta(props.columnMeta);
         if (!defaultProp && props.defaultProp) setDefaultProp(props.defaultProp);
         return extraHoles;
@@ -238,6 +269,7 @@ export default function useDrillholeTraceGrid({
       setNumericProps(props.numericProps);
       setCategoricalProps(props.categoricalProps);
       setCommentProps(props.commentProps);
+      setPhotoProps(props.photoProps);
       setColumnMeta(props.columnMeta);
       if (!defaultProp && props.defaultProp) setDefaultProp(props.defaultProp);
       return merged;
@@ -245,8 +277,8 @@ export default function useDrillholeTraceGrid({
   }, [extraHoles]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const propertyOptions = useMemo(
-    () => [...numericProps, ...categoricalProps, ...commentProps],
-    [numericProps, categoricalProps, commentProps]
+    () => [...numericProps, ...categoricalProps, ...commentProps, ...photoProps],
+    [numericProps, categoricalProps, commentProps, photoProps]
   );
 
   const labeledHoleOptions = useMemo(
@@ -257,7 +289,7 @@ export default function useDrillholeTraceGrid({
   );
 
   const traceGraphs = useMemo(() => {
-    const allProps = [...numericProps, ...categoricalProps, ...commentProps];
+    const allProps = [...numericProps, ...categoricalProps, ...commentProps, ...photoProps];
     return Array.from({ length: plotCount }).map((_, idx) => {
       const cfg = traceConfigs[idx] || {};
       const hole = holes.find((h) => (h.id || h.holeId) === cfg.holeId) || null;
@@ -273,19 +305,22 @@ export default function useDrillholeTraceGrid({
         property = holePropertyOptions[0] || property;
       }
 
-      const isComment = commentProps.includes(property);
-      const isCategorical = !isComment && categoricalProps.includes(property);
-      const isTadpole = !isComment && !isCategorical && property === 'dip';
-      const displayType = isComment ? 'comment' : isTadpole ? 'tadpole' : (isCategorical ? 'categorical' : 'numeric');
+      const isPhoto = photoProps.includes(property);
+      const isComment = !isPhoto && commentProps.includes(property);
+      const isCategorical = !isPhoto && !isComment && categoricalProps.includes(property);
+      const isTadpole = !isPhoto && !isComment && !isCategorical && property === 'dip';
+      const displayType = isPhoto ? 'photo' : isComment ? 'comment' : isTadpole ? 'tadpole' : (isCategorical ? 'categorical' : 'numeric');
 
-      const chartType = isTadpole ? 'tadpole' : cfg.chartType || (isComment ? 'comment' : (isCategorical ? 'categorical' : 'markers+line'));
+      const chartType = isPhoto ? 'photo' : isTadpole ? 'tadpole' : cfg.chartType || (isComment ? 'comment' : (isCategorical ? 'categorical' : 'markers+line'));
       const holeId = cfg.holeId || hole?.id || hole?.holeId || '';
 
-      const points = isTadpole
-        ? (hole?.points || [])
-        : isComment
-          ? buildCommentPoints(hole, property)
-          : buildIntervalPoints(hole, property, isCategorical);
+      const points = isPhoto
+        ? buildPhotoPoints(hole, property)
+        : isTadpole
+          ? (hole?.points || [])
+          : isComment
+            ? buildCommentPoints(hole, property)
+            : buildIntervalPoints(hole, property, isCategorical);
 
       return {
         config: { holeId, property, chartType },
@@ -294,13 +329,14 @@ export default function useDrillholeTraceGrid({
         isCategorical,
         isComment,
         isTadpole,
+        isPhoto,
         displayType,
         points,
         propertyOptions: holePropertyOptions,
         label: holeId
       };
     });
-  }, [traceConfigs, holes, defaultProp, categoricalProps, commentProps, loadingHoles, plotCount, numericProps]);
+  }, [traceConfigs, holes, defaultProp, categoricalProps, commentProps, photoProps, loadingHoles, plotCount, numericProps]);
 
   const handleConfigChange = (index, patch) => {
     setTraceConfigs((prev) => {
@@ -313,6 +349,7 @@ export default function useDrillholeTraceGrid({
           chartType: merged.chartType,
           categoricalProps,
           commentProps,
+          photoProps,
           numericDefaultChartType: 'markers+line'
         });
       }
@@ -330,6 +367,7 @@ export default function useDrillholeTraceGrid({
     numericProps,
     categoricalProps,
     commentProps,
+    photoProps,
     columnMeta,
     propertyOptions,
     labeledHoleOptions,

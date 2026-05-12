@@ -14,6 +14,7 @@ import {
 import {
   DISPLAY_NUMERIC,
   DISPLAY_COMMENT,
+  DISPLAY_PHOTO,
   DISPLAY_TADPOLE,
   getChartOptions,
 } from '../src/data/columnMeta.js';
@@ -121,6 +122,33 @@ describe('resolveTracePlotBody', () => {
       propertyOptions: ['alpha'],
       displayType: DISPLAY_TADPOLE,
       points: [],
+    })).toEqual({ kind: 'chart' });
+  });
+
+  it('shows "No core photos for hole {id}" when photo display has empty points', () => {
+    expect(resolveTracePlotBody({
+      holeId: 'H1',
+      hole: { holeId: 'H1' },
+      holeOptions: ['H1'],
+      property: 'image_url',
+      propertyOptions: ['image_url'],
+      displayType: DISPLAY_PHOTO,
+      points: [],
+    })).toEqual({
+      kind: 'placeholder',
+      text: 'No core photos for hole H1',
+    });
+  });
+
+  it('renders chart for photo display when at least one image present', () => {
+    expect(resolveTracePlotBody({
+      holeId: 'H1',
+      hole: { holeId: 'H1' },
+      holeOptions: ['H1'],
+      property: 'image_url',
+      propertyOptions: ['image_url'],
+      displayType: DISPLAY_PHOTO,
+      points: [{ from: 0, to: 10, image_url: 'data:image/png;base64,xxx' }],
     })).toEqual({ kind: 'chart' });
   });
 

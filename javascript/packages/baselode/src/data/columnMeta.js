@@ -26,6 +26,9 @@ export const DISPLAY_HIDDEN = 'hidden';
 /** Tadpole log — dip head + azimuth tail, shows both dip and azimuth */
 export const DISPLAY_TADPOLE = 'tadpole';
 
+/** Core photo track — depth-registered images, rendered via buildCorePhotoConfig */
+export const DISPLAY_PHOTO = 'photo';
+
 /**
  * Available chart type options for each display type.
  * Used to populate the chart-type dropdown in TracePlot.
@@ -45,6 +48,9 @@ export const CHART_OPTIONS = {
   ],
   [DISPLAY_TADPOLE]: [
     { value: 'tadpole', label: 'Tadpole' },
+  ],
+  [DISPLAY_PHOTO]: [
+    { value: 'photo', label: 'Core photos' },
   ],
   [DISPLAY_HIDDEN]: [],
 };
@@ -86,14 +92,24 @@ export const COMMENT_COLUMN_NAMES = new Set([
 ]);
 
 /**
+ * Column names (lowercased) that map to the photo display type.
+ * These columns hold image URLs (or data URIs) and are rendered as
+ * depth-registered core-photo tracks.
+ */
+export const PHOTO_COLUMN_NAMES = new Set([
+  'image_url',
+]);
+
+/**
  * Classify columns in a dataset by their display type.
  *
  * Rules applied in order:
  * 1. Columns in HIDDEN_COLUMNS → DISPLAY_HIDDEN
- * 2. Columns in COMMENT_COLUMN_NAMES with ≥1 non-empty value → DISPLAY_COMMENT
- * 3. All-null/empty columns → DISPLAY_HIDDEN (silently dropped)
- * 4. Columns with at least one finite number → DISPLAY_NUMERIC
- * 5. Remaining non-empty columns → DISPLAY_CATEGORICAL
+ * 2. Columns in PHOTO_COLUMN_NAMES with ≥1 non-empty value → DISPLAY_PHOTO
+ * 3. Columns in COMMENT_COLUMN_NAMES with ≥1 non-empty value → DISPLAY_COMMENT
+ * 4. All-null/empty columns → DISPLAY_HIDDEN (silently dropped)
+ * 5. Columns with at least one finite number → DISPLAY_NUMERIC
+ * 6. Remaining non-empty columns → DISPLAY_CATEGORICAL
  *
  * @param {Array<Object>} rows - Flat array of row objects (assay or structural points)
  * @returns {{
@@ -101,11 +117,12 @@ export const COMMENT_COLUMN_NAMES = new Set([
  *   numericCols: string[],
  *   categoricalCols: string[],
  *   commentCols: string[],
+ *   photoCols: string[],
  * }}
  */
 export function classifyColumns(rows) {
   if (!rows?.length) {
-    return { byType: {}, numericCols: [], categoricalCols: [], commentCols: [] };
+    return { byType: {}, numericCols: [], categoricalCols: [], commentCols: [], photoCols: [] };
   }
 
   // Collect all column names across all rows
@@ -118,6 +135,16 @@ export function classifyColumns(rows) {
     // Always hidden: ID / coordinate / depth columns
     if (HIDDEN_COLUMNS.has(normalized) || HIDDEN_COLUMNS.has(col)) {
       byType[col] = DISPLAY_HIDDEN;
+      continue;
+    }
+
+    // Photo-type: named image-url columns
+    if (PHOTO_COLUMN_NAMES.has(normalized)) {
+      const hasValue = rows.some((r) => {
+        const v = r[col];
+        return v != null && String(v).trim() !== '' && String(v) !== 'null';
+      });
+      byType[col] = hasValue ? DISPLAY_PHOTO : DISPLAY_HIDDEN;
       continue;
     }
 
@@ -158,6 +185,7 @@ export function classifyColumns(rows) {
     numericCols: Object.entries(byType).filter(([, t]) => t === DISPLAY_NUMERIC).map(([k]) => k),
     categoricalCols: Object.entries(byType).filter(([, t]) => t === DISPLAY_CATEGORICAL).map(([k]) => k),
     commentCols: Object.entries(byType).filter(([, t]) => t === DISPLAY_COMMENT).map(([k]) => k),
+    photoCols: Object.entries(byType).filter(([, t]) => t === DISPLAY_PHOTO).map(([k]) => k),
   };
 }
 

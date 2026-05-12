@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   TracePlot,
@@ -13,12 +13,23 @@ import 'baselode/style.css';
 import './Drillhole2D.css';
 import { createPortal } from 'react-dom';
 import { useDemoData } from '../context/DemoDataContext.jsx';
+import { buildPhotoTraceHoles } from '../data/photoTestData.js';
 
 function Drillhole2D() {
   const location = useLocation();
   const { combinedHoles } = useDemoData();
   const [useDarkTemplate, setUseDarkTemplate] = useState(false);
   const activeTemplate = useDarkTemplate ? BASELODE_DARK_TEMPLATE : undefined;
+
+  // Photo holes are static — built once and merged with the assay/structural
+  // holes via the existing extraHoles pipeline. Picking one in the dropdown
+  // surfaces an `image_url` property that the strip log dispatches to
+  // buildCorePhotoConfig.
+  const photoHoles = useMemo(() => buildPhotoTraceHoles(), []);
+  const allExtraHoles = useMemo(
+    () => [...(combinedHoles || []), ...photoHoles],
+    [combinedHoles, photoHoles],
+  );
 
   const {
     error,
@@ -30,7 +41,7 @@ function Drillhole2D() {
     handleConfigChange,
   } = useDrillholeTraceGrid({
     initialFocusedHoleId: location.state?.holeId || '',
-    extraHoles: combinedHoles,
+    extraHoles: allExtraHoles,
     plotCount: 4,
   });
 
