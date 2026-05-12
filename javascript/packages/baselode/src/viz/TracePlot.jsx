@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { buildPlotConfig } from './drillholeViz.js';
 import { buildCommentsConfig, buildTadpoleConfig } from './structuralViz.js';
-import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_TADPOLE } from '../data/columnMeta.js';
+import { buildCorePhotoConfig } from './corePhotoViz.js';
+import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_PHOTO, DISPLAY_TADPOLE } from '../data/columnMeta.js';
 import {
   resolveTracePlotBody,
   resolveTracePlotSelectVisibility,
@@ -191,7 +192,7 @@ function TracePlot({
 
   // Derive display type from graph metadata (set by useDrillholeTraceGrid)
   const displayType = graph?.displayType
-    || (graph?.isComment ? DISPLAY_COMMENT : (graph?.isCategorical ? DISPLAY_CATEGORICAL : DISPLAY_NUMERIC));
+    || (graph?.isPhoto ? DISPLAY_PHOTO : (graph?.isComment ? DISPLAY_COMMENT : (graph?.isCategorical ? DISPLAY_CATEGORICAL : DISPLAY_NUMERIC)));
 
   const chartOptions = getChartOptions(displayType);
   const effectiveChartType = resolveChartType(displayType, chartType);
@@ -225,10 +226,13 @@ function TracePlot({
 
     const isComment = displayType === DISPLAY_COMMENT;
     const isTadpole = displayType === DISPLAY_TADPOLE;
+    const isPhoto = displayType === DISPLAY_PHOTO;
 
     let plotData;
     try {
-      if (isComment) {
+      if (isPhoto) {
+        plotData = buildCorePhotoConfig(points, { fromCol: 'from', toCol: 'to', urlCol: property, modeCol: 'image_mode' });
+      } else if (isComment) {
         plotData = buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to' });
       } else if (isTadpole) {
         plotData = buildTadpoleConfig(points);
@@ -248,7 +252,7 @@ function TracePlot({
     }
 
     if (!plotData?.data || plotData.data.length === 0) {
-      if (!isComment) return;
+      if (!isComment && !isPhoto) return;
     }
 
     const plotConfig = {

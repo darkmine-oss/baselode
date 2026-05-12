@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { DISPLAY_COMMENT, DISPLAY_TADPOLE } from '../data/columnMeta.js';
+import { DISPLAY_COMMENT, DISPLAY_PHOTO, DISPLAY_TADPOLE } from '../data/columnMeta.js';
 
 /**
  * Decide what the TracePlot body should display for a given state.
@@ -56,9 +56,13 @@ export function resolveTracePlotBody({
   }
   const isComment = displayType === DISPLAY_COMMENT;
   const isTadpole = displayType === DISPLAY_TADPOLE;
+  const isPhoto = displayType === DISPLAY_PHOTO;
   const pts = points || [];
-  if (!isComment && !isTadpole && pts.length === 0) {
+  if (!isComment && !isTadpole && !isPhoto && pts.length === 0) {
     return { kind: 'placeholder', text: `No values for ${property} in hole ${holeId}` };
+  }
+  if (isPhoto && pts.length === 0) {
+    return { kind: 'placeholder', text: `No core photos for hole ${holeId}` };
   }
   return { kind: 'chart' };
 }

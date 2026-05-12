@@ -16,13 +16,14 @@ export { reorderHoleIds };
  *   numericProps: string[],
  *   categoricalProps: string[],
  *   commentProps: string[],
+ *   photoProps: string[],
  *   columnMeta: Object,
  *   defaultProp: string
  * }} Property classification
  */
 export function deriveAssayProps(holes = []) {
   const points = holes.flatMap((h) => h.points || []);
-  const { numericCols, categoricalCols, commentCols, byType } = classifyColumns(points);
+  const { numericCols, categoricalCols, commentCols, photoCols, byType } = classifyColumns(points);
 
   const defaultProp = numericCols[0] || categoricalCols[0] || '';
 
@@ -30,6 +31,7 @@ export function deriveAssayProps(holes = []) {
     numericProps: numericCols,
     categoricalProps: categoricalCols,
     commentProps: commentCols,
+    photoProps: photoCols || [],
     columnMeta: byType,
     defaultProp,
   };
@@ -66,7 +68,7 @@ export async function loadAssayHole(file, holeId, config = null) {
  */
 export function buildAssayState(holes = [], focusedHoleId = '') {
   if (!holes.length) return null;
-  const { numericProps, categoricalProps, commentProps, columnMeta, defaultProp } = deriveAssayProps(holes);
+  const { numericProps, categoricalProps, commentProps, photoProps, columnMeta, defaultProp } = deriveAssayProps(holes);
   const holeIds = holes.map((h) => h.id || h.holeId).filter(Boolean);
   const traceConfigs = buildTraceConfigsForHoleIds({
     holeIds,
@@ -75,6 +77,7 @@ export function buildAssayState(holes = [], focusedHoleId = '') {
     defaultProp,
     categoricalProps,
     commentProps,
+    photoProps,
     numericDefaultChartType: 'line'
   });
   return {
@@ -82,6 +85,7 @@ export function buildAssayState(holes = [], focusedHoleId = '') {
     numericProps,
     categoricalProps,
     commentProps,
+    photoProps,
     columnMeta,
     defaultProp,
     traceConfigs
