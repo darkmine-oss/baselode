@@ -214,6 +214,14 @@ export {
   buildCategoricalStripLogConfig
 } from './viz/drillholeViz.js';
 
+export {
+  DEFAULT_UNIT_COLUMN,
+  DEFAULT_ATTRIBUTE_COLUMN,
+  formatPropertyLabel,
+  resolvePropertyLabelParts,
+  derivePropertyMeta
+} from './data/propertyLabels.js';
+
 export { default as TracePlot } from './viz/TracePlot.jsx';
 export { default as useDrillholeTraceGrid } from './viz/useDrillholeTraceGrid.jsx';
 
