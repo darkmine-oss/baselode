@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   TracePlot,
@@ -13,6 +13,33 @@ import 'baselode/style.css';
 import './Drillhole2D.css';
 import { createPortal } from 'react-dom';
 import { useDemoData } from '../context/DemoDataContext.jsx';
+
+// The demo GSWA assay columns encode the unit as a trailing token, e.g.
+// "Au_PPM". Split that into a clean label + unit so the strip-log axes and
+// tooltips read "Au (ppm)" rather than the raw "Au_PPM" — otherwise a column
+// shown as bare "Au" would leave the reader guessing at the units. Production
+// datasets supply this through per-row `analysis_uom` metadata instead.
+const UNIT_SUFFIXES = {
+  ppm: 'ppm',
+  ppb: 'ppb',
+  pct: '%',
+  gpt: 'g/t',
+  oz: 'oz/t',
+};
+
+function titleCase(token) {
+  return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+}
+
+function metaForProperty(property) {
+  if (typeof property !== 'string') return null;
+  const tokens = property.split(/[_\-/\s]+/).filter(Boolean);
+  if (tokens.length < 2) return null;
+  const unit = UNIT_SUFFIXES[tokens[tokens.length - 1].toLowerCase()];
+  if (!unit) return null;
+  // Element symbols (Au, Cu, …) read best title-cased regardless of source casing.
+  return { label: tokens.slice(0, -1).map(titleCase).join(' '), unit };
+}
 
 function Drillhole2D() {
   const location = useLocation();
@@ -33,6 +60,20 @@ function Drillhole2D() {
     extraHoles: combinedHoles,
     plotCount: 4,
   });
+
+  // Per-property unit metadata keyed by the bare property name, derived once
+  // from every graph's available properties.
+  const propertyMeta = useMemo(() => {
+    const map = {};
+    traceGraphs.forEach((g) => {
+      (g?.propertyOptions || []).forEach((p) => {
+        if (p in map) return;
+        const m = metaForProperty(p);
+        if (m) map[p] = m;
+      });
+    });
+    return map;
+  }, [traceGraphs]);
 
   useEffect(() => {
     const holeIdFromNav = location.state?.holeId;
@@ -68,6 +109,7 @@ function Drillhole2D() {
             graph={traceGraphs[idx]}
             holeOptions={labeledHoleOptions}
             propertyOptions={traceGraphs[idx]?.propertyOptions || []}
+            propertyMeta={propertyMeta}
             onConfigChange={(patch) => handleConfigChange(idx, patch)}
             template={activeTemplate}
           />

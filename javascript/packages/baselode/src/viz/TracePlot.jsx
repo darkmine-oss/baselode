@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { buildPlotConfig } from './drillholeViz.js';
+import { formatPropertyLabel } from '../data/propertyLabels.js';
 import { buildCommentsConfig, buildTadpoleConfig } from './structuralViz.js';
 import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_TADPOLE } from '../data/columnMeta.js';
 import {
@@ -156,6 +157,11 @@ function renderHoleSelector({ selector, holeOptions, selectedHoleId, onConfigCha
  * @param {Array} props.holeOptions - Available holes for dropdown
  * @param {Array} props.propertyOptions - Available properties for dropdown
  * @param {Function} props.onConfigChange - Handler for configuration changes
+ * @param {Object} [props.propertyMeta] - Optional per-property metadata map
+ *   (`{ [property]: { label?, unit?, sourceAttribute? } }`). When the selected
+ *   property has an entry, its unit / source attribute are folded into the
+ *   axis title, hover tooltip and property dropdown label — e.g. "Au (ppm)".
+ *   The bare property key is still used for selection and `onConfigChange`.
  * @param {Object} [props.template] - Plotly template to apply. Defaults to the Baselode template.
  * @param {boolean} [props.showHoleSelect=true] - Render the hole selector area.
  * @param {boolean} [props.showPropertySelect=true] - Render the property select.
@@ -175,6 +181,7 @@ function TracePlot({
   graph,
   holeOptions = [],
   propertyOptions = [],
+  propertyMeta,
   onConfigChange,
   template,
   showHoleSelect = true,
@@ -186,6 +193,7 @@ function TracePlot({
   const hole = graph?.hole;
   const points = graph?.points || [];
   const property = config?.property || '';
+  const meta = propertyMeta?.[property];
   const chartType = config?.chartType || DEFAULT_NUMERIC_CHART_TYPE;
   const selectedHoleId = config?.holeId || '';
 
@@ -239,6 +247,7 @@ function TracePlot({
           property,
           chartType: effectiveChartType,
           template,
+          meta,
         });
       }
     } catch (err) {
@@ -280,7 +289,7 @@ function TracePlot({
         }
       }
     };
-  }, [bodyState.kind, hole, property, effectiveChartType, displayType, points, template]);
+  }, [bodyState.kind, hole, property, meta, effectiveChartType, displayType, points, template]);
 
   useEffect(() => {
     const target = containerRef.current;
@@ -328,7 +337,7 @@ function TracePlot({
                   <option value="" disabled hidden>Select a property</option>
                 )}
                 {propertyOptions.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>{formatPropertyLabel(p, propertyMeta?.[p])}</option>
                 ))}
               </select>
             )}

@@ -234,6 +234,13 @@ import { TracePlot } from 'baselode';
 />
 ```
 
+`TracePlot` also accepts an optional `propertyMeta` map
+(`{ [property]: { label?, unit?, sourceAttribute? } }`). When the selected
+property has an entry, its unit / source attribute are folded into the axis
+title, hover tooltip and property dropdown — e.g. a column keyed `Au` renders
+as `Au (ppm)` — while selection and `onConfigChange` keep using the bare
+property key.
+
 ### React hook — useDrillholeTraceGrid
 
 For building full drill-hole comparison grids:
