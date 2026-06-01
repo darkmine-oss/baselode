@@ -93,4 +93,27 @@ describe('derivePropertyMeta', () => {
     expect(derivePropertyMeta(null, ['Au'])).toEqual({});
     expect(derivePropertyMeta(rows, null)).toEqual({});
   });
+
+  it('does not mis-attribute wide-row metadata across co-occurring properties', () => {
+    const wide = [
+      { Au: 1.5, Cu: 0.5, analysis_uom: 'ppm', analyte_attribute: 'Au_ppb' },
+      { Au: 2.0, Cu: 0.4, analysis_uom: 'ppm', analyte_attribute: 'Au_ppb' },
+    ];
+    // Cu is co-present with Au in every row, so the row-level metadata can't
+    // be unambiguously assigned and is dropped — Cu in particular must not
+    // inherit `Au_ppb` as its source attribute.
+    expect(derivePropertyMeta(wide, ['Au', 'Cu'])).toEqual({});
+  });
+
+  it('still attributes metadata from rows that hold only one queried property', () => {
+    const mixed = [
+      { Au: 30, analysis_uom: 'ppm', analyte_attribute: 'Au_ppb' },
+      { Au: 41, Cu: 0.5, analysis_uom: 'ppm', analyte_attribute: 'Au_ppb' },
+      { Cu: 8, analysis_uom: '%', analyte_attribute: 'Cu_pct' },
+    ];
+    expect(derivePropertyMeta(mixed, ['Au', 'Cu'])).toEqual({
+      Au: { unit: 'ppm', sourceAttribute: 'Au_ppb' },
+      Cu: { unit: '%', sourceAttribute: 'Cu_pct' },
+    });
+  });
 });

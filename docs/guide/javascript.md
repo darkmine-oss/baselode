@@ -317,8 +317,9 @@ The serializable result is intentionally compact:
 `BaselodeStripLogToolUI` accepts an optional `propertyMeta` map that attaches a
 value unit and raw source attribute to each property. The formatted label
 (`Au (ppm)`, or `Au (ppm, source: Au_ppb)` when the source attribute differs
-from the property) is then applied to the property selector, the track header,
-the axis title and the hover tooltip — selection identity and `track.property`
+from the display label — i.e. `meta.label` if provided, otherwise the bare
+property key) is then applied to the property selector, the track header, the
+axis title and the hover tooltip — selection identity and `track.property`
 still use the bare property key.
 
 ```jsx

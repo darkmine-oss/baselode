@@ -83,12 +83,19 @@ export function formatPropertyLabel(property, meta) {
 /**
  * Derive per-property metadata directly from interval rows (Option B).
  *
- * For each property, the rows holding a non-null value in that column are
- * scanned and the `unitColumn` / `attributeColumn` values they co-occur with
- * are collected.  A unanimous value is adopted; a mixed set is omitted.
+ * The row-level `unitColumn` / `attributeColumn` are assumed to describe a
+ * single measurement per row (the long-format assay shape). To avoid
+ * mis-attributing them in wide rows, only rows where exactly one of the
+ * queried properties carries a value contribute to that property's bucket;
+ * wide rows where the metadata can't be unambiguously assigned are skipped.
+ * A unanimous unit / attribute across a property's contributing rows is
+ * adopted; a mixed set is omitted.
  *
  * @param {Array<Object>} rows - Interval rows (a hole's `points`).
  * @param {string[]} properties - Property keys to derive metadata for.
+ *   Pass only actual measurement properties — exclude the metadata columns
+ *   themselves (e.g. `analysis_uom`, `analyte_attribute`) so they don't count
+ *   toward the "exactly one populated property" check.
  * @param {Object} [options]
  * @param {string} [options.unitColumn] - Row column holding the value unit.
  * @param {string} [options.attributeColumn] - Row column holding the source attribute.
@@ -101,22 +108,38 @@ export function derivePropertyMeta(rows, properties, {
   const result = {};
   if (!Array.isArray(rows) || !Array.isArray(properties)) return result;
 
-  properties.forEach((property) => {
-    if (!property) return;
-    const units = new Set();
-    const attributes = new Set();
-    rows.forEach((row) => {
-      if (!row || typeof row !== 'object') return;
+  const validProperties = properties.filter(Boolean);
+  if (!validProperties.length) return result;
+
+  const buckets = new Map(
+    validProperties.map((property) => [property, { units: new Set(), attributes: new Set() }])
+  );
+
+  rows.forEach((row) => {
+    if (!row || typeof row !== 'object') return;
+    let target = null;
+    let ambiguous = false;
+    for (const property of validProperties) {
       const value = row[property];
-      if (value === undefined || value === null || value === '') return;
-      const unit = cleanText(row[unitColumn]);
-      if (unit) units.add(unit);
-      const attribute = cleanText(row[attributeColumn]);
-      if (attribute) attributes.add(attribute);
-    });
+      if (value === undefined || value === null || value === '') continue;
+      if (target !== null) {
+        ambiguous = true;
+        break;
+      }
+      target = property;
+    }
+    if (!target || ambiguous) return;
+    const bucket = buckets.get(target);
+    const unit = cleanText(row[unitColumn]);
+    if (unit) bucket.units.add(unit);
+    const attribute = cleanText(row[attributeColumn]);
+    if (attribute) bucket.attributes.add(attribute);
+  });
+
+  buckets.forEach((bucket, property) => {
     const meta = {};
-    if (units.size === 1) [meta.unit] = units;
-    if (attributes.size === 1) [meta.sourceAttribute] = attributes;
+    if (bucket.units.size === 1) [meta.unit] = bucket.units;
+    if (bucket.attributes.size === 1) [meta.sourceAttribute] = bucket.attributes;
     if (meta.unit || meta.sourceAttribute) result[property] = meta;
   });
 

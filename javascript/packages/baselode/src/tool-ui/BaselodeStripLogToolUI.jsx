@@ -20,7 +20,12 @@ import {
   buildIntervalPoints,
   buildPlotConfig,
 } from '../viz/drillholeViz.js';
-import { derivePropertyMeta, formatPropertyLabel } from '../data/propertyLabels.js';
+import {
+  DEFAULT_ATTRIBUTE_COLUMN,
+  DEFAULT_UNIT_COLUMN,
+  derivePropertyMeta,
+  formatPropertyLabel,
+} from '../data/propertyLabels.js';
 import { getToolUiThemeName, getToolUiThemeStyle } from './theme.js';
 
 function resolveTemplate(template) {
@@ -354,7 +359,11 @@ export function BaselodeStripLogToolUI({
   const resolvedPropertyMeta = useMemo(() => {
     const explicit = (propertyMeta && typeof propertyMeta === 'object') ? propertyMeta : null;
     if (!deriveMetaFromRows) return explicit ?? undefined;
-    const allProperties = [...classified.numericCols, ...classified.categoricalCols];
+    // Exclude the row-level metadata columns themselves so they don't count as
+    // populated "measurement" properties when derivePropertyMeta checks each
+    // row for a single unambiguous target.
+    const allProperties = [...classified.numericCols, ...classified.categoricalCols]
+      .filter((property) => property !== DEFAULT_UNIT_COLUMN && property !== DEFAULT_ATTRIBUTE_COLUMN);
     const derived = derivePropertyMeta(hole?.points || [], allProperties);
     if (!explicit) return derived;
     const merged = { ...derived };
