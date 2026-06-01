@@ -234,6 +234,13 @@ import { TracePlot } from 'baselode';
 />
 ```
 
+`TracePlot` also accepts an optional `propertyMeta` map
+(`{ [property]: { label?, unit?, sourceAttribute? } }`). When the selected
+property has an entry, its unit / source attribute are folded into the axis
+title, hover tooltip and property dropdown — e.g. a column keyed `Au` renders
+as `Au (ppm)` — while selection and `onConfigChange` keep using the bare
+property key.
+
 ### React hook — useDrillholeTraceGrid
 
 For building full drill-hole comparison grids:
@@ -304,6 +311,38 @@ The serializable result is intentionally compact:
   ],
 }
 ```
+
+#### Per-property unit metadata
+
+`BaselodeStripLogToolUI` accepts an optional `propertyMeta` map that attaches a
+value unit and raw source attribute to each property. The formatted label
+(`Au (ppm)`, or `Au (ppm, source: Au_ppb)` when the source attribute differs
+from the display label — i.e. `meta.label` if provided, otherwise the bare
+property key) is then applied to the property selector, the track header, the
+axis title and the hover tooltip — selection identity and `track.property`
+still use the bare property key.
+
+```jsx
+<BaselodeStripLogToolUI
+  // ...
+  propertyOptions={['Au', 'Cu', 'Ni']}
+  propertyMeta={{
+    Au: { unit: 'ppm', sourceAttribute: 'Au_ppb' },
+    Cu: { unit: 'ppm', sourceAttribute: 'Cu_ppm' },
+    Ni: { unit: '%' },
+  }}
+/>
+```
+
+Each entry is `{ label?, unit?, sourceAttribute? }`. The source attribute is
+omitted from the display when it matches the label. `propertyMeta` is optional
+and may be partial — missing keys fall back to the bare property name.
+
+Pass `deriveMetaFromRows` to back-fill metadata for keys absent from
+`propertyMeta` directly from the rows' `analysis_uom` / `analyte_attribute`
+columns (a unanimous value across a property's rows is adopted; a mixed set is
+ignored). With neither prop supplied, output is identical to the
+pre-metadata behaviour.
 
 The `baselode/tool-ui` entry exports:
 

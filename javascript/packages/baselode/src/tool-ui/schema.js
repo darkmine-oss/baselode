@@ -8,6 +8,12 @@ const PrimitiveJsonSchema = z.union([z.string(), z.number(), z.boolean(), z.null
 const JsonObjectSchema = z.record(z.string(), z.unknown());
 const DepthRangeSchema = z.tuple([z.number(), z.number()]);
 
+const PropertyMetaSchema = z.object({
+  label: z.string().optional(),
+  unit: z.string().nullish(),
+  sourceAttribute: z.string().nullish(),
+});
+
 export const SerializableBaselodeStripLogTrackSchema = z.object({
   id: z.string().optional(),
   property: z.string().min(1),
@@ -35,6 +41,8 @@ export const SerializableBaselodeStripLogSchema = z.object({
   template: z.enum(['baselode', 'baselode-dark', 'plotly-default']).optional(),
   showModeBar: z.boolean().optional(),
   propertyOptions: z.array(z.string().min(1)).optional(),
+  propertyMeta: z.record(z.string(), PropertyMetaSchema).optional(),
+  deriveMetaFromRows: z.boolean().optional(),
   allowPropertySelection: z.boolean().optional(),
   allowChartTypeSelection: z.boolean().optional(),
   showLegend: z.boolean().optional(),

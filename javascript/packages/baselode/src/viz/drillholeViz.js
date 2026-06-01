@@ -7,6 +7,25 @@
 
 import { getColour, resolveColourMap, COMMODITY_COLOURS } from './colourMap.js';
 import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
+import { formatPropertyLabel, resolvePropertyLabelParts } from '../data/propertyLabels.js';
+
+/**
+ * Build the hover-tooltip prefix pieces for a property.
+ * Returns the value-line label, the unit suffix (e.g. " ppm") and the
+ * trailing `Source: …<br>` line — all empty strings when no metadata applies,
+ * so callers stay byte-identical to the pre-metadata output.
+ * @param {string} property
+ * @param {import('../data/propertyLabels.js').PropertyMeta} [meta]
+ * @returns {{ label: string, unitSuffix: string, sourceLine: string }}
+ */
+function buildHoverParts(property, meta) {
+  const { label, unit, source } = resolvePropertyLabelParts(property, meta);
+  return {
+    label,
+    unitSuffix: unit ? ` ${unit}` : '',
+    sourceLine: source ? `Source: ${source}<br>` : '',
+  };
+}
 
 /** Default color for numeric line traces */
 export const NUMERIC_LINE_COLOR = '#8b1e3f';
@@ -177,9 +196,10 @@ export function buildIntervalPoints(hole, property, isCategorical) {
  * @param {string} property - Property name for title
  * @param {Object|string|null} [colourMap] - Optional semantic colour map (object or built-in name)
  * @param {Object} [template] - Plotly template to include in layout
+ * @param {import('../data/propertyLabels.js').PropertyMeta} [meta] - Optional per-property metadata
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildCategoricalConfig(points, property, colourMap, template) {
+function buildCategoricalConfig(points, property, colourMap, template, meta) {
   if (!points.length) return { data: [], layout: {} };
   const safe = points
     .filter((point) => Number.isFinite(point?.from) && Number.isFinite(point?.to) && point.to > point.from)
@@ -221,6 +241,8 @@ function buildCategoricalConfig(points, property, colourMap, template) {
     uniqueCategories.map((category, idx) => [category, pickColour(category, idx)])
   );
 
+  const hover = buildHoverParts(property, meta);
+
   // One bar trace per unique category. Each bar starts at `base` (from depth)
   // and has height (to - from). barmode:'overlay' lets non-overlapping intervals
   // from different traces coexist at the same x position.
@@ -236,7 +258,7 @@ function buildCategoricalConfig(points, property, colourMap, template) {
       name: cat,
       showlegend: false,
       customdata: intervals.map((s) => [s.from, s.to]),
-      hovertemplate: `${property}: ${cat}<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
+      hovertemplate: `${hover.label}: ${cat}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
     };
   });
 
@@ -246,7 +268,7 @@ function buildCategoricalConfig(points, property, colourMap, template) {
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     showlegend: false,
-    title: property || undefined,
+    title: formatPropertyLabel(property, meta) || undefined,
     template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
@@ -261,9 +283,10 @@ function buildCategoricalConfig(points, property, colourMap, template) {
  * @param {string} chartType - Chart type ('bar', 'markers', 'line', 'markers+line')
  * @param {string} [color] - Override colour for line/markers (e.g. commodity colour)
  * @param {Object} [template] - Plotly template to include in layout
+ * @param {import('../data/propertyLabels.js').PropertyMeta} [meta] - Optional per-property metadata
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildNumericConfig(points, property, chartType, color, template) {
+function buildNumericConfig(points, property, chartType, color, template, meta) {
   if (!points.length) return { data: [], layout: {} };
   const isBar = chartType === 'bar';
   const isMarkersOnly = chartType === 'markers';
@@ -272,10 +295,12 @@ function buildNumericConfig(points, property, chartType, color, template) {
   const lineColor = color || NUMERIC_LINE_COLOR;
   const markerColor = color || NUMERIC_MARKER_COLOR;
 
+  const hover = buildHoverParts(property, meta);
+
   const baseTrace = {
     x: points.map((p) => p.val),
     y: points.map((p) => p.z),
-    hovertemplate: `${property}: %{x}<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
+    hovertemplate: `${hover.label}: %{x}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
     customdata: points.map((p) => [Math.min(p.from, p.to), Math.max(p.from, p.to)])
   };
 
@@ -307,7 +332,7 @@ function buildNumericConfig(points, property, chartType, color, template) {
       };
 
   const layout = {
-    xaxis: { title: property, zeroline: false },
+    xaxis: { title: formatPropertyLabel(property, meta), zeroline: false },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     barmode: 'overlay',
     showlegend: false,
@@ -326,15 +351,17 @@ function buildNumericConfig(points, property, chartType, color, template) {
  * @param {string} options.chartType - Chart type ('bar', 'markers', 'line', 'categorical', etc.)
  * @param {Object|string|null} [options.colourMap] - Optional semantic colour map (object or built-in name)
  * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
+ * @param {import('../data/propertyLabels.js').PropertyMeta} [options.meta] - Optional per-property
+ *   metadata (unit / source attribute) used for axis titles and hover tooltips.
  * @returns {{data: Array, layout: Object}} Complete Plotly configuration
  */
-export function buildPlotConfig({ points, isCategorical, property, chartType, colourMap, template }) {
+export function buildPlotConfig({ points, isCategorical, property, chartType, colourMap, template, meta }) {
   if (!points || !points.length || !property) return { data: [], layout: {} };
   if (isCategorical || chartType === 'categorical') {
-    return buildCategoricalConfig(points, property, colourMap, template);
+    return buildCategoricalConfig(points, property, colourMap, template, meta);
   }
   const colour = commodityColourForProperty(property);
-  return buildNumericConfig(points, property, chartType, colour, template);
+  return buildNumericConfig(points, property, chartType, colour, template, meta);
 }
 
 /**

@@ -37,6 +37,26 @@ describe('Tool UI serializable schemas', () => {
     expect(parsed.depthRange).toEqual([0, 24]);
   });
 
+  it('parses optional per-property metadata on a strip-log payload', () => {
+    const parsed = safeParseSerializableBaselodeStripLog({
+      id: 'strip-log-BLDD001',
+      hole: {
+        id: 'BLDD001',
+        points: [{ from: 0, to: 12, Au: 0.11, analysis_uom: 'ppm', analyte_attribute: 'Au_ppb' }],
+      },
+      tracks: [{ property: 'Au' }],
+      propertyMeta: {
+        Au: { unit: 'ppm', sourceAttribute: 'Au_ppb' },
+        Ni: { unit: '%', sourceAttribute: null },
+      },
+      deriveMetaFromRows: true,
+    });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed.propertyMeta.Au).toEqual({ unit: 'ppm', sourceAttribute: 'Au_ppb' });
+    expect(parsed.deriveMetaFromRows).toBe(true);
+  });
+
   it('rejects invalid strip-log payloads', () => {
     expect(safeParseSerializableBaselodeStripLog({
       id: 'strip-log-BLDD001',

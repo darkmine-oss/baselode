@@ -20,6 +20,12 @@ import {
   buildIntervalPoints,
   buildPlotConfig,
 } from '../viz/drillholeViz.js';
+import {
+  DEFAULT_ATTRIBUTE_COLUMN,
+  DEFAULT_UNIT_COLUMN,
+  derivePropertyMeta,
+  formatPropertyLabel,
+} from '../data/propertyLabels.js';
 import { getToolUiThemeName, getToolUiThemeStyle } from './theme.js';
 
 function resolveTemplate(template) {
@@ -134,6 +140,7 @@ function applyDepthRange(layout, depthRange) {
 function StripLogTrack({
   hole,
   track,
+  propertyMeta,
   height,
   template,
   showModeBar,
@@ -144,6 +151,8 @@ function StripLogTrack({
 }) {
   const ref = useRef(null);
   const isCategorical = track.displayType === DISPLAY_CATEGORICAL || track.chartType === 'categorical';
+  const meta = propertyMeta?.[track.property];
+  const trackLabel = formatPropertyLabel(track.label || track.property, meta);
   const points = useMemo(
     () => buildIntervalPoints(hole, track.property, isCategorical),
     [hole, isCategorical, track.property]
@@ -156,12 +165,13 @@ function StripLogTrack({
       chartType: track.chartType || (isCategorical ? 'categorical' : 'markers+line'),
       colourMap: track.colourMap,
       template: resolveTemplate(template),
+      meta,
     });
     return {
       data: nextConfig.data,
       layout: applyDepthRange(nextConfig.layout, depthRange),
     };
-  }, [depthRange, isCategorical, points, template, track.chartType, track.colourMap, track.label, track.property]);
+  }, [depthRange, isCategorical, meta, points, template, track.chartType, track.colourMap, track.label, track.property]);
   const legendItems = useMemo(
     () => (track.showLegend && isCategorical ? getLegendItems(plotConfig.data) : []),
     [isCategorical, plotConfig.data, track.showLegend]
@@ -176,7 +186,7 @@ function StripLogTrack({
     if (!target) return undefined;
 
     if (!plotConfig.data.length) {
-      target.replaceChildren(document.createTextNode(`No data for ${track.property}`));
+      target.replaceChildren(document.createTextNode(`No data for ${trackLabel}`));
       return undefined;
     }
 
@@ -241,12 +251,13 @@ function StripLogTrack({
     showModeBar,
     track.id,
     track.property,
+    trackLabel,
     isCategorical,
   ]);
 
   return (
-    <section className="baselode-tool-strip-log__track" aria-label={track.label || track.property}>
-      <div className="baselode-tool-strip-log__track-title">{track.label || track.property}</div>
+    <section className="baselode-tool-strip-log__track" aria-label={trackLabel}>
+      <div className="baselode-tool-strip-log__track-title">{trackLabel}</div>
 
       {(track.allowPropertySelection || (track.allowChartTypeSelection && chartOptions.length > 1)) && (
         <div className="baselode-tool-strip-log__controls">
@@ -263,7 +274,9 @@ function StripLogTrack({
                 }}
               >
                 {track.propertyOptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option} value={option}>
+                    {formatPropertyLabel(option, propertyMeta?.[option])}
+                  </option>
                 ))}
               </select>
             </label>
@@ -319,6 +332,8 @@ export function BaselodeStripLogToolUI({
   template = 'baselode',
   showModeBar = false,
   propertyOptions,
+  propertyMeta,
+  deriveMetaFromRows = false,
   allowPropertySelection = false,
   allowChartTypeSelection = false,
   showLegend,
@@ -337,6 +352,26 @@ export function BaselodeStripLogToolUI({
     () => getSelectableProperties(classified, propertyOptions),
     [classified, propertyOptions]
   );
+  // Per-property unit / source metadata. Explicit `propertyMeta` always wins;
+  // when `deriveMetaFromRows` is enabled, keys absent from `propertyMeta` are
+  // back-filled from the rows' `analysis_uom` / `analyte_attribute` columns.
+  // With neither supplied, output is identical to the pre-metadata behaviour.
+  const resolvedPropertyMeta = useMemo(() => {
+    const explicit = (propertyMeta && typeof propertyMeta === 'object') ? propertyMeta : null;
+    if (!deriveMetaFromRows) return explicit ?? undefined;
+    // Exclude the row-level metadata columns themselves so they don't count as
+    // populated "measurement" properties when derivePropertyMeta checks each
+    // row for a single unambiguous target.
+    const allProperties = [...classified.numericCols, ...classified.categoricalCols]
+      .filter((property) => property !== DEFAULT_UNIT_COLUMN && property !== DEFAULT_ATTRIBUTE_COLUMN);
+    const derived = derivePropertyMeta(hole?.points || [], allProperties);
+    if (!explicit) return derived;
+    const merged = { ...derived };
+    Object.entries(explicit).forEach(([key, value]) => {
+      merged[key] = { ...derived[key], ...value };
+    });
+    return merged;
+  }, [propertyMeta, deriveMetaFromRows, classified, hole]);
   const normalizedInitialTracks = useMemo(
     () => tracks.map((track, trackIndex) => normalizeTrackConfig(track, {
       trackIndex,
@@ -426,6 +461,7 @@ export function BaselodeStripLogToolUI({
             key={track.id || track.property}
             hole={hole}
             track={track}
+            propertyMeta={resolvedPropertyMeta}
             height={height}
             template={template}
             showModeBar={showModeBar}

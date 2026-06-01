@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { buildPlotConfig } from './drillholeViz.js';
+import { formatPropertyLabel } from '../data/propertyLabels.js';
 import { buildCommentsConfig, buildTadpoleConfig } from './structuralViz.js';
 import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_TADPOLE } from '../data/columnMeta.js';
 import {
@@ -156,6 +157,11 @@ function renderHoleSelector({ selector, holeOptions, selectedHoleId, onConfigCha
  * @param {Array} props.holeOptions - Available holes for dropdown
  * @param {Array} props.propertyOptions - Available properties for dropdown
  * @param {Function} props.onConfigChange - Handler for configuration changes
+ * @param {Object} [props.propertyMeta] - Optional per-property metadata map
+ *   (`{ [property]: { label?, unit?, sourceAttribute? } }`). When the selected
+ *   property has an entry, its unit / source attribute are folded into the
+ *   axis title, hover tooltip and property dropdown label — e.g. "Au (ppm)".
+ *   The bare property key is still used for selection and `onConfigChange`.
  * @param {Object} [props.template] - Plotly template to apply. Defaults to the Baselode template.
  * @param {boolean} [props.showHoleSelect=true] - Render the hole selector area.
  * @param {boolean} [props.showPropertySelect=true] - Render the property select.
@@ -175,6 +181,7 @@ function TracePlot({
   graph,
   holeOptions = [],
   propertyOptions = [],
+  propertyMeta,
   onConfigChange,
   template,
   showHoleSelect = true,
@@ -182,10 +189,12 @@ function TracePlot({
   showChartTypeSelect = true,
   holeSelector,
 }) {
+  const bodyRef = useRef(null);
   const containerRef = useRef(null);
   const hole = graph?.hole;
   const points = graph?.points || [];
   const property = config?.property || '';
+  const meta = propertyMeta?.[property];
   const chartType = config?.chartType || DEFAULT_NUMERIC_CHART_TYPE;
   const selectedHoleId = config?.holeId || '';
 
@@ -197,6 +206,7 @@ function TracePlot({
   const effectiveChartType = resolveChartType(displayType, chartType);
 
   const [renderError, setRenderError] = useState('');
+  const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
 
   const bodyState = resolveTracePlotBody({
     holeId: selectedHoleId,
@@ -219,9 +229,36 @@ function TracePlot({
   const propertySelectEnabled = propertyOptions.length > 0;
 
   useEffect(() => {
+    const body = bodyRef.current;
+    if (!body || typeof ResizeObserver === 'undefined') return undefined;
+
+    let frame = 0;
+    const updatePlotSize = () => {
+      if (frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const width = Math.max(0, Math.floor(body.clientWidth));
+        const height = Math.max(0, Math.floor(body.clientHeight));
+        setPlotSize((prev) => (
+          prev.width === width && prev.height === height ? prev : { width, height }
+        ));
+      });
+    };
+
+    updatePlotSize();
+    const observer = new ResizeObserver(updatePlotSize);
+    observer.observe(body);
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     if (bodyState.kind !== 'chart') return;
     const target = containerRef.current;
     if (!target) return;
+    if (plotSize.width <= 0 || plotSize.height <= 0) return;
 
     const isComment = displayType === DISPLAY_COMMENT;
     const isTadpole = displayType === DISPLAY_TADPOLE;
@@ -239,6 +276,7 @@ function TracePlot({
           property,
           chartType: effectiveChartType,
           template,
+          meta,
         });
       }
     } catch (err) {
@@ -253,19 +291,19 @@ function TracePlot({
 
     const plotConfig = {
       displayModeBar: true,
-      responsive: true,
-      useResizeHandler: true,
+      responsive: false,
       modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
+    };
+    const layout = {
+      ...plotData.layout,
+      autosize: false,
+      width: plotSize.width,
+      height: plotSize.height,
     };
 
     try {
       setRenderError('');
-      Plotly.react(target, plotData.data, plotData.layout, plotConfig);
-      requestAnimationFrame(() => {
-        if (target && target.parentElement) {
-          Plotly.Plots.resize(target);
-        }
-      });
+      Plotly.react(target, plotData.data, layout, plotConfig);
     } catch (err) {
       console.error('Plot render error', err);
       setRenderError(err?.message || 'Plot render error');
@@ -280,7 +318,18 @@ function TracePlot({
         }
       }
     };
-  }, [bodyState.kind, hole, property, effectiveChartType, displayType, points, template]);
+  }, [
+    bodyState.kind,
+    hole,
+    property,
+    meta,
+    effectiveChartType,
+    displayType,
+    points,
+    template,
+    plotSize.width,
+    plotSize.height,
+  ]);
 
   useEffect(() => {
     const target = containerRef.current;
@@ -288,7 +337,11 @@ function TracePlot({
     const resizeObserver = new ResizeObserver(() => {
       try {
         if (target && target.data) {
-          Plotly.Plots.resize(target);
+          const width = Math.max(0, Math.floor(target.clientWidth));
+          const height = Math.max(0, Math.floor(target.clientHeight));
+          if (width > 0 && height > 0) {
+            Plotly.relayout(target, { width, height, autosize: false });
+          }
         }
       } catch (err) {
         console.warn('Plot resize error', err);
@@ -328,7 +381,7 @@ function TracePlot({
                   <option value="" disabled hidden>Select a property</option>
                 )}
                 {propertyOptions.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>{formatPropertyLabel(p, propertyMeta?.[p])}</option>
                 ))}
               </select>
             )}
@@ -347,7 +400,7 @@ function TracePlot({
           </div>
         )}
       </header>
-      <div className="plot-card__body">
+      <div className="plot-card__body" ref={bodyRef}>
         {bodyState.kind === 'chart'
           ? <div className="plotly-chart" ref={containerRef} />
           : <div className="placeholder">{bodyState.text}</div>
