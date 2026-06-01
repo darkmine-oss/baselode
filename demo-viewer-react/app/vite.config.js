@@ -41,6 +41,14 @@ export default defineConfig({
         replacement: path.join(baselodeSrc, 'style.css'),
       },
       {
+        find: /^baselode\/tool-ui\/style\.css$/,
+        replacement: path.join(baselodeSrc, 'tool-ui/style.css'),
+      },
+      {
+        find: /^baselode\/tool-ui$/,
+        replacement: path.join(baselodeSrc, 'tool-ui/index.js'),
+      },
+      {
         find: 'baselode',
         replacement: path.join(baselodeSrc, 'index.js'),
       },
