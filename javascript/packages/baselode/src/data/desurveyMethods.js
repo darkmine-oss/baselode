@@ -80,13 +80,20 @@ function segmentDisplacement(deltaMd, az0, dip0, az1, dip1, method = 'minimum_cu
   }
 
   if (method === 'balanced_tangential') {
+    // Canonical Walstrom 1969 / Harvey & Eppink 1972 form: average
+    // direction cosines at the upper and lower stations, NOT the
+    // cosines of averaged angles.  The two coincide on gentle doglegs
+    // but diverge meaningfully on strong direction changes.  Matches
+    // wellpathpy and PyGSLIB.
+    const caAvg = 0.5 * (dc0.ca + dc1.ca);
+    const cbAvg = 0.5 * (dc0.cb + dc1.cb);
+    const ccAvg = 0.5 * (dc0.cc + dc1.cc);
     const azAvg = 0.5 * (az0 + az1);
     const dipAvg = 0.5 * (dip0 + dip1);
-    const dcAvg = directionCosines(azAvg, dipAvg);
     return {
-      dx: deltaMd * dcAvg.ca,
-      dy: deltaMd * dcAvg.cb,
-      dz: deltaMd * dcAvg.cc,
+      dx: deltaMd * caAvg,
+      dy: deltaMd * cbAvg,
+      dz: deltaMd * ccAvg,
       azimuth: azAvg,
       dip: dipAvg
     };

@@ -1,21 +1,10 @@
 {
   "version": "1.0",
   "reference": "wellpathpy 0.5.2",
-  "generated_iso": "2026-06-07T12:34:23+00:00",
+  "generated_iso": "2026-06-07T12:43:01+00:00",
   "tolerance_position_m": 0.01,
   "tolerance_angle_deg": 0.01,
-  "known_xfails": [
-    {
-      "trajectory": "constant_build_30deg",
-      "method": "balanced_tangential",
-      "reason": "baselode balanced_tangential uses 'cosines of average angles' instead of the canonical Walstrom 'average of direction cosines'. Tracked separately."
-    },
-    {
-      "trajectory": "strong_dogleg",
-      "method": "balanced_tangential",
-      "reason": "baselode balanced_tangential uses 'cosines of average angles' instead of the canonical Walstrom 'average of direction cosines'. Tracked separately."
-    }
-  ],
+  "known_xfails": [],
   "convention_notes": "wellpathpy uses inc=90+dip (0=down, 90=horizontal). baselode dip is negative downward. tvd is depth below collar, positive going down. northing_offset / easting_offset are relative to the collar. BT tolerance is intentionally looser: wellpathpy implements the canonical Walstrom form (average of direction cosines) while baselode currently uses 'cosines of average angles', a documented variant. MC and tangential are exact.",
   "trajectories": [
     {

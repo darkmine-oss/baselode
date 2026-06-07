@@ -43,23 +43,16 @@ import wellpathpy as wp
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_PATH = REPO_ROOT / "test" / "data" / "desurvey_reference.json"
 
-# Per-method numerical tolerance.  ``minimum_curvature`` and ``tangential``
-# match wellpathpy exactly to machine precision once the inc/dip convention
-# is reconciled.  ``balanced_tangential`` differs by O(cm) on gentle
-# doglegs and O(m) on extreme doglegs because wellpathpy implements the
-# canonical Walstrom form (average direction cosines) while baselode
-# currently uses a variant (cosines of average angles).  Strict tolerance
-# is kept; the ``known_xfails`` list below documents trajectories where
-# the BT variant diverges by more than tolerance.
+# Per-method numerical tolerance.  All three methods match wellpathpy to
+# 1 cm or better on the trajectory set below.
 TOLERANCE_POSITION_M = 0.01
 TOLERANCE_ANGLE_DEG = 0.01
 
-# Known expected-fail (trajectory, method) pairs — BT variant divergence.
-# Documented in :pull-request:`TRK-117` and tracked separately for fixing.
-KNOWN_XFAILS = [
-    ("constant_build_30deg", "balanced_tangential"),
-    ("strong_dogleg", "balanced_tangential"),
-]
+# Trajectories that are *expected* to diverge between baselode and
+# wellpathpy beyond tolerance (documented in the fixture).  Empty today
+# now that balanced_tangential has been aligned to the canonical Walstrom
+# form.  Keep the hook in case a future trajectory genuinely needs it.
+KNOWN_XFAILS = []
 
 
 def trajectory_vertical():

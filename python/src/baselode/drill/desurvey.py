@@ -50,9 +50,16 @@ def _segment_displacement(delta_md, az0, dip0, az1, dip1, method="minimum_curvat
     if method == "tangential":
         return delta_md * ca0, delta_md * cb0, delta_md * cc0, az0, dip0
     if method == "balanced_tangential":
+        # Canonical Walstrom 1969 / Harvey & Eppink 1972 form: average
+        # the direction cosines at the upper and lower stations, not
+        # the cosines of the averaged angles.  The two coincide on
+        # gentle doglegs but diverge meaningfully on strong direction
+        # changes.  Matches the wellpathpy / PyGSLIB reference impls.
+        ca_avg = 0.5 * (ca0 + ca1)
+        cb_avg = 0.5 * (cb0 + cb1)
+        cc_avg = 0.5 * (cc0 + cc1)
         az_avg = 0.5 * (az0 + az1)
         dip_avg = 0.5 * (dip0 + dip1)
-        ca_avg, cb_avg, cc_avg = _direction_cosines(az_avg, dip_avg)
         return delta_md * ca_avg, delta_md * cb_avg, delta_md * cc_avg, az_avg, dip_avg
 
     # Minimum curvature (default)

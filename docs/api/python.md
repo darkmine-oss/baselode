@@ -246,7 +246,7 @@ python scripts/dev/regenerate_desurvey_fixtures.py
 |---|---|
 | `minimum_curvature` | Matches wellpathpy to machine precision on every trajectory |
 | `tangential` | Matches wellpathpy `tan_method(choice="low")` to machine precision |
-| `balanced_tangential` | Matches wellpathpy on gentle trajectories; diverges by O(cm–m) on strong doglegs because we currently use a variant form (cosines of average angles) instead of canonical Walstrom (average of direction cosines). Tracked under TRK-118 |
+| `balanced_tangential` | Matches wellpathpy `tan_method(choice="bal")` to ≤1 cm on every trajectory — including the strong-dogleg stress case. Uses the canonical Walstrom 1969 / Harvey & Eppink 1972 form (average of direction cosines) |
 
 ---
 
