@@ -258,7 +258,7 @@
       ],
       "pythonSymbols": [
         ["baselode.drill.intervals", "interval_length"],
-        ["baselode.drill.intervals", "from_to_to_midpoints"],
+        ["baselode.drill.intervals", "from_to_midpoints"],
         ["baselode.drill.intervals", "detect_gaps"],
         ["baselode.drill.intervals", "detect_overlaps"],
         ["baselode.drill.intervals", "split_at"],

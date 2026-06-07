@@ -20,9 +20,9 @@ def test_interval_length_returns_per_row_lengths():
     assert list(lengths) == [1.5, 1.5]
 
 
-def test_from_to_to_midpoints_returns_midpoints():
+def test_from_to_midpoints_returns_midpoints():
     df = _table([("A", 0.0, 10.0, 0.1)])
-    mids = intervals.from_to_to_midpoints(df)
+    mids = intervals.from_to_midpoints(df)
     assert list(mids) == [5.0]
 
 
@@ -103,6 +103,18 @@ def test_detect_overlaps_per_hole_isolation():
     overlaps = intervals.detect_overlaps(df)
     assert len(overlaps) == 1
     assert overlaps.iloc[0]["hole_id"] == "A"
+
+
+def test_detect_overlaps_returns_positional_indices_for_non_default_index():
+    df = _table([
+        ("A", 0.0, 1.5, 0.1),
+        ("A", 1.0, 2.0, 0.2),
+    ])
+    df.index = ["row-x", "row-y"]
+    overlaps = intervals.detect_overlaps(df)
+    assert len(overlaps) == 1
+    assert overlaps.iloc[0]["first_index"] == 0
+    assert overlaps.iloc[0]["second_index"] == 1
 
 
 def test_split_at_splits_through_inner_depth():

@@ -37,7 +37,7 @@ def interval_length(df, from_col=FROM, to_col=TO):
     return df[to_col] - df[from_col]
 
 
-def from_to_to_midpoints(df, from_col=FROM, to_col=TO):
+def from_to_midpoints(df, from_col=FROM, to_col=TO):
     """Midpoint depth of each interval row.
 
     Parameters
@@ -135,8 +135,9 @@ def detect_overlaps(df, from_col=FROM, to_col=TO, hole_col=HOLE_ID):
         return pd.DataFrame(columns=out_cols)
 
     overlaps = []
-    df_reset = df.reset_index(drop=False).rename(columns={"index": "_orig_index"})
-    for hole_id, group in df_reset.groupby(hole_col):
+    df_with_pos = df.reset_index(drop=True).copy()
+    df_with_pos["_pos"] = np.arange(len(df_with_pos))
+    for hole_id, group in df_with_pos.groupby(hole_col):
         group_sorted = group.sort_values(from_col).reset_index(drop=True)
         rows = group_sorted.to_dict("records")
         row_count = len(rows)
@@ -156,8 +157,8 @@ def detect_overlaps(df, from_col=FROM, to_col=TO, hole_col=HOLE_ID):
                         from_col: overlap_from,
                         to_col: overlap_to,
                         "length": overlap_to - overlap_from,
-                        "first_index": int(rows[first_idx]["_orig_index"]),
-                        "second_index": int(rows[second_idx]["_orig_index"]),
+                        "first_index": int(rows[first_idx]["_pos"]),
+                        "second_index": int(rows[second_idx]["_pos"]),
                     })
 
     if not overlaps:
@@ -253,11 +254,11 @@ def clip(df, from_depth=None, to_depth=None, from_col=FROM, to_col=TO):
 
     out = df.copy()
     if from_depth is not None:
-        out = out[out[to_col] > from_depth]
-        out[from_col] = np.maximum(out[from_col], from_depth)
+        out = out.loc[out[to_col] > from_depth].copy()
+        out.loc[:, from_col] = np.maximum(out[from_col], from_depth)
     if to_depth is not None:
-        out = out[out[from_col] < to_depth]
-        out[to_col] = np.minimum(out[to_col], to_depth)
+        out = out.loc[out[from_col] < to_depth].copy()
+        out.loc[:, to_col] = np.minimum(out[to_col], to_depth)
     return out.reset_index(drop=True)
 
 

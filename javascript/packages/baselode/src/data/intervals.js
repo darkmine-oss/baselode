@@ -132,6 +132,23 @@ export function detectOverlaps(
 function normalizeDepthsArg(depths, holeCol) {
   if (depths == null) return { byHole: new Map(), all: [] };
   if (Array.isArray(depths)) {
+    const firstEntry = depths[0];
+    const isRowArray = depths.length
+      && firstEntry
+      && typeof firstEntry === 'object'
+      && firstEntry[holeCol] != null
+      && firstEntry.depth != null;
+    if (isRowArray) {
+      const byHole = new Map();
+      for (const row of depths) {
+        const hole = row && row[holeCol];
+        const depth = row && row.depth;
+        if (hole == null || depth == null) continue;
+        if (!byHole.has(hole)) byHole.set(hole, []);
+        byHole.get(hole).push(Number(depth));
+      }
+      return { byHole, all: [] };
+    }
     return { byHole: new Map(), all: depths.map(Number) };
   }
   if (typeof depths === 'number') {
@@ -160,9 +177,10 @@ function normalizeDepthsArg(depths, holeCol) {
  * the row is replaced by the resulting sub-intervals.  All other columns
  * are inherited unchanged.
  *
- * @param {(number|number[]|Object)} depths - One of: a scalar applied to
- *   every hole; an array applied to every hole; or
- *   `{hole_id: [d1, d2, ...]}`.
+ * @param {(number|number[]|Object|Array<Object>)} depths - One of:
+ *   a scalar applied to every hole; an array of numbers applied to every
+ *   hole; `{hole_id: [d1, d2, ...]}` keyed by hole; or an array of
+ *   `{hole_id, depth}` rows.
  * @returns {Array<Object>}
  */
 export function splitAt(

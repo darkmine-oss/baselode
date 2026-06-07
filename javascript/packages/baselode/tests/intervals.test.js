@@ -101,6 +101,17 @@ describe('splitAt', () => {
     expect(out).toHaveLength(4);
     expect([...new Set(out.map((row) => row.from))].sort((first, second) => first - second)).toEqual([0, 5]);
   });
+
+  it('accepts an array of {hole_id, depth} rows', () => {
+    const out = splitAt(
+      [makeRow('A', 0, 10, 0.1), makeRow('B', 0, 10, 0.2)],
+      [{ hole_id: 'A', depth: 4 }, { hole_id: 'B', depth: 6 }],
+    );
+    const fromsA = out.filter((row) => row.hole_id === 'A').map((row) => row.from);
+    const fromsB = out.filter((row) => row.hole_id === 'B').map((row) => row.from);
+    expect(fromsA).toEqual([0, 4]);
+    expect(fromsB).toEqual([0, 6]);
+  });
 });
 
 describe('clip', () => {
