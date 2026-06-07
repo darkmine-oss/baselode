@@ -346,6 +346,70 @@ merged = intervals.merge_tables({"assay": assays, "litho": geology})
 
 ---
 
+## baselode.drill.DrillholeSet
+
+Composition root for the drilling tables of a project.  Holds a collar + survey table plus N named interval tables (assay, geology, structural, …) and exposes the existing function-based API as methods.  No new algorithmic logic — every method is a thin delegator.  The trace is cached after the first `desurvey()` call.
+
+```python
+from baselode.drill import DrillholeSet
+```
+
+### Construction
+
+```python
+DrillholeSet(collar, survey, crs=None, project=None, hole_col=HOLE_ID)
+```
+
+### Registering interval tables
+
+```python
+db.add_table(name, df, kind="assay")   # chainable; returns self
+```
+
+### Attributes
+
+| Attribute | Description |
+|---|---|
+| `db.collar`, `db.survey` | The source tables |
+| `db.tables`, `db.table_kinds` | Dict of registered interval tables + their kind tags |
+| `db.holes` | List of distinct hole IDs (property) |
+| `db.traces` | Cached desurvey output (property; runs `desurvey()` on first access) |
+| `db.crs`, `db.project` | Metadata passed at construction |
+
+### Methods
+
+#### `db.validate(**kwargs)`
+
+Delegate to `baselode.drill.validate.validate_drillhole_db(collar, survey, interval_tables=db.tables, **kwargs)`.  Forwards keyword arguments such as `allow_full_circle=True`.
+
+**Returns:** `{"summary": {...}, "issues": [...]}`.
+
+#### `db.desurvey(method="minimum_curvature", step=1.0, force=False)`
+
+Run desurvey via the registered method (one of `"minimum_curvature"`, `"tangential"`, `"balanced_tangential"`).  Cached unless `force=True` or args change.
+
+**Returns:** `pandas.DataFrame` trace table.
+
+#### `db.composite(table_name, value_col, length=1.0, method="average", from_col="from", to_col="to")`
+
+Thin wrapper around `baselode.drill.composite.composite_intervals` on a registered interval table.
+
+#### `db.to_omf(path, include=None, value_cols=None, name=None, author="baselode", description="")`
+
+Serialise the set to an OMF v1 file.  `include` defaults to all registered elements (`"collars"`, `"traces"`, every interval table name).  `value_cols` is a per-table dict naming value columns to attach as OMF segment data, e.g. `{"assay": ["au_ppm", "cu_pct"]}`.
+
+**Returns:** the path written.
+
+### Indexing
+
+```python
+db["assay"]       # equivalent to db.tables["assay"]
+"assay" in db     # True if registered
+repr(db)          # "<DrillholeSet holes=20 survey_rows=14608 tables=['assay']>"
+```
+
+---
+
 ## baselode.drill.omf
 
 Open Mining Format (OMF v1) interop.  OMF is the de-facto open mining interchange format (MIT-licensed, Global Mining Guidelines Group), supported by Leapfrog, 3DEXPERIENCE, Deswik and Micromine.  Baselode being OMF-native plugs it directly into those workflows.

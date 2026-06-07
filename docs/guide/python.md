@@ -223,6 +223,42 @@ joined = join_assays_to_traces(assays, traces)
 
 ---
 
+## DrillholeSet — the composition root
+
+`DrillholeSet` bundles the collar + survey table plus N named interval tables into one object, so you can call `db.validate()` / `db.desurvey()` / `db.composite(...)` / `db.to_omf(...)` instead of threading three separate DataFrames through every function.  No new algorithmic logic — every method delegates to the existing function-based API.
+
+```python
+from baselode.drill import DrillholeSet
+import baselode.drill.data as drill
+
+collar = drill.load_collars("collars.csv")
+survey = drill.load_surveys("surveys.csv")
+assays = drill.load_assays("assays.csv")
+litho  = drill.load_geology("litho.csv")
+
+db = (
+    DrillholeSet(collar, survey, crs="EPSG:32750", project="goldfields-2026")
+    .add_table("assay", assays)
+    .add_table("geology", litho, kind="litho")
+)
+
+report  = db.validate()
+traces  = db.desurvey(step=1.0)          # cached on the object
+db.to_omf("project.omf",
+          value_cols={"assay": ["au_ppm", "cu_pct"]})
+```
+
+The original function-based API stays — `validate.validate_drillhole_db(collar, survey, intervals)` and friends keep working unchanged.  `DrillholeSet` is a thin convenience layer on top.
+
+### Why bother
+
+- **Discoverability:** `db.<TAB>` shows the whole drilling API instead of having to know which module to import.
+- **Metadata travels with the tables:** `crs`, `project`, datasource — no side-channel variables.
+- **Derived state is cached:** `db.desurvey()` runs once, then `db.to_omf()` reuses the trace.
+- **Familiar shape:** mirrors PyGSLIB's `Drillhole(collar, survey)` + `addtable(...)`.
+
+---
+
 ## Database Validation
 
 `validate_drillhole_db` runs every QA check in one pass and returns a structured report — never raises.  Each issue carries a check name, severity, the affected hole/table/row, a human-readable message, and (where possible) a fix recipe.

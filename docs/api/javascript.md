@@ -255,6 +255,39 @@ Attach 3D positions and normal vectors to all structural measurement rows.
 
 ---
 
+## DrillholeSet
+
+Composition root for the drilling tables of a project.  Mirrors the Python `baselode.drill.DrillholeSet` class — holds collar + survey + N interval tables and exposes the existing function-based API as methods.  No new logic; the trace is cached after the first `desurvey()` call.
+
+```js
+import { DrillholeSet } from 'baselode';
+
+const db = new DrillholeSet(collarRows, surveyRows, {
+  crs: 'EPSG:32750',
+  project: 'goldfields-2026',
+});
+
+db.addTable('assay', assayRows).addTable('geology', lithoRows, 'litho');
+
+const report = db.validate();
+const traces = db.desurvey({ step: 1 });
+```
+
+| Method / property | Mirrors Python |
+|---|---|
+| `new DrillholeSet(collar, survey, { crs, project, holeCol })` | `DrillholeSet(collar, survey, crs=..., project=..., hole_col=...)` |
+| `db.addTable(name, rows, kind?)` | `db.add_table(name, df, kind=...)` |
+| `db.holes` | `db.holes` |
+| `db.traces` | `db.traces` |
+| `db.desurvey({ method, step, force })` | `db.desurvey(method=..., step=..., force=...)` |
+| `db.validate(options)` | `db.validate(**kwargs)` |
+| `db.get(name)` / `db.has(name)` | `db[name]` / `name in db` |
+| `db.toString()` | `repr(db)` |
+
+OMF export is Python-only (`db.to_omf`), per the TRK-111 scope.
+
+---
+
 ## Drillhole DB Validation
 
 Mirror of `baselode.drill.validate.validate_drillhole_db`.  Returns a structured `{ summary, issues }` report covering duplicate collar IDs, single-station surveys, az/dip range, orphan intervals, gaps/overlaps, beyond-`max_depth` intervals, and `<MDL` sentinels.

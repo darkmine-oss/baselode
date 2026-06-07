@@ -180,6 +180,8 @@ export {
   SEVERITY_INFO
 } from './data/validateDrillholeDb.js';
 
+export { DrillholeSet } from './data/drillholeSet.js';
+
 export {
   parseGeophysicsCSV,
   geophysicsToStripLogs,
