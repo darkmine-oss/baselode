@@ -584,12 +584,14 @@ Example notebooks are provided in the repository under [`notebooks/`](https://gi
 
 | Notebook | Description |
 |---|---|
-| `test_drillholes.ipynb` | Load collars, surveys and assays; desurvey; visualise on map |
-| `test_sample_data.ipynb` | Explore the GSWA sample data |
+| `example_drill_tour.ipynb` | End-to-end tour of `baselode.drill` — loaders, map, strip logs, desurvey, compositing, interval algebra, validation, `DrillholeSet`, OMF |
+| `example_drillhole_set.ipynb` | `DrillholeSet` composition root focused walkthrough |
+| `example_omf_export.ipynb` | GSWA → OMF round-trip focused walkthrough |
+| `example_darkmine_vault_api.ipynb` | Pull drillhole data from the Darkmine Vault API |
 
-Open notebooks locally:
+Open the tour locally:
 
 ```bash
 pip install baselode jupyter
-jupyter notebook notebooks/test_drillholes.ipynb
+jupyter notebook notebooks/example_drill_tour.ipynb
 ```

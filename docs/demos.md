@@ -150,8 +150,10 @@ Example Jupyter notebooks live in the [`notebooks/`](https://github.com/darkmine
 
 | Notebook | Description |
 |---|---|
-| `test_drillholes.ipynb` | Load collars, surveys and assays; desurvey; visualise on map and strip log |
-| `test_sample_data.ipynb` | Explore the GSWA sample data and validate column mapping |
+| `example_drill_tour.ipynb` | End-to-end tour: loaders, map, strip logs, desurvey, compositing, interval algebra, validation, `DrillholeSet`, OMF export |
+| `example_drillhole_set.ipynb` | `DrillholeSet` composition root focused walkthrough |
+| `example_omf_export.ipynb` | GSWA → OMF round-trip focused walkthrough |
+| `example_darkmine_vault_api.ipynb` | Pull drillhole data from the Darkmine Vault API |
 
 ### Running notebooks
 
