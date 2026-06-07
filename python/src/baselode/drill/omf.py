@@ -213,46 +213,52 @@ def intervals_to_omf_lines(
     omf.LineSetElement
     """
     _require_omf()
+    import baselode.drill.desurvey as desurvey_module
+
+    # Coerce from/to to numeric and drop rows that can't be located.
+    valid_intervals = intervals.copy()
+    valid_intervals["_from_numeric"] = pd.to_numeric(valid_intervals[from_col], errors="coerce")
+    valid_intervals["_to_numeric"] = pd.to_numeric(valid_intervals[to_col], errors="coerce")
+    valid_intervals = valid_intervals.dropna(subset=[hole_col, "_from_numeric", "_to_numeric"])
+
+    # Batch every unique (hole, depth) endpoint through interpolate_trajectory
+    # in one shot, then look up per-interval by (hole, depth) tuple so the
+    # output row order from interpolate_trajectory doesn't matter.
+    position_lookup = {}
+    if not valid_intervals.empty:
+        endpoint_requests = pd.concat([
+            valid_intervals[[hole_col, "_from_numeric"]].rename(columns={"_from_numeric": "depth"}),
+            valid_intervals[[hole_col, "_to_numeric"]].rename(columns={"_to_numeric": "depth"}),
+        ], ignore_index=True).drop_duplicates(subset=[hole_col, "depth"])
+        positions = desurvey_module.interpolate_trajectory(
+            traces, endpoint_requests,
+            hole_col=hole_col, md_col=md_col,
+            easting_col=easting_col, northing_col=northing_col, elevation_col=elevation_col,
+        )
+        for _, position_row in positions.iterrows():
+            if pd.isna(position_row[easting_col]):
+                continue
+            key = (position_row[hole_col], float(position_row["depth"]))
+            position_lookup[key] = (
+                float(position_row[easting_col]),
+                float(position_row[northing_col]),
+                float(position_row[elevation_col]),
+            )
+
     vertices = []
     segments = []
     rows_used = []
-
-    trace_groups = {
-        hole_id: group.sort_values(md_col).dropna(
-            subset=[md_col, easting_col, northing_col, elevation_col]
-        )
-        for hole_id, group in traces.groupby(hole_col)
-    }
-
-    for hole_id, group in intervals.groupby(hole_col):
-        trace_sorted = trace_groups.get(hole_id)
-        if trace_sorted is None or len(trace_sorted) < 2:
+    for original_index, interval_row in valid_intervals.iterrows():
+        hole_id = interval_row[hole_col]
+        start_xyz = position_lookup.get((hole_id, float(interval_row["_from_numeric"])))
+        end_xyz = position_lookup.get((hole_id, float(interval_row["_to_numeric"])))
+        if start_xyz is None or end_xyz is None:
             continue
-        mds = trace_sorted[md_col].to_numpy(dtype=float)
-        eastings = trace_sorted[easting_col].to_numpy(dtype=float)
-        northings = trace_sorted[northing_col].to_numpy(dtype=float)
-        elevations = trace_sorted[elevation_col].to_numpy(dtype=float)
-
-        for original_index, row in group.iterrows():
-            from_depth = _safe_float(row.get(from_col))
-            to_depth = _safe_float(row.get(to_col))
-            if from_depth is None or to_depth is None:
-                continue
-            start_xyz = (
-                float(np.interp(from_depth, mds, eastings)),
-                float(np.interp(from_depth, mds, northings)),
-                float(np.interp(from_depth, mds, elevations)),
-            )
-            end_xyz = (
-                float(np.interp(to_depth, mds, eastings)),
-                float(np.interp(to_depth, mds, northings)),
-                float(np.interp(to_depth, mds, elevations)),
-            )
-            base_index = len(vertices)
-            vertices.append(start_xyz)
-            vertices.append(end_xyz)
-            segments.append([base_index, base_index + 1])
-            rows_used.append(original_index)
+        base_index = len(vertices)
+        vertices.append(start_xyz)
+        vertices.append(end_xyz)
+        segments.append([base_index, base_index + 1])
+        rows_used.append(original_index)
 
     if not segments:
         raise ValueError(

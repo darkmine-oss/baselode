@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 import importlib.util
+import math
 import tempfile
 from pathlib import Path
 
@@ -134,6 +135,36 @@ def test_intervals_to_omf_lines_attaches_value_columns():
     assert "hole_id" in data_names
     assert "au_ppm" in data_names
     assert "lithology" in data_names
+
+
+@omf_only
+def test_intervals_to_omf_lines_pairs_endpoints_to_the_right_hole_when_interleaved():
+    """Regression: with interleaved-hole intervals, batched interpolation
+    must not connect a `from` from hole A with a `to` from hole B.
+    """
+    interleaved = pd.DataFrame({
+        "hole_id": ["A", "B", "A", "B"],
+        "from": [0.0, 0.0, 5.0, 5.0],
+        "to": [5.0, 5.0, 10.0, 10.0],
+    })
+    element = omf_io.intervals_to_omf_lines(
+        interleaved, _sample_traces(), name="assay",
+    )
+    vertices = element.geometry.vertices.array
+    segments = element.geometry.segments.array
+
+    # 4 intervals → 4 segments → 8 vertices. Each segment's two vertices
+    # must lie on the same hole's straight-down trace: hole A at
+    # (500000, 6900000, *) and hole B at (500100, 6900050, *).
+    assert segments.shape == (4, 2)
+    for segment in segments:
+        start = vertices[segment[0]]
+        end = vertices[segment[1]]
+        assert math.isclose(start[0], end[0], abs_tol=1e-6)
+        assert math.isclose(start[1], end[1], abs_tol=1e-6)
+        # easting/northing must match one of the two collars exactly
+        assert (math.isclose(start[0], 500000.0, abs_tol=1e-6)
+                or math.isclose(start[0], 500100.0, abs_tol=1e-6))
 
 
 @omf_only

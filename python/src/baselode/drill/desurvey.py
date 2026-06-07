@@ -30,6 +30,8 @@ pandas and numpy for portability.
 """
 
 import math
+
+import numpy as np
 import pandas as pd
 
 from baselode.datamodel import HOLE_ID, AZIMUTH, DIP, FROM, TO, EASTING, NORTHING, ELEVATION, DEPTH, MID
@@ -147,51 +149,174 @@ def balanced_tangential_desurvey(collars, surveys, step=1.0):
     return _desurvey(collars=collars, surveys=surveys, step=step, method="balanced_tangential")
 
 
-def attach_assay_positions(assays, traces):
+def interpolate_trajectory(
+    traces,
+    depths,
+    hole_col=HOLE_ID,
+    md_col="md",
+    easting_col=EASTING,
+    northing_col=NORTHING,
+    elevation_col=ELEVATION,
+    azimuth_col=AZIMUTH,
+    dip_col=DIP,
+):
+    """Look up trace position + orientation at arbitrary downhole depths.
 
+    Given a desurveyed trace and a set of (hole, depth) requests, return
+    the interpolated ``(easting, northing, elevation, azimuth, dip)`` at
+    each request.  Linear interpolation per coordinate; this is accurate
+    enough as long as the trace was sampled at a small step (default 1 m
+    in :func:`build_traces` / friends) so adjacent samples bracket the
+    requested depth tightly.
+
+    Depths that fall outside the trace's ``md`` range for their hole, or
+    whose hole isn't in ``traces`` at all, return ``NaN`` in every output
+    column except ``hole_id`` and ``depth``.
+
+    Parameters
+    ----------
+    traces : pd.DataFrame
+        Desurveyed trace table (e.g. from
+        :func:`minimum_curvature_desurvey`).  Must carry *hole_col*,
+        *md_col*, *easting_col*, *northing_col*, *elevation_col*.
+        *azimuth_col* and *dip_col* are optional; when absent (e.g. on
+        traces produced by a structural workflow that only tracks
+        position) those columns are returned as ``NaN``.
+    depths : dict, pd.DataFrame, list, or float
+        Per-hole depths to interpolate at.  One of:
+
+        - dict ``{hole_id: [d1, d2, ...]}`` — per-hole list of depths
+        - DataFrame with ``hole_id`` and ``depth`` columns
+        - list/array of depths — applied to every hole in *traces*
+        - single float — applied to every hole in *traces*
+    hole_col, md_col, easting_col, northing_col, elevation_col, azimuth_col, dip_col : str
+        Column-name overrides (defaults from :mod:`baselode.datamodel`).
+
+    Returns
+    -------
+    pd.DataFrame
+        One row per ``(hole_id, depth)`` request with columns ``hole_id``,
+        ``depth``, ``easting``, ``northing``, ``elevation``, ``azimuth``,
+        ``dip``.
+
+    Notes
+    -----
+    Azimuth is interpolated as a plain scalar, which gives the wrong
+    answer for trajectories that wrap across the 0°/360° boundary
+    between adjacent samples.  Real-world drillholes don't do this
+    because they always rotate via the short arc, but if you feed a
+    contrived survey that goes 350° → 10° in one step, the
+    interpolated azimuth will spuriously cross through 180°.
+    """
+    # azimuth / dip aren't always present on every trace (e.g. structural
+    # workflows skip them).  Treat them as best-effort columns.
+    all_coord_cols = [easting_col, northing_col, elevation_col, azimuth_col, dip_col]
+    out_columns = [hole_col, "depth", *all_coord_cols]
+
+    requests = _normalize_depth_requests(depths, traces, hole_col)
+    if requests.empty:
+        return pd.DataFrame(columns=out_columns)
+
+    coord_cols_present = [col for col in all_coord_cols if col in traces.columns]
+
+    traces_by_hole = {}
+    for hole_id, group in traces.groupby(hole_col):
+        ordered = group.sort_values(md_col).dropna(subset=[md_col, *coord_cols_present])
+        if len(ordered) < 1:
+            continue
+        traces_by_hole[hole_id] = ordered
+
+    def _missing_row(hole_id, depth_value):
+        return {
+            hole_col: hole_id,
+            "depth": depth_value,
+            **{col: float("nan") for col in all_coord_cols},
+        }
+
+    rows = []
+    for hole_id, group in requests.groupby(hole_col):
+        trace_for_hole = traces_by_hole.get(hole_id)
+        depth_values = group["depth"].to_numpy(dtype=float)
+        if trace_for_hole is None or len(trace_for_hole) == 0:
+            rows.extend(_missing_row(hole_id, float(depth)) for depth in depth_values)
+            continue
+        mds = trace_for_hole[md_col].to_numpy(dtype=float)
+        min_md, max_md = mds[0], mds[-1]
+        for depth in depth_values:
+            depth_value = float(depth)
+            if depth_value < min_md or depth_value > max_md:
+                rows.append(_missing_row(hole_id, depth_value))
+                continue
+            row = _missing_row(hole_id, depth_value)
+            for col in coord_cols_present:
+                row[col] = float(np.interp(
+                    depth_value, mds, trace_for_hole[col].to_numpy(dtype=float),
+                ))
+            rows.append(row)
+
+    return pd.DataFrame(rows, columns=out_columns)
+
+
+def _normalize_depth_requests(depths, traces, hole_col):
+    """Coerce the ``depths`` argument of :func:`interpolate_trajectory` to a
+    DataFrame keyed by ``(hole_id, depth)``."""
+    if isinstance(depths, pd.DataFrame):
+        if hole_col not in depths.columns or "depth" not in depths.columns:
+            raise ValueError(
+                f"Depths DataFrame must carry '{hole_col}' and 'depth' columns"
+            )
+        return depths[[hole_col, "depth"]].dropna()
+    if isinstance(depths, dict):
+        rows = []
+        for hole_id, values in depths.items():
+            if values is None:
+                continue
+            if np.isscalar(values):
+                rows.append({hole_col: hole_id, "depth": float(values)})
+                continue
+            for depth in values:
+                rows.append({hole_col: hole_id, "depth": float(depth)})
+        return pd.DataFrame(rows, columns=[hole_col, "depth"])
+    # Broadcast: float or iterable of floats applied to every trace hole.
+    if np.isscalar(depths):
+        depth_list = [float(depths)]
+    else:
+        depth_list = [float(value) for value in depths]
+    if traces.empty or hole_col not in traces.columns:
+        return pd.DataFrame(columns=[hole_col, "depth"])
+    rows = []
+    for hole_id in traces[hole_col].dropna().unique():
+        for depth in depth_list:
+            rows.append({hole_col: hole_id, "depth": depth})
+    return pd.DataFrame(rows, columns=[hole_col, "depth"])
+
+
+def attach_assay_positions(assays, traces):
+    """Attach (easting, northing, elevation, azimuth, dip) at each assay midpoint.
+
+    Linear interpolation against the desurveyed trace (via
+    :func:`interpolate_trajectory`).  This is more accurate than the
+    earlier nearest-sample lookup; the change is sub-step (<1 m at the
+    default 1 m trace step).
+    """
     if assays.empty or traces.empty:
         return assays.copy()
 
-    traces_sorted = traces.copy()
-    traces_sorted["md"] = pd.to_numeric(traces_sorted["md"], errors="coerce")
-    traces_sorted = traces_sorted[traces_sorted[HOLE_ID].notna() & traces_sorted["md"].notna()]
-    traces_sorted = traces_sorted.sort_values([HOLE_ID, "md"], kind="mergesort").reset_index(drop=True)
+    out = assays.copy()
+    out[FROM] = pd.to_numeric(out[FROM], errors="coerce")
+    out[TO] = pd.to_numeric(out[TO], errors="coerce")
+    if MID not in out.columns:
+        out[MID] = 0.5 * (out[FROM] + out[TO])
+    out = out[out[HOLE_ID].notna() & out[MID].notna()].reset_index(drop=True)
 
-    assays_sorted = assays.copy()
-    assays_sorted["from"] = pd.to_numeric(assays_sorted[FROM], errors="coerce")
-    assays_sorted["to"] = pd.to_numeric(assays_sorted[TO], errors="coerce")
-    assays_sorted = assays_sorted[assays_sorted[HOLE_ID].notna()]
-    assays_sorted = assays_sorted.sort_values([HOLE_ID, FROM, TO], kind="mergesort")
-    # Calculate midpoint if not already present (typically added by load_assays)
-    if MID not in assays_sorted.columns:
-        assays_sorted[MID] = 0.5 * (assays_sorted[FROM] + assays_sorted[TO])
-    assays_sorted = assays_sorted[assays_sorted[MID].notna()]
+    if out.empty:
+        return out
 
-    merged_groups = []
-    for hid, group in assays_sorted.groupby(HOLE_ID, sort=False):
-        tgroup = traces_sorted[traces_sorted[HOLE_ID] == hid]
-        if tgroup.empty:
-            merged_groups.append(group)
-            continue
-        pos_cols = [c for c in ["md", EASTING, NORTHING, ELEVATION, AZIMUTH, DIP] if c in tgroup.columns]
-        tgroup_use = tgroup[[HOLE_ID] + pos_cols].sort_values("md", kind="mergesort")
-        merged = pd.merge_asof(
-            group.sort_values(MID, kind="mergesort"),
-            tgroup_use,
-            left_on=MID,
-            right_on="md",
-            by=HOLE_ID,
-            direction="nearest",
-            suffixes=("", "_trace"),
-        )
-        drop_cols = [col for col in [f"{HOLE_ID}_trace", "hole_id_trace"] if col in merged.columns]
-        if drop_cols:
-            merged = merged.drop(columns=drop_cols)
-        merged_groups.append(merged)
-
-    if not merged_groups:
-        return assays_sorted
-    return pd.concat(merged_groups, ignore_index=True)
+    depth_requests = out[[HOLE_ID, MID]].rename(columns={MID: "depth"})
+    positions = interpolate_trajectory(traces, depth_requests).rename(
+        columns={"depth": MID},
+    )
+    return out.merge(positions, on=[HOLE_ID, MID], how="left")
 
 
 def build_traces(collars, surveys, step=1.0):

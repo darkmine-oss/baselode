@@ -266,24 +266,148 @@ export function buildTraces(collars, surveys, options = {}) {
 }
 
 /**
- * Find nearest trace point by measured depth
- * @private
+ * Look up trace position + orientation at arbitrary downhole depths.
+ *
+ * Linear interpolation per coordinate.  Accurate when the trace was
+ * desurveyed at a small step so adjacent samples bracket the requested
+ * depth tightly.  Depths outside a hole's trace range — or whose hole
+ * isn't in `traces` at all — produce a row with `null` in every output
+ * field except `hole_id` and `depth`.
+ *
+ * @param {Array<Object>} traces - Desurveyed trace rows (hole_id, md, x,
+ *   y, z, azimuth, dip).
+ * @param {(number|number[]|Object|Array<Object>)} depths - One of:
+ *   a scalar applied to every hole; an array of numbers applied to every
+ *   hole; `{hole_id: [d1, d2, ...]}` keyed by hole; or an array of
+ *   `{hole_id, depth}` rows.
+ * @returns {Array<Object>} One row per (hole_id, depth) request.
  */
-function nearestByMeasuredDepth(traceRows, midMd) {
-  if (!traceRows.length || !Number.isFinite(midMd)) return null;
-  let best = null;
-  let bestDist = Infinity;
-  for (let i = 0; i < traceRows.length; i += 1) {
-    const row = traceRows[i];
-    const md = toNumber(row.md);
-    if (!Number.isFinite(md)) continue;
-    const dist = Math.abs(md - midMd);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = row;
-    }
+export function interpolateTrajectory(
+  traces,
+  depths,
+  {
+    holeCol = 'hole_id',
+    mdCol = 'md',
+    eastingCol = 'x',
+    northingCol = 'y',
+    elevationCol = 'z',
+    azimuthCol = 'azimuth',
+    dipCol = 'dip',
+  } = {},
+) {
+  const coordCols = [eastingCol, northingCol, elevationCol, azimuthCol, dipCol];
+  const tracesByHole = new Map();
+  for (const row of traces || []) {
+    const hole = row && row[holeCol];
+    if (hole == null) continue;
+    if (!tracesByHole.has(hole)) tracesByHole.set(hole, []);
+    tracesByHole.get(hole).push(row);
   }
-  return best;
+  for (const [hole, rows] of tracesByHole) {
+    const sorted = rows
+      .filter((row) => Number.isFinite(Number(row[mdCol])))
+      .sort((left, right) => Number(left[mdCol]) - Number(right[mdCol]));
+    tracesByHole.set(hole, sorted);
+  }
+
+  const requests = _normalizeDepthRequests(depths, traces, holeCol);
+
+  const nullPosition = (hole, depth) => ({
+    [holeCol]: hole,
+    depth,
+    [eastingCol]: null,
+    [northingCol]: null,
+    [elevationCol]: null,
+    [azimuthCol]: null,
+    [dipCol]: null,
+  });
+
+  const out = [];
+  for (const { hole, depth } of requests) {
+    const traceForHole = tracesByHole.get(hole);
+    if (!traceForHole || !traceForHole.length) {
+      out.push(nullPosition(hole, depth));
+      continue;
+    }
+    const mds = traceForHole.map((row) => Number(row[mdCol]));
+    const minMd = mds[0];
+    const maxMd = mds[mds.length - 1];
+    if (depth < minMd || depth > maxMd) {
+      out.push(nullPosition(hole, depth));
+      continue;
+    }
+    const upperIdx = mds.findIndex((value) => value >= depth);
+    if (upperIdx === -1) {
+      out.push(nullPosition(hole, depth));
+      continue;
+    }
+    if (upperIdx === 0 || mds[upperIdx] === depth) {
+      const sample = traceForHole[upperIdx];
+      const row = { [holeCol]: hole, depth };
+      for (const col of coordCols) row[col] = Number(sample[col]);
+      out.push(row);
+      continue;
+    }
+    const lowerIdx = upperIdx - 1;
+    const lower = traceForHole[lowerIdx];
+    const upper = traceForHole[upperIdx];
+    const mdLower = mds[lowerIdx];
+    const mdUpper = mds[upperIdx];
+    const fraction = (depth - mdLower) / (mdUpper - mdLower);
+    const row = { [holeCol]: hole, depth };
+    for (const col of coordCols) {
+      const left = Number(lower[col]);
+      const right = Number(upper[col]);
+      row[col] = left + fraction * (right - left);
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+function _normalizeDepthRequests(depths, traces, holeCol) {
+  if (depths == null) return [];
+  if (Array.isArray(depths)) {
+    const firstEntry = depths[0];
+    const isRowArray = depths.length
+      && firstEntry
+      && typeof firstEntry === 'object'
+      && firstEntry[holeCol] != null
+      && firstEntry.depth != null;
+    if (isRowArray) {
+      return depths
+        .filter((row) => row && row[holeCol] != null && row.depth != null)
+        .map((row) => ({ hole: row[holeCol], depth: Number(row.depth) }));
+    }
+    const broadcastHoles = [...new Set(
+      (traces || []).map((row) => row && row[holeCol]).filter((value) => value != null),
+    )];
+    const requests = [];
+    for (const hole of broadcastHoles) {
+      for (const depth of depths) {
+        requests.push({ hole, depth: Number(depth) });
+      }
+    }
+    return requests;
+  }
+  if (typeof depths === 'number') {
+    const broadcastHoles = [...new Set(
+      (traces || []).map((row) => row && row[holeCol]).filter((value) => value != null),
+    )];
+    return broadcastHoles.map((hole) => ({ hole, depth: Number(depths) }));
+  }
+  if (depths && typeof depths === 'object') {
+    const requests = [];
+    for (const [hole, values] of Object.entries(depths)) {
+      if (values == null) continue;
+      const list = Array.isArray(values) ? values : [values];
+      for (const depth of list) {
+        requests.push({ hole, depth: Number(depth) });
+      }
+    }
+    return requests;
+  }
+  return [];
 }
 
 /**
@@ -302,34 +426,40 @@ export function attachAssayPositions(assays = [], traces = [], options = {}) {
 
   if (!assaysCanonical.rows.length || !tracesCanonical.rows.length) return [...assaysCanonical.rows];
 
-  const tracesByHole = new Map();
-  tracesCanonical.rows.forEach((row) => {
-    if (!row.hole_id) return;
-    if (!tracesByHole.has(row.hole_id)) tracesByHole.set(row.hole_id, []);
-    tracesByHole.get(row.hole_id).push(row);
-  });
-  tracesByHole.forEach((rows, holeId) => {
-    tracesByHole.set(holeId, [...rows].sort((a, b) => toNumber(a.md, 0) - toNumber(b.md, 0)));
-  });
-
-  return assaysCanonical.rows.map((assay) => {
+  // Batch all (hole, midpoint) requests through interpolateTrajectory so
+  // the trace alignment + linear interpolation lives in one place.
+  // Strict-order pairing means we can attach positions back row-by-row.
+  const depthRequests = assaysCanonical.rows.map((assay) => {
     const from = toNumber(assay.from);
     const to = toNumber(assay.to);
-    const midMd = Number.isFinite(from) && Number.isFinite(to) ? 0.5 * (from + to) : undefined;
-    if (!assay.hole_id || !Number.isFinite(midMd)) return { ...assay };
+    const midMd = Number.isFinite(from) && Number.isFinite(to) ? 0.5 * (from + to) : null;
+    return { hole_id: assay.hole_id || null, depth: midMd };
+  });
 
-    const nearest = nearestByMeasuredDepth(tracesByHole.get(assay.hole_id) || [], midMd);
-    if (!nearest) return { ...assay };
+  const positions = interpolateTrajectory(
+    tracesCanonical.rows,
+    depthRequests.filter((row) => row.hole_id != null && row.depth != null),
+  );
+  const positionLookup = new Map();
+  for (const position of positions) {
+    positionLookup.set(`${position.hole_id}|${position.depth}`, position);
+  }
 
-    const merged = { ...assay };
-    ['md', 'x', 'y', 'z', 'azimuth', 'dip'].forEach((key) => {
-      if (nearest[key] === undefined) return;
+  return assaysCanonical.rows.map((assay, index) => {
+    const request = depthRequests[index];
+    if (request.hole_id == null || request.depth == null) return { ...assay };
+    const position = positionLookup.get(`${request.hole_id}|${request.depth}`);
+    if (!position) return { ...assay };
+
+    const merged = { ...assay, md: request.depth };
+    for (const key of ['x', 'y', 'z', 'azimuth', 'dip']) {
+      if (position[key] === undefined || position[key] === null) continue;
       if (Object.prototype.hasOwnProperty.call(merged, key)) {
-        merged[`${key}_trace`] = nearest[key];
+        merged[`${key}_trace`] = position[key];
       } else {
-        merged[key] = nearest[key];
+        merged[key] = position[key];
       }
-    });
+    }
     return merged;
   });
 }

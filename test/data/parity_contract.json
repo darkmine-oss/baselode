@@ -129,14 +129,16 @@
         "tangentialDesurvey",
         "balancedTangentialDesurvey",
         "attachAssayPositions",
-        "buildTraces"
+        "buildTraces",
+        "interpolateTrajectory"
       ],
       "pythonSymbols": [
         ["baselode.drill.desurvey", "minimum_curvature_desurvey"],
         ["baselode.drill.desurvey", "tangential_desurvey"],
         ["baselode.drill.desurvey", "balanced_tangential_desurvey"],
         ["baselode.drill.desurvey", "attach_assay_positions"],
-        ["baselode.drill.desurvey", "build_traces"]
+        ["baselode.drill.desurvey", "build_traces"],
+        ["baselode.drill.desurvey", "interpolate_trajectory"]
       ]
     },
     {

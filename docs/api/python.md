@@ -230,6 +230,37 @@ Desurvey all holes in `collars` using the matching rows in `surveys`.
 
 ---
 
+### interpolate_trajectory
+
+```python
+interpolate_trajectory(
+    traces,
+    depths,
+    hole_col=HOLE_ID,
+    md_col="md",
+    easting_col=EASTING,
+    northing_col=NORTHING,
+    elevation_col=ELEVATION,
+    azimuth_col=AZIMUTH,
+    dip_col=DIP,
+)
+```
+
+Look up `(easting, northing, elevation, azimuth, dip)` at arbitrary downhole depths.  Linear interpolation per coordinate against the desurveyed trace — accurate enough as long as the trace was sampled at a small step (default 1 m in `minimum_curvature_desurvey` and friends).
+
+`depths` accepts four forms:
+
+- `dict` `{hole_id: [d1, d2, ...]}` — per-hole depths
+- `pd.DataFrame` with `hole_id` and `depth` columns
+- `list` / array of depths — broadcast to every hole in *traces*
+- `float` — broadcast to every hole
+
+**Returns:** `pandas.DataFrame` with columns `hole_id`, `depth`, `easting`, `northing`, `elevation`, `azimuth`, `dip`.  Depths outside a hole's trace range (or whose hole isn't in *traces*) produce `NaN` in every output column except `hole_id` and `depth`.
+
+Note: azimuth is interpolated as a plain scalar.  This produces the wrong answer for trajectories that wrap across the 0°/360° boundary between adjacent samples — real-world drillholes don't do this, but a contrived survey going 350° → 10° in one step will spuriously interpolate through 180°.
+
+---
+
 ### Cross-validation against wellpathpy
 
 The three desurvey methods are cross-validated against [`wellpathpy`](https://github.com/Zabamund/wellpathpy) (MIT-licensed) on four reference trajectories — vertical, constant-build, strong-dogleg, and long low-dip.  The committed fixture file at `test/data/desurvey_reference.json` carries the wellpathpy outputs; `test/test_desurvey_reference.py` runs our methods against it with a 1 cm tolerance.

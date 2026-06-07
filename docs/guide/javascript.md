@@ -192,6 +192,20 @@ const assaysWithXYZ = attachAssayPositions(assayRows, traces);
 // Adds { x, y, z } to each assay row by interpolating the trace
 ```
 
+### Interpolating the trace at arbitrary depths
+
+```js
+import { interpolateTrajectory } from 'baselode';
+
+const positions = interpolateTrajectory(traces, { 'DH001': [47.3, 52.1] });
+// → [
+//   { hole_id: 'DH001', depth: 47.3, x, y, z, azimuth, dip },
+//   { hole_id: 'DH001', depth: 52.1, x, y, z, azimuth, dip },
+// ]
+```
+
+Linear interpolation per coordinate.  Mirrors the Python `interpolate_trajectory`.  `depths` accepts a number, `number[]`, `{hole_id: [...]}`, or `[{hole_id, depth}, ...]`.  Out-of-range depths (and unknown holes) return rows with `null` in every output field except `hole_id` and `depth`.
+
 ---
 
 ## DrillholeSet — the composition root
