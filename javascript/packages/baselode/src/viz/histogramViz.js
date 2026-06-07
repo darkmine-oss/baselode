@@ -1,0 +1,97 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+import {
+  buildCategoricalColourResolver,
+  collectNumericValues,
+  groupRowsBy,
+} from './analyticsViz.js';
+import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
+
+/**
+ * Build a Plotly histogram config — distribution of a single column.
+ *
+ * Without *groupBy* a single histogram trace is emitted.  With *groupBy*
+ * one overlaid (`barmode: 'overlay'`) histogram per group is emitted so
+ * the user can compare shapes across categories.
+ *
+ * @param {Array<Object>} rows
+ * @param {Object} options
+ * @param {string} options.prop - Column whose distribution to plot.
+ * @param {string} [options.groupBy] - Categorical column for per-group overlay.
+ * @param {string|Object} [options.colourMap]
+ * @param {string} [options.markerColor='#475569']
+ * @param {number} [options.bins=30] - Approximate bin count via `nbinsx`.
+ * @param {number} [options.opacity=0.65] - Per-trace opacity; opaque single trace.
+ * @param {boolean} [options.log=false] - Log-scale the y axis (count).
+ * @param {string} [options.title]
+ * @param {string} [options.xTitle] - Defaults to prop.
+ * @param {Object} [options.template=BASELODE_TEMPLATE]
+ * @returns {{ data: Array<Object>, layout: Object }}
+ */
+export function buildHistogramPlotConfig(rows, options = {}) {
+  const {
+    prop,
+    groupBy = null,
+    colourMap = null,
+    markerColor = '#475569',
+    bins = 30,
+    opacity = 0.65,
+    log = false,
+    title = '',
+    xTitle,
+    template = BASELODE_TEMPLATE,
+  } = options;
+
+  if (!prop) {
+    return {
+      data: [],
+      layout: { title: { text: title || '' }, template },
+    };
+  }
+
+  const data = [];
+  const resolveColour = buildCategoricalColourResolver(colourMap, markerColor);
+
+  if (groupBy) {
+    const groups = groupRowsBy(rows, groupBy);
+    for (const group of groups) {
+      const { values } = collectNumericValues(group.rows, prop);
+      if (!values.length) continue;
+      data.push({
+        type: 'histogram',
+        x: values,
+        name: group.key,
+        opacity,
+        marker: { color: resolveColour(group.key) },
+        nbinsx: bins,
+      });
+    }
+  } else {
+    const { values } = collectNumericValues(rows, prop);
+    if (values.length) {
+      data.push({
+        type: 'histogram',
+        x: values,
+        name: prop,
+        opacity: 1,
+        marker: { color: markerColor },
+        nbinsx: bins,
+      });
+    }
+  }
+
+  const layout = {
+    title: { text: title || '' },
+    template,
+    barmode: groupBy ? 'overlay' : 'group',
+    xaxis: { title: { text: xTitle || prop } },
+    yaxis: { title: { text: 'count' }, type: log ? 'log' : 'linear' },
+    legend: { itemclick: 'toggleothers' },
+    margin: { l: 60, r: 20, t: title ? 50 : 20, b: 60 },
+  };
+
+  return { data, layout };
+}

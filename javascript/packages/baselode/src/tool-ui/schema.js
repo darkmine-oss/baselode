@@ -102,3 +102,93 @@ export function safeParseSerializableBaselode3DScene(value) {
   const parsed = SerializableBaselode3DSceneSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
+
+// --- Analytics plots (TRK-52) ------------------------------------------
+
+const AnalyticsTemplateEnum = z.enum(['baselode', 'baselode-dark', 'plotly-default']);
+const CategoricalColourMap = z.union([z.string(), z.record(z.string(), z.string())]);
+
+const BaseAnalyticsSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().optional(),
+  rows: z.array(JsonObjectSchema),
+  template: AnalyticsTemplateEnum.optional(),
+  height: z.number().positive().max(1200).optional(),
+  showModeBar: z.boolean().optional(),
+});
+
+export const SerializableBaselodeScatterPlotSchema = BaseAnalyticsSchema.extend({
+  xProp: z.string().min(1),
+  yProp: z.string().min(1),
+  colorBy: z.string().min(1).optional(),
+  colourMap: CategoricalColourMap.optional(),
+  markerColor: z.string().optional(),
+  markerSize: z.number().positive().optional(),
+  markerOpacity: z.number().min(0).max(1).optional(),
+  log: z.object({ x: z.boolean().optional(), y: z.boolean().optional() }).optional(),
+});
+
+export function safeParseSerializableBaselodeScatterPlot(value) {
+  const parsed = SerializableBaselodeScatterPlotSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export const SerializableBaselodeHistogramPlotSchema = BaseAnalyticsSchema.extend({
+  prop: z.string().min(1),
+  groupBy: z.string().min(1).optional(),
+  colourMap: CategoricalColourMap.optional(),
+  markerColor: z.string().optional(),
+  bins: z.number().int().positive().optional(),
+  opacity: z.number().min(0).max(1).optional(),
+  log: z.boolean().optional(),
+});
+
+export function safeParseSerializableBaselodeHistogramPlot(value) {
+  const parsed = SerializableBaselodeHistogramPlotSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export const SerializableBaselodeBoxPlotSchema = BaseAnalyticsSchema.extend({
+  prop: z.string().min(1),
+  groupBy: z.string().min(1).optional(),
+  colourMap: CategoricalColourMap.optional(),
+  markerColor: z.string().optional(),
+  showOutliers: z.boolean().optional(),
+  log: z.boolean().optional(),
+});
+
+export function safeParseSerializableBaselodeBoxPlot(value) {
+  const parsed = SerializableBaselodeBoxPlotSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export const SerializableBaselodeViolinPlotSchema = BaseAnalyticsSchema.extend({
+  prop: z.string().min(1),
+  groupBy: z.string().min(1).optional(),
+  colourMap: CategoricalColourMap.optional(),
+  markerColor: z.string().optional(),
+  showBox: z.boolean().optional(),
+  showMeanLine: z.boolean().optional(),
+  log: z.boolean().optional(),
+});
+
+export function safeParseSerializableBaselodeViolinPlot(value) {
+  const parsed = SerializableBaselodeViolinPlotSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+export const SerializableBaselodeTernaryPlotSchema = BaseAnalyticsSchema.extend({
+  aProp: z.string().min(1),
+  bProp: z.string().min(1),
+  cProp: z.string().min(1),
+  colorBy: z.string().min(1).optional(),
+  colourMap: CategoricalColourMap.optional(),
+  markerColor: z.string().optional(),
+  markerSize: z.number().positive().optional(),
+  markerOpacity: z.number().min(0).max(1).optional(),
+});
+
+export function safeParseSerializableBaselodeTernaryPlot(value) {
+  const parsed = SerializableBaselodeTernaryPlotSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}

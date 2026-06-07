@@ -445,6 +445,81 @@ Return the default chart type for a column.
 
 ## Visualization Layer
 
+### Analytics plots (TRK-52)
+
+Plotly config builders for the foundational analyte-exploration plot family.  Each returns `{ data, layout }` ready for `Plotly.react(container, data, layout)`.  All accept categorical colouring via the built-in `commodity` / `lithology` maps or an explicit `{category: cssColour}` object.
+
+```js
+import {
+  buildScatterPlotConfig,
+  buildHistogramPlotConfig,
+  buildBoxPlotConfig,
+  buildViolinPlotConfig,
+  buildTernaryPlotConfig,
+} from 'baselode';
+
+const { data, layout } = buildScatterPlotConfig(rows, {
+  xProp: 'au_ppm',
+  yProp: 'ag_ppm',
+  colorBy: 'lithology',
+  colourMap: 'lithology',
+});
+```
+
+| Builder | Required options | Optional |
+|---|---|---|
+| `buildScatterPlotConfig` | `xProp`, `yProp` | `colorBy`, `colourMap`, `markerColor/Size/Opacity`, `log: { x, y }`, `title`, `xTitle`, `yTitle`, `template` |
+| `buildHistogramPlotConfig` | `prop` | `groupBy` (overlays per category), `colourMap`, `bins`, `opacity`, `log`, `title`, `xTitle`, `template` |
+| `buildBoxPlotConfig` | `prop` | `groupBy`, `colourMap`, `showOutliers`, `log`, `title`, `yTitle`, `template` |
+| `buildViolinPlotConfig` | `prop` | `groupBy`, `colourMap`, `showBox`, `showMeanLine`, `log`, `title`, `yTitle`, `template` |
+| `buildTernaryPlotConfig` | `aProp`, `bProp`, `cProp` | `colorBy`, `colourMap`, `markerColor/Size/Opacity`, `title`, `template` |
+
+Helpers exported from the same family:
+
+```js
+import {
+  asNumeric,             // coerce value → number | null
+  collectNumericValues,  // pull numeric values out of rows, skipping null/NaN
+  groupRowsBy,           // partition rows by a categorical property
+  buildCategoricalColourResolver,
+  NULLISH_CATEGORY,
+} from 'baselode';
+```
+
+### Analytics tool-UI components
+
+Drop-in React wrappers — each takes `rows` + the same options as the config builder, mounts Plotly, and resizes responsively.
+
+```jsx
+import {
+  BaselodeScatterPlotToolUI,
+  BaselodeHistogramPlotToolUI,
+  BaselodeBoxPlotToolUI,
+  BaselodeViolinPlotToolUI,
+  BaselodeTernaryPlotToolUI,
+} from 'baselode/tool-ui';
+
+<BaselodeScatterPlotToolUI
+  rows={assayRows}
+  xProp="au_ppm"
+  yProp="ag_ppm"
+  colorBy="lithology"
+  colourMap="lithology"
+  template="baselode"
+  height={520}
+/>
+```
+
+Zod schemas for tool-call serialisation (paired with `safeParseSerializableBaselode<PlotName>`):
+
+- `SerializableBaselodeScatterPlotSchema`
+- `SerializableBaselodeHistogramPlotSchema`
+- `SerializableBaselodeBoxPlotSchema`
+- `SerializableBaselodeViolinPlotSchema`
+- `SerializableBaselodeTernaryPlotSchema`
+
+---
+
 ### drillholeViz
 
 #### `buildIntervalPoints(rows, property)`
