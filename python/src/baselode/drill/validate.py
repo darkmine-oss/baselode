@@ -131,6 +131,7 @@ def validate_drillhole_db(
     from_col=FROM,
     to_col=TO,
     max_depth_col=MAX_DEPTH,
+    allow_full_circle=False,
 ):
     """Run the full drillhole-database validation suite.
 
@@ -154,6 +155,11 @@ def validate_drillhole_db(
         interval-level checks.
     hole_col, depth_col, azimuth_col, dip_col, from_col, to_col, max_depth_col : str
         Column-name overrides (defaults from :mod:`baselode.datamodel`).
+    allow_full_circle : bool
+        When ``True``, accept ``azimuth = 360`` as valid (closed interval
+        ``[0, 360]``); when ``False`` (default) the strict mathematical
+        convention ``[0, 360)`` is used and ``360`` is reported as an error
+        with a fix recipe pointing at :func:`normalize_azimuth`.
 
     Returns
     -------
@@ -164,7 +170,7 @@ def validate_drillhole_db(
     issues = []
     issues.extend(_check_duplicate_hole_ids(collar, hole_col))
     issues.extend(_check_single_station_surveys(survey, hole_col, depth_col))
-    issues.extend(_check_azimuth_range(survey, hole_col, depth_col, azimuth_col))
+    issues.extend(_check_azimuth_range(survey, hole_col, depth_col, azimuth_col, allow_full_circle))
     issues.extend(_check_dip_range(survey, hole_col, depth_col, dip_col))
 
     if interval_tables:
@@ -236,6 +242,35 @@ def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=
 
     extended = pd.concat([survey, pd.DataFrame(new_rows)], ignore_index=True)
     return extended.sort_values([hole_col, depth_col]).reset_index(drop=True)
+
+
+def normalize_azimuth(survey, azimuth_col=AZIMUTH):
+    """Wrap survey azimuths into ``[0, 360)``.
+
+    Applies ``value mod 360`` to every numeric value in the azimuth
+    column, which folds ``360`` to ``0``, brings negative values like
+    ``-30`` to ``330``, and is idempotent for already-valid values.  NaNs
+    and non-numeric cells are left untouched.
+
+    Parameters
+    ----------
+    survey : pd.DataFrame
+        Survey table.
+    azimuth_col : str
+        Azimuth column name (default :data:`baselode.datamodel.AZIMUTH`).
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of *survey* with the azimuth column wrapped.
+    """
+    if survey.empty or azimuth_col not in survey.columns:
+        return survey.copy()
+    out = survey.copy()
+    numeric = pd.to_numeric(out[azimuth_col], errors="coerce")
+    wrapped = numeric.mod(360.0)
+    out[azimuth_col] = wrapped.where(numeric.notna(), out[azimuth_col])
+    return out
 
 
 def replace_below_detection_limit(df, columns=None, sentinel_factor=0.5):
@@ -357,23 +392,26 @@ def _check_single_station_surveys(survey, hole_col, depth_col):
     return issues
 
 
-def _check_azimuth_range(survey, hole_col, depth_col, azimuth_col):
+def _check_azimuth_range(survey, hole_col, depth_col, azimuth_col, allow_full_circle=False):
     if survey.empty or azimuth_col not in survey.columns:
         return []
+    upper_bound_inclusive = bool(allow_full_circle)
+    interval_text = "[0, 360]" if upper_bound_inclusive else "[0, 360)"
     issues = []
     for idx, row in survey.iterrows():
         value = row.get(azimuth_col)
         if value is None or pd.isna(value):
             continue
-        if value < 0 or value >= 360:
+        out_of_range = value < 0 or (value > 360 if upper_bound_inclusive else value >= 360)
+        if out_of_range:
             issues.append(_issue(
                 check="azimuth_range",
                 severity=SEVERITY_ERROR,
                 hole_id=str(row.get(hole_col)) if row.get(hole_col) is not None else None,
                 table="survey",
                 row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
-                message=f"Azimuth {value} outside [0, 360)",
-                fix="Normalize azimuth modulo 360 or correct the source value",
+                message=f"Azimuth {value} outside {interval_text}",
+                fix="Call normalize_azimuth(survey) to wrap into [0, 360) or correct the source value",
             ))
     return issues
 

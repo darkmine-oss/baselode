@@ -219,11 +219,18 @@ Checks covered (severity, what triggers): `duplicate_hole_ids` (error), `single_
 ### Fix helpers
 
 ```js
-const surveyFixed = fixSingleStationSurveys(surveyRows, collarRows);
-const assaysClean = replaceBelowDetectionLimit(assayRows, { columns: ['au_ppm'] });
+const surveyFixed   = fixSingleStationSurveys(surveyRows, collarRows);
+const surveyWrapped = normalizeAzimuth(surveyRows);  // 360 → 0, -30 → 330, idempotent
+const assaysClean   = replaceBelowDetectionLimit(assayRows, { columns: ['au_ppm'] });
 ```
 
-Both return new arrays — the source rows are untouched.
+All three return new arrays — the source rows are untouched.
+
+To treat `azimuth = 360` as valid without normalizing first, pass `allowFullCircle: true`:
+
+```js
+const report = validateDrillholeDb({ collar, survey }, { allowFullCircle: true });
+```
 
 ---
 

@@ -171,6 +171,7 @@ export {
 export {
   validateDrillholeDb,
   fixSingleStationSurveys,
+  normalizeAzimuth,
   replaceBelowDetectionLimit,
   SEVERITY_ERROR,
   SEVERITY_WARNING,

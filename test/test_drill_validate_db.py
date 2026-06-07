@@ -67,6 +67,38 @@ def test_azimuth_out_of_range_flagged():
     assert _checks_with(report, "azimuth_range")[0]["severity"] == "error"
 
 
+def test_azimuth_360_flagged_by_default():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    survey = _survey([
+        ("A", 0.0, 360.0, -90.0),
+        ("A", 100.0, 0.0, -90.0),
+    ])
+    report = validate.validate_drillhole_db(collar, survey)
+    issues = _checks_with(report, "azimuth_range")
+    assert len(issues) == 1
+    assert "normalize_azimuth" in issues[0]["fix"]
+
+
+def test_azimuth_360_accepted_when_full_circle_allowed():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    survey = _survey([
+        ("A", 0.0, 360.0, -90.0),
+        ("A", 100.0, 0.0, -90.0),
+    ])
+    report = validate.validate_drillhole_db(collar, survey, allow_full_circle=True)
+    assert _checks_with(report, "azimuth_range") == []
+
+
+def test_azimuth_above_360_still_flagged_when_full_circle_allowed():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    survey = _survey([
+        ("A", 0.0, 360.1, -90.0),
+        ("A", 100.0, 0.0, -90.0),
+    ])
+    report = validate.validate_drillhole_db(collar, survey, allow_full_circle=True)
+    assert len(_checks_with(report, "azimuth_range")) == 1
+
+
 def test_dip_out_of_range_flagged():
     collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
     survey = _survey([
@@ -177,6 +209,28 @@ def test_fix_single_station_surveys_leaves_multi_station_holes_alone():
     assert len(fixed) == 4
     assert sorted(fixed[fixed["hole_id"] == "A"]["depth"].tolist()) == [0.0, 50.0]
     assert sorted(fixed[fixed["hole_id"] == "B"]["depth"].tolist()) == [0.0, 1.0]
+
+
+def test_normalize_azimuth_wraps_360_to_0():
+    survey = _survey([("A", 0.0, 360.0, -90.0), ("A", 100.0, 0.0, -90.0)])
+    fixed = validate.normalize_azimuth(survey)
+    assert list(fixed["azimuth"]) == [0.0, 0.0]
+
+
+def test_normalize_azimuth_wraps_negative_and_above_360():
+    survey = _survey([
+        ("A", 0.0, -30.0, -90.0),
+        ("A", 50.0, 450.0, -90.0),
+        ("A", 100.0, 180.0, -90.0),
+    ])
+    fixed = validate.normalize_azimuth(survey)
+    assert list(fixed["azimuth"]) == [330.0, 90.0, 180.0]
+
+
+def test_normalize_azimuth_leaves_nan_untouched():
+    survey = pd.DataFrame({"hole_id": ["A"], "depth": [0.0], "azimuth": [float("nan")], "dip": [-90.0]})
+    fixed = validate.normalize_azimuth(survey)
+    assert pd.isna(fixed["azimuth"].iloc[0])
 
 
 def test_replace_below_detection_limit_substitutes_half_mdl():

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   validateDrillholeDb,
   fixSingleStationSurveys,
+  normalizeAzimuth,
   replaceBelowDetectionLimit,
 } from '../src/data/validateDrillholeDb.js';
 
@@ -59,6 +60,38 @@ describe('validateDrillholeDb', () => {
       survey: [surveyRow('A', 0, 400, -90), surveyRow('A', 100, 0, -90)],
     });
     expect(checksWith(report, 'azimuth_range')[0].severity).toBe('error');
+  });
+
+  it('flags azimuth=360 by default with normalizeAzimuth fix recipe', () => {
+    const report = validateDrillholeDb({
+      collar: [collarRow('A')],
+      survey: [surveyRow('A', 0, 360, -90), surveyRow('A', 100, 0, -90)],
+    });
+    const issues = checksWith(report, 'azimuth_range');
+    expect(issues).toHaveLength(1);
+    expect(issues[0].fix).toContain('normalizeAzimuth');
+  });
+
+  it('accepts azimuth=360 when allowFullCircle is true', () => {
+    const report = validateDrillholeDb(
+      {
+        collar: [collarRow('A')],
+        survey: [surveyRow('A', 0, 360, -90), surveyRow('A', 100, 0, -90)],
+      },
+      { allowFullCircle: true },
+    );
+    expect(checksWith(report, 'azimuth_range')).toEqual([]);
+  });
+
+  it('still flags azimuth > 360 when allowFullCircle is true', () => {
+    const report = validateDrillholeDb(
+      {
+        collar: [collarRow('A')],
+        survey: [surveyRow('A', 0, 360.1, -90), surveyRow('A', 100, 0, -90)],
+      },
+      { allowFullCircle: true },
+    );
+    expect(checksWith(report, 'azimuth_range')).toHaveLength(1);
   });
 
   it('flags dip out of [-90, 90]', () => {
@@ -169,6 +202,27 @@ describe('fixSingleStationSurveys', () => {
     expect(fixed).toHaveLength(4);
     expect(fixed.filter((row) => row.hole_id === 'A').map((row) => row.depth)).toEqual([0, 50]);
     expect(fixed.filter((row) => row.hole_id === 'B').map((row) => row.depth)).toEqual([0, 1]);
+  });
+});
+
+describe('normalizeAzimuth', () => {
+  it('wraps 360 to 0', () => {
+    const out = normalizeAzimuth([surveyRow('A', 0, 360, -90)]);
+    expect(out[0].azimuth).toBe(0);
+  });
+
+  it('wraps negative and above-360 values', () => {
+    const out = normalizeAzimuth([
+      surveyRow('A', 0, -30, -90),
+      surveyRow('A', 50, 450, -90),
+      surveyRow('A', 100, 180, -90),
+    ]);
+    expect(out.map((row) => row.azimuth)).toEqual([330, 90, 180]);
+  });
+
+  it('leaves nullish azimuth untouched', () => {
+    const out = normalizeAzimuth([{ hole_id: 'A', depth: 0, azimuth: null, dip: -90 }]);
+    expect(out[0].azimuth).toBeNull();
   });
 });
 

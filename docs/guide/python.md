@@ -260,11 +260,20 @@ errors = [issue for issue in report["issues"] if issue["severity"] == "error"]
 # Synthesize a second station for single-station holes so desurvey can run
 survey_fixed = validate.fix_single_station_surveys(survey, collar)
 
+# Wrap azimuths into [0, 360); converts 360 to 0, normalizes negatives
+survey_wrapped = validate.normalize_azimuth(survey)
+
 # Substitute below-detection sentinels with half-MDL
 assays_clean = validate.replace_below_detection_limit(assays, columns=["au_ppm", "cu_pct"])
 ```
 
-Both functions are pure — they return new DataFrames and leave the source unchanged.
+All three are pure — they return new DataFrames and leave the source unchanged.
+
+To treat `azimuth = 360` as valid without normalizing first, pass `allow_full_circle=True` to `validate_drillhole_db`:
+
+```python
+report = validate.validate_drillhole_db(collar, survey, allow_full_circle=True)
+```
 
 ---
 

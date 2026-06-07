@@ -250,6 +250,7 @@
       "jsExports": [
         "validateDrillholeDb",
         "fixSingleStationSurveys",
+        "normalizeAzimuth",
         "replaceBelowDetectionLimit",
         "SEVERITY_ERROR",
         "SEVERITY_WARNING",
@@ -258,6 +259,7 @@
       "pythonSymbols": [
         ["baselode.drill.validate", "validate_drillhole_db"],
         ["baselode.drill.validate", "fix_single_station_surveys"],
+        ["baselode.drill.validate", "normalize_azimuth"],
         ["baselode.drill.validate", "replace_below_detection_limit"],
         ["baselode.drill.validate", "SEVERITY_ERROR"],
         ["baselode.drill.validate", "SEVERITY_WARNING"],

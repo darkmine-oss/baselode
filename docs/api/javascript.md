@@ -286,11 +286,15 @@ const report = validateDrillholeDb({
 // }
 ```
 
-`options` accepts column-name overrides: `holeCol`, `depthCol`, `azimuthCol`, `dipCol`, `fromCol`, `toCol`, `maxDepthCol` (defaults from the data-model constants).
+`options` accepts column-name overrides (`holeCol`, `depthCol`, `azimuthCol`, `dipCol`, `fromCol`, `toCol`, `maxDepthCol` — defaults from the data-model constants) plus `allowFullCircle` (default `false`).  When `true`, `azimuth = 360` is accepted as valid (closed interval `[0, 360]`); otherwise the strict mathematical convention `[0, 360)` is used and `360` is reported as an error.
 
 #### `fixSingleStationSurveys(survey, collar?, options?)`
 
 Append a synthetic second station for any hole with only one row.  Uses `collar.max_depth` when present, otherwise `depth + 1.0`.  Returns a new sorted array.
+
+#### `normalizeAzimuth(survey, options?)`
+
+Wrap survey azimuths into `[0, 360)` via `value mod 360`.  Folds `360` to `0`, normalizes negatives, idempotent for valid values.  `null` / non-numeric cells are left untouched.  `options.azimuthCol` overrides the column name (default `AZIMUTH`).
 
 #### `replaceBelowDetectionLimit(rows, options?)`
 

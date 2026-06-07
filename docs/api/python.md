@@ -370,8 +370,11 @@ validate_drillhole_db(
     from_col=FROM,
     to_col=TO,
     max_depth_col=MAX_DEPTH,
+    allow_full_circle=False,
 )
 ```
+
+`allow_full_circle=True` accepts `azimuth = 360` as valid (closed interval `[0, 360]`); the default `False` uses the strict mathematical convention `[0, 360)` and reports `360` as an error with a fix recipe pointing at `normalize_azimuth`.
 
 Run the full drillhole-database validation suite.  Returns a structured report (never raises).
 
@@ -422,6 +425,18 @@ fix_single_station_surveys(survey, collar=None,
 For any hole with exactly one survey row, append a synthetic second station with the same azimuth/dip at `collar.max_depth` (when available) or `depth + 1.0` otherwise.  Equivalent to PyGSLIB's `fix_survey_one_interval_err`.
 
 **Returns:** `pandas.DataFrame` — original survey rows plus synthetics, sorted by `hole_id`, `depth`, with the index reset.
+
+---
+
+### normalize_azimuth
+
+```python
+normalize_azimuth(survey, azimuth_col=AZIMUTH)
+```
+
+Wrap survey azimuths into `[0, 360)` by applying `value mod 360`.  Folds `360` to `0`, brings negatives like `-30` to `330`, and is idempotent for already-valid values.  NaNs and non-numeric cells are left untouched.
+
+**Returns:** `pandas.DataFrame` — copy of `survey` with the azimuth column wrapped.
 
 ---
 

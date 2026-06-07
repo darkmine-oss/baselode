@@ -93,22 +93,24 @@ function checkSingleStationSurveys(survey, holeCol) {
   return issues;
 }
 
-function checkAzimuthRange(survey, holeCol, azimuthCol) {
+function checkAzimuthRange(survey, holeCol, azimuthCol, allowFullCircle = false) {
   if (!survey || !survey.length) return [];
+  const intervalText = allowFullCircle ? '[0, 360]' : '[0, 360)';
   const issues = [];
   survey.forEach((row, rowIndex) => {
     const value = row && row[azimuthCol];
     if (value == null || Number.isNaN(Number(value))) return;
     const numeric = Number(value);
-    if (numeric < 0 || numeric >= 360) {
+    const outOfRange = numeric < 0 || (allowFullCircle ? numeric > 360 : numeric >= 360);
+    if (outOfRange) {
       issues.push(makeIssue({
         check: 'azimuth_range',
         severity: SEVERITY_ERROR,
         holeId: row[holeCol] != null ? String(row[holeCol]) : null,
         table: 'survey',
         rowIndex,
-        message: `Azimuth ${numeric} outside [0, 360)`,
-        fix: 'Normalize azimuth modulo 360 or correct the source value',
+        message: `Azimuth ${numeric} outside ${intervalText}`,
+        fix: 'Call normalizeAzimuth(survey) to wrap into [0, 360) or correct the source value',
       }));
     }
   });
@@ -273,12 +275,13 @@ export function validateDrillholeDb(
     fromCol = FROM,
     toCol = TO,
     maxDepthCol = MAX_DEPTH,
+    allowFullCircle = false,
   } = {},
 ) {
   const issues = [];
   issues.push(...checkDuplicateHoleIds(collar, holeCol));
   issues.push(...checkSingleStationSurveys(survey, holeCol));
-  issues.push(...checkAzimuthRange(survey, holeCol, azimuthCol));
+  issues.push(...checkAzimuthRange(survey, holeCol, azimuthCol, allowFullCircle));
   issues.push(...checkDipRange(survey, holeCol, dipCol));
 
   if (intervalTables) {
@@ -338,6 +341,28 @@ export function fixSingleStationSurveys(
     const secondHole = String(second[holeCol] ?? '');
     if (firstHole !== secondHole) return firstHole < secondHole ? -1 : 1;
     return Number(first[depthCol]) - Number(second[depthCol]);
+  });
+}
+
+/**
+ * Wrap survey azimuths into `[0, 360)`.
+ *
+ * Folds `360` to `0`, brings negatives like `-30` to `330`, and is
+ * idempotent for already-valid values.  Non-numeric or `null` values are
+ * left untouched.
+ *
+ * @returns {Array<Object>} new rows with the azimuth column normalized
+ */
+export function normalizeAzimuth(survey, { azimuthCol = AZIMUTH } = {}) {
+  if (!survey || !survey.length) return [];
+  return survey.map((row) => {
+    if (!row) return row;
+    const value = row[azimuthCol];
+    if (value == null) return { ...row };
+    const numeric = Number(value);
+    if (Number.isNaN(numeric)) return { ...row };
+    const wrapped = ((numeric % 360) + 360) % 360;
+    return { ...row, [azimuthCol]: wrapped };
   });
 }
 
