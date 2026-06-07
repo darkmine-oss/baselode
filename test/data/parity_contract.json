@@ -246,7 +246,7 @@
     },
     {
       "name": "drillhole_set",
-      "description": "Composition root for drilling tables — a thin object that holds collar + survey + N named interval tables plus optional CRS/project metadata, and exposes validate / desurvey / composite / OMF as methods. No new algorithmic logic; every method delegates to the existing function-based API.",
+      "description": "Composition root for drilling tables — a thin object that holds collar + survey + N named interval tables plus optional CRS/project metadata. Both languages expose validate + desurvey + cached traces as methods; the Python class additionally provides composite() and to_omf() — the JS class intentionally omits both per TRK-111 (OMF is Python-only) and because there is no JS composite primitive yet. No new algorithmic logic; every method delegates to the existing function-based API.",
       "jsExports": [
         "DrillholeSet"
       ],

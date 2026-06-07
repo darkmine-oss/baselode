@@ -87,14 +87,21 @@ class DrillholeSet:
         Parameters
         ----------
         name : str
-            Unique key; existing entries are overwritten.
+            Unique key; existing entries are overwritten.  ``"collars"``
+            and ``"traces"`` are reserved for the built-in OMF elements
+            in :meth:`to_omf` and raise :class:`ValueError`.
         df : pd.DataFrame
         kind : str
             Free-form tag describing the table (default ``"assay"``).
-            Used downstream for OMF element naming and routing.
+            Stored alongside the table for downstream consumers; not
+            consulted by the methods on this class.
         """
         if not isinstance(name, str) or not name:
             raise ValueError("Table name must be a non-empty string")
+        if name in ("collars", "traces"):
+            raise ValueError(
+                f"Table name '{name}' is reserved for built-in OMF elements"
+            )
         self.tables[name] = df
         self.table_kinds[name] = kind
         return self

@@ -15,7 +15,7 @@
  * Mirrors the Python `baselode.drill.DrillholeSet` class.
  */
 
-import { HOLE_ID } from './datamodel.js';
+import { HOLE_ID, EASTING, NORTHING, ELEVATION, DEPTH, FROM } from './datamodel.js';
 import { validateDrillholeDb } from './validateDrillholeDb.js';
 import {
   minimumCurvatureDesurvey,
@@ -28,6 +28,30 @@ const DESURVEY_METHODS = {
   tangential: tangentialDesurvey,
   balanced_tangential: balancedTangentialDesurvey,
 };
+
+// The JS desurvey helpers (kept compatible with their existing callers)
+// read `collar.x/y/z` and `survey.from`. DrillholeSet stores rows in the
+// canonical baselode shape (`easting/northing/elevation` and `depth`),
+// so we map at the call boundary rather than mutating the stored tables.
+function _collarToDesurveyShape(row, holeCol) {
+  if (!row) return row;
+  return {
+    ...row,
+    hole_id: row[holeCol] != null ? row[holeCol] : row.hole_id,
+    x: row[EASTING] != null ? row[EASTING] : row.x,
+    y: row[NORTHING] != null ? row[NORTHING] : row.y,
+    z: row[ELEVATION] != null ? row[ELEVATION] : row.z,
+  };
+}
+
+function _surveyToDesurveyShape(row, holeCol) {
+  if (!row) return row;
+  return {
+    ...row,
+    hole_id: row[holeCol] != null ? row[holeCol] : row.hole_id,
+    [FROM]: row[DEPTH] != null ? row[DEPTH] : row[FROM],
+  };
+}
 
 export class DrillholeSet {
   /**
@@ -56,6 +80,9 @@ export class DrillholeSet {
   addTable(name, rows, kind = 'assay') {
     if (typeof name !== 'string' || !name) {
       throw new Error('Table name must be a non-empty string');
+    }
+    if (name === 'collars' || name === 'traces') {
+      throw new Error(`Table name '${name}' is reserved for built-in OMF elements`);
     }
     this.tables[name] = rows || [];
     this.tableKinds[name] = kind;
@@ -101,7 +128,9 @@ export class DrillholeSet {
       const available = Object.keys(DESURVEY_METHODS).sort().join(', ');
       throw new Error(`Unknown desurvey method '${method}'. Available: ${available}`);
     }
-    this._traces = methodFn(this.collar, this.survey, { step });
+    const collarShaped = this.collar.map((row) => _collarToDesurveyShape(row, this.holeCol));
+    const surveyShaped = this.survey.map((row) => _surveyToDesurveyShape(row, this.holeCol));
+    this._traces = methodFn(collarShaped, surveyShaped, { step });
     this._desurveyArgs = args;
     return this._traces;
   }
@@ -116,7 +145,7 @@ export class DrillholeSet {
         survey: this.survey,
         intervalTables: Object.keys(this.tables).length ? this.tables : null,
       },
-      options,
+      { holeCol: this.holeCol, ...options },
     );
   }
 

@@ -5,7 +5,6 @@ import importlib.util
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -75,6 +74,14 @@ def test_add_table_rejects_empty_name():
     db = DrillholeSet(_collar(), _survey())
     with pytest.raises(ValueError):
         db.add_table("", _assays())
+
+
+def test_add_table_rejects_reserved_names():
+    db = DrillholeSet(_collar(), _survey())
+    with pytest.raises(ValueError, match="reserved"):
+        db.add_table("collars", _assays())
+    with pytest.raises(ValueError, match="reserved"):
+        db.add_table("traces", _assays())
 
 
 def test_holes_returns_unique_ids():

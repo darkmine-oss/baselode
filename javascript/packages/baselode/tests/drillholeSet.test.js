@@ -83,11 +83,24 @@ describe('DrillholeSet.validate', () => {
 });
 
 describe('DrillholeSet.desurvey', () => {
-  it('runs desurvey and caches identical args', () => {
+  it('runs desurvey, returns trace rows with expected shape, and caches identical args', () => {
     const db = new DrillholeSet(collarRows(), surveyRows());
     const first = db.desurvey({ step: 10 });
+    expect(first.length).toBeGreaterThan(1);
+    expect(first[0]).toHaveProperty('md');
+    expect(first[0]).toHaveProperty('hole_id');
     const second = db.desurvey({ step: 10 });
     expect(second).toBe(first);
+  });
+
+  it('maps canonical baselode columns (easting/northing/elevation, depth) into the desurvey shape', () => {
+    const db = new DrillholeSet(collarRows(), surveyRows());
+    const traces = db.desurvey({ step: 10 });
+    // collar A starts at easting=500000, so the first sample should sit at x=500000 (or near it),
+    // not at the legacy x=0 fallback that would happen if mapping were absent.
+    const firstA = traces.find((row) => row.hole_id === 'A');
+    expect(firstA.x).toBeCloseTo(500000, 1);
+    expect(firstA.y).toBeCloseTo(6900000, 1);
   });
 
   it('recomputes when args change or force is true', () => {
@@ -104,11 +117,45 @@ describe('DrillholeSet.desurvey', () => {
     expect(() => db.desurvey({ method: 'black_magic' })).toThrow(/Unknown desurvey method/);
   });
 
-  it('exposes the cached trace via .traces', () => {
+  it('exposes the cached trace via .traces with real content', () => {
     const db = new DrillholeSet(collarRows(), surveyRows());
     const traces = db.traces;
-    expect(Array.isArray(traces) || (traces && traces.length !== undefined)).toBeTruthy();
+    expect(traces.length).toBeGreaterThan(1);
+    expect(traces[0]).toHaveProperty('md');
     expect(db._traces).toBe(traces);
+  });
+});
+
+describe('DrillholeSet column-name forwarding', () => {
+  it('propagates a custom holeCol into validateDrillholeDb', () => {
+    // Only one survey station for hole A — with the right holeCol this is
+    // a single_station_surveys warning; with the wrong fallback the rows
+    // group under undefined and no warning fires.
+    const collar = [
+      { HOLEID: 'A', easting: 0, northing: 0, elevation: 0, max_depth: 100 },
+    ];
+    const survey = [
+      { HOLEID: 'A', depth: 0, azimuth: 0, dip: -90 },
+    ];
+    const db = new DrillholeSet(collar, survey, { holeCol: 'HOLEID' });
+    const report = db.validate();
+    const warnings = report.issues.filter(
+      (issue) => issue.check === 'single_station_surveys',
+    );
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].hole_id).toBe('A');
+  });
+});
+
+describe('DrillholeSet reserved table names', () => {
+  it('rejects "collars"', () => {
+    const db = new DrillholeSet(collarRows(), surveyRows());
+    expect(() => db.addTable('collars', assayRows())).toThrow(/reserved/);
+  });
+
+  it('rejects "traces"', () => {
+    const db = new DrillholeSet(collarRows(), surveyRows());
+    expect(() => db.addTable('traces', assayRows())).toThrow(/reserved/);
   });
 });
 
