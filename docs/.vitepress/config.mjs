@@ -60,6 +60,7 @@ export default defineConfig({
             { text: 'Data Loading', link: '/guide/python#data-loading' },
             { text: 'Desurveying', link: '/guide/python#desurveying' },
             { text: 'Database Validation', link: '/guide/python#database-validation' },
+            { text: 'OMF interop', link: '/guide/python#omf-interop-open-mining-format' },
             { text: 'Interval Algebra', link: '/guide/python#interval-algebra' },
             { text: 'Visualization', link: '/guide/python#visualization' },
             { text: 'Plotly Templates', link: '/guide/python#plotly-templates' },

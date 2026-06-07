@@ -245,6 +245,19 @@
       ]
     },
     {
+      "name": "omf_io",
+      "description": "Round-trip helpers between baselode drilling tables and Open Mining Format (OMF v1) point/line elements. Python-only; JavaScript support is deferred per TRK-111 scope (consume read-side via Python until a JS need lands). Requires the optional `omf` extra: `pip install baselode[omf]`.",
+      "jsExports": [],
+      "pythonSymbols": [
+        ["baselode.drill.omf", "collars_to_omf_points"],
+        ["baselode.drill.omf", "traces_to_omf_lines"],
+        ["baselode.drill.omf", "intervals_to_omf_lines"],
+        ["baselode.drill.omf", "build_omf_project"],
+        ["baselode.drill.omf", "write_omf"],
+        ["baselode.drill.omf", "read_omf"]
+      ]
+    },
+    {
       "name": "validate_drillhole_db",
       "description": "Comprehensive drillhole-database validator: returns a structured {summary, issues} report covering duplicate collar IDs, single-station surveys, az/dip range, orphans, gaps, overlaps, beyond-max-depth, and below-detection sentinels. Ships fix_single_station_surveys + replace_below_detection_limit helpers.",
       "jsExports": [
