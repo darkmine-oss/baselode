@@ -67,6 +67,9 @@ export function buildTernaryPlotConfig(rows, options = {}) {
       const b = asNumeric(row[bProp]);
       const c = asNumeric(row[cProp]);
       if (a == null || b == null || c == null) continue;
+      // Ternary components must be non-negative; Plotly will otherwise
+      // either error or render at the opposite apex.
+      if (a < 0 || b < 0 || c < 0) continue;
       if (a + b + c <= 0) continue;
       aValues.push(a);
       bValues.push(b);

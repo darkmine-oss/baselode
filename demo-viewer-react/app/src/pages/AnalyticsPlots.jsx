@@ -25,7 +25,9 @@ function flattenAssayRows(combinedHoles) {
     const holeId = hole?.id ?? hole?.hole_id;
     for (const row of hole?.rows || []) {
       if (!row || row._source !== 'assay') continue;
-      flattened.push({ hole_id: holeId, ...row });
+      // Spread first then set hole_id, so any hole_id already on the
+      // row can't override the value normalized from the hole.
+      flattened.push({ ...row, hole_id: holeId });
     }
   }
   return flattened;
@@ -37,6 +39,10 @@ function detectNumericColumns(rows) {
   for (const row of rows) {
     for (const [key, value] of Object.entries(row)) {
       if (RESERVED.has(key)) continue;
+      // Skip nullish + blanks explicitly: Number('') is 0, which would
+      // falsely classify blank-string columns as numeric.
+      if (value == null) continue;
+      if (typeof value === 'string' && value.trim() === '') continue;
       const numeric = Number(value);
       if (!Number.isFinite(numeric)) continue;
       counts.set(key, (counts.get(key) || 0) + 1);

@@ -62,7 +62,7 @@ export function buildCategoricalColourResolver(colourMap, fallback = '#94a3b8') 
   if (colourMap) {
     try {
       resolved = resolveColourMap(colourMap);
-    } catch (error) {
+    } catch (_error) {
       // Unknown built-in name etc. — fall back to no map (every group gets the fallback colour).
       resolved = {};
     }

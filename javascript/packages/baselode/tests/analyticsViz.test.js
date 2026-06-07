@@ -186,6 +186,22 @@ describe('buildTernaryPlotConfig', () => {
     expect(data).toEqual([]);
   });
 
+  it('skips rows where any component is negative', () => {
+    const mixed = [
+      { x: 1, y: 1, z: 1 },     // ok
+      { x: -1, y: 5, z: 1 },    // a negative → skip
+      { x: 2, y: -3, z: 1 },    // b negative → skip
+      { x: 1, y: 1, z: -0.1 },  // c negative → skip
+    ];
+    const { data } = buildTernaryPlotConfig(mixed, {
+      aProp: 'x', bProp: 'y', cProp: 'z',
+    });
+    expect(data).toHaveLength(1);
+    expect(data[0].a).toEqual([1]);
+    expect(data[0].b).toEqual([1]);
+    expect(data[0].c).toEqual([1]);
+  });
+
   it('returns empty config when any apex prop is missing', () => {
     expect(buildTernaryPlotConfig(SAMPLE, { aProp: 'au_ppm', bProp: 'ag_ppm' }).data).toEqual([]);
   });
