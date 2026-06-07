@@ -1,0 +1,403 @@
+{
+  "version": "1.0",
+  "reference": "wellpathpy 0.5.2",
+  "generated_iso": "2026-06-07T13:01:33+00:00",
+  "tolerance_position_m": 0.01,
+  "tolerance_angle_deg": 0.01,
+  "known_xfails": [],
+  "convention_notes": "wellpathpy uses inc=90+dip (0=down, 90=horizontal). baselode dip is negative downward. tvd is depth below collar, positive going down. northing_offset / easting_offset are relative to the collar. balanced_tangential uses the canonical Walstrom 1969 / Harvey & Eppink 1972 form (average of direction cosines).",
+  "trajectories": [
+    {
+      "name": "vertical_100m",
+      "description": "Vertical hole, 100 m down, 3 survey stations at 0/50/100 m.",
+      "collar": {
+        "hole_id": "V1",
+        "easting": 0.0,
+        "northing": 0.0,
+        "elevation": 0.0
+      },
+      "surveys": [
+        {
+          "hole_id": "V1",
+          "depth": 0.0,
+          "azimuth": 0.0,
+          "dip": -90.0
+        },
+        {
+          "hole_id": "V1",
+          "depth": 50.0,
+          "azimuth": 0.0,
+          "dip": -90.0
+        },
+        {
+          "hole_id": "V1",
+          "depth": 100.0,
+          "azimuth": 0.0,
+          "dip": -90.0
+        }
+      ],
+      "expected": {
+        "minimum_curvature": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 50.0,
+            "tvd": 50.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 100.0,
+            "tvd": 100.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          }
+        ],
+        "tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 50.0,
+            "tvd": 50.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 100.0,
+            "tvd": 100.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          }
+        ],
+        "balanced_tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 50.0,
+            "tvd": 50.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 100.0,
+            "tvd": 100.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "name": "constant_build_30deg",
+      "description": "Straight-vertical start, then a constant build at azimuth 045\u00b0 ending at -60\u00b0 dip (30\u00b0 inclination from vertical) at 200 m MD.",
+      "collar": {
+        "hole_id": "B1",
+        "easting": 0.0,
+        "northing": 0.0,
+        "elevation": 0.0
+      },
+      "surveys": [
+        {
+          "hole_id": "B1",
+          "depth": 0.0,
+          "azimuth": 45.0,
+          "dip": -90.0
+        },
+        {
+          "hole_id": "B1",
+          "depth": 100.0,
+          "azimuth": 45.0,
+          "dip": -75.0
+        },
+        {
+          "hole_id": "B1",
+          "depth": 200.0,
+          "azimuth": 45.0,
+          "dip": -60.0
+        }
+      ],
+      "expected": {
+        "minimum_curvature": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 100.0,
+            "tvd": 98.86159294653693,
+            "northing_offset": 9.203260365457005,
+            "easting_offset": 9.203260365457005
+          },
+          {
+            "md": 200.0,
+            "tvd": 190.98593171027443,
+            "northing_offset": 36.18585447702898,
+            "easting_offset": 36.18585447702898
+          }
+        ],
+        "tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 100.0,
+            "tvd": 100.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 200.0,
+            "tvd": 196.59258262890683,
+            "northing_offset": 18.30127018922193,
+            "easting_offset": 18.301270189221928
+          }
+        ],
+        "balanced_tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 100.0,
+            "tvd": 98.29629131445341,
+            "northing_offset": 9.150635094610966,
+            "easting_offset": 9.150635094610966
+          },
+          {
+            "md": 200.0,
+            "tvd": 189.89385281812878,
+            "northing_offset": 35.97893971888561,
+            "easting_offset": 35.97893971888561
+          }
+        ]
+      }
+    },
+    {
+      "name": "strong_dogleg",
+      "description": "Hole that turns hard: starts NE-trending at -65\u00b0 dip, then turns to NW-trending at -55\u00b0 dip over a single 50 m segment (a 90\u00b0 azimuth change and 10\u00b0 dip change \u21d2 big dogleg).",
+      "collar": {
+        "hole_id": "D1",
+        "easting": 100.0,
+        "northing": 200.0,
+        "elevation": 300.0
+      },
+      "surveys": [
+        {
+          "hole_id": "D1",
+          "depth": 0.0,
+          "azimuth": 45.0,
+          "dip": -65.0
+        },
+        {
+          "hole_id": "D1",
+          "depth": 50.0,
+          "azimuth": 45.0,
+          "dip": -65.0
+        },
+        {
+          "hole_id": "D1",
+          "depth": 100.0,
+          "azimuth": 135.0,
+          "dip": -55.0
+        },
+        {
+          "hole_id": "D1",
+          "depth": 150.0,
+          "azimuth": 135.0,
+          "dip": -55.0
+        }
+      ],
+      "expected": {
+        "minimum_curvature": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 50.0,
+            "tvd": 45.31538935183249,
+            "northing_offset": 14.941811936505992,
+            "easting_offset": 14.941811936505992
+          },
+          {
+            "md": 100.0,
+            "tvd": 90.49976618338923,
+            "northing_offset": 12.14653345352273,
+            "easting_offset": 33.388256533664006
+          },
+          {
+            "md": 150.0,
+            "tvd": 131.45736839783882,
+            "northing_offset": -8.132455930109211,
+            "easting_offset": 53.66724591729594
+          }
+        ],
+        "tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 50.0,
+            "tvd": 45.31538935183249,
+            "northing_offset": 14.941811936505992,
+            "easting_offset": 14.94181193650599
+          },
+          {
+            "md": 100.0,
+            "tvd": 90.63077870366499,
+            "northing_offset": 29.883623873011985,
+            "easting_offset": 29.88362387301198
+          },
+          {
+            "md": 150.0,
+            "tvd": 131.58838091811458,
+            "northing_offset": 9.604634489380043,
+            "easting_offset": 50.16261325664392
+          }
+        ],
+        "balanced_tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 50.0,
+            "tvd": 45.31538935183249,
+            "northing_offset": 14.941811936505992,
+            "easting_offset": 14.941811936505992
+          },
+          {
+            "md": 100.0,
+            "tvd": 88.45188513497354,
+            "northing_offset": 12.273223212943018,
+            "easting_offset": 32.55221259657496
+          },
+          {
+            "md": 150.0,
+            "tvd": 129.40948734942313,
+            "northing_offset": -8.005766170688924,
+            "easting_offset": 52.8312019802069
+          }
+        ]
+      }
+    },
+    {
+      "name": "long_low_dip",
+      "description": "300 m hole at shallow -25\u00b0 dip, single azimuth \u2014 the small-angle regime where naive tan/MC differ less but TVD accumulates.",
+      "collar": {
+        "hole_id": "L1",
+        "easting": 1000.0,
+        "northing": 2000.0,
+        "elevation": 100.0
+      },
+      "surveys": [
+        {
+          "hole_id": "L1",
+          "depth": 0.0,
+          "azimuth": 270.0,
+          "dip": -25.0
+        },
+        {
+          "hole_id": "L1",
+          "depth": 150.0,
+          "azimuth": 270.0,
+          "dip": -25.0
+        },
+        {
+          "hole_id": "L1",
+          "depth": 300.0,
+          "azimuth": 270.0,
+          "dip": -25.0
+        }
+      ],
+      "expected": {
+        "minimum_curvature": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 150.0,
+            "tvd": 63.392739261104914,
+            "northing_offset": -2.4972905934826973e-14,
+            "easting_offset": -135.94616805549748
+          },
+          {
+            "md": 300.0,
+            "tvd": 126.78547852220983,
+            "northing_offset": -4.9945811869653945e-14,
+            "easting_offset": -271.89233611099496
+          }
+        ],
+        "tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 150.0,
+            "tvd": 63.392739261104914,
+            "northing_offset": -2.497290593482697e-14,
+            "easting_offset": -135.94616805549748
+          },
+          {
+            "md": 300.0,
+            "tvd": 126.78547852220983,
+            "northing_offset": -4.994581186965394e-14,
+            "easting_offset": -271.89233611099496
+          }
+        ],
+        "balanced_tangential": [
+          {
+            "md": 0.0,
+            "tvd": 0.0,
+            "northing_offset": 0.0,
+            "easting_offset": 0.0
+          },
+          {
+            "md": 150.0,
+            "tvd": 63.392739261104914,
+            "northing_offset": -2.4972905934826973e-14,
+            "easting_offset": -135.94616805549748
+          },
+          {
+            "md": 300.0,
+            "tvd": 126.78547852220983,
+            "northing_offset": -4.9945811869653945e-14,
+            "easting_offset": -271.89233611099496
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -230,6 +230,26 @@ Desurvey all holes in `collars` using the matching rows in `surveys`.
 
 ---
 
+### Cross-validation against wellpathpy
+
+The three desurvey methods are cross-validated against [`wellpathpy`](https://github.com/Zabamund/wellpathpy) (MIT-licensed) on four reference trajectories — vertical, constant-build, strong-dogleg, and long low-dip.  The committed fixture file at `test/data/desurvey_reference.json` carries the wellpathpy outputs; `test/test_desurvey_reference.py` runs our methods against it with a 1 cm tolerance.
+
+Wellpathpy is **not** a CI dependency — the fixture is the contract.  To refresh it locally:
+
+```bash
+source .venv/bin/activate
+pip install wellpathpy
+python scripts/dev/regenerate_desurvey_fixtures.py
+```
+
+| Method | Status |
+|---|---|
+| `minimum_curvature` | Matches wellpathpy to machine precision on every trajectory |
+| `tangential` | Matches wellpathpy `tan_method(choice="low")` to machine precision |
+| `balanced_tangential` | Matches wellpathpy `tan_method(choice="bal")` to ≤1 cm on every trajectory — including the strong-dogleg stress case. Uses the canonical Walstrom 1969 / Harvey & Eppink 1972 form (average of direction cosines) |
+
+---
+
 ## baselode.drill.intervals
 
 Pure from-to interval algebra primitives.  All functions are stateless and operate on plain pandas `DataFrame` interval tables keyed by `hole_id`, `from`, `to`.
