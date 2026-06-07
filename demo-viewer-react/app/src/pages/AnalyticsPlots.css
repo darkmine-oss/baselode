@@ -1,6 +1,8 @@
 .analytics-page {
-  padding: 16px 24px 32px;
-  max-width: 1400px;
+  /* Sidebar is `position: absolute; width: 200px`, so reserve the gutter. */
+  padding: 16px 24px 32px 224px;
+  box-sizing: border-box;
+  max-width: 1620px;
   margin: 0 auto;
 }
 

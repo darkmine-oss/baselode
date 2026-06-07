@@ -22,8 +22,11 @@ const RESERVED = new Set(['hole_id', 'from', 'to', 'mid', 'depth', '_source']);
 function flattenAssayRows(combinedHoles) {
   const flattened = [];
   for (const hole of combinedHoles || []) {
-    const holeId = hole?.id ?? hole?.hole_id;
-    for (const row of hole?.rows || []) {
+    // parseUnifiedDataset returns `{ holeId, points }` per hole, with
+    // each point tagged `_source: 'assay' | 'structural' | 'geology'`.
+    const holeId = hole?.holeId ?? hole?.id ?? hole?.hole_id;
+    const points = hole?.points ?? hole?.rows ?? [];
+    for (const row of points) {
       if (!row || row._source !== 'assay') continue;
       // Spread first then set hole_id, so any hole_id already on the
       // row can't override the value normalized from the hole.
