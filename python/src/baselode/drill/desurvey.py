@@ -178,8 +178,10 @@ def interpolate_trajectory(
     traces : pd.DataFrame
         Desurveyed trace table (e.g. from
         :func:`minimum_curvature_desurvey`).  Must carry *hole_col*,
-        *md_col*, *easting_col*, *northing_col*, *elevation_col*,
-        *azimuth_col*, *dip_col*.
+        *md_col*, *easting_col*, *northing_col*, *elevation_col*.
+        *azimuth_col* and *dip_col* are optional; when absent (e.g. on
+        traces produced by a structural workflow that only tracks
+        position) those columns are returned as ``NaN``.
     depths : dict, pd.DataFrame, list, or float
         Per-hole depths to interpolate at.  One of:
 

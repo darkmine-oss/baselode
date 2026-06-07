@@ -215,44 +215,45 @@ def intervals_to_omf_lines(
     _require_omf()
     import baselode.drill.desurvey as desurvey_module
 
-    # Build (hole, from) and (hole, to) lookup requests in one shot, so
-    # interpolate_trajectory handles the per-hole trace alignment + linear
-    # interpolation centrally.  Rows whose hole isn't in traces, or whose
-    # from / to is non-numeric, fall through to NaN positions and get
-    # filtered below.
+    # Coerce from/to to numeric and drop rows that can't be located.
     valid_intervals = intervals.copy()
     valid_intervals["_from_numeric"] = pd.to_numeric(valid_intervals[from_col], errors="coerce")
     valid_intervals["_to_numeric"] = pd.to_numeric(valid_intervals[to_col], errors="coerce")
-    valid_intervals = valid_intervals.dropna(subset=["_from_numeric", "_to_numeric"])
+    valid_intervals = valid_intervals.dropna(subset=[hole_col, "_from_numeric", "_to_numeric"])
 
-    if valid_intervals.empty:
-        from_positions = pd.DataFrame(columns=[hole_col, "depth", easting_col, northing_col, elevation_col])
-        to_positions = from_positions.copy()
-    else:
-        from_requests = valid_intervals[[hole_col, "_from_numeric"]].rename(columns={"_from_numeric": "depth"})
-        to_requests = valid_intervals[[hole_col, "_to_numeric"]].rename(columns={"_to_numeric": "depth"})
-        from_positions = desurvey_module.interpolate_trajectory(traces, from_requests)
-        to_positions = desurvey_module.interpolate_trajectory(traces, to_requests)
+    # Batch every unique (hole, depth) endpoint through interpolate_trajectory
+    # in one shot, then look up per-interval by (hole, depth) tuple so the
+    # output row order from interpolate_trajectory doesn't matter.
+    position_lookup = {}
+    if not valid_intervals.empty:
+        endpoint_requests = pd.concat([
+            valid_intervals[[hole_col, "_from_numeric"]].rename(columns={"_from_numeric": "depth"}),
+            valid_intervals[[hole_col, "_to_numeric"]].rename(columns={"_to_numeric": "depth"}),
+        ], ignore_index=True).drop_duplicates(subset=[hole_col, "depth"])
+        positions = desurvey_module.interpolate_trajectory(
+            traces, endpoint_requests,
+            hole_col=hole_col, md_col=md_col,
+            easting_col=easting_col, northing_col=northing_col, elevation_col=elevation_col,
+        )
+        for _, position_row in positions.iterrows():
+            if pd.isna(position_row[easting_col]):
+                continue
+            key = (position_row[hole_col], float(position_row["depth"]))
+            position_lookup[key] = (
+                float(position_row[easting_col]),
+                float(position_row[northing_col]),
+                float(position_row[elevation_col]),
+            )
 
     vertices = []
     segments = []
     rows_used = []
-    original_indices = list(valid_intervals.index)
-    for position_idx, original_index in enumerate(original_indices):
-        from_row = from_positions.iloc[position_idx]
-        to_row = to_positions.iloc[position_idx]
-        if pd.isna(from_row[easting_col]) or pd.isna(to_row[easting_col]):
+    for original_index, interval_row in valid_intervals.iterrows():
+        hole_id = interval_row[hole_col]
+        start_xyz = position_lookup.get((hole_id, float(interval_row["_from_numeric"])))
+        end_xyz = position_lookup.get((hole_id, float(interval_row["_to_numeric"])))
+        if start_xyz is None or end_xyz is None:
             continue
-        start_xyz = (
-            float(from_row[easting_col]),
-            float(from_row[northing_col]),
-            float(from_row[elevation_col]),
-        )
-        end_xyz = (
-            float(to_row[easting_col]),
-            float(to_row[northing_col]),
-            float(to_row[elevation_col]),
-        )
         base_index = len(vertices)
         vertices.append(start_xyz)
         vertices.append(end_xyz)
