@@ -159,6 +159,16 @@ export {
 } from './data/intercepts.js';
 
 export {
+  intervalLength,
+  fromToMidpoints,
+  detectGaps,
+  detectOverlaps,
+  splitAt,
+  clip,
+  mergeTables
+} from './data/intervals.js';
+
+export {
   parseGeophysicsCSV,
   geophysicsToStripLogs,
 } from './data/geophysicsLoader.js';

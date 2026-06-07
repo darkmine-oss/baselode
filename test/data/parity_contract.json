@@ -245,6 +245,28 @@
       ]
     },
     {
+      "name": "interval_algebra",
+      "description": "Pure from-to interval primitives: lengths, midpoints, gap/overlap detection, split, clip, and intersection-based table merge.",
+      "jsExports": [
+        "intervalLength",
+        "fromToMidpoints",
+        "detectGaps",
+        "detectOverlaps",
+        "splitAt",
+        "clip",
+        "mergeTables"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.intervals", "interval_length"],
+        ["baselode.drill.intervals", "from_to_to_midpoints"],
+        ["baselode.drill.intervals", "detect_gaps"],
+        ["baselode.drill.intervals", "detect_overlaps"],
+        ["baselode.drill.intervals", "split_at"],
+        ["baselode.drill.intervals", "clip"],
+        ["baselode.drill.intervals", "merge_tables"]
+      ]
+    },
+    {
       "name": "column_metadata",
       "jsExports": [
         "DISPLAY_NUMERIC",
