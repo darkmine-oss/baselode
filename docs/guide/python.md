@@ -283,6 +283,50 @@ report = validate.validate_drillhole_db(collar, survey, allow_full_circle=True)
 
 ---
 
+## OMF interop (Open Mining Format)
+
+`baselode.drill.omf` round-trips drilling tables through Open Mining Format v1, the MIT-licensed mining interchange format read/written by Leapfrog, 3DEXPERIENCE, Deswik and Micromine.
+
+Install the optional extra:
+
+```bash
+pip install baselode[omf]
+```
+
+```python
+import baselode.drill.omf as omf_io
+import baselode.drill.data as drill
+import baselode.drill.desurvey as desurvey
+
+collars = drill.load_collars("collars.csv")
+surveys = drill.load_surveys("surveys.csv")
+assays  = drill.load_assays("assays.csv")
+traces  = desurvey.minimum_curvature_desurvey(collars, surveys, step=1.0)
+
+collar_element = omf_io.collars_to_omf_points(collars, attribute_cols=["max_depth"])
+trace_element  = omf_io.traces_to_omf_lines(traces)
+assay_element  = omf_io.intervals_to_omf_lines(
+    assays, traces, name="assay", value_cols=["au_ppm", "lithology"],
+)
+
+omf_io.write_omf(
+    [collar_element, trace_element, assay_element],
+    "project.omf",
+    name="my-project", author="agent", description="example",
+)
+```
+
+The output is a single `.omf` file that opens directly in any OMF-compatible viewer.  Read it back with `omf_io.read_omf(path)` (returns an `omf.Project`).
+
+### Design notes
+
+- Each call returns one OMF element, not a per-hole element — segments carry a `hole_id` attribute so downstream tools can still select per hole without a 4 000-element project.
+- For interval lines, endpoints are interpolated from the trace at the interval's `from` / `to` depths.  Rows whose hole isn't in the trace are skipped silently.
+- Collar positions need projected `easting`/`northing` columns — for collars carrying only lat/lon, project them to your local CRS first (e.g. via `baselode.extent.Extent.to_crs`) or derive collar positions from the first sample of each trace.
+- JavaScript OMF support is deferred — consume read-side via Python until a JS need lands.
+
+---
+
 ## Interval Algebra
 
 `baselode.drill.intervals` provides pure from-to interval primitives that the higher-level compositing, validation, and DB-container modules build on.  Every function operates on a pandas `DataFrame` keyed by `hole_id`, `from`, `to` (the canonical columns from `baselode.datamodel`).

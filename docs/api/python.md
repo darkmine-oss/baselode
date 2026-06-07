@@ -346,6 +346,98 @@ merged = intervals.merge_tables({"assay": assays, "litho": geology})
 
 ---
 
+## baselode.drill.omf
+
+Open Mining Format (OMF v1) interop.  OMF is the de-facto open mining interchange format (MIT-licensed, Global Mining Guidelines Group), supported by Leapfrog, 3DEXPERIENCE, Deswik and Micromine.  Baselode being OMF-native plugs it directly into those workflows.
+
+Optional dependency — install via `pip install baselode[omf]`.
+
+```python
+import baselode.drill.omf as omf_io
+```
+
+JavaScript support is deferred per TRK-111 scope — consume read-side via Python until a JS need lands.
+
+---
+
+### collars_to_omf_points
+
+```python
+collars_to_omf_points(
+    collars,
+    name="collars",
+    hole_col=HOLE_ID,
+    easting_col=EASTING,
+    northing_col=NORTHING,
+    elevation_col=ELEVATION,
+    attribute_cols=None,
+)
+```
+
+Convert a collar table to an OMF `PointSetElement`.  Vertices are `(easting, northing, elevation)`; rows with missing xyz are dropped.  `hole_id` is attached as per-vertex `StringData`.  Any extra columns in `attribute_cols` are attached as `ScalarData` (numeric dtype) or `StringData` (object dtype).
+
+**Returns:** `omf.PointSetElement`
+
+---
+
+### traces_to_omf_lines
+
+```python
+traces_to_omf_lines(
+    traces,
+    name="traces",
+    hole_col=HOLE_ID,
+    easting_col=EASTING,
+    northing_col=NORTHING,
+    elevation_col=ELEVATION,
+    md_col="md",
+)
+```
+
+Convert desurveyed traces to a single OMF `LineSetElement`.  Each hole contributes a sequence of segments connecting consecutive trace samples (sorted by `md_col`); holes are concatenated into one element with a per-segment `hole_id` so they're individually selectable downstream without forcing a 4 000-element project.  Holes with fewer than two trace samples are skipped.
+
+**Returns:** `omf.LineSetElement`
+
+---
+
+### intervals_to_omf_lines
+
+```python
+intervals_to_omf_lines(
+    intervals,
+    traces,
+    name,
+    value_cols=None,
+    hole_col=HOLE_ID,
+    from_col=FROM,
+    to_col=TO,
+    easting_col=EASTING,
+    northing_col=NORTHING,
+    elevation_col=ELEVATION,
+    md_col="md",
+)
+```
+
+Convert an interval table (assay, geology, etc.) to a single OMF `LineSetElement` with one segment per interval.  Endpoints are interpolated from the trace at the interval's `from_col` / `to_col` depths.  Value columns become per-segment `ScalarData` (numeric) or `StringData` (categorical); `hole_id` is always attached.
+
+Rows whose hole isn't in `traces` are skipped silently; rows with non-numeric `from` / `to` are skipped silently.
+
+**Returns:** `omf.LineSetElement`
+
+---
+
+### build_omf_project / write_omf / read_omf
+
+```python
+project = build_omf_project(name, author, description, elements)
+write_omf(project_or_elements, path, name="baselode", author="baselode", description="")
+project = read_omf(path)
+```
+
+`write_omf` accepts either an `omf.Project` directly or a list of elements (in which case it wraps them via `build_omf_project` using the `name` / `author` / `description` kwargs).  Returns the project that was serialised.
+
+---
+
 ## baselode.drill.validate
 
 QA/QC helpers for drillhole tables.  The headline entry point is `validate_drillhole_db`, which runs every check in one pass and returns a structured report.
