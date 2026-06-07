@@ -76,15 +76,23 @@
   color: #b91c1c;
 }
 
-.analytics-controls {
+/* Per-plot controls bar — sits inside each PlotPanel between the header and chart. */
+.plot-panel__controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 14px;
+  gap: 8px 12px;
   align-items: end;
-  padding: 12px;
-  margin-bottom: 16px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
   background: rgba(148, 163, 184, 0.08);
-  border-radius: 8px;
+  border-radius: 6px;
+}
+
+.analytics-page__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .prop-select {
@@ -105,13 +113,18 @@
 }
 
 .analytics-rowcount {
-  margin-left: auto;
   font-size: 0.8rem;
   color: var(--text-muted, #475569);
   padding: 4px 10px;
   background: rgba(148, 163, 184, 0.15);
   border-radius: 4px;
   border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.analytics-page--dark .analytics-rowcount {
+  background: rgba(148, 163, 184, 0.18);
+  color: #94a3b8;
 }
 
 .plot-panel {
