@@ -1,0 +1,151 @@
+.analytics-page {
+  padding: 16px 24px 32px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.analytics-page__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.analytics-page__header h1 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+}
+
+.analytics-page__header p {
+  margin: 0;
+  color: var(--text-muted, #475569);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.analytics-page__header code {
+  background: rgba(148, 163, 184, 0.15);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.analytics-page--dark {
+  background-color: #1b1b1f;
+  color: #e2e8f0;
+}
+
+.analytics-page--dark .analytics-page__header p,
+.analytics-page--dark .plot-panel__header p,
+.analytics-page--dark .analytics-rowcount {
+  color: #94a3b8;
+}
+
+.analytics-page--dark .plot-panel {
+  background: #24252a;
+  border-color: #34353b;
+}
+
+.analytics-page--dark .prop-select select,
+.analytics-page--dark .analytics-rowcount {
+  background: #24252a;
+  color: #e2e8f0;
+  border-color: #34353b;
+}
+
+.dark-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.analytics-status {
+  padding: 8px 12px;
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.analytics-status--error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.analytics-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: end;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 8px;
+}
+
+.prop-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-muted, #475569);
+}
+
+.prop-select select {
+  padding: 4px 8px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 4px;
+  background: white;
+  font-size: 0.85rem;
+  min-width: 120px;
+}
+
+.analytics-rowcount {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted, #475569);
+  padding: 4px 10px;
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.plot-panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.plot-panel__header {
+  margin-bottom: 8px;
+}
+
+.plot-panel__header h2 {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+}
+
+.plot-panel__header p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted, #64748b);
+}
+
+.plot-panel__chart {
+  width: 100%;
+}
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.analytics-grid .plot-panel {
+  margin-bottom: 0;
+}
