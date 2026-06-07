@@ -194,6 +194,29 @@ const assaysWithXYZ = attachAssayPositions(assayRows, traces);
 
 ---
 
+## DrillholeSet — the composition root
+
+`DrillholeSet` bundles collar + survey + N named interval tables into one object, mirroring the Python class.  Methods delegate to the existing function-based API.
+
+```js
+import { DrillholeSet } from 'baselode';
+
+const db = new DrillholeSet(collarRows, surveyRows, {
+  crs: 'EPSG:32750',
+  project: 'goldfields-2026',
+});
+
+db.addTable('assay', assayRows)
+  .addTable('geology', lithoRows, 'litho');
+
+const report = db.validate();
+const traces = db.desurvey({ method: 'minimum_curvature', step: 1 });
+```
+
+OMF export (`db.to_omf` in Python) is intentionally Python-only; the JS class focuses on the in-memory validate/desurvey path.
+
+---
+
 ## Database validation
 
 `validateDrillholeDb` mirrors the Python validator, returning a structured `{ summary, issues }` report covering every check in one pass.
