@@ -110,7 +110,8 @@ export {
   tangentialDesurvey,
   balancedTangentialDesurvey,
   attachAssayPositions,
-  buildTraces
+  buildTraces,
+  interpolateTrajectory
 } from './data/desurveyMethods.js';
 
 export {

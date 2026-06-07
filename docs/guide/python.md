@@ -221,6 +221,20 @@ joined = join_assays_to_traces(assays, traces)
 # Merges 3D coordinates onto the assay DataFrame using hole_id
 ```
 
+### Interpolating the trace at arbitrary depths
+
+```python
+import baselode.drill.desurvey as desurvey
+
+# (hole_id, depth) → (easting, northing, elevation, azimuth, dip)
+positions = desurvey.interpolate_trajectory(
+    traces,
+    {"DH001": [47.3, 52.1], "DH002": [10.0, 20.0]},
+)
+```
+
+Linear interpolation per coordinate.  `depths` accepts a scalar (broadcast to every hole in traces), a list (also broadcast), a per-hole dict, or a DataFrame with `hole_id` + `depth` columns.  Out-of-range depths and unknown holes produce `NaN` rows.
+
 ---
 
 ## DrillholeSet — the composition root

@@ -266,6 +266,151 @@ export function buildTraces(collars, surveys, options = {}) {
 }
 
 /**
+ * Look up trace position + orientation at arbitrary downhole depths.
+ *
+ * Linear interpolation per coordinate.  Accurate when the trace was
+ * desurveyed at a small step so adjacent samples bracket the requested
+ * depth tightly.  Depths outside a hole's trace range — or whose hole
+ * isn't in `traces` at all — produce a row with `null` in every output
+ * field except `hole_id` and `depth`.
+ *
+ * @param {Array<Object>} traces - Desurveyed trace rows (hole_id, md, x,
+ *   y, z, azimuth, dip).
+ * @param {(number|number[]|Object|Array<Object>)} depths - One of:
+ *   a scalar applied to every hole; an array of numbers applied to every
+ *   hole; `{hole_id: [d1, d2, ...]}` keyed by hole; or an array of
+ *   `{hole_id, depth}` rows.
+ * @returns {Array<Object>} One row per (hole_id, depth) request.
+ */
+export function interpolateTrajectory(
+  traces,
+  depths,
+  {
+    holeCol = 'hole_id',
+    mdCol = 'md',
+    eastingCol = 'x',
+    northingCol = 'y',
+    elevationCol = 'z',
+    azimuthCol = 'azimuth',
+    dipCol = 'dip',
+  } = {},
+) {
+  const coordCols = [eastingCol, northingCol, elevationCol, azimuthCol, dipCol];
+  const tracesByHole = new Map();
+  for (const row of traces || []) {
+    const hole = row && row[holeCol];
+    if (hole == null) continue;
+    if (!tracesByHole.has(hole)) tracesByHole.set(hole, []);
+    tracesByHole.get(hole).push(row);
+  }
+  for (const [hole, rows] of tracesByHole) {
+    const sorted = rows
+      .filter((row) => Number.isFinite(Number(row[mdCol])))
+      .sort((left, right) => Number(left[mdCol]) - Number(right[mdCol]));
+    tracesByHole.set(hole, sorted);
+  }
+
+  const requests = _normalizeDepthRequests(depths, traces, holeCol);
+
+  const nullPosition = (hole, depth) => ({
+    [holeCol]: hole,
+    depth,
+    [eastingCol]: null,
+    [northingCol]: null,
+    [elevationCol]: null,
+    [azimuthCol]: null,
+    [dipCol]: null,
+  });
+
+  const out = [];
+  for (const { hole, depth } of requests) {
+    const traceForHole = tracesByHole.get(hole);
+    if (!traceForHole || !traceForHole.length) {
+      out.push(nullPosition(hole, depth));
+      continue;
+    }
+    const mds = traceForHole.map((row) => Number(row[mdCol]));
+    const minMd = mds[0];
+    const maxMd = mds[mds.length - 1];
+    if (depth < minMd || depth > maxMd) {
+      out.push(nullPosition(hole, depth));
+      continue;
+    }
+    const upperIdx = mds.findIndex((value) => value >= depth);
+    if (upperIdx === -1) {
+      out.push(nullPosition(hole, depth));
+      continue;
+    }
+    if (upperIdx === 0 || mds[upperIdx] === depth) {
+      const sample = traceForHole[upperIdx];
+      const row = { [holeCol]: hole, depth };
+      for (const col of coordCols) row[col] = Number(sample[col]);
+      out.push(row);
+      continue;
+    }
+    const lowerIdx = upperIdx - 1;
+    const lower = traceForHole[lowerIdx];
+    const upper = traceForHole[upperIdx];
+    const mdLower = mds[lowerIdx];
+    const mdUpper = mds[upperIdx];
+    const fraction = (depth - mdLower) / (mdUpper - mdLower);
+    const row = { [holeCol]: hole, depth };
+    for (const col of coordCols) {
+      const left = Number(lower[col]);
+      const right = Number(upper[col]);
+      row[col] = left + fraction * (right - left);
+    }
+    out.push(row);
+  }
+  return out;
+}
+
+function _normalizeDepthRequests(depths, traces, holeCol) {
+  if (depths == null) return [];
+  if (Array.isArray(depths)) {
+    const firstEntry = depths[0];
+    const isRowArray = depths.length
+      && firstEntry
+      && typeof firstEntry === 'object'
+      && firstEntry[holeCol] != null
+      && firstEntry.depth != null;
+    if (isRowArray) {
+      return depths
+        .filter((row) => row && row[holeCol] != null && row.depth != null)
+        .map((row) => ({ hole: row[holeCol], depth: Number(row.depth) }));
+    }
+    const broadcastHoles = [...new Set(
+      (traces || []).map((row) => row && row[holeCol]).filter((value) => value != null),
+    )];
+    const requests = [];
+    for (const hole of broadcastHoles) {
+      for (const depth of depths) {
+        requests.push({ hole, depth: Number(depth) });
+      }
+    }
+    return requests;
+  }
+  if (typeof depths === 'number') {
+    const broadcastHoles = [...new Set(
+      (traces || []).map((row) => row && row[holeCol]).filter((value) => value != null),
+    )];
+    return broadcastHoles.map((hole) => ({ hole, depth: Number(depths) }));
+  }
+  if (depths && typeof depths === 'object') {
+    const requests = [];
+    for (const [hole, values] of Object.entries(depths)) {
+      if (values == null) continue;
+      const list = Array.isArray(values) ? values : [values];
+      for (const depth of list) {
+        requests.push({ hole, depth: Number(depth) });
+      }
+    }
+    return requests;
+  }
+  return [];
+}
+
+/**
  * Find nearest trace point by measured depth
  * @private
  */
