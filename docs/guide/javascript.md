@@ -194,6 +194,39 @@ const assaysWithXYZ = attachAssayPositions(assayRows, traces);
 
 ---
 
+## Database validation
+
+`validateDrillholeDb` mirrors the Python validator, returning a structured `{ summary, issues }` report covering every check in one pass.
+
+```js
+import {
+  validateDrillholeDb,
+  fixSingleStationSurveys,
+  replaceBelowDetectionLimit,
+} from 'baselode';
+
+const report = validateDrillholeDb({
+  collar: collarRows,
+  survey: surveyRows,
+  intervalTables: { assay: assayRows, geology: lithoRows },
+});
+
+const errors = report.issues.filter((issue) => issue.severity === 'error');
+```
+
+Checks covered (severity, what triggers): `duplicate_hole_ids` (error), `single_station_surveys` (warning), `azimuth_range` / `dip_range` (error), `orphan_intervals` (error), `negative_lengths` (error), `intervals_beyond_max_depth` (warning), `interval_gaps` (info), `interval_overlaps` (warning), `below_detection_limit` (info).
+
+### Fix helpers
+
+```js
+const surveyFixed = fixSingleStationSurveys(surveyRows, collarRows);
+const assaysClean = replaceBelowDetectionLimit(assayRows, { columns: ['au_ppm'] });
+```
+
+Both return new arrays — the source rows are untouched.
+
+---
+
 ## Interval algebra
 
 Pure from-to primitives that mirror the Python `baselode.drill.intervals` module.  Each function takes an array of row objects keyed by `hole_id`, `from`, `to` — the same shape your loaders already produce.

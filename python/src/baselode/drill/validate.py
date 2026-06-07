@@ -19,9 +19,19 @@
 
 """QA/QC helpers for drillhole tables."""
 
+import re
+
+import numpy as np
 import pandas as pd
 
-from baselode.datamodel import AZIMUTH, DIP, HOLE_ID, DEPTH, FROM, TO
+import baselode.drill.intervals
+from baselode.datamodel import AZIMUTH, DEPTH, DIP, FROM, HOLE_ID, MAX_DEPTH, TO
+
+SEVERITY_ERROR = "error"
+SEVERITY_WARNING = "warning"
+SEVERITY_INFO = "info"
+
+_BDL_PATTERN = re.compile(r"^\s*<\s*(-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)\s*$")
 
 
 def validate_intervals(df, from_col="from", to_col="to", hole_col="hole_id"):
@@ -107,4 +117,422 @@ def validate_structural_intervals(df, from_col=FROM, to_col=TO, dip_col=DIP, az_
                 issues.append({"hole_id": hole_id, "row_index": idx, "type": "azimuth_out_of_range",
                                 "value": az, "row": row.to_dict()})
 
+    return issues
+
+
+def validate_drillhole_db(
+    collar,
+    survey,
+    interval_tables=None,
+    hole_col=HOLE_ID,
+    depth_col=DEPTH,
+    azimuth_col=AZIMUTH,
+    dip_col=DIP,
+    from_col=FROM,
+    to_col=TO,
+    max_depth_col=MAX_DEPTH,
+):
+    """Run the full drillhole-database validation suite.
+
+    Returns a structured report (not exceptions) so callers can drive a
+    review UI or QA log.  Each issue carries a ``check`` name, a
+    ``severity`` (``error`` / ``warning`` / ``info``), the affected
+    ``hole_id`` / ``table`` / ``row_index``, a human-readable ``message``,
+    and a ``fix`` recipe when one is available.
+
+    Parameters
+    ----------
+    collar : pd.DataFrame
+        Collar table.  Required columns: *hole_col*.  Optional: *max_depth_col*.
+    survey : pd.DataFrame
+        Survey table.  Required columns: *hole_col*, *depth_col*,
+        *azimuth_col*, *dip_col*.
+    interval_tables : dict[str, pd.DataFrame] or None
+        Mapping ``{name: interval_df}`` for each interval table to validate
+        (e.g. ``{"assay": assays, "geology": litho}``).  Each frame must
+        carry *hole_col*, *from_col*, *to_col*.  ``None`` skips all
+        interval-level checks.
+    hole_col, depth_col, azimuth_col, dip_col, from_col, to_col, max_depth_col : str
+        Column-name overrides (defaults from :mod:`baselode.datamodel`).
+
+    Returns
+    -------
+    dict
+        ``{"summary": {"error": int, "warning": int, "info": int},
+        "issues": [dict, ...]}``.
+    """
+    issues = []
+    issues.extend(_check_duplicate_hole_ids(collar, hole_col))
+    issues.extend(_check_single_station_surveys(survey, hole_col, depth_col))
+    issues.extend(_check_azimuth_range(survey, hole_col, depth_col, azimuth_col))
+    issues.extend(_check_dip_range(survey, hole_col, depth_col, dip_col))
+
+    if interval_tables:
+        collar_hole_ids = set(collar[hole_col].dropna().tolist()) if hole_col in collar.columns else set()
+        max_depth_lookup = _build_max_depth_lookup(collar, hole_col, max_depth_col)
+        for table_name, table in interval_tables.items():
+            issues.extend(_check_orphan_intervals(table, table_name, collar_hole_ids, hole_col))
+            issues.extend(_check_negative_lengths(table, table_name, hole_col, from_col, to_col))
+            issues.extend(_check_intervals_beyond_max_depth(
+                table, table_name, max_depth_lookup, hole_col, to_col,
+            ))
+            issues.extend(_check_interval_gaps(table, table_name, hole_col, from_col, to_col))
+            issues.extend(_check_interval_overlaps(table, table_name, hole_col, from_col, to_col))
+            issues.extend(_check_below_detection_limit(table, table_name, hole_col, from_col, to_col))
+
+    summary = {
+        SEVERITY_ERROR: sum(1 for issue in issues if issue["severity"] == SEVERITY_ERROR),
+        SEVERITY_WARNING: sum(1 for issue in issues if issue["severity"] == SEVERITY_WARNING),
+        SEVERITY_INFO: sum(1 for issue in issues if issue["severity"] == SEVERITY_INFO),
+    }
+    return {"summary": summary, "issues": issues}
+
+
+def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=DEPTH, max_depth_col=MAX_DEPTH):
+    """Synthesize a second survey station for any hole with only one.
+
+    Desurvey requires at least two stations per hole; a hole with exactly
+    one row breaks min-curvature / balanced-tangential / tangential
+    calculations.  This helper duplicates the single station at a deeper
+    depth — using ``collar.max_depth`` when available, otherwise the
+    station's own depth plus ``1.0`` — and copies azimuth/dip unchanged
+    (constant-orientation assumption).
+
+    Equivalent to PyGSLIB's ``fix_survey_one_interval_err``.
+
+    Parameters
+    ----------
+    survey : pd.DataFrame
+        Survey table.
+    collar : pd.DataFrame, optional
+        Collar table; if provided and contains *max_depth_col*, that value
+        is used as the synthetic station depth.
+    hole_col, depth_col, max_depth_col : str
+
+    Returns
+    -------
+    pd.DataFrame
+        Survey table with synthetic stations appended; original rows
+        unchanged.  Index is reset.
+    """
+    if survey.empty:
+        return survey.copy()
+
+    max_depth_lookup = _build_max_depth_lookup(collar, hole_col, max_depth_col) if collar is not None else {}
+    new_rows = []
+    for hole_id, group in survey.groupby(hole_col):
+        if len(group) != 1:
+            continue
+        original = group.iloc[0]
+        synthetic = original.to_dict()
+        anchor_depth = max_depth_lookup.get(hole_id)
+        if anchor_depth is None or pd.isna(anchor_depth) or anchor_depth <= float(original[depth_col]):
+            anchor_depth = float(original[depth_col]) + 1.0
+        synthetic[depth_col] = float(anchor_depth)
+        new_rows.append(synthetic)
+
+    if not new_rows:
+        return survey.reset_index(drop=True)
+
+    extended = pd.concat([survey, pd.DataFrame(new_rows)], ignore_index=True)
+    return extended.sort_values([hole_col, depth_col]).reset_index(drop=True)
+
+
+def replace_below_detection_limit(df, columns=None, sentinel_factor=0.5):
+    """Replace ``<MDL`` strings with ``MDL * sentinel_factor``.
+
+    The industry convention is to substitute below-detection-limit assay
+    values (e.g. ``"<0.005"``) with half the reported limit when running
+    statistics.  This helper detects strings matching ``<NUMBER`` and
+    rewrites the cell to a float; other values are left untouched.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Source table.
+    columns : iterable of str, optional
+        Columns to scan.  Defaults to every column whose dtype is
+        ``object`` (i.e. potentially contains strings).
+    sentinel_factor : float
+        Multiplier applied to the detection limit (default ``0.5`` —
+        half-MDL).
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of *df* with BDL strings replaced; columns where any
+        substitution happened are coerced to numeric via
+        :func:`pandas.to_numeric` (``errors='ignore'``).
+    """
+    if df.empty:
+        return df.copy()
+
+    out = df.copy()
+    target_columns = list(columns) if columns is not None else [
+        col for col in out.columns if pd.api.types.is_string_dtype(out[col])
+    ]
+
+    for col in target_columns:
+        if col not in out.columns:
+            continue
+        column_data = out[col]
+        if not pd.api.types.is_string_dtype(column_data):
+            continue
+        new_values = []
+        any_replaced = False
+        for value in column_data:
+            if isinstance(value, str):
+                match = _BDL_PATTERN.match(value)
+                if match is not None:
+                    new_values.append(float(match.group(1)) * sentinel_factor)
+                    any_replaced = True
+                    continue
+            new_values.append(value)
+        if any_replaced:
+            replaced = pd.Series(new_values, index=column_data.index)
+            out[col] = pd.to_numeric(replaced, errors="coerce").combine_first(replaced)
+    return out
+
+
+def _issue(check, severity, message, hole_id=None, table=None, row_index=None, fix=None):
+    return {
+        "check": check,
+        "severity": severity,
+        "hole_id": hole_id,
+        "table": table,
+        "row_index": row_index,
+        "message": message,
+        "fix": fix,
+    }
+
+
+def _build_max_depth_lookup(collar, hole_col, max_depth_col):
+    if collar is None or collar.empty or max_depth_col not in collar.columns:
+        return {}
+    lookup = {}
+    for _, row in collar.iterrows():
+        hole_id = row.get(hole_col)
+        value = row.get(max_depth_col)
+        if hole_id is None or pd.isna(hole_id):
+            continue
+        if value is None or pd.isna(value):
+            continue
+        lookup[hole_id] = float(value)
+    return lookup
+
+
+def _check_duplicate_hole_ids(collar, hole_col):
+    if collar.empty or hole_col not in collar.columns:
+        return []
+    counts = collar[hole_col].value_counts()
+    duplicates = counts[counts > 1]
+    return [
+        _issue(
+            check="duplicate_hole_ids",
+            severity=SEVERITY_ERROR,
+            hole_id=str(hole_id),
+            table="collar",
+            message=f"Hole '{hole_id}' appears {count} times in the collar table",
+            fix="Remove or merge duplicate collar rows so each hole_id is unique",
+        )
+        for hole_id, count in duplicates.items()
+    ]
+
+
+def _check_single_station_surveys(survey, hole_col, depth_col):
+    if survey.empty or hole_col not in survey.columns:
+        return []
+    issues = []
+    for hole_id, group in survey.groupby(hole_col):
+        if len(group) == 1:
+            issues.append(_issue(
+                check="single_station_surveys",
+                severity=SEVERITY_WARNING,
+                hole_id=str(hole_id),
+                table="survey",
+                row_index=int(group.index[0]) if isinstance(group.index[0], (int, np.integer)) else None,
+                message=f"Hole '{hole_id}' has only one survey station; desurvey will fail",
+                fix="Call fix_single_station_surveys(survey, collar) to add a synthetic station",
+            ))
+    return issues
+
+
+def _check_azimuth_range(survey, hole_col, depth_col, azimuth_col):
+    if survey.empty or azimuth_col not in survey.columns:
+        return []
+    issues = []
+    for idx, row in survey.iterrows():
+        value = row.get(azimuth_col)
+        if value is None or pd.isna(value):
+            continue
+        if value < 0 or value >= 360:
+            issues.append(_issue(
+                check="azimuth_range",
+                severity=SEVERITY_ERROR,
+                hole_id=str(row.get(hole_col)) if row.get(hole_col) is not None else None,
+                table="survey",
+                row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
+                message=f"Azimuth {value} outside [0, 360)",
+                fix="Normalize azimuth modulo 360 or correct the source value",
+            ))
+    return issues
+
+
+def _check_dip_range(survey, hole_col, depth_col, dip_col):
+    if survey.empty or dip_col not in survey.columns:
+        return []
+    issues = []
+    for idx, row in survey.iterrows():
+        value = row.get(dip_col)
+        if value is None or pd.isna(value):
+            continue
+        if value < -90 or value > 90:
+            issues.append(_issue(
+                check="dip_range",
+                severity=SEVERITY_ERROR,
+                hole_id=str(row.get(hole_col)) if row.get(hole_col) is not None else None,
+                table="survey",
+                row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
+                message=f"Dip {value} outside [-90, 90]",
+                fix="Correct the source dip value",
+            ))
+    return issues
+
+
+def _check_orphan_intervals(table, table_name, collar_hole_ids, hole_col):
+    if table.empty or hole_col not in table.columns:
+        return []
+    issues = []
+    for idx, row in table.iterrows():
+        hole_id = row.get(hole_col)
+        if hole_id is None or pd.isna(hole_id):
+            continue
+        if hole_id not in collar_hole_ids:
+            issues.append(_issue(
+                check="orphan_intervals",
+                severity=SEVERITY_ERROR,
+                hole_id=str(hole_id),
+                table=table_name,
+                row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
+                message=f"Hole '{hole_id}' in '{table_name}' is not present in the collar table",
+                fix="Add the hole to the collar table or remove its rows from the interval table",
+            ))
+    return issues
+
+
+def _check_negative_lengths(table, table_name, hole_col, from_col, to_col):
+    if table.empty or from_col not in table.columns or to_col not in table.columns:
+        return []
+    issues = []
+    for idx, row in table.iterrows():
+        from_depth = row.get(from_col)
+        to_depth = row.get(to_col)
+        if from_depth is None or to_depth is None or pd.isna(from_depth) or pd.isna(to_depth):
+            continue
+        if to_depth <= from_depth:
+            issues.append(_issue(
+                check="negative_lengths",
+                severity=SEVERITY_ERROR,
+                hole_id=str(row.get(hole_col)) if row.get(hole_col) is not None else None,
+                table=table_name,
+                row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
+                message=f"Interval from={from_depth} to={to_depth} has zero or negative length",
+                fix="Correct the from/to values or drop the row",
+            ))
+    return issues
+
+
+def _check_intervals_beyond_max_depth(table, table_name, max_depth_lookup, hole_col, to_col):
+    if not max_depth_lookup or table.empty or to_col not in table.columns:
+        return []
+    issues = []
+    for idx, row in table.iterrows():
+        hole_id = row.get(hole_col)
+        if hole_id is None or pd.isna(hole_id):
+            continue
+        max_depth = max_depth_lookup.get(hole_id)
+        if max_depth is None:
+            continue
+        to_depth = row.get(to_col)
+        if to_depth is None or pd.isna(to_depth):
+            continue
+        if float(to_depth) > max_depth:
+            issues.append(_issue(
+                check="intervals_beyond_max_depth",
+                severity=SEVERITY_WARNING,
+                hole_id=str(hole_id),
+                table=table_name,
+                row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
+                message=f"Interval to={to_depth} exceeds collar max_depth={max_depth} for '{hole_id}'",
+                fix="Extend collar max_depth or clip the interval",
+            ))
+    return issues
+
+
+def _check_interval_gaps(table, table_name, hole_col, from_col, to_col):
+    if table.empty:
+        return []
+    gaps = baselode.drill.intervals.detect_gaps(
+        table, from_col=from_col, to_col=to_col, hole_col=hole_col,
+    )
+    return [
+        _issue(
+            check="interval_gaps",
+            severity=SEVERITY_INFO,
+            hole_id=str(row[hole_col]),
+            table=table_name,
+            message=f"Gap from {row[from_col]} to {row[to_col]} ({row['length']:.3f} m) in '{table_name}'",
+            fix="Re-sample the interval or document the gap",
+        )
+        for _, row in gaps.iterrows()
+    ]
+
+
+def _check_interval_overlaps(table, table_name, hole_col, from_col, to_col):
+    if table.empty:
+        return []
+    overlaps = baselode.drill.intervals.detect_overlaps(
+        table, from_col=from_col, to_col=to_col, hole_col=hole_col,
+    )
+    return [
+        _issue(
+            check="interval_overlaps",
+            severity=SEVERITY_WARNING,
+            hole_id=str(row[hole_col]),
+            table=table_name,
+            row_index=int(row["first_index"]),
+            message=(
+                f"Overlap from {row[from_col]} to {row[to_col]} ({row['length']:.3f} m) "
+                f"between rows {row['first_index']} and {row['second_index']}"
+            ),
+            fix="Merge overlapping intervals or correct the from/to depths",
+        )
+        for _, row in overlaps.iterrows()
+    ]
+
+
+def _check_below_detection_limit(table, table_name, hole_col, from_col, to_col):
+    if table.empty:
+        return []
+    reserved = {hole_col, from_col, to_col}
+    issues = []
+    for col in table.columns:
+        if col in reserved:
+            continue
+        if not pd.api.types.is_string_dtype(table[col]):
+            continue
+        for idx, value in table[col].items():
+            if not isinstance(value, str):
+                continue
+            if _BDL_PATTERN.match(value) is None:
+                continue
+            issues.append(_issue(
+                check="below_detection_limit",
+                severity=SEVERITY_INFO,
+                hole_id=str(table.at[idx, hole_col]) if hole_col in table.columns else None,
+                table=table_name,
+                row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
+                message=f"Column '{col}' contains below-detection sentinel '{value}'",
+                fix="Call replace_below_detection_limit(df, columns=[...]) to substitute MDL/2",
+            ))
     return issues

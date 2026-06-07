@@ -169,6 +169,15 @@ export {
 } from './data/intervals.js';
 
 export {
+  validateDrillholeDb,
+  fixSingleStationSurveys,
+  replaceBelowDetectionLimit,
+  SEVERITY_ERROR,
+  SEVERITY_WARNING,
+  SEVERITY_INFO
+} from './data/validateDrillholeDb.js';
+
+export {
   parseGeophysicsCSV,
   geophysicsToStripLogs,
 } from './data/geophysicsLoader.js';
