@@ -180,9 +180,8 @@ def main():
         "tolerance_angle_deg": TOLERANCE_ANGLE_DEG,
         "known_xfails": [
             {"trajectory": traj, "method": method, "reason": (
-                "baselode balanced_tangential uses 'cosines of average angles' "
-                "instead of the canonical Walstrom 'average of direction cosines'. "
-                "Tracked separately."
+                "Known divergence between baselode and wellpathpy beyond "
+                "tolerance; tracked separately."
             )}
             for traj, method in KNOWN_XFAILS
         ],
@@ -191,10 +190,8 @@ def main():
             "baselode dip is negative downward. "
             "tvd is depth below collar, positive going down. "
             "northing_offset / easting_offset are relative to the collar. "
-            "BT tolerance is intentionally looser: wellpathpy implements "
-            "the canonical Walstrom form (average of direction cosines) "
-            "while baselode currently uses 'cosines of average angles', "
-            "a documented variant. MC and tangential are exact."
+            "balanced_tangential uses the canonical Walstrom 1969 / "
+            "Harvey & Eppink 1972 form (average of direction cosines)."
         ),
         "trajectories": trajectories,
     }

@@ -13,6 +13,7 @@ No wellpathpy install is required in CI — the fixture file is the contract.
 """
 
 import json
+from math import gcd
 from pathlib import Path
 
 import pandas as pd
@@ -29,6 +30,11 @@ BASELODE_METHOD_FNS = {
     "balanced_tangential": desurvey.balanced_tangential_desurvey,
 }
 
+# Tolerance used when matching trace rows by md — float-equality on a
+# value accumulated by repeated addition inside the desurvey loop is
+# flaky, so we match by nearest within this many metres.
+MD_MATCH_TOLERANCE_M = 1e-6
+
 
 def _load_fixture():
     with FIXTURE_PATH.open("r", encoding="utf-8") as f:
@@ -36,12 +42,25 @@ def _load_fixture():
 
 
 def _fixture_cases():
+    """Collect parametrize cases and the matching ids list.
+
+    Guarded against a missing fixture file so collection still succeeds
+    and ``test_fixture_is_present_and_versioned`` can report the real
+    failure mode.
+    """
+    if not FIXTURE_PATH.exists():
+        return [], []
     fixture = _load_fixture()
     cases = []
-    for trajectory in fixture["trajectories"]:
-        for method_name in trajectory["expected"]:
+    ids = []
+    for trajectory in fixture.get("trajectories", []):
+        for method_name in trajectory.get("expected", {}):
             cases.append((trajectory, method_name, fixture))
-    return cases
+            ids.append(f"{trajectory['name']}::{method_name}")
+    return cases, ids
+
+
+_CASES, _IDS = _fixture_cases()
 
 
 def _baselode_trace(trajectory, method_name, step):
@@ -53,17 +72,14 @@ def _baselode_trace(trajectory, method_name, step):
 
 
 def test_fixture_is_present_and_versioned():
+    assert FIXTURE_PATH.exists(), f"Fixture missing at {FIXTURE_PATH}"
     fixture = _load_fixture()
     assert fixture["version"] == "1.0"
     assert fixture["reference"].startswith("wellpathpy")
     assert fixture["trajectories"], "Fixture has no trajectories"
 
 
-@pytest.mark.parametrize(
-    "trajectory,method_name,fixture",
-    _fixture_cases(),
-    ids=lambda value: value["name"] if isinstance(value, dict) and "name" in value else value,
-)
+@pytest.mark.parametrize("trajectory,method_name,fixture", _CASES, ids=_IDS)
 def test_baselode_matches_wellpathpy_within_tolerance(trajectory, method_name, fixture):
     if method_name not in BASELODE_METHOD_FNS:
         pytest.skip(f"No baselode implementation of '{method_name}' to cross-check")
@@ -83,7 +99,6 @@ def test_baselode_matches_wellpathpy_within_tolerance(trajectory, method_name, f
     # for our trajectories.
     step = 1.0
     if all(int(md) == md for md in survey_mds):
-        from math import gcd
         integers = sorted(set(int(md) for md in survey_mds if md > 0))
         if integers:
             step = float(integers[0])
@@ -102,7 +117,9 @@ def test_baselode_matches_wellpathpy_within_tolerance(trajectory, method_name, f
 
     for expected in expected_stations:
         expected_md = float(expected["md"])
-        matching_rows = trace[trace["md"] == expected_md]
+        # Float-tolerance match — md is accumulated by repeated addition
+        # in the desurvey loop, so exact equality drops the row.
+        matching_rows = trace[(trace["md"] - expected_md).abs() <= MD_MATCH_TOLERANCE_M]
         assert not matching_rows.empty, (
             f"trajectory '{trajectory['name']}' / method '{method_name}': "
             f"no baselode sample at md={expected_md}"
@@ -141,7 +158,20 @@ def test_all_methods_agree_on_vertical_hole():
     for method_name, trace in traces.items():
         if method_name == "minimum_curvature":
             continue
-        joined = reference.merge(trace, on="md", suffixes=("_mc", f"_{method_name}"))
+        # merge_asof tolerates the float-accumulation in md without
+        # silently dropping rows the way an exact-equality merge would.
+        joined = pd.merge_asof(
+            reference.sort_values("md"),
+            trace.sort_values("md"),
+            on="md",
+            direction="nearest",
+            tolerance=MD_MATCH_TOLERANCE_M,
+            suffixes=("_mc", f"_{method_name}"),
+        )
+        assert joined.notna().all().all(), (
+            f"merge_asof dropped rows when comparing minimum_curvature with "
+            f"{method_name} — md alignment is off beyond {MD_MATCH_TOLERANCE_M} m"
+        )
         for axis in ("easting", "northing", "elevation"):
             assert (joined[f"{axis}_mc"] - joined[f"{axis}_{method_name}"]).abs().max() < 1e-9, (
                 f"On vertical hole, {method_name} disagrees with minimum_curvature on {axis}"
