@@ -428,6 +428,30 @@ For any hole with exactly one survey row, append a synthetic second station with
 
 ---
 
+### drop_orphan_intervals
+
+```python
+drop_orphan_intervals(table, collar, hole_col=HOLE_ID)
+```
+
+Drop interval rows whose `hole_id` is not in the collar table.  Complement of the `orphan_intervals` validation check.
+
+**Returns:** `pandas.DataFrame` — filtered copy of `table` with the index reset.
+
+---
+
+### swap_inverted_intervals
+
+```python
+swap_inverted_intervals(table, from_col=FROM, to_col=TO)
+```
+
+Swap `from` and `to` where the values are inverted (`to < from`).  Fixes the common data-entry typo.  Rows where `to == from` (zero-length, genuinely malformed) are left untouched and require manual review.  All other columns preserved.
+
+**Returns:** `pandas.DataFrame` — copy of `table` with inverted rows corrected.
+
+---
+
 ### normalize_azimuth
 
 ```python

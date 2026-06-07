@@ -172,6 +172,8 @@ export {
   validateDrillholeDb,
   fixSingleStationSurveys,
   normalizeAzimuth,
+  dropOrphanIntervals,
+  swapInvertedIntervals,
   replaceBelowDetectionLimit,
   SEVERITY_ERROR,
   SEVERITY_WARNING,

@@ -211,6 +211,69 @@ def test_fix_single_station_surveys_leaves_multi_station_holes_alone():
     assert sorted(fixed[fixed["hole_id"] == "B"]["depth"].tolist()) == [0.0, 1.0]
 
 
+def test_drop_orphan_intervals_keeps_only_matching_holes():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    assays = _assays([
+        ("A", 0.0, 1.0, 0.1),
+        ("B", 0.0, 1.0, 0.2),
+        ("A", 1.0, 2.0, 0.3),
+    ])
+    cleaned = validate.drop_orphan_intervals(assays, collar)
+    assert len(cleaned) == 2
+    assert list(cleaned["hole_id"]) == ["A", "A"]
+
+
+def test_drop_orphan_intervals_returns_empty_for_empty_collar():
+    assays = _assays([("A", 0.0, 1.0, 0.1)])
+    cleaned = validate.drop_orphan_intervals(assays, pd.DataFrame(columns=["hole_id"]))
+    assert cleaned.empty
+
+
+def test_swap_inverted_intervals_fixes_typos():
+    assays = _assays([
+        ("A", 5.0, 2.0, 0.1),  # inverted
+        ("A", 2.0, 5.0, 0.2),  # correct
+        ("A", 3.0, 3.0, 0.3),  # zero-length, left alone
+    ])
+    fixed = validate.swap_inverted_intervals(assays)
+    assert list(fixed["from"]) == [2.0, 2.0, 3.0]
+    assert list(fixed["to"]) == [5.0, 5.0, 3.0]
+    assert list(fixed["au_ppm"]) == [0.1, 0.2, 0.3]
+
+
+def test_swap_inverted_intervals_preserves_other_columns():
+    df = pd.DataFrame({
+        "hole_id": ["A"],
+        "from": [5.0],
+        "to": [2.0],
+        "comment": ["needs review"],
+        "lithology": ["granite"],
+    })
+    fixed = validate.swap_inverted_intervals(df)
+    assert fixed.iloc[0]["from"] == 2.0
+    assert fixed.iloc[0]["to"] == 5.0
+    assert fixed.iloc[0]["comment"] == "needs review"
+    assert fixed.iloc[0]["lithology"] == "granite"
+
+
+def test_orphan_intervals_fix_recipe_points_at_drop_helper():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    survey = _survey([("A", 0.0, 0.0, -90.0), ("A", 100.0, 0.0, -90.0)])
+    assays = _assays([("B", 0.0, 1.0, 0.1)])
+    report = validate.validate_drillhole_db(collar, survey, {"assay": assays})
+    issues = _checks_with(report, "orphan_intervals")
+    assert "drop_orphan_intervals" in issues[0]["fix"]
+
+
+def test_negative_lengths_fix_recipe_points_at_swap_helper():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    survey = _survey([("A", 0.0, 0.0, -90.0), ("A", 100.0, 0.0, -90.0)])
+    assays = _assays([("A", 5.0, 2.0, 0.1)])
+    report = validate.validate_drillhole_db(collar, survey, {"assay": assays})
+    issues = _checks_with(report, "negative_lengths")
+    assert "swap_inverted_intervals" in issues[0]["fix"]
+
+
 def test_normalize_azimuth_wraps_360_to_0():
     survey = _survey([("A", 0.0, 360.0, -90.0), ("A", 100.0, 0.0, -90.0)])
     fixed = validate.normalize_azimuth(survey)

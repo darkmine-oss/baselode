@@ -219,12 +219,14 @@ Checks covered (severity, what triggers): `duplicate_hole_ids` (error), `single_
 ### Fix helpers
 
 ```js
-const surveyFixed   = fixSingleStationSurveys(surveyRows, collarRows);
-const surveyWrapped = normalizeAzimuth(surveyRows);  // 360 → 0, -30 → 330, idempotent
-const assaysClean   = replaceBelowDetectionLimit(assayRows, { columns: ['au_ppm'] });
+const surveyFixed    = fixSingleStationSurveys(surveyRows, collarRows);
+const surveyWrapped  = normalizeAzimuth(surveyRows);  // 360 → 0, -30 → 330, idempotent
+const assaysMatched  = dropOrphanIntervals(assayRows, collarRows);
+const assaysSwapped  = swapInvertedIntervals(assayRows);  // fixes to<from typos
+const assaysClean    = replaceBelowDetectionLimit(assayRows, { columns: ['au_ppm'] });
 ```
 
-All three return new arrays — the source rows are untouched.
+All helpers return new arrays — the source rows are untouched.
 
 To treat `azimuth = 360` as valid without normalizing first, pass `allowFullCircle: true`:
 

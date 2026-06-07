@@ -263,11 +263,17 @@ survey_fixed = validate.fix_single_station_surveys(survey, collar)
 # Wrap azimuths into [0, 360); converts 360 to 0, normalizes negatives
 survey_wrapped = validate.normalize_azimuth(survey)
 
+# Drop interval rows whose hole_id is not in collar
+assays_matched = validate.drop_orphan_intervals(assays, collar)
+
+# Swap from/to where they're inverted (fixes the common data-entry typo)
+assays_swapped = validate.swap_inverted_intervals(assays)
+
 # Substitute below-detection sentinels with half-MDL
 assays_clean = validate.replace_below_detection_limit(assays, columns=["au_ppm", "cu_pct"])
 ```
 
-All three are pure — they return new DataFrames and leave the source unchanged.
+All helpers are pure — they return new DataFrames and leave the source unchanged.
 
 To treat `azimuth = 360` as valid without normalizing first, pass `allow_full_circle=True` to `validate_drillhole_db`:
 

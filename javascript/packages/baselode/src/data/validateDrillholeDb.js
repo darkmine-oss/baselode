@@ -153,7 +153,7 @@ function checkOrphanIntervals(table, tableName, collarHoleIds, holeCol) {
         table: tableName,
         rowIndex,
         message: `Hole '${holeId}' in '${tableName}' is not present in the collar table`,
-        fix: 'Add the hole to the collar table or remove its rows from the interval table',
+        fix: 'Call dropOrphanIntervals(table, collar) to remove these rows, or add the hole to the collar table',
       }));
     }
   });
@@ -175,7 +175,7 @@ function checkNegativeLengths(table, tableName, holeCol, fromCol, toCol) {
         table: tableName,
         rowIndex,
         message: `Interval from=${fromDepth} to=${toDepth} has zero or negative length`,
-        fix: 'Correct the from/to values or drop the row',
+        fix: 'Call swapInvertedIntervals(table) to fix data-entry typos where to<from; zero-length rows (to===from) require manual review',
       }));
     }
   });
@@ -341,6 +341,44 @@ export function fixSingleStationSurveys(
     const secondHole = String(second[holeCol] ?? '');
     if (firstHole !== secondHole) return firstHole < secondHole ? -1 : 1;
     return Number(first[depthCol]) - Number(second[depthCol]);
+  });
+}
+
+/**
+ * Drop interval rows whose `hole_id` is not in the collar table.
+ *
+ * Complement of the `orphan_intervals` validation check.
+ *
+ * @returns {Array<Object>} new rows containing only those whose hole_id is in collar
+ */
+export function dropOrphanIntervals(table, collar, { holeCol = HOLE_ID } = {}) {
+  if (!table || !table.length) return [];
+  if (!collar || !collar.length) return [];
+  const validHoleIds = new Set(
+    collar.map((row) => row && row[holeCol]).filter((value) => value != null),
+  );
+  return table.filter((row) => row && validHoleIds.has(row[holeCol]));
+}
+
+/**
+ * Swap `from` and `to` where the values are inverted.
+ *
+ * Fixes the common data-entry typo where `to < from`.  Rows where
+ * `to === from` are genuinely malformed (zero-length intervals) and are
+ * left untouched.  All other columns preserved.
+ *
+ * @returns {Array<Object>} new rows with inverted intervals corrected
+ */
+export function swapInvertedIntervals(table, { fromCol = FROM, toCol = TO } = {}) {
+  if (!table || !table.length) return [];
+  return table.map((row) => {
+    if (!row) return row;
+    const fromDepth = Number(row[fromCol]);
+    const toDepth = Number(row[toCol]);
+    if (Number.isFinite(fromDepth) && Number.isFinite(toDepth) && toDepth < fromDepth) {
+      return { ...row, [fromCol]: toDepth, [toCol]: fromDepth };
+    }
+    return { ...row };
   });
 }
 

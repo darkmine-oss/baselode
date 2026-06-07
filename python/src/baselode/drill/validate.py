@@ -244,6 +244,66 @@ def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=
     return extended.sort_values([hole_col, depth_col]).reset_index(drop=True)
 
 
+def drop_orphan_intervals(table, collar, hole_col=HOLE_ID):
+    """Drop interval rows whose ``hole_id`` is not in the collar table.
+
+    The complement of the ``orphan_intervals`` validation check: useful
+    when a downstream pipeline needs a strict subset of intervals that
+    matches the collar.  Pure — returns a new DataFrame.
+
+    Parameters
+    ----------
+    table : pd.DataFrame
+        Interval table to filter.
+    collar : pd.DataFrame
+        Collar table providing the valid hole_ids.
+    hole_col : str
+        Hole identifier column (default :data:`baselode.datamodel.HOLE_ID`).
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered copy of *table* with the index reset.
+    """
+    if table.empty:
+        return table.copy()
+    if collar is None or collar.empty or hole_col not in collar.columns:
+        return table.iloc[0:0].copy()
+    valid_hole_ids = set(collar[hole_col].dropna().tolist())
+    return table[table[hole_col].isin(valid_hole_ids)].reset_index(drop=True)
+
+
+def swap_inverted_intervals(table, from_col=FROM, to_col=TO):
+    """Swap ``from`` and ``to`` where the values are inverted.
+
+    Fixes the common data-entry typo where ``to < from``.  Rows where
+    ``to == from`` are genuinely malformed (zero-length intervals) and
+    are left untouched — they need human review.  All other columns are
+    preserved.
+
+    Parameters
+    ----------
+    table : pd.DataFrame
+        Interval table.
+    from_col, to_col : str
+        From-/to-depth columns.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of *table* with inverted rows corrected.
+    """
+    if table.empty or from_col not in table.columns or to_col not in table.columns:
+        return table.copy()
+    out = table.copy()
+    inverted_mask = out[to_col] < out[from_col]
+    if inverted_mask.any():
+        from_values = out.loc[inverted_mask, from_col].copy()
+        out.loc[inverted_mask, from_col] = out.loc[inverted_mask, to_col]
+        out.loc[inverted_mask, to_col] = from_values
+    return out
+
+
 def normalize_azimuth(survey, azimuth_col=AZIMUTH):
     """Wrap survey azimuths into ``[0, 360)``.
 
@@ -453,7 +513,7 @@ def _check_orphan_intervals(table, table_name, collar_hole_ids, hole_col):
                 table=table_name,
                 row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
                 message=f"Hole '{hole_id}' in '{table_name}' is not present in the collar table",
-                fix="Add the hole to the collar table or remove its rows from the interval table",
+                fix="Call drop_orphan_intervals(table, collar) to remove these rows, or add the hole to the collar table",
             ))
     return issues
 
@@ -475,7 +535,10 @@ def _check_negative_lengths(table, table_name, hole_col, from_col, to_col):
                 table=table_name,
                 row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
                 message=f"Interval from={from_depth} to={to_depth} has zero or negative length",
-                fix="Correct the from/to values or drop the row",
+                fix=(
+                    "Call swap_inverted_intervals(table) to fix data-entry typos where to<from; "
+                    "zero-length rows (to==from) require manual review"
+                ),
             ))
     return issues
 

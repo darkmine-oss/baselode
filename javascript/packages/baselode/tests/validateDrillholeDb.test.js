@@ -8,6 +8,8 @@ import {
   validateDrillholeDb,
   fixSingleStationSurveys,
   normalizeAzimuth,
+  dropOrphanIntervals,
+  swapInvertedIntervals,
   replaceBelowDetectionLimit,
 } from '../src/data/validateDrillholeDb.js';
 
@@ -102,7 +104,7 @@ describe('validateDrillholeDb', () => {
     expect(checksWith(report, 'dip_range')[0].severity).toBe('error');
   });
 
-  it('flags orphan intervals', () => {
+  it('flags orphan intervals with dropOrphanIntervals fix recipe', () => {
     const report = validateDrillholeDb({
       collar: [collarRow('A')],
       survey: [surveyRow('A', 0), surveyRow('A', 100)],
@@ -112,15 +114,18 @@ describe('validateDrillholeDb', () => {
     expect(issues).toHaveLength(1);
     expect(issues[0].hole_id).toBe('B');
     expect(issues[0].table).toBe('assay');
+    expect(issues[0].fix).toContain('dropOrphanIntervals');
   });
 
-  it('flags negative or zero lengths', () => {
+  it('flags negative or zero lengths with swapInvertedIntervals fix recipe', () => {
     const report = validateDrillholeDb({
       collar: [collarRow('A')],
       survey: [surveyRow('A', 0), surveyRow('A', 100)],
       intervalTables: { assay: [assayRow('A', 5, 2)] },
     });
-    expect(checksWith(report, 'negative_lengths')[0].severity).toBe('error');
+    const issues = checksWith(report, 'negative_lengths');
+    expect(issues[0].severity).toBe('error');
+    expect(issues[0].fix).toContain('swapInvertedIntervals');
   });
 
   it('flags intervals beyond collar max_depth', () => {
@@ -202,6 +207,41 @@ describe('fixSingleStationSurveys', () => {
     expect(fixed).toHaveLength(4);
     expect(fixed.filter((row) => row.hole_id === 'A').map((row) => row.depth)).toEqual([0, 50]);
     expect(fixed.filter((row) => row.hole_id === 'B').map((row) => row.depth)).toEqual([0, 1]);
+  });
+});
+
+describe('dropOrphanIntervals', () => {
+  it('keeps only rows whose hole_id is in collar', () => {
+    const cleaned = dropOrphanIntervals(
+      [assayRow('A', 0, 1), assayRow('B', 0, 1), assayRow('A', 1, 2)],
+      [collarRow('A')],
+    );
+    expect(cleaned).toHaveLength(2);
+    expect(cleaned.every((row) => row.hole_id === 'A')).toBe(true);
+  });
+
+  it('returns empty when collar is empty', () => {
+    expect(dropOrphanIntervals([assayRow('A', 0, 1)], [])).toEqual([]);
+  });
+});
+
+describe('swapInvertedIntervals', () => {
+  it('swaps from/to when to < from', () => {
+    const fixed = swapInvertedIntervals([
+      assayRow('A', 5, 2, 0.1),
+      assayRow('A', 2, 5, 0.2),
+      assayRow('A', 3, 3, 0.3),
+    ]);
+    expect(fixed.map((row) => row.from)).toEqual([2, 2, 3]);
+    expect(fixed.map((row) => row.to)).toEqual([5, 5, 3]);
+    expect(fixed.map((row) => row.au_ppm)).toEqual([0.1, 0.2, 0.3]);
+  });
+
+  it('preserves other columns', () => {
+    const fixed = swapInvertedIntervals([
+      { hole_id: 'A', from: 5, to: 2, comment: 'needs review', lithology: 'granite' },
+    ]);
+    expect(fixed[0]).toMatchObject({ from: 2, to: 5, comment: 'needs review', lithology: 'granite' });
   });
 });
 

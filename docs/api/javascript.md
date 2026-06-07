@@ -292,6 +292,14 @@ const report = validateDrillholeDb({
 
 Append a synthetic second station for any hole with only one row.  Uses `collar.max_depth` when present, otherwise `depth + 1.0`.  Returns a new sorted array.
 
+#### `dropOrphanIntervals(table, collar, options?)`
+
+Drop interval rows whose `hole_id` is not in `collar`.  Complement of the `orphan_intervals` validation check.  `options.holeCol` overrides the column name.
+
+#### `swapInvertedIntervals(table, options?)`
+
+Swap `from`/`to` where `to < from`.  Fixes the common data-entry typo; rows where `to === from` (zero-length) are left untouched for manual review.  All other fields preserved.  `options.fromCol` / `options.toCol` override the column names.
+
 #### `normalizeAzimuth(survey, options?)`
 
 Wrap survey azimuths into `[0, 360)` via `value mod 360`.  Folds `360` to `0`, normalizes negatives, idempotent for valid values.  `null` / non-numeric cells are left untouched.  `options.azimuthCol` overrides the column name (default `AZIMUTH`).
