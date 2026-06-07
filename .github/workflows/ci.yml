@@ -1,8 +1,13 @@
-name: Test and Build (no publish)
+name: CI
 
 on:
   pull_request:
   workflow_dispatch:
+
+# To make this a required check on PRs, go to
+# Settings → Branches → Branch protection rules → main and add the
+# "Python tests" and "JavaScript tests" status checks below
+# "Require status checks to pass before merging".
 
 jobs:
   test-python:
@@ -24,6 +29,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r python/requirements.txt
           pip install pytest
+          # Install optional extras so tests covering them actually run
+          # in CI instead of skipping silently.
+          pip install "omf>=1.0,<2.0" "lasio>=0.31"
 
       - name: Run tests
         run: python -m pytest test -q

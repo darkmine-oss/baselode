@@ -27,6 +27,18 @@ Required secrets / configurations:
 | `NPM_TOKEN` | Repository secret | Authenticate `npm publish` |
 | PyPI trusted publisher | PyPI project settings | OIDC publish from Actions |
 
+### Recommended branch protection
+
+To make sure merges to `main` only happen once tests pass on the PR
+branch, configure branch protection for `main`:
+
+1. *Settings → Branches → Branch protection rules → Add rule.*
+2. Branch name pattern: `main`.
+3. Enable **Require status checks to pass before merging** and add
+   the `Python tests` and `JavaScript tests` checks (provided by the
+   `CI` workflow in `.github/workflows/ci.yml`).
+4. Enable **Require branches to be up to date before merging**.
+
 ---
 
 ## Manual releases
