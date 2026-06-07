@@ -54,15 +54,31 @@ describe('analytics helpers', () => {
     expect(sourceRows).toHaveLength(4);
   });
 
-  it('buildCategoricalColourResolver returns fallback for unknown groups', () => {
+  it('buildCategoricalColourResolver honours explicit map matches first', () => {
     const resolve = buildCategoricalColourResolver({ granite: '#aaa' }, '#fff');
     expect(resolve('granite')).toBe('#aaa');
+  });
+
+  it('buildCategoricalColourResolver cycles a default palette for unknown groups', () => {
+    const resolve = buildCategoricalColourResolver({ granite: '#aaa' }, '#fff', ['#100', '#200', '#300']);
+    expect(resolve('granite')).toBe('#aaa');       // explicit map wins
+    expect(resolve('schist')).toBe('#100');        // 1st cycle assignment
+    expect(resolve('basalt')).toBe('#200');        // 2nd cycle assignment
+    expect(resolve('shale')).toBe('#300');         // 3rd cycle assignment
+    expect(resolve('rhyolite')).toBe('#100');      // wraps
+    expect(resolve('schist')).toBe('#100');        // stable across re-lookups
+  });
+
+  it('buildCategoricalColourResolver falls back to the literal fallback when palette empty', () => {
+    const resolve = buildCategoricalColourResolver({}, '#fff', []);
+    expect(resolve('granite')).toBe('#fff');
     expect(resolve('schist')).toBe('#fff');
   });
 
   it('buildCategoricalColourResolver tolerates an unknown built-in name', () => {
-    const resolve = buildCategoricalColourResolver('does-not-exist', '#fff');
-    expect(resolve('granite')).toBe('#fff');
+    const resolve = buildCategoricalColourResolver('does-not-exist', '#fff', ['#100']);
+    // Unknown built-in resolves to an empty map; the palette still cycles.
+    expect(resolve('granite')).toBe('#100');
   });
 });
 

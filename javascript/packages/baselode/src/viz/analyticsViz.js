@@ -11,6 +11,7 @@
  */
 
 import { getColour, resolveColourMap } from './colourMap.js';
+import { BASELODE_COLORWAY } from './baselodeTemplate.js';
 
 const NULLISH_CATEGORY = '(missing)';
 
@@ -54,20 +55,43 @@ export function groupRowsBy(rows, groupBy) {
  * Resolve a categorical colour map (string name or explicit object) to a
  * function that returns a colour per group key.
  *
- * Built-in map names (`commodity`, `lithology`) lookup via
- * :func:`resolveColourMap`.  Otherwise a passed object is used directly.
+ * Lookup order per key:
+ *   1. The explicit map (`commodity`, `lithology`, or a `{key: cssColour}` object)
+ *   2. A cyclic default palette (`BASELODE_COLORWAY` by default) — each
+ *      new group key gets the next colour, assigned at first lookup so
+ *      the same key always resolves to the same colour within one render.
+ *   3. The plain fallback colour, only used when both the map and the
+ *      palette are empty.
+ *
+ * This means a column like `holetype` (no built-in map) still produces
+ * distinct colours per group instead of every group sharing the
+ * fallback grey.
  */
-export function buildCategoricalColourResolver(colourMap, fallback = '#94a3b8') {
+export function buildCategoricalColourResolver(colourMap, fallback = '#94a3b8', palette = BASELODE_COLORWAY) {
   let resolved = {};
   if (colourMap) {
     try {
       resolved = resolveColourMap(colourMap);
     } catch (_error) {
-      // Unknown built-in name etc. — fall back to no map (every group gets the fallback colour).
+      // Unknown built-in name etc. — fall back to the cyclic palette.
       resolved = {};
     }
   }
-  return (groupKey) => getColour(groupKey, resolved, fallback);
+  const palettePool = palette && palette.length ? palette : null;
+  const cycledByKey = new Map();
+  let nextPaletteIdx = 0;
+  return (groupKey) => {
+    const sentinel = '__BASELODE_NO_MATCH__';
+    const explicit = getColour(groupKey, resolved, sentinel);
+    if (explicit !== sentinel) return explicit;
+    if (!palettePool) return fallback;
+    const stableKey = groupKey == null ? '' : String(groupKey);
+    if (!cycledByKey.has(stableKey)) {
+      cycledByKey.set(stableKey, palettePool[nextPaletteIdx % palettePool.length]);
+      nextPaletteIdx += 1;
+    }
+    return cycledByKey.get(stableKey);
+  };
 }
 
 /**
