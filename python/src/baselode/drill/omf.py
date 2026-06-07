@@ -88,6 +88,10 @@ def collars_to_omf_points(
     _require_omf()
     required = [easting_col, northing_col, elevation_col]
     valid = collars.dropna(subset=required)
+    if valid.empty:
+        raise ValueError(
+            "No collars have complete easting / northing / elevation — nothing to write."
+        )
     vertices = valid[required].to_numpy(dtype=float)
     geometry = _omf.PointSetGeometry(vertices=vertices)
 
@@ -142,7 +146,9 @@ def traces_to_omf_lines(
     segment_hole_ids = []
 
     for hole_id, group in traces.groupby(hole_col):
-        ordered = group.sort_values(md_col)
+        ordered = group.sort_values(md_col).dropna(
+            subset=[md_col, easting_col, northing_col, elevation_col]
+        )
         xyz = ordered[[easting_col, northing_col, elevation_col]].to_numpy(dtype=float)
         if len(xyz) < 2:
             continue
@@ -211,11 +217,17 @@ def intervals_to_omf_lines(
     segments = []
     rows_used = []
 
+    trace_groups = {
+        hole_id: group.sort_values(md_col).dropna(
+            subset=[md_col, easting_col, northing_col, elevation_col]
+        )
+        for hole_id, group in traces.groupby(hole_col)
+    }
+
     for hole_id, group in intervals.groupby(hole_col):
-        trace_hole = traces[traces[hole_col] == hole_id]
-        if trace_hole.empty:
+        trace_sorted = trace_groups.get(hole_id)
+        if trace_sorted is None or len(trace_sorted) < 2:
             continue
-        trace_sorted = trace_hole.sort_values(md_col)
         mds = trace_sorted[md_col].to_numpy(dtype=float)
         eastings = trace_sorted[easting_col].to_numpy(dtype=float)
         northings = trace_sorted[northing_col].to_numpy(dtype=float)
