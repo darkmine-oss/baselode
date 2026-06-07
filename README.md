@@ -1,5 +1,10 @@
 # Baselode
 
+[![CI](https://github.com/darkmine-oss/baselode/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/darkmine-oss/baselode/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/baselode.svg)](https://pypi.org/project/baselode/)
+[![npm](https://img.shields.io/npm/v/baselode.svg)](https://www.npmjs.com/package/baselode)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 [-> Interactive Demo Here<-](demo.baselode.net)
 
 <img src="docs/assets/baselode_logo.png" style="max-width:100px;">
