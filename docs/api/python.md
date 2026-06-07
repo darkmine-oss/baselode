@@ -230,6 +230,122 @@ Desurvey all holes in `collars` using the matching rows in `surveys`.
 
 ---
 
+## baselode.drill.intervals
+
+Pure from-to interval algebra primitives.  All functions are stateless and operate on plain pandas `DataFrame` interval tables keyed by `hole_id`, `from`, `to`.
+
+```python
+import baselode.drill.intervals as intervals
+```
+
+Field-name defaults come from `baselode.datamodel.FROM`, `TO`, `HOLE_ID`; pass `from_col` / `to_col` / `hole_col` to override.
+
+---
+
+### interval_length
+
+```python
+interval_length(df, from_col=FROM, to_col=TO)
+```
+
+Per-row length (`to - from`).
+
+**Returns:** `pandas.Series` indexed like `df`.
+
+---
+
+### from_to_midpoints
+
+```python
+from_to_midpoints(df, from_col=FROM, to_col=TO)
+```
+
+Per-row midpoint depth (`(from + to) / 2`).
+
+**Returns:** `pandas.Series` indexed like `df`.
+
+---
+
+### detect_gaps
+
+```python
+detect_gaps(df, from_col=FROM, to_col=TO, hole_col=HOLE_ID, min_gap=0.0)
+```
+
+Find uncovered downhole ranges between consecutive intervals, per hole.  Surface-to-first-interval and last-interval-to-EOH gaps are not reported (no anchor to compare against).
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `df` | `pandas.DataFrame` | — | Interval table |
+| `from_col`, `to_col` | str | `FROM`, `TO` | From-/to-depth columns |
+| `hole_col` | str | `HOLE_ID` | Hole identifier column |
+| `min_gap` | float | `0.0` | Minimum gap length to report |
+
+**Returns:** `pandas.DataFrame` with columns `hole_id`, `from`, `to`, `length`.
+
+---
+
+### detect_overlaps
+
+```python
+detect_overlaps(df, from_col=FROM, to_col=TO, hole_col=HOLE_ID)
+```
+
+All pairs of overlapping intervals per hole.  Reported `from`/`to`/`length` describe the intersection range; `first_index`/`second_index` are positional indices into `df` (0-based, independent of the input's pandas index).
+
+**Returns:** `pandas.DataFrame` with columns `hole_id`, `from`, `to`, `length`, `first_index`, `second_index`.
+
+---
+
+### split_at
+
+```python
+split_at(df, depths, from_col=FROM, to_col=TO, hole_col=HOLE_ID)
+```
+
+Split intervals at boundary depths (e.g. coded lithology contacts).  Any depth falling strictly inside `(from, to)` becomes a new boundary; the row is replaced by sub-intervals, inheriting all other columns from the parent.
+
+`depths` accepts four forms:
+- `dict` `{hole_id: [d1, d2, ...]}` — per-hole boundaries
+- `pandas.DataFrame` with `hole_id` and `depth` columns
+- `list` / array of depths — applied to every hole
+- `float` — applied to every hole
+
+**Returns:** `pandas.DataFrame` with the same columns as `df`.
+
+---
+
+### clip
+
+```python
+clip(df, from_depth=None, to_depth=None, from_col=FROM, to_col=TO)
+```
+
+Clip intervals to a downhole depth window.  Intervals entirely outside `[from_depth, to_depth]` are dropped; straddling intervals have their `from`/`to` pulled to the window edge; all other columns preserved.  Pass `None` for either bound to disable that side.
+
+**Returns:** `pandas.DataFrame` with the index reset.
+
+---
+
+### merge_tables
+
+```python
+merge_tables(tables, from_col=FROM, to_col=TO, hole_col=HOLE_ID)
+```
+
+Left-join multiple interval tables onto a common from-to support via boundary intersection.  Per hole, builds a fine-grained support by collecting all unique boundary depths across every input table; each output row carries `<table>_<col>` values looked up at the sub-interval midpoint.
+
+The first table in `tables` anchors the support — only depth ranges it covers appear in the output ("left" semantics).  Where a later table has no row covering the midpoint, its columns are `NaN`.
+
+```python
+merged = intervals.merge_tables({"assay": assays, "litho": geology})
+# columns: hole_id, from, to, assay_<col>, ..., litho_<col>, ...
+```
+
+**Returns:** `pandas.DataFrame`.
+
+---
+
 ## baselode.drill.view
 
 Plotly-based strip-log visualisation helpers.

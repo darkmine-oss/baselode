@@ -255,6 +255,67 @@ Attach 3D positions and normal vectors to all structural measurement rows.
 
 ---
 
+## Interval Algebra
+
+Pure from-to interval primitives, mirroring the Python `baselode.drill.intervals` module.  Each function takes an array of row objects keyed by `hole_id`, `from`, `to`.  All field-name defaults come from the data model constants (`HOLE_ID`, `FROM`, `TO`); override via the options object.
+
+```js
+import {
+  intervalLength,
+  fromToMidpoints,
+  detectGaps,
+  detectOverlaps,
+  splitAt,
+  clip,
+  mergeTables,
+} from 'baselode';
+```
+
+#### `intervalLength(rows, options?)`
+Per-row length (`to - from`).  Returns `number[]`.
+
+#### `fromToMidpoints(rows, options?)`
+Per-row midpoint depth (`(from + to) / 2`).  Returns `number[]`.
+
+#### `detectGaps(rows, options?)`
+Uncovered downhole ranges between consecutive intervals, per hole.  Returns an array of `{ hole_id, from, to, length }`.  `options.minGap` (default `0`) sets the minimum gap length to report.
+
+#### `detectOverlaps(rows, options?)`
+All overlapping interval pairs per hole.  Returns an array of `{ hole_id, from, to, length, first_index, second_index }`, where the indices are positional into the input array.
+
+#### `splitAt(rows, depths, options?)`
+Split intervals at boundary depths.  Any depth strictly inside `(from, to)` becomes a new boundary; the row is replaced by sub-intervals inheriting all other fields.
+
+`depths` accepts:
+- a `number` — applied to every hole
+- a `number[]` — applied to every hole
+- `{ [hole_id]: number[] }` — per-hole boundaries
+- an array of `{ hole_id, depth }` rows
+
+#### `clip(rows, fromDepth, toDepth, options?)`
+Clip intervals to a downhole window.  Intervals entirely outside `[fromDepth, toDepth]` are dropped; straddling intervals have their from/to pulled to the boundary.  Pass `null`/`undefined` for either bound to disable that side.
+
+#### `mergeTables(tables, options?)`
+Left-join multiple interval tables onto a common from-to support via boundary intersection.  `tables` is an object literal where the first key is the left (anchoring) table.  Each output row carries `<table>_<col>` values looked up at the sub-interval midpoint; columns from a later table missing a covering row are `null`.
+
+```js
+const merged = mergeTables({ assay: assayRows, litho: lithoRows });
+// each row: { hole_id, from, to, assay_<col>, ..., litho_<col>, ... }
+```
+
+#### Options object
+
+```js
+{
+  fromCol: string,   // default: FROM ("from")
+  toCol:   string,   // default: TO ("to")
+  holeCol: string,   // default: HOLE_ID ("hole_id")
+  minGap:  number,   // detectGaps only; default: 0
+}
+```
+
+---
+
 ## Column Metadata
 
 #### `classifyColumns(rows)`

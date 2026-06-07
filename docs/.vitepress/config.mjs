@@ -59,6 +59,7 @@ export default defineConfig({
             { text: 'Overview', link: '/guide/python' },
             { text: 'Data Loading', link: '/guide/python#data-loading' },
             { text: 'Desurveying', link: '/guide/python#desurveying' },
+            { text: 'Interval Algebra', link: '/guide/python#interval-algebra' },
             { text: 'Visualization', link: '/guide/python#visualization' },
             { text: 'Plotly Templates', link: '/guide/python#plotly-templates' },
             { text: 'Colour Mapping', link: '/guide/python#colour-mapping' }
@@ -71,6 +72,7 @@ export default defineConfig({
             { text: 'Overview', link: '/guide/javascript' },
             { text: 'Data Loading', link: '/guide/javascript#data-loading' },
             { text: 'Desurveying', link: '/guide/javascript#desurveying' },
+            { text: 'Interval Algebra', link: '/guide/javascript#interval-algebra' },
             { text: 'Visualization', link: '/guide/javascript#visualization' },
             { text: 'Plotly Templates', link: '/guide/javascript#plotly-templates' },
             { text: 'Colour Mapping', link: '/guide/javascript#colour-mapping' },
