@@ -411,27 +411,6 @@ function _normalizeDepthRequests(depths, traces, holeCol) {
 }
 
 /**
- * Find nearest trace point by measured depth
- * @private
- */
-function nearestByMeasuredDepth(traceRows, midMd) {
-  if (!traceRows.length || !Number.isFinite(midMd)) return null;
-  let best = null;
-  let bestDist = Infinity;
-  for (let i = 0; i < traceRows.length; i += 1) {
-    const row = traceRows[i];
-    const md = toNumber(row.md);
-    if (!Number.isFinite(md)) continue;
-    const dist = Math.abs(md - midMd);
-    if (dist < bestDist) {
-      bestDist = dist;
-      best = row;
-    }
-  }
-  return best;
-}
-
-/**
  * Attach 3D position data from desurveyed traces to assay intervals
  * Finds nearest trace point by mid-depth of each assay interval
  * @param {Array<Object>} assays - Assay data with hole_id, from, to
@@ -447,34 +426,40 @@ export function attachAssayPositions(assays = [], traces = [], options = {}) {
 
   if (!assaysCanonical.rows.length || !tracesCanonical.rows.length) return [...assaysCanonical.rows];
 
-  const tracesByHole = new Map();
-  tracesCanonical.rows.forEach((row) => {
-    if (!row.hole_id) return;
-    if (!tracesByHole.has(row.hole_id)) tracesByHole.set(row.hole_id, []);
-    tracesByHole.get(row.hole_id).push(row);
-  });
-  tracesByHole.forEach((rows, holeId) => {
-    tracesByHole.set(holeId, [...rows].sort((a, b) => toNumber(a.md, 0) - toNumber(b.md, 0)));
-  });
-
-  return assaysCanonical.rows.map((assay) => {
+  // Batch all (hole, midpoint) requests through interpolateTrajectory so
+  // the trace alignment + linear interpolation lives in one place.
+  // Strict-order pairing means we can attach positions back row-by-row.
+  const depthRequests = assaysCanonical.rows.map((assay) => {
     const from = toNumber(assay.from);
     const to = toNumber(assay.to);
-    const midMd = Number.isFinite(from) && Number.isFinite(to) ? 0.5 * (from + to) : undefined;
-    if (!assay.hole_id || !Number.isFinite(midMd)) return { ...assay };
+    const midMd = Number.isFinite(from) && Number.isFinite(to) ? 0.5 * (from + to) : null;
+    return { hole_id: assay.hole_id || null, depth: midMd };
+  });
 
-    const nearest = nearestByMeasuredDepth(tracesByHole.get(assay.hole_id) || [], midMd);
-    if (!nearest) return { ...assay };
+  const positions = interpolateTrajectory(
+    tracesCanonical.rows,
+    depthRequests.filter((row) => row.hole_id != null && row.depth != null),
+  );
+  const positionLookup = new Map();
+  for (const position of positions) {
+    positionLookup.set(`${position.hole_id}|${position.depth}`, position);
+  }
 
-    const merged = { ...assay };
-    ['md', 'x', 'y', 'z', 'azimuth', 'dip'].forEach((key) => {
-      if (nearest[key] === undefined) return;
+  return assaysCanonical.rows.map((assay, index) => {
+    const request = depthRequests[index];
+    if (request.hole_id == null || request.depth == null) return { ...assay };
+    const position = positionLookup.get(`${request.hole_id}|${request.depth}`);
+    if (!position) return { ...assay };
+
+    const merged = { ...assay, md: request.depth };
+    for (const key of ['x', 'y', 'z', 'azimuth', 'dip']) {
+      if (position[key] === undefined || position[key] === null) continue;
       if (Object.prototype.hasOwnProperty.call(merged, key)) {
-        merged[`${key}_trace`] = nearest[key];
+        merged[`${key}_trace`] = position[key];
       } else {
-        merged[key] = nearest[key];
+        merged[key] = position[key];
       }
-    });
+    }
     return merged;
   });
 }

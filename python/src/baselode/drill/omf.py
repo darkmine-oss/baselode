@@ -213,46 +213,51 @@ def intervals_to_omf_lines(
     omf.LineSetElement
     """
     _require_omf()
+    import baselode.drill.desurvey as desurvey_module
+
+    # Build (hole, from) and (hole, to) lookup requests in one shot, so
+    # interpolate_trajectory handles the per-hole trace alignment + linear
+    # interpolation centrally.  Rows whose hole isn't in traces, or whose
+    # from / to is non-numeric, fall through to NaN positions and get
+    # filtered below.
+    valid_intervals = intervals.copy()
+    valid_intervals["_from_numeric"] = pd.to_numeric(valid_intervals[from_col], errors="coerce")
+    valid_intervals["_to_numeric"] = pd.to_numeric(valid_intervals[to_col], errors="coerce")
+    valid_intervals = valid_intervals.dropna(subset=["_from_numeric", "_to_numeric"])
+
+    if valid_intervals.empty:
+        from_positions = pd.DataFrame(columns=[hole_col, "depth", easting_col, northing_col, elevation_col])
+        to_positions = from_positions.copy()
+    else:
+        from_requests = valid_intervals[[hole_col, "_from_numeric"]].rename(columns={"_from_numeric": "depth"})
+        to_requests = valid_intervals[[hole_col, "_to_numeric"]].rename(columns={"_to_numeric": "depth"})
+        from_positions = desurvey_module.interpolate_trajectory(traces, from_requests)
+        to_positions = desurvey_module.interpolate_trajectory(traces, to_requests)
+
     vertices = []
     segments = []
     rows_used = []
-
-    trace_groups = {
-        hole_id: group.sort_values(md_col).dropna(
-            subset=[md_col, easting_col, northing_col, elevation_col]
-        )
-        for hole_id, group in traces.groupby(hole_col)
-    }
-
-    for hole_id, group in intervals.groupby(hole_col):
-        trace_sorted = trace_groups.get(hole_id)
-        if trace_sorted is None or len(trace_sorted) < 2:
+    original_indices = list(valid_intervals.index)
+    for position_idx, original_index in enumerate(original_indices):
+        from_row = from_positions.iloc[position_idx]
+        to_row = to_positions.iloc[position_idx]
+        if pd.isna(from_row[easting_col]) or pd.isna(to_row[easting_col]):
             continue
-        mds = trace_sorted[md_col].to_numpy(dtype=float)
-        eastings = trace_sorted[easting_col].to_numpy(dtype=float)
-        northings = trace_sorted[northing_col].to_numpy(dtype=float)
-        elevations = trace_sorted[elevation_col].to_numpy(dtype=float)
-
-        for original_index, row in group.iterrows():
-            from_depth = _safe_float(row.get(from_col))
-            to_depth = _safe_float(row.get(to_col))
-            if from_depth is None or to_depth is None:
-                continue
-            start_xyz = (
-                float(np.interp(from_depth, mds, eastings)),
-                float(np.interp(from_depth, mds, northings)),
-                float(np.interp(from_depth, mds, elevations)),
-            )
-            end_xyz = (
-                float(np.interp(to_depth, mds, eastings)),
-                float(np.interp(to_depth, mds, northings)),
-                float(np.interp(to_depth, mds, elevations)),
-            )
-            base_index = len(vertices)
-            vertices.append(start_xyz)
-            vertices.append(end_xyz)
-            segments.append([base_index, base_index + 1])
-            rows_used.append(original_index)
+        start_xyz = (
+            float(from_row[easting_col]),
+            float(from_row[northing_col]),
+            float(from_row[elevation_col]),
+        )
+        end_xyz = (
+            float(to_row[easting_col]),
+            float(to_row[northing_col]),
+            float(to_row[elevation_col]),
+        )
+        base_index = len(vertices)
+        vertices.append(start_xyz)
+        vertices.append(end_xyz)
+        segments.append([base_index, base_index + 1])
+        rows_used.append(original_index)
 
     if not segments:
         raise ValueError(

@@ -66,59 +66,42 @@ def compute_plane_normal(dip, azimuth):
 
 
 def attach_structure_positions(structures, traces, depth_col=DEPTH):
-    """Merge 3D coordinates from desurveyed traces to structure measurements.
+    """Attach (easting, northing, elevation) at each structure depth.
 
-    Uses pd.merge_asof on measured depth to find nearest trace point.
-    Returns structures with easting, northing, elevation columns added.
+    Linear interpolation against the desurveyed trace via
+    :func:`baselode.drill.desurvey.interpolate_trajectory`.  More accurate
+    than the previous nearest-sample lookup.
 
     Parameters
     ----------
     structures : pd.DataFrame
         Structural point or interval data (already standardized).
     traces : pd.DataFrame
-        Desurveyed trace table with 'md', easting, northing, elevation columns.
+        Desurveyed trace table with ``md``, ``easting``, ``northing``,
+        ``elevation`` columns.
     depth_col : str
-        Column in structures to use as the measured depth for lookup.
-        Defaults to DEPTH (for point data); use MID for interval data.
+        Column in *structures* to use as the measured depth for lookup.
+        Defaults to ``DEPTH`` for point data; use ``MID`` for interval data.
     """
+    import baselode.drill.desurvey as desurvey_module
+
     if structures.empty or traces.empty:
         return structures.copy()
 
-    traces_sorted = traces.copy()
-    traces_sorted["md"] = pd.to_numeric(traces_sorted["md"], errors="coerce")
-    traces_sorted = traces_sorted[traces_sorted[HOLE_ID].notna() & traces_sorted["md"].notna()]
-    traces_sorted = traces_sorted.sort_values([HOLE_ID, "md"], kind="mergesort").reset_index(drop=True)
+    out = structures.copy()
+    out[depth_col] = pd.to_numeric(out[depth_col], errors="coerce")
+    out = out[out[HOLE_ID].notna() & out[depth_col].notna()].reset_index(drop=True)
+    if out.empty:
+        return out
 
-    structs_sorted = structures.copy()
-    structs_sorted[depth_col] = pd.to_numeric(structs_sorted[depth_col], errors="coerce")
-    structs_sorted = structs_sorted[structs_sorted[HOLE_ID].notna() & structs_sorted[depth_col].notna()]
-    structs_sorted = structs_sorted.sort_values([HOLE_ID, depth_col], kind="mergesort")
-
-    merged_groups = []
-    for hid, group in structs_sorted.groupby(HOLE_ID, sort=False):
-        tgroup = traces_sorted[traces_sorted[HOLE_ID] == hid]
-        if tgroup.empty:
-            merged_groups.append(group)
-            continue
-        pos_cols = [c for c in ["md", EASTING, NORTHING, ELEVATION] if c in tgroup.columns]
-        tgroup_use = tgroup[[HOLE_ID] + pos_cols].sort_values("md", kind="mergesort")
-        merged = pd.merge_asof(
-            group.sort_values(depth_col, kind="mergesort"),
-            tgroup_use,
-            left_on=depth_col,
-            right_on="md",
-            by=HOLE_ID,
-            direction="nearest",
-            suffixes=("", "_trace"),
-        )
-        drop_cols = [col for col in [f"{HOLE_ID}_trace", "hole_id_trace"] if col in merged.columns]
-        if drop_cols:
-            merged = merged.drop(columns=drop_cols)
-        merged_groups.append(merged)
-
-    if not merged_groups:
-        return structs_sorted
-    return pd.concat(merged_groups, ignore_index=True)
+    depth_requests = out[[HOLE_ID, depth_col]].rename(columns={depth_col: "depth"})
+    positions = desurvey_module.interpolate_trajectory(traces, depth_requests).rename(
+        columns={"depth": depth_col},
+    )
+    # interpolate_trajectory returns azimuth/dip too; drop them — the
+    # structure rows already carry their own azimuth/dip semantics.
+    positions = positions[[HOLE_ID, depth_col, EASTING, NORTHING, ELEVATION]]
+    return out.merge(positions, on=[HOLE_ID, depth_col], how="left")
 
 
 def poles_from_dip_dipdir(dip, dipdir):
