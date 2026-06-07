@@ -202,6 +202,9 @@ const assaysWithXYZ = attachAssayPositions(assayRows, traces);
 import {
   validateDrillholeDb,
   fixSingleStationSurveys,
+  normalizeAzimuth,
+  dropOrphanIntervals,
+  swapInvertedIntervals,
   replaceBelowDetectionLimit,
 } from 'baselode';
 

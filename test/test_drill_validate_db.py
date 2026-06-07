@@ -313,6 +313,34 @@ def test_replace_below_detection_limit_respects_custom_factor():
     assert list(out["au_ppm"]) == [0.01]
 
 
+def test_validate_never_raises_on_string_numeric_columns():
+    collar = pd.DataFrame({
+        "hole_id": ["A"],
+        "easting": [0.0],
+        "northing": [0.0],
+        "elevation": [0.0],
+        "max_depth": ["one hundred"],
+    })
+    survey = pd.DataFrame({
+        "hole_id": ["A", "A"],
+        "depth": ["0", "junk"],
+        "azimuth": ["zero", "400"],
+        "dip": ["downhole", -85],
+    })
+    assays = pd.DataFrame({
+        "hole_id": ["A", "A"],
+        "from": ["0", "five"],
+        "to": ["one", "3"],
+        "au_ppm": [0.1, 0.2],
+    })
+    report = validate.validate_drillhole_db(collar, survey, {"assay": assays})
+    assert isinstance(report, dict)
+    assert "summary" in report
+    assert "issues" in report
+    flagged_checks = {issue["check"] for issue in report["issues"]}
+    assert "azimuth_range" in flagged_checks
+
+
 def test_summary_counts_match_issue_severities():
     collar = _collar([
         ("A", 0.0, 0.0, 0.0, 100.0),

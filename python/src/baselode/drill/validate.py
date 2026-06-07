@@ -355,9 +355,11 @@ def replace_below_detection_limit(df, columns=None, sentinel_factor=0.5):
     Returns
     -------
     pd.DataFrame
-        Copy of *df* with BDL strings replaced; columns where any
-        substitution happened are coerced to numeric via
-        :func:`pandas.to_numeric` (``errors='ignore'``).
+        Copy of *df* with BDL strings replaced.  Columns where any
+        substitution happened are coerced via
+        :func:`pandas.to_numeric` with ``errors='coerce'``, and any
+        non-numeric values that remain (e.g. residual category strings)
+        are preserved via ``combine_first``.
     """
     if df.empty:
         return df.copy()
@@ -389,6 +391,38 @@ def replace_below_detection_limit(df, columns=None, sentinel_factor=0.5):
     return out
 
 
+def _to_float(value):
+    """Coerce *value* to a float; return ``None`` for NaN or unparseable input.
+
+    Allows the validator to keep its "never raises" contract when fed string
+    columns (e.g. an azimuth column that came back as object dtype from a
+    CSV with a stray header row).
+    """
+    if value is None:
+        return None
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    try:
+        result = float(value)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(result):
+        return None
+    return result
+
+
+def _numeric_view(table, *columns):
+    """Return a copy of *table* with *columns* coerced to numeric (NaN on failure)."""
+    out = table.copy()
+    for col in columns:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors="coerce")
+    return out
+
+
 def _issue(check, severity, message, hole_id=None, table=None, row_index=None, fix=None):
     return {
         "check": check,
@@ -407,12 +441,12 @@ def _build_max_depth_lookup(collar, hole_col, max_depth_col):
     lookup = {}
     for _, row in collar.iterrows():
         hole_id = row.get(hole_col)
-        value = row.get(max_depth_col)
         if hole_id is None or pd.isna(hole_id):
             continue
-        if value is None or pd.isna(value):
+        numeric_value = _to_float(row.get(max_depth_col))
+        if numeric_value is None:
             continue
-        lookup[hole_id] = float(value)
+        lookup[hole_id] = numeric_value
     return lookup
 
 
@@ -459,10 +493,12 @@ def _check_azimuth_range(survey, hole_col, depth_col, azimuth_col, allow_full_ci
     interval_text = "[0, 360]" if upper_bound_inclusive else "[0, 360)"
     issues = []
     for idx, row in survey.iterrows():
-        value = row.get(azimuth_col)
-        if value is None or pd.isna(value):
+        numeric_value = _to_float(row.get(azimuth_col))
+        if numeric_value is None:
             continue
-        out_of_range = value < 0 or (value > 360 if upper_bound_inclusive else value >= 360)
+        out_of_range = numeric_value < 0 or (
+            numeric_value > 360 if upper_bound_inclusive else numeric_value >= 360
+        )
         if out_of_range:
             issues.append(_issue(
                 check="azimuth_range",
@@ -470,7 +506,7 @@ def _check_azimuth_range(survey, hole_col, depth_col, azimuth_col, allow_full_ci
                 hole_id=str(row.get(hole_col)) if row.get(hole_col) is not None else None,
                 table="survey",
                 row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
-                message=f"Azimuth {value} outside {interval_text}",
+                message=f"Azimuth {numeric_value} outside {interval_text}",
                 fix="Call normalize_azimuth(survey) to wrap into [0, 360) or correct the source value",
             ))
     return issues
@@ -481,17 +517,17 @@ def _check_dip_range(survey, hole_col, depth_col, dip_col):
         return []
     issues = []
     for idx, row in survey.iterrows():
-        value = row.get(dip_col)
-        if value is None or pd.isna(value):
+        numeric_value = _to_float(row.get(dip_col))
+        if numeric_value is None:
             continue
-        if value < -90 or value > 90:
+        if numeric_value < -90 or numeric_value > 90:
             issues.append(_issue(
                 check="dip_range",
                 severity=SEVERITY_ERROR,
                 hole_id=str(row.get(hole_col)) if row.get(hole_col) is not None else None,
                 table="survey",
                 row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
-                message=f"Dip {value} outside [-90, 90]",
+                message=f"Dip {numeric_value} outside [-90, 90]",
                 fix="Correct the source dip value",
             ))
     return issues
@@ -523,9 +559,9 @@ def _check_negative_lengths(table, table_name, hole_col, from_col, to_col):
         return []
     issues = []
     for idx, row in table.iterrows():
-        from_depth = row.get(from_col)
-        to_depth = row.get(to_col)
-        if from_depth is None or to_depth is None or pd.isna(from_depth) or pd.isna(to_depth):
+        from_depth = _to_float(row.get(from_col))
+        to_depth = _to_float(row.get(to_col))
+        if from_depth is None or to_depth is None:
             continue
         if to_depth <= from_depth:
             issues.append(_issue(
@@ -554,10 +590,10 @@ def _check_intervals_beyond_max_depth(table, table_name, max_depth_lookup, hole_
         max_depth = max_depth_lookup.get(hole_id)
         if max_depth is None:
             continue
-        to_depth = row.get(to_col)
-        if to_depth is None or pd.isna(to_depth):
+        to_depth = _to_float(row.get(to_col))
+        if to_depth is None:
             continue
-        if float(to_depth) > max_depth:
+        if to_depth > max_depth:
             issues.append(_issue(
                 check="intervals_beyond_max_depth",
                 severity=SEVERITY_WARNING,
@@ -574,7 +610,8 @@ def _check_interval_gaps(table, table_name, hole_col, from_col, to_col):
     if table.empty:
         return []
     gaps = baselode.drill.intervals.detect_gaps(
-        table, from_col=from_col, to_col=to_col, hole_col=hole_col,
+        _numeric_view(table, from_col, to_col).dropna(subset=[from_col, to_col]),
+        from_col=from_col, to_col=to_col, hole_col=hole_col,
     )
     return [
         _issue(
@@ -593,7 +630,8 @@ def _check_interval_overlaps(table, table_name, hole_col, from_col, to_col):
     if table.empty:
         return []
     overlaps = baselode.drill.intervals.detect_overlaps(
-        table, from_col=from_col, to_col=to_col, hole_col=hole_col,
+        _numeric_view(table, from_col, to_col).dropna(subset=[from_col, to_col]),
+        from_col=from_col, to_col=to_col, hole_col=hole_col,
     )
     return [
         _issue(

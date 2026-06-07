@@ -263,6 +263,9 @@ Mirror of `baselode.drill.validate.validate_drillhole_db`.  Returns a structured
 import {
   validateDrillholeDb,
   fixSingleStationSurveys,
+  normalizeAzimuth,
+  dropOrphanIntervals,
+  swapInvertedIntervals,
   replaceBelowDetectionLimit,
   SEVERITY_ERROR,
   SEVERITY_WARNING,
