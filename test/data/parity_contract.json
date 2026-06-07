@@ -245,6 +245,32 @@
       ]
     },
     {
+      "name": "validate_drillhole_db",
+      "description": "Comprehensive drillhole-database validator: returns a structured {summary, issues} report covering duplicate collar IDs, single-station surveys, az/dip range, orphans, gaps, overlaps, beyond-max-depth, and below-detection sentinels. Ships fix_single_station_surveys + replace_below_detection_limit helpers.",
+      "jsExports": [
+        "validateDrillholeDb",
+        "fixSingleStationSurveys",
+        "normalizeAzimuth",
+        "dropOrphanIntervals",
+        "swapInvertedIntervals",
+        "replaceBelowDetectionLimit",
+        "SEVERITY_ERROR",
+        "SEVERITY_WARNING",
+        "SEVERITY_INFO"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.validate", "validate_drillhole_db"],
+        ["baselode.drill.validate", "fix_single_station_surveys"],
+        ["baselode.drill.validate", "normalize_azimuth"],
+        ["baselode.drill.validate", "drop_orphan_intervals"],
+        ["baselode.drill.validate", "swap_inverted_intervals"],
+        ["baselode.drill.validate", "replace_below_detection_limit"],
+        ["baselode.drill.validate", "SEVERITY_ERROR"],
+        ["baselode.drill.validate", "SEVERITY_WARNING"],
+        ["baselode.drill.validate", "SEVERITY_INFO"]
+      ]
+    },
+    {
       "name": "interval_algebra",
       "description": "Pure from-to interval primitives: lengths, midpoints, gap/overlap detection, split, clip, and intersection-based table merge.",
       "jsExports": [

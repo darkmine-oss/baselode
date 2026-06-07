@@ -223,6 +223,66 @@ joined = join_assays_to_traces(assays, traces)
 
 ---
 
+## Database Validation
+
+`validate_drillhole_db` runs every QA check in one pass and returns a structured report — never raises.  Each issue carries a check name, severity, the affected hole/table/row, a human-readable message, and (where possible) a fix recipe.
+
+```python
+import baselode.drill.validate as validate
+
+report = validate.validate_drillhole_db(
+    collar,
+    survey,
+    interval_tables={"assay": assays, "geology": litho},
+)
+
+# report["summary"]: {"error": N, "warning": M, "info": K}
+errors = [issue for issue in report["issues"] if issue["severity"] == "error"]
+```
+
+### What it checks
+
+| Check | Severity | Drives |
+|---|---|---|
+| `duplicate_hole_ids` | error | Collar table integrity |
+| `single_station_surveys` | warning | Desurvey reliability — fix recipe is `fix_single_station_surveys` |
+| `azimuth_range`, `dip_range` | error | Survey angle sanity |
+| `orphan_intervals` | error | Interval `hole_id` must exist in collar |
+| `negative_lengths` | error | `to <= from` |
+| `intervals_beyond_max_depth` | warning | Interval `to` exceeds collar `max_depth` |
+| `interval_gaps` | info | Consumes `intervals.detect_gaps` |
+| `interval_overlaps` | warning | Consumes `intervals.detect_overlaps`; reports pairwise row indices |
+| `below_detection_limit` | info | Detects `<NUMBER` sentinels in object columns |
+
+### Fix helpers
+
+```python
+# Synthesize a second station for single-station holes so desurvey can run
+survey_fixed = validate.fix_single_station_surveys(survey, collar)
+
+# Wrap azimuths into [0, 360); converts 360 to 0, normalizes negatives
+survey_wrapped = validate.normalize_azimuth(survey)
+
+# Drop interval rows whose hole_id is not in collar
+assays_matched = validate.drop_orphan_intervals(assays, collar)
+
+# Swap from/to where they're inverted (fixes the common data-entry typo)
+assays_swapped = validate.swap_inverted_intervals(assays)
+
+# Substitute below-detection sentinels with half-MDL
+assays_clean = validate.replace_below_detection_limit(assays, columns=["au_ppm", "cu_pct"])
+```
+
+All helpers are pure — they return new DataFrames and leave the source unchanged.
+
+To treat `azimuth = 360` as valid without normalizing first, pass `allow_full_circle=True` to `validate_drillhole_db`:
+
+```python
+report = validate.validate_drillhole_db(collar, survey, allow_full_circle=True)
+```
+
+---
+
 ## Interval Algebra
 
 `baselode.drill.intervals` provides pure from-to interval primitives that the higher-level compositing, validation, and DB-container modules build on.  Every function operates on a pandas `DataFrame` keyed by `hole_id`, `from`, `to` (the canonical columns from `baselode.datamodel`).

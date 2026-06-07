@@ -346,6 +346,142 @@ merged = intervals.merge_tables({"assay": assays, "litho": geology})
 
 ---
 
+## baselode.drill.validate
+
+QA/QC helpers for drillhole tables.  The headline entry point is `validate_drillhole_db`, which runs every check in one pass and returns a structured report.
+
+```python
+import baselode.drill.validate as validate
+```
+
+---
+
+### validate_drillhole_db
+
+```python
+validate_drillhole_db(
+    collar,
+    survey,
+    interval_tables=None,
+    hole_col=HOLE_ID,
+    depth_col=DEPTH,
+    azimuth_col=AZIMUTH,
+    dip_col=DIP,
+    from_col=FROM,
+    to_col=TO,
+    max_depth_col=MAX_DEPTH,
+    allow_full_circle=False,
+)
+```
+
+`allow_full_circle=True` accepts `azimuth = 360` as valid (closed interval `[0, 360]`); the default `False` uses the strict mathematical convention `[0, 360)` and reports `360` as an error with a fix recipe pointing at `normalize_azimuth`.
+
+Run the full drillhole-database validation suite.  Returns a structured report (never raises).
+
+**Returns**
+
+```python
+{
+    "summary": {"error": int, "warning": int, "info": int},
+    "issues": [
+        {
+            "check": str,           # e.g. "orphan_intervals"
+            "severity": str,        # "error" | "warning" | "info"
+            "hole_id": str | None,
+            "table": str | None,    # "collar" | "survey" | <interval table name>
+            "row_index": int | None,
+            "message": str,
+            "fix": str | None,
+        },
+        ...
+    ],
+}
+```
+
+**Checks**
+
+| Check | Severity | Notes |
+|---|---|---|
+| `duplicate_hole_ids` | error | Collar table contains the same `hole_id` more than once |
+| `single_station_surveys` | warning | A hole has only one survey row — desurvey will fail.  Fix recipe points at `fix_single_station_surveys` |
+| `azimuth_range` | error | Survey azimuth outside `[0, 360)` |
+| `dip_range` | error | Survey dip outside `[-90, 90]` |
+| `orphan_intervals` | error | Interval `hole_id` not present in collar table |
+| `negative_lengths` | error | Interval `to <= from` |
+| `intervals_beyond_max_depth` | warning | Interval `to` exceeds collar `max_depth` (only when collar carries the column) |
+| `interval_gaps` | info | Consumes `baselode.drill.intervals.detect_gaps` |
+| `interval_overlaps` | warning | Consumes `baselode.drill.intervals.detect_overlaps`; records the pairwise indices |
+| `below_detection_limit` | info | Detects `<NUMBER` sentinels in object/string columns.  Fix recipe points at `replace_below_detection_limit` |
+
+---
+
+### fix_single_station_surveys
+
+```python
+fix_single_station_surveys(survey, collar=None,
+                            hole_col=HOLE_ID, depth_col=DEPTH, max_depth_col=MAX_DEPTH)
+```
+
+For any hole with exactly one survey row, append a synthetic second station with the same azimuth/dip at `collar.max_depth` (when available) or `depth + 1.0` otherwise.  Equivalent to PyGSLIB's `fix_survey_one_interval_err`.
+
+**Returns:** `pandas.DataFrame` — original survey rows plus synthetics, sorted by `hole_id`, `depth`, with the index reset.
+
+---
+
+### drop_orphan_intervals
+
+```python
+drop_orphan_intervals(table, collar, hole_col=HOLE_ID)
+```
+
+Drop interval rows whose `hole_id` is not in the collar table.  Complement of the `orphan_intervals` validation check.
+
+**Returns:** `pandas.DataFrame` — filtered copy of `table` with the index reset.
+
+---
+
+### swap_inverted_intervals
+
+```python
+swap_inverted_intervals(table, from_col=FROM, to_col=TO)
+```
+
+Swap `from` and `to` where the values are inverted (`to < from`).  Fixes the common data-entry typo.  Rows where `to == from` (zero-length, genuinely malformed) are left untouched and require manual review.  All other columns preserved.
+
+**Returns:** `pandas.DataFrame` — copy of `table` with inverted rows corrected.
+
+---
+
+### normalize_azimuth
+
+```python
+normalize_azimuth(survey, azimuth_col=AZIMUTH)
+```
+
+Wrap survey azimuths into `[0, 360)` by applying `value mod 360`.  Folds `360` to `0`, brings negatives like `-30` to `330`, and is idempotent for already-valid values.  NaNs and non-numeric cells are left untouched.
+
+**Returns:** `pandas.DataFrame` — copy of `survey` with the azimuth column wrapped.
+
+---
+
+### replace_below_detection_limit
+
+```python
+replace_below_detection_limit(df, columns=None, sentinel_factor=0.5)
+```
+
+Replace `<MDL` strings (e.g. `"<0.005"`) with `MDL * sentinel_factor`.  Defaults to half-MDL, the industry-standard convention for QAQC statistics.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `df` | `pandas.DataFrame` | — | Source table |
+| `columns` | iterable of str | `None` | Columns to scan; defaults to every string-dtype column |
+| `sentinel_factor` | float | `0.5` | Multiplier applied to the detection limit |
+
+**Returns:** `pandas.DataFrame` — copy of `df` with replacements applied; touched columns are coerced numeric where possible.
+
+---
+
 ## baselode.drill.view
 
 Plotly-based strip-log visualisation helpers.

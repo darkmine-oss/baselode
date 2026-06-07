@@ -255,6 +255,73 @@ Attach 3D positions and normal vectors to all structural measurement rows.
 
 ---
 
+## Drillhole DB Validation
+
+Mirror of `baselode.drill.validate.validate_drillhole_db`.  Returns a structured `{ summary, issues }` report covering duplicate collar IDs, single-station surveys, az/dip range, orphan intervals, gaps/overlaps, beyond-`max_depth` intervals, and `<MDL` sentinels.
+
+```js
+import {
+  validateDrillholeDb,
+  fixSingleStationSurveys,
+  normalizeAzimuth,
+  dropOrphanIntervals,
+  swapInvertedIntervals,
+  replaceBelowDetectionLimit,
+  SEVERITY_ERROR,
+  SEVERITY_WARNING,
+  SEVERITY_INFO,
+} from 'baselode';
+```
+
+#### `validateDrillholeDb({ collar, survey, intervalTables }, options?)`
+
+Run all checks in one pass.
+
+```js
+const report = validateDrillholeDb({
+  collar: collarRows,
+  survey: surveyRows,
+  intervalTables: { assay: assayRows, geology: geologyRows },
+});
+// {
+//   summary: { error, warning, info },
+//   issues: [{ check, severity, hole_id, table, row_index, message, fix }, ...]
+// }
+```
+
+`options` accepts column-name overrides (`holeCol`, `depthCol`, `azimuthCol`, `dipCol`, `fromCol`, `toCol`, `maxDepthCol` — defaults from the data-model constants) plus `allowFullCircle` (default `false`).  When `true`, `azimuth = 360` is accepted as valid (closed interval `[0, 360]`); otherwise the strict mathematical convention `[0, 360)` is used and `360` is reported as an error.
+
+#### `fixSingleStationSurveys(survey, collar?, options?)`
+
+Append a synthetic second station for any hole with only one row.  Uses `collar.max_depth` when present, otherwise `depth + 1.0`.  Returns a new sorted array.
+
+#### `dropOrphanIntervals(table, collar, options?)`
+
+Drop interval rows whose `hole_id` is not in `collar`.  Complement of the `orphan_intervals` validation check.  `options.holeCol` overrides the column name.
+
+#### `swapInvertedIntervals(table, options?)`
+
+Swap `from`/`to` where `to < from`.  Fixes the common data-entry typo; rows where `to === from` (zero-length) are left untouched for manual review.  All other fields preserved.  `options.fromCol` / `options.toCol` override the column names.
+
+#### `normalizeAzimuth(survey, options?)`
+
+Wrap survey azimuths into `[0, 360)` via `value mod 360`.  Folds `360` to `0`, normalizes negatives, idempotent for valid values.  `null` / non-numeric cells are left untouched.  `options.azimuthCol` overrides the column name (default `AZIMUTH`).
+
+#### `replaceBelowDetectionLimit(rows, options?)`
+
+Replace `<MDL` string sentinels (e.g. `"<0.005"`) with `MDL * sentinelFactor` (default `0.5`).
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `columns` | `string[]` \| `null` | `null` | Columns to scan; `null` = scan every column |
+| `sentinelFactor` | `number` | `0.5` | Multiplier applied to the detected limit |
+
+#### Severity constants
+
+`SEVERITY_ERROR` `"error"`, `SEVERITY_WARNING` `"warning"`, `SEVERITY_INFO` `"info"` — re-exported so consumer code can group issues by severity without string literals.
+
+---
+
 ## Interval Algebra
 
 Pure from-to interval primitives, mirroring the Python `baselode.drill.intervals` module.  Each function takes an array of row objects keyed by `hole_id`, `from`, `to`.  All field-name defaults come from the data model constants (`HOLE_ID`, `FROM`, `TO`); override via the options object.
