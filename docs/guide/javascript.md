@@ -194,6 +194,77 @@ const assaysWithXYZ = attachAssayPositions(assayRows, traces);
 
 ---
 
+## Interval algebra
+
+Pure from-to primitives that mirror the Python `baselode.drill.intervals` module.  Each function takes an array of row objects keyed by `hole_id`, `from`, `to` — the same shape your loaders already produce.
+
+```js
+import {
+  intervalLength,
+  fromToMidpoints,
+  detectGaps,
+  detectOverlaps,
+  splitAt,
+  clip,
+  mergeTables,
+} from 'baselode';
+```
+
+### QC checks: gaps and overlaps
+
+```js
+const gaps     = detectGaps(assayRows, { minGap: 0.5 });
+const overlaps = detectOverlaps(assayRows);
+// gaps:     [{ hole_id, from, to, length }, ...]
+// overlaps: [{ hole_id, from, to, length, first_index, second_index }, ...]
+```
+
+`first_index` / `second_index` are positional indices into the input array.
+
+### Splitting at boundaries
+
+```js
+// per-hole boundaries
+const splitByHole = splitAt(assayRows, { DH001: [12.5, 47.0] });
+
+// or as a row array (handy when the boundaries come straight from a CSV)
+const splitByRows = splitAt(assayRows, [
+  { hole_id: 'DH001', depth: 12.5 },
+  { hole_id: 'DH001', depth: 47.0 },
+]);
+
+// or broadcast a single list to every hole
+const splitAll = splitAt(assayRows, [50, 100]);
+```
+
+Each straddling row is replaced by sub-intervals that inherit all other fields.
+
+### Clipping to a depth window
+
+```js
+const top200m = clip(assayRows, 0, 200);
+```
+
+Intervals entirely outside `[fromDepth, toDepth]` are dropped; straddling intervals are pulled to the boundary.  Pass `null` for either bound to disable that side.
+
+### Merging interval tables onto a common support
+
+```js
+const merged = mergeTables({ assay: assayRows, litho: lithoRows });
+// each row: { hole_id, from, to, assay_<col>, ..., litho_<col>, ... }
+```
+
+The first table in the object is the "left" — only depth ranges it covers appear in the output.  Each subsequent table's columns are looked up at the sub-interval midpoint and prefixed by table name (or `null` when no covering row exists).
+
+### Per-row helpers
+
+```js
+const lengths = intervalLength(assayRows);    // number[]
+const mids    = fromToMidpoints(assayRows);   // number[]
+```
+
+---
+
 ## Visualization
 
 ### Column classification

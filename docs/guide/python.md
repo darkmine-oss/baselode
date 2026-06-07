@@ -223,6 +223,66 @@ joined = join_assays_to_traces(assays, traces)
 
 ---
 
+## Interval Algebra
+
+`baselode.drill.intervals` provides pure from-to interval primitives that the higher-level compositing, validation, and DB-container modules build on.  Every function operates on a pandas `DataFrame` keyed by `hole_id`, `from`, `to` (the canonical columns from `baselode.datamodel`).
+
+```python
+import baselode.drill.intervals as intervals
+```
+
+### QC checks: gaps and overlaps
+
+`detect_gaps` and `detect_overlaps` return structured rows you can join back to the source for review, rather than raising exceptions:
+
+```python
+gaps     = intervals.detect_gaps(assays, min_gap=0.5)
+overlaps = intervals.detect_overlaps(assays)
+# gaps:     hole_id | from | to | length
+# overlaps: hole_id | from | to | length | first_index | second_index
+```
+
+`first_index` / `second_index` are *positional* indices into the input — safe to use with `.iloc` even when the DataFrame has a non-default pandas index.
+
+### Splitting at boundaries
+
+`split_at` introduces new boundaries at given depths (e.g. lithology contacts) and replaces each straddling row with sub-intervals that inherit all other columns:
+
+```python
+litho_contacts = {"DH001": [12.5, 47.0]}
+assays_split = intervals.split_at(assays, litho_contacts)
+```
+
+`depths` also accepts a `DataFrame` with `hole_id` and `depth` columns, a single float, or a list applied to every hole.
+
+### Clipping to a depth window
+
+```python
+top_200m = intervals.clip(assays, from_depth=0.0, to_depth=200.0)
+```
+
+Intervals entirely outside the window are dropped; straddling intervals are pulled to the boundary.  All other columns are preserved.
+
+### Merging interval tables onto a common support
+
+`merge_tables` left-joins multiple interval tables onto a common from-to support via boundary intersection.  The first table anchors the support; each output row carries one value per source, looked up at the sub-interval midpoint:
+
+```python
+merged = intervals.merge_tables({"assay": assays, "litho": geology})
+# columns: hole_id, from, to, assay_<col>, ..., litho_<col>, ...
+```
+
+This is the more general form of `composite.merge_numeric_categorical`, which requires inputs to already share the same from/to support.
+
+### Per-row helpers
+
+```python
+assays["length"]   = intervals.interval_length(assays)
+assays["mid"]      = intervals.from_to_midpoints(assays)
+```
+
+---
+
 ## Visualization
 
 ### Map
