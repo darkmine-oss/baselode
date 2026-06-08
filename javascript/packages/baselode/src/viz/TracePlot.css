@@ -6,19 +6,59 @@
 .plot-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
+  /* Without this, a `<select>` whose widest option exceeds the
+     card's width (e.g. a long composite hole_id like
+     "119644Balladonia18BAC024") forces the card itself to grow,
+     breaking the grid.  `overflow: hidden` keeps the wrapper as
+     the authoritative bound. */
+  overflow: hidden;
 }
 
 .plot-card__controls {
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   gap: 6px;
-  flex-wrap: wrap;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Strict row layout: one row per logical group (project, hole,
+   property+charttype).  Avoids the previous `flex-wrap: wrap`
+   behaviour where the dropdowns shuffled around based on natural
+   widths — wrappers should give predictable, consistent layout. */
+.plot-card__row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Single-select rows (group, hole, field) — the select fills the
+   full row width and truncates its rendered value with `…` when a
+   long option would otherwise spill past the card. */
+.plot-card__row--group .plot-select,
+.plot-card__row--hole .plot-select,
+.plot-card__row--field .plot-select {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Property + chart-type sit side-by-side, exactly 50/50.
+   `flex: 1 1 0` + `min-width: 0` is the canonical "equal share,
+   shrinkable" combo. */
+.plot-card__row--split .plot-select {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .plot-card__body {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
 }
 
@@ -32,3 +72,18 @@
   align-items: center;
   justify-content: center;
 }
+
+/* Every dropdown inside a TracePlot — the hole picker most
+   importantly — must respect the parent card's width.  Without
+   these rules a `<select>` reports its natural width as the widest
+   option's width, which can be many times the card's width for
+   composite hole IDs.  Truncate the rendered selected value with
+   an ellipsis instead. */
+.plot-card .plot-select {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+

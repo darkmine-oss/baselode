@@ -21,6 +21,14 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #fff;
+  color: #1e293b;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+:root.dark body {
+  background: #1b1b1f;
+  color: #e2e8f0;
 }
 
 #root {

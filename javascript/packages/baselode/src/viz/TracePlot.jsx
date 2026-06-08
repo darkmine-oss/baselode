@@ -49,80 +49,68 @@ function genericOptionAsTuple(o) {
   return [value, label];
 }
 
-function renderHoleSelector({ selector, holeOptions, selectedHoleId, onConfigChange }) {
+/**
+ * Standalone renderer for a `group+hole` selector's group select.
+ * Returns just the group dropdown — the matching hole select is
+ * rendered separately by `renderHoleSelect` so the two can live on
+ * their own rows in the controls layout.
+ */
+function renderGroupSelect({ selector }) {
+  const groupValue = selector.groupValue ?? '';
+  const groupLabel = selector.groupLabel || 'Group';
+  const groupOptions = selector.groupOptions || [];
+  return (
+    <select
+      className="plot-select plot-select--group"
+      value={groupValue}
+      onChange={(e) => selector.onGroupChange && selector.onGroupChange(e.target.value)}
+      disabled={groupOptions.length === 0}
+      aria-label={groupLabel}
+    >
+      {groupOptions.length === 0 && <option value="">No {groupLabel.toLowerCase()}s</option>}
+      {!groupValue && groupOptions.length > 0 && (
+        <option value="" disabled hidden>{`Select ${groupLabel.toLowerCase()}`}</option>
+      )}
+      {groupOptions.map((g) => {
+        const [v, l] = genericOptionAsTuple(g);
+        return <option key={v} value={v}>{l}</option>;
+      })}
+    </select>
+  );
+}
+
+function renderFieldSelect({ selector }) {
+  const value = selector.value ?? '';
+  const opts = selector.options || [];
+  const label = selector.label || 'Selection';
+  return (
+    <select
+      className="plot-select plot-select--field"
+      value={value}
+      onChange={(e) => selector.onChange && selector.onChange(e.target.value)}
+      disabled={opts.length === 0}
+      aria-label={label}
+    >
+      {opts.length === 0 && <option value="">—</option>}
+      {!value && opts.length > 0 && (
+        <option value="" disabled hidden>{`Select ${label.toLowerCase()}`}</option>
+      )}
+      {opts.map((o) => {
+        const [v, l] = genericOptionAsTuple(o);
+        return <option key={v} value={v}>{l}</option>;
+      })}
+    </select>
+  );
+}
+
+function renderHoleSelect({ selector, holeOptions, selectedHoleId, onConfigChange }) {
   const kind = selector?.kind || 'hole';
-
-  if (kind === 'field') {
-    const value = selector.value ?? '';
-    const opts = selector.options || [];
-    const label = selector.label || 'Selection';
-    return (
-      <select
-        className="plot-select plot-select--field"
-        value={value}
-        onChange={(e) => selector.onChange && selector.onChange(e.target.value)}
-        disabled={opts.length === 0}
-        aria-label={label}
-      >
-        {opts.length === 0 && <option value="">—</option>}
-        {!value && opts.length > 0 && (
-          <option value="" disabled hidden>{`Select ${label.toLowerCase()}`}</option>
-        )}
-        {opts.map((o) => {
-          const [v, l] = genericOptionAsTuple(o);
-          return <option key={v} value={v}>{l}</option>;
-        })}
-      </select>
-    );
-  }
-
-  if (kind === 'group+hole') {
-    const groupBy = selector.groupBy;
-    const groupValue = selector.groupValue ?? '';
-    const groupLabel = selector.groupLabel || 'Group';
-    const groupOptions = selector.groupOptions
-      || groupValuesFromHoles(holeOptions, groupBy);
-    const visibleHoles = filterHolesByGroup(holeOptions, groupBy, groupValue);
-    return (
-      <>
-        <select
-          className="plot-select plot-select--group"
-          value={groupValue}
-          onChange={(e) => selector.onGroupChange && selector.onGroupChange(e.target.value)}
-          disabled={groupOptions.length === 0}
-          aria-label={groupLabel}
-        >
-          {groupOptions.length === 0 && <option value="">No {groupLabel.toLowerCase()}s</option>}
-          {!groupValue && groupOptions.length > 0 && (
-            <option value="" disabled hidden>{`Select ${groupLabel.toLowerCase()}`}</option>
-          )}
-          {groupOptions.map((g) => {
-            const [v, l] = genericOptionAsTuple(g);
-            return <option key={v} value={v}>{l}</option>;
-          })}
-        </select>
-        <select
-          className="plot-select plot-select--hole"
-          value={selectedHoleId}
-          onChange={(e) => onConfigChange && onConfigChange({ holeId: e.target.value })}
-          disabled={visibleHoles.length === 0}
-          aria-label="Hole"
-        >
-          {visibleHoles.length === 0 && <option value="">No holes</option>}
-          {!selectedHoleId && visibleHoles.length > 0 && (
-            <option value="" disabled hidden>Select a hole</option>
-          )}
-          {visibleHoles.map((h) => {
-            const [v, l] = holeOptionAsTuple(h);
-            return <option key={v} value={v}>{l}</option>;
-          })}
-        </select>
-      </>
-    );
-  }
-
-  // kind === 'hole' (default)
-  const enabled = holeOptions.length > 0;
+  // `group+hole` filters the hole list by the picked group;
+  // `hole` (default) shows every hole.
+  const visibleHoles = kind === 'group+hole'
+    ? filterHolesByGroup(holeOptions, selector.groupBy, selector.groupValue ?? '')
+    : holeOptions;
+  const enabled = visibleHoles.length > 0;
   return (
     <select
       className="plot-select plot-select--hole"
@@ -131,16 +119,24 @@ function renderHoleSelector({ selector, holeOptions, selectedHoleId, onConfigCha
       disabled={!enabled}
       aria-label="Hole"
     >
-      {!enabled && <option value="">No holes loaded</option>}
+      {!enabled && <option value="">{kind === 'group+hole' ? 'No holes' : 'No holes loaded'}</option>}
       {!selectedHoleId && enabled && (
         <option value="" disabled hidden>Select a hole</option>
       )}
-      {holeOptions.map((h) => {
+      {visibleHoles.map((h) => {
         const [v, l] = holeOptionAsTuple(h);
         return <option key={v} value={v}>{l}</option>;
       })}
     </select>
   );
+}
+
+function resolveGroupOptions(selector, holeOptions) {
+  if (!selector || selector.kind !== 'group+hole') return selector;
+  // Materialise group options once so `renderGroupSelect` doesn't
+  // re-derive them on every render.
+  if (selector.groupOptions) return selector;
+  return { ...selector, groupOptions: groupValuesFromHoles(holeOptions, selector.groupBy) };
 }
 
 /**
@@ -351,21 +347,46 @@ function TracePlot({
     return () => resizeObserver.disconnect();
   }, [bodyState.kind]);
 
+  // Resolve a `group+hole` selector once per render so the group
+  // options + filtered hole list are computed identically by both
+  // the group row and the hole row below.
+  const resolvedSelector = resolveGroupOptions(holeSelector, holeOptions);
+  const holeKind = resolvedSelector?.kind || 'hole';
+
   return (
     <div className={`plot-card${isPlaceholder ? ' empty' : ''}`}>
       <header className="plot-card__controls">
-        {visibility.hole && (
-          <div className="plot-title">
-            {renderHoleSelector({
-              selector: holeSelector,
+        {/* Row 1: optional group / project selector when the caller
+            opts into `group+hole`.  Skipped otherwise. */}
+        {visibility.hole && holeKind === 'group+hole' && (
+          <div className="plot-card__row plot-card__row--group">
+            {renderGroupSelect({ selector: resolvedSelector })}
+          </div>
+        )}
+        {/* Row 1 (alt): a fully-custom `field` selector replaces the
+            hole picker entirely.  Caller-controlled, no hole list. */}
+        {visibility.hole && holeKind === 'field' && (
+          <div className="plot-card__row plot-card__row--field">
+            {renderFieldSelect({ selector: resolvedSelector })}
+          </div>
+        )}
+        {/* Row 2: hole picker — always takes a full row of its own
+            so a long composite hole_id never has to negotiate with
+            the property / chart-type pickers. */}
+        {visibility.hole && holeKind !== 'field' && (
+          <div className="plot-card__row plot-card__row--hole">
+            {renderHoleSelect({
+              selector: resolvedSelector,
               holeOptions,
               selectedHoleId,
               onConfigChange,
             })}
           </div>
         )}
+        {/* Row 3: property + chart-type, split 50/50.  When only
+            one is visible it fills the whole row. */}
         {(visibility.property || visibility.chartType) && (
-          <div className="plot-controls column">
+          <div className="plot-card__row plot-card__row--split">
             {visibility.property && (
               <select
                 className="plot-select plot-select--property"

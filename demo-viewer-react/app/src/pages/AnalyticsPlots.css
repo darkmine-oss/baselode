@@ -36,20 +36,24 @@
 .analytics-page--dark {
   background-color: #1b1b1f;
   color: #e2e8f0;
+  /* Re-theme the BaselodeXPanel wrappers via the CSS custom
+     properties they expose.  The library's defaults assume a light
+     host page; overriding the vars here keeps the dark toggle in
+     sync with the Plotly dark template chosen in JS. */
+  --baselode-panel-bg: #24252a;
+  --baselode-panel-fg: #e2e8f0;
+  --baselode-panel-border: 1px solid #34353b;
+  --baselode-panel-muted: #94a3b8;
+  --baselode-panel-controls-bg: rgba(148, 163, 184, 0.08);
+  --baselode-control-bg: #24252a;
+  --baselode-control-border: #34353b;
 }
 
 .analytics-page--dark .analytics-page__header p,
-.analytics-page--dark .plot-panel__header p,
 .analytics-page--dark .analytics-rowcount {
   color: #94a3b8;
 }
 
-.analytics-page--dark .plot-panel {
-  background: #24252a;
-  border-color: #34353b;
-}
-
-.analytics-page--dark .prop-select select,
 .analytics-page--dark .analytics-rowcount {
   background: #24252a;
   color: #e2e8f0;

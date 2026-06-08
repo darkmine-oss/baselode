@@ -2,17 +2,18 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  TracePlot,
-  useDrillholeTraceGrid,
+  BaselodeStripLogGrid,
   BASELODE_DARK_TEMPLATE,
+  BASELODE_TEMPLATE,
 } from 'baselode';
 import 'baselode/style.css';
 import './Drillhole2D.css';
 import { createPortal } from 'react-dom';
 import { useDemoData } from '../context/DemoDataContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 
 // The demo GSWA assay columns encode the unit as a trailing token, e.g.
 // "Au_PPM". Split that into a clean label + unit so the strip-log axes and
@@ -41,80 +42,50 @@ function metaForProperty(property) {
   return { label: tokens.slice(0, -1).map(titleCase).join(' '), unit };
 }
 
+/**
+ * Build a propertyMeta map by inspecting every row's keys.  Cheap
+ * enough to do once per render given the dataset is fixed for the
+ * demo; production code would use upstream `analysis_uom` instead.
+ */
+function buildPropertyMeta(combinedHoles) {
+  const map = {};
+  for (const hole of combinedHoles || []) {
+    const points = hole?.points || hole?.rows || [];
+    for (const row of points) {
+      for (const key of Object.keys(row || {})) {
+        if (key in map) continue;
+        const m = metaForProperty(key);
+        if (m) map[key] = m;
+      }
+    }
+  }
+  return map;
+}
+
 function Drillhole2D() {
   const location = useLocation();
   const { combinedHoles } = useDemoData();
-  const [useDarkTemplate, setUseDarkTemplate] = useState(false);
-  const activeTemplate = useDarkTemplate ? BASELODE_DARK_TEMPLATE : undefined;
+  const { theme } = useTheme();
+  const template = theme === 'dark' ? BASELODE_DARK_TEMPLATE : BASELODE_TEMPLATE;
+  const holeCount = (combinedHoles || []).length;
 
-  const {
-    error,
-    setError,
-    holeCount,
-    setFocusedHoleId,
-    labeledHoleOptions,
-    traceGraphs,
-    handleConfigChange,
-  } = useDrillholeTraceGrid({
-    initialFocusedHoleId: location.state?.holeId || '',
-    extraHoles: combinedHoles,
-    plotCount: 4,
-  });
-
-  // Per-property unit metadata keyed by the bare property name, derived once
-  // from every graph's available properties.
-  const propertyMeta = useMemo(() => {
-    const map = {};
-    traceGraphs.forEach((g) => {
-      (g?.propertyOptions || []).forEach((p) => {
-        if (p in map) return;
-        const m = metaForProperty(p);
-        if (m) map[p] = m;
-      });
-    });
-    return map;
-  }, [traceGraphs]);
-
-  useEffect(() => {
-    const holeIdFromNav = location.state?.holeId;
-    if (holeIdFromNav) {
-      setFocusedHoleId(holeIdFromNav);
-      if (!holeCount) {
-        setError((prev) => prev || `Loading data for hole ${holeIdFromNav}.`);
-      }
-    }
-  }, [location.state, holeCount, setError, setFocusedHoleId]);
+  const propertyMeta = useMemo(() => buildPropertyMeta(combinedHoles), [combinedHoles]);
 
   return (
     <div className="drillhole2d-container">
       <div className="drillhole2d-header">
         <h2>Drillhole Strip Logs</h2>
-        <div className="drillhole2d-controls">
-          {error && <span className="error-text">{error}</span>}
-          <button
-            className={`template-toggle${useDarkTemplate ? ' active' : ''}`}
-            onClick={() => setUseDarkTemplate((v) => !v)}
-            title={useDarkTemplate ? 'Switch to Baselode Light theme' : 'Switch to Baselode Dark theme'}
-          >
-            {useDarkTemplate ? 'Dark' : 'Light'}
-          </button>
-        </div>
       </div>
 
-      <div className="plots-grid">
-        {Array.from({ length: 4 }).map((_, idx) => (
-          <TracePlot
-            key={idx}
-            config={traceGraphs[idx]?.config || { holeId: '', property: '', chartType: 'markers+line' }}
-            graph={traceGraphs[idx]}
-            holeOptions={labeledHoleOptions}
-            propertyOptions={traceGraphs[idx]?.propertyOptions || []}
-            propertyMeta={propertyMeta}
-            onConfigChange={(patch) => handleConfigChange(idx, patch)}
-            template={activeTemplate}
-          />
-        ))}
-      </div>
+      <BaselodeStripLogGrid
+        holes={combinedHoles}
+        initialHoleId={location.state?.holeId || ''}
+        plotCount={4}
+        propertyMeta={propertyMeta}
+        template={template}
+        className="drillhole2d-grid"
+      />
+
       {(() => {
         const dataSourceTarget = typeof document !== 'undefined' ? document.getElementById('data-source-slot') : null;
         if (!dataSourceTarget) return null;

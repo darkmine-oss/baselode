@@ -5,11 +5,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import './Sidebar.css';
 import { useZoomContext } from '../context/ZoomContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import { ViewHelper } from 'three/examples/jsm/Addons.js';
 
 function Sidebar() {
   const location = useLocation();
   const { zoomLevel } = useZoomContext();
+  const { theme, toggleTheme } = useTheme();
 
   const menuItems = [
     { path: '/', label: 'Map' },
@@ -29,6 +31,15 @@ function Sidebar() {
         <h2>Baselode</h2>
         <h2>Demo Viewer</h2>
         <span className="sidebar-version">v{__APP_VERSION__}</span>
+        <button
+          type="button"
+          className="sidebar-theme-toggle"
+          onClick={toggleTheme}
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        >
+          {theme === 'dark' ? '☀ Light' : '☾ Dark'}
+        </button>
       </div>
       <ul className="sidebar-menu">
         {menuItems.map((item) => (

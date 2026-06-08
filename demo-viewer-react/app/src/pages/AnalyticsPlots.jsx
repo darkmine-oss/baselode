@@ -2,22 +2,21 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Plotly from 'plotly.js-dist-min';
+import { useMemo } from 'react';
 import {
-  buildScatterPlotConfig,
-  buildHistogramPlotConfig,
-  buildBoxPlotConfig,
-  buildViolinPlotConfig,
-  buildTernaryPlotConfig,
+  BaselodeScatterPanel,
+  BaselodeHistogramPanel,
+  BaselodeBoxPanel,
+  BaselodeViolinPanel,
+  BaselodeTernaryPanel,
   BASELODE_TEMPLATE,
   BASELODE_DARK_TEMPLATE,
   LITHOLOGY_COLOURS,
+  detectCategoricalColumns,
 } from 'baselode';
 import { useDemoData } from '../context/DemoDataContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import './AnalyticsPlots.css';
-
-const RESERVED = new Set(['hole_id', 'from', 'to', 'mid', 'depth', '_source']);
 
 function flattenAssayRows(combinedHoles) {
   const flattened = [];
@@ -36,227 +35,31 @@ function flattenAssayRows(combinedHoles) {
   return flattened;
 }
 
-function detectNumericColumns(rows) {
-  if (!rows.length) return [];
-  const counts = new Map();
-  for (const row of rows) {
-    for (const [key, value] of Object.entries(row)) {
-      if (RESERVED.has(key)) continue;
-      // Skip nullish + blanks explicitly: Number('') is 0, which would
-      // falsely classify blank-string columns as numeric.
-      if (value == null) continue;
-      if (typeof value === 'string' && value.trim() === '') continue;
-      const numeric = Number(value);
-      if (!Number.isFinite(numeric)) continue;
-      counts.set(key, (counts.get(key) || 0) + 1);
-    }
-  }
-  // Sort by frequency desc — most-populated analytes first.
-  return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([key]) => key);
-}
-
-function detectCategoricalColumns(rows) {
-  if (!rows.length) return [];
-  const candidates = new Map();
-  for (const row of rows) {
-    for (const [key, value] of Object.entries(row)) {
-      if (RESERVED.has(key)) continue;
-      if (value == null || value === '') continue;
-      if (Number.isFinite(Number(value))) continue;
-      if (!candidates.has(key)) candidates.set(key, new Set());
-      candidates.get(key).add(String(value));
-    }
-  }
-  return [...candidates.entries()]
-    .filter(([, distinct]) => distinct.size > 1 && distinct.size <= 40)
-    .sort((a, b) => a[1].size - b[1].size)
-    .map(([key]) => key);
-}
-
-function PlotPanel({ title, description, controls, data, layout, height = 380 }) {
-  const containerRef = useRef(null);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return undefined;
-    Plotly.react(container, data || [], { autosize: true, ...layout, height }, {
-      responsive: true,
-      displayModeBar: 'hover',
-    });
-    return () => {
-      try { Plotly.purge(container); } catch (_) { /* unmounted */ }
-    };
-  }, [data, layout, height]);
-
-  return (
-    <section className="plot-panel">
-      <header className="plot-panel__header">
-        <h2>{title}</h2>
-        {description && <p>{description}</p>}
-      </header>
-      {controls && <div className="plot-panel__controls">{controls}</div>}
-      <div ref={containerRef} className="plot-panel__chart" style={{ height: `${height}px` }} />
-    </section>
-  );
-}
-
-function LogToggle({ label, value, onChange }) {
-  return (
-    <label className="log-toggle">
-      <input
-        type="checkbox"
-        checked={Boolean(value)}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-function BarmodeSelect({ value, onChange }) {
-  return (
-    <label className="prop-select">
-      <span>stack</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="overlay">in z (overlay)</option>
-        <option value="stack">in y (stacked)</option>
-        <option value="group">side-by-side</option>
-      </select>
-    </label>
-  );
-}
-
-function PropertySelect({ label, value, onChange, options, includeBlank = false }) {
-  // Render the dropdown alphabetically (case-insensitive) so the list is
-  // scannable.  The unsorted ordering is preserved upstream for default
-  // picking via column frequency.
-  const sortedOptions = [...options].sort((a, b) =>
-    String(a).localeCompare(String(b), undefined, { sensitivity: 'base' })
-  );
-  return (
-    <label className="prop-select">
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {includeBlank && <option value="">(none)</option>}
-        {sortedOptions.map((option) => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 /**
- * Stable per-plot state — the user can configure each chart independently.
- * Defaults are derived from the discovered numeric / categorical columns
- * the first time they become available; later changes don't auto-reset.
+ * Demo of the new BaselodeXPanel wrappers from `baselode`.  Every
+ * picker is now bundled with its plot primitive — this page just
+ * passes `rows` + a `template`/`colourMap` and the panels render
+ * themselves, including X/Y/Group-by dropdowns, log toggles, and
+ * (for the histogram) the stack-mode picker.  Compare to the
+ * pre-TRK-119 incarnation of this file (~430 lines of inline
+ * pickers + per-plot state) to see what the wrappers absorb.
  */
-function useDefaultColumn(value, columns, fallbackIdx = 0) {
-  useEffect(() => {
-    if (value || !columns.length) return;
-    // Caller will hand back a setter via the returned function below.
-  }, [value, columns, fallbackIdx]);
-}
-
 function AnalyticsPlots() {
   const { loading, combinedHoles, errors } = useDemoData();
-  const [useDarkTemplate, setUseDarkTemplate] = useState(false);
+  const { theme } = useTheme();
+  const useDarkTemplate = theme === 'dark';
 
   const assayRows = useMemo(() => flattenAssayRows(combinedHoles), [combinedHoles]);
-  const numericColumns = useMemo(() => detectNumericColumns(assayRows), [assayRows]);
-  const categoricalColumns = useMemo(() => detectCategoricalColumns(assayRows), [assayRows]);
 
-  const defaultColorBy = useMemo(() => {
-    if (!categoricalColumns.length) return '';
-    return categoricalColumns.find((column) => column.toLowerCase().includes('litho'))
-      || categoricalColumns[0];
-  }, [categoricalColumns]);
-
-  // Per-plot state — scatter
-  const [scatterX, setScatterX] = useState('');
-  const [scatterY, setScatterY] = useState('');
-  const [scatterColorBy, setScatterColorBy] = useState('');
-  const [scatterLogX, setScatterLogX] = useState(true);
-  const [scatterLogY, setScatterLogY] = useState(true);
-
-  // Per-plot state — histogram (Y-only log; X is the binned analyte and
-  // a log X on a histogram isn't a useful default per the page brief).
-  const [histProp, setHistProp] = useState('');
-  const [histGroupBy, setHistGroupBy] = useState('');
-  const [histLogY, setHistLogY] = useState(true);
-  const [histBarmode, setHistBarmode] = useState('overlay');
-
-  // Per-plot state — box (value axis is Y; X is the categorical group)
-  const [boxProp, setBoxProp] = useState('');
-  const [boxGroupBy, setBoxGroupBy] = useState('');
-  const [boxLogY, setBoxLogY] = useState(true);
-
-  // Per-plot state — violin (value axis is Y; X is the categorical group)
-  const [violinProp, setViolinProp] = useState('');
-  const [violinGroupBy, setViolinGroupBy] = useState('');
-  const [violinLogY, setViolinLogY] = useState(true);
-
-  // Per-plot state — ternary (no log — components are percentages)
-  const [aProp, setAProp] = useState('');
-  const [bProp, setBProp] = useState('');
-  const [cProp, setCProp] = useState('');
-  const [ternaryColorBy, setTernaryColorBy] = useState('');
-
-  // Seed all the per-plot column selections from the discovered columns
-  // the first time they're available.  Subsequent column changes don't
-  // overwrite a user's explicit pick.
-  useEffect(() => {
-    if (!numericColumns.length) return;
-    const get = (idx) => numericColumns[Math.min(idx, numericColumns.length - 1)];
-    setScatterX((current) => current || get(0));
-    setScatterY((current) => current || get(1));
-    setHistProp((current) => current || get(0));
-    setBoxProp((current) => current || get(0));
-    setViolinProp((current) => current || get(0));
-    setAProp((current) => current || get(0));
-    setBProp((current) => current || get(1));
-    setCProp((current) => current || get(2));
-  }, [numericColumns]);
-
-  useEffect(() => {
-    if (!defaultColorBy) return;
-    setScatterColorBy((current) => current || defaultColorBy);
-    setHistGroupBy((current) => current || defaultColorBy);
-    setBoxGroupBy((current) => current || defaultColorBy);
-    setViolinGroupBy((current) => current || defaultColorBy);
-    setTernaryColorBy((current) => current || defaultColorBy);
-  }, [defaultColorBy]);
+  // Only swap to the lithology palette when the data actually carries
+  // a lithology categorical — otherwise the panel cycles the
+  // BASELODE_COLORWAY for whatever the user picked.
+  const colourMap = useMemo(() => {
+    const cats = detectCategoricalColumns(assayRows);
+    return cats.some((c) => c.toLowerCase().includes('litho')) ? LITHOLOGY_COLOURS : null;
+  }, [assayRows]);
 
   const template = useDarkTemplate ? BASELODE_DARK_TEMPLATE : BASELODE_TEMPLATE;
-  const colourMap = categoricalColumns.some((column) => column.toLowerCase().includes('litho'))
-    ? LITHOLOGY_COLOURS
-    : null;
-
-  const scatter = useMemo(() => buildScatterPlotConfig(assayRows, {
-    xProp: scatterX, yProp: scatterY, colorBy: scatterColorBy, colourMap,
-    log: { x: scatterLogX, y: scatterLogY }, template,
-  }), [assayRows, scatterX, scatterY, scatterColorBy, scatterLogX, scatterLogY, colourMap, template]);
-
-  const histogram = useMemo(() => buildHistogramPlotConfig(assayRows, {
-    prop: histProp, groupBy: histGroupBy, colourMap,
-    log: histLogY, barmode: histBarmode, template,
-  }), [assayRows, histProp, histGroupBy, histLogY, histBarmode, colourMap, template]);
-
-  const box = useMemo(() => buildBoxPlotConfig(assayRows, {
-    prop: boxProp, groupBy: boxGroupBy, colourMap, log: boxLogY, template,
-  }), [assayRows, boxProp, boxGroupBy, boxLogY, colourMap, template]);
-
-  const violin = useMemo(() => buildViolinPlotConfig(assayRows, {
-    prop: violinProp, groupBy: violinGroupBy, colourMap, log: violinLogY, template,
-  }), [assayRows, violinProp, violinGroupBy, violinLogY, colourMap, template]);
-
-  const ternary = useMemo(() => buildTernaryPlotConfig(assayRows, {
-    aProp, bProp, cProp, colorBy: ternaryColorBy, colourMap, template,
-  }), [assayRows, aProp, bProp, cProp, ternaryColorBy, colourMap, template]);
-
-  const hasCategoricals = categoricalColumns.length > 0;
 
   return (
     <div className={`analytics-page ${useDarkTemplate ? 'analytics-page--dark' : ''}`}>
@@ -264,23 +67,14 @@ function AnalyticsPlots() {
         <div>
           <h1>Analytics Plots</h1>
           <p>
-            Demos of the non-tool-UI plot primitives —{' '}
-            <code>buildScatterPlotConfig</code>, <code>buildHistogramPlotConfig</code>,{' '}
-            <code>buildBoxPlotConfig</code>, <code>buildViolinPlotConfig</code>, and{' '}
-            <code>buildTernaryPlotConfig</code> — each rendered straight into Plotly.
-            Lithology-coloured categoricals use the built-in <code>LITHOLOGY_COLOURS</code> map;
-            other categoricals cycle the <code>BASELODE_COLORWAY</code>.
+            Demo of the <code>Baselode*Panel</code> wrappers — each plot bundles its
+            own dropdowns + view toggles so the host page just passes <code>rows</code>{' '}
+            and a Plotly <code>template</code>.  Lithology-coloured categoricals use the
+            built-in <code>LITHOLOGY_COLOURS</code> map; other categoricals cycle the{' '}
+            <code>BASELODE_COLORWAY</code>.
           </p>
         </div>
         <div className="analytics-page__meta">
-          <label className="dark-toggle">
-            <input
-              type="checkbox"
-              checked={useDarkTemplate}
-              onChange={(event) => setUseDarkTemplate(event.target.checked)}
-            />
-            <span>Dark template</span>
-          </label>
           {assayRows.length > 0 && (
             <span className="analytics-rowcount">{assayRows.length.toLocaleString()} assay rows</span>
           )}
@@ -300,124 +94,40 @@ function AnalyticsPlots() {
 
       {!loading && assayRows.length > 0 && (
         <>
-          <PlotPanel
-            title="Scatter"
-            description="buildScatterPlotConfig — analyte vs analyte with optional categorical colour-by."
-            controls={(
-              <>
-                <PropertySelect label="X" value={scatterX} onChange={setScatterX} options={numericColumns} />
-                <PropertySelect label="Y" value={scatterY} onChange={setScatterY} options={numericColumns} />
-                {hasCategoricals && (
-                  <PropertySelect
-                    label="Colour by"
-                    value={scatterColorBy}
-                    onChange={setScatterColorBy}
-                    options={categoricalColumns}
-                    includeBlank
-                  />
-                )}
-                <LogToggle label="log X" value={scatterLogX} onChange={setScatterLogX} />
-                <LogToggle label="log Y" value={scatterLogY} onChange={setScatterLogY} />
-              </>
-            )}
-            data={scatter.data}
-            layout={scatter.layout}
+          <BaselodeScatterPanel
+            rows={assayRows}
+            colourMap={colourMap}
+            template={template}
+            description="Analyte vs analyte with optional categorical colour-by."
           />
 
-          <PlotPanel
-            title="Histogram"
-            description="buildHistogramPlotConfig — distribution per group overlaid."
-            controls={(
-              <>
-                <PropertySelect label="Property" value={histProp} onChange={setHistProp} options={numericColumns} />
-                {hasCategoricals && (
-                  <PropertySelect
-                    label="Group by"
-                    value={histGroupBy}
-                    onChange={setHistGroupBy}
-                    options={categoricalColumns}
-                    includeBlank
-                  />
-                )}
-                <LogToggle label="log Y" value={histLogY} onChange={setHistLogY} />
-                {histGroupBy && (
-                  <BarmodeSelect value={histBarmode} onChange={setHistBarmode} />
-                )}
-              </>
-            )}
-            data={histogram.data}
-            layout={histogram.layout}
+          <BaselodeHistogramPanel
+            rows={assayRows}
+            colourMap={colourMap}
+            template={template}
+            description="Distribution per group overlaid; switch stack mode to compare absolute counts."
           />
 
-          <div className="analytics-grid">
-            <PlotPanel
-              title="Box"
-              description="buildBoxPlotConfig — quartiles per group, outliers shown."
-              controls={(
-                <>
-                  <PropertySelect label="Property" value={boxProp} onChange={setBoxProp} options={numericColumns} />
-                  {hasCategoricals && (
-                    <PropertySelect
-                      label="Group by"
-                      value={boxGroupBy}
-                      onChange={setBoxGroupBy}
-                      options={categoricalColumns}
-                      includeBlank
-                    />
-                  )}
-                  <LogToggle label="log Y" value={boxLogY} onChange={setBoxLogY} />
-                </>
-              )}
-              data={box.data}
-              layout={box.layout}
-              height={360}
+          <div className="analytics-grid baselode-analytics-grid">
+            <BaselodeBoxPanel
+              rows={assayRows}
+              colourMap={colourMap}
+              template={template}
+              description="Quartiles per group, outliers shown."
             />
-            <PlotPanel
-              title="Violin"
-              description="buildViolinPlotConfig — distribution shape per group, inner box + mean line."
-              controls={(
-                <>
-                  <PropertySelect label="Property" value={violinProp} onChange={setViolinProp} options={numericColumns} />
-                  {hasCategoricals && (
-                    <PropertySelect
-                      label="Group by"
-                      value={violinGroupBy}
-                      onChange={setViolinGroupBy}
-                      options={categoricalColumns}
-                      includeBlank
-                    />
-                  )}
-                  <LogToggle label="log Y" value={violinLogY} onChange={setViolinLogY} />
-                </>
-              )}
-              data={violin.data}
-              layout={violin.layout}
-              height={360}
+            <BaselodeViolinPanel
+              rows={assayRows}
+              colourMap={colourMap}
+              template={template}
+              description="Distribution shape per group, inner box + mean line."
             />
           </div>
 
-          <PlotPanel
-            title="Ternary"
-            description="buildTernaryPlotConfig — three-component composition, Plotly auto-normalises to 100."
-            controls={(
-              <>
-                <PropertySelect label="A" value={aProp} onChange={setAProp} options={numericColumns} />
-                <PropertySelect label="B" value={bProp} onChange={setBProp} options={numericColumns} />
-                <PropertySelect label="C" value={cProp} onChange={setCProp} options={numericColumns} />
-                {hasCategoricals && (
-                  <PropertySelect
-                    label="Colour by"
-                    value={ternaryColorBy}
-                    onChange={setTernaryColorBy}
-                    options={categoricalColumns}
-                    includeBlank
-                  />
-                )}
-              </>
-            )}
-            data={ternary.data}
-            layout={ternary.layout}
-            height={480}
+          <BaselodeTernaryPanel
+            rows={assayRows}
+            colourMap={colourMap}
+            template={template}
+            description="Three-component composition, Plotly auto-normalises to 100."
           />
         </>
       )}

@@ -1,0 +1,116 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Default cosmetics for the baselode panel components.  Every rule
+ * is scoped under `.baselode-plot-panel` (or the small control
+ * primitives' own classes), so importing this stylesheet won't
+ * collide with a host app's globals.  Apps that want to fully
+ * restyle just override the classes — every value here uses CSS
+ * custom properties that fall back to neutral defaults.
+ */
+
+.baselode-plot-panel {
+  background: var(--baselode-panel-bg, white);
+  color: var(--baselode-panel-fg, #1e293b);
+  border: var(--baselode-panel-border, 1px solid #e2e8f0);
+  border-radius: var(--baselode-panel-radius, 8px);
+  padding: 16px;
+  margin-bottom: 18px;
+}
+
+.baselode-plot-panel__header {
+  margin-bottom: 8px;
+}
+
+.baselode-plot-panel__header h2 {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.baselode-plot-panel__header p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--baselode-panel-muted, #64748b);
+}
+
+.baselode-plot-panel__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: end;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: var(--baselode-panel-controls-bg, rgba(148, 163, 184, 0.08));
+  border-radius: var(--baselode-panel-controls-radius, 6px);
+}
+
+.baselode-plot-panel__chart {
+  width: 100%;
+}
+
+.baselode-prop-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--baselode-panel-muted, #475569);
+}
+
+.baselode-prop-select select {
+  padding: 4px 8px;
+  border: 1px solid var(--baselode-control-border, rgba(148, 163, 184, 0.4));
+  border-radius: 4px;
+  background: var(--baselode-control-bg, white);
+  color: var(--baselode-panel-fg, #1e293b);
+  font-size: 0.85rem;
+  min-width: 120px;
+}
+
+.baselode-log-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--baselode-panel-muted, #475569);
+  padding: 4px 8px;
+  border: 1px solid var(--baselode-control-border, rgba(148, 163, 184, 0.3));
+  border-radius: 4px;
+  background: var(--baselode-control-bg, white);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.baselode-log-toggle input[type='checkbox'] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.baselode-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.baselode-analytics-grid .baselode-plot-panel {
+  margin-bottom: 0;
+}
+
+/* Multi-track strip-log grid.  `grid-template-columns` is set
+   inline by `BaselodeStripLogGrid` so the column count is callable.
+   `min-width: 0` + `max-width: 100%` make the grid honour the
+   `minmax(0, 1fr)` column tracks even when the parent is a scroll
+   container that would otherwise let cells grow to fit content. */
+.baselode-strip-log-grid {
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+}

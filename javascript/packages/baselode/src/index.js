@@ -168,6 +168,29 @@ export {
   getBaselodeSchema
 } from './data/schemas.js';
 
+// Interactive plot wrappers — bundles each viz primitive with its
+// own property pickers + view toggles so embedding apps don't have
+// to reinvent the dropdown plumbing.
+export { BaselodeScatterPanel } from './panels/BaselodeScatterPanel.jsx';
+export { BaselodeHistogramPanel } from './panels/BaselodeHistogramPanel.jsx';
+export { BaselodeBoxPanel } from './panels/BaselodeBoxPanel.jsx';
+export { BaselodeViolinPanel } from './panels/BaselodeViolinPanel.jsx';
+export { BaselodeTernaryPanel } from './panels/BaselodeTernaryPanel.jsx';
+export { BaselodeStripLogPanel } from './panels/BaselodeStripLogPanel.jsx';
+export { BaselodeStripLogGrid } from './panels/BaselodeStripLogGrid.jsx';
+export {
+  PlotPanel,
+  PropertySelect,
+  LogToggle,
+  BarmodeSelect,
+} from './panels/PanelControls.jsx';
+export {
+  detectNumericColumns,
+  detectCategoricalColumns,
+  defaultColorByColumn,
+} from './panels/columnDetection.js';
+export { useControllable } from './panels/useControllable.js';
+
 export {
   intervalLength,
   fromToMidpoints,
