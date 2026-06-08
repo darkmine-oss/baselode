@@ -1,0 +1,503 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "baselode data model",
+  "description": "Combined JSON Schema document for every baselode canonical table.  Generated from the BASELODE_DATA_MODEL_* dicts in baselode.datamodel; regenerate via `python -m baselode.datamodel.regen_schemas`.",
+  "schemas": {
+    "drill_collar": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/drill_collar.json",
+      "title": "drill_collar",
+      "type": "object",
+      "properties": {
+        "hole_id": {
+          "type": "string",
+          "description": "Unique hole identifier (string), joins every drillhole table"
+        },
+        "datasource_hole_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Hole identifier from the original source dataset"
+        },
+        "project_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Project / programme code"
+        },
+        "latitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Latitude (WGS84)",
+          "unit": "deg"
+        },
+        "longitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Longitude (WGS84)",
+          "unit": "deg"
+        },
+        "elevation": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Elevation above sea level (WGS84)",
+          "unit": "m"
+        },
+        "easting": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Projected easting",
+          "unit": "m"
+        },
+        "northing": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Projected northing",
+          "unit": "m"
+        },
+        "crs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Coordinate reference system as EPSG code or proj string"
+        },
+        "_collar_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Internal collar identifier; sometimes used as a foreign key in upstream schemas"
+        },
+        "hole_type": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Drilling method (RC, Diamond, RAB, trench, …)"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "hole_id"
+      ],
+      "additionalProperties": true,
+      "description": "Drillhole collar locations + metadata",
+      "primaryKey": [
+        "hole_id"
+      ]
+    },
+    "drill_survey": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/drill_survey.json",
+      "title": "drill_survey",
+      "type": "object",
+      "properties": {
+        "hole_id": {
+          "type": "string",
+          "description": "Unique hole identifier (string), joins every drillhole table",
+          "foreignKey": {
+            "table": "drill_collar",
+            "column": "hole_id"
+          }
+        },
+        "depth": {
+          "type": "number",
+          "description": "Depth along the hole (md, measured depth)",
+          "unit": "m"
+        },
+        "to": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Interval end depth (md)",
+          "unit": "m"
+        },
+        "azimuth": {
+          "type": "number",
+          "description": "Hole azimuth, clockwise from grid north",
+          "unit": "deg"
+        },
+        "dip": {
+          "type": "number",
+          "description": "Hole dip below horizontal (negative = inclined downward)",
+          "unit": "deg"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "hole_id",
+        "depth",
+        "azimuth",
+        "dip"
+      ],
+      "additionalProperties": true,
+      "description": "Downhole survey stations (azimuth + dip per depth)",
+      "primaryKey": [
+        "hole_id",
+        "depth"
+      ]
+    },
+    "structural_point": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/structural_point.json",
+      "title": "structural_point",
+      "type": "object",
+      "properties": {
+        "hole_id": {
+          "type": "string",
+          "description": "Unique hole identifier (string), joins every drillhole table",
+          "foreignKey": {
+            "table": "drill_collar",
+            "column": "hole_id"
+          }
+        },
+        "depth": {
+          "type": "number",
+          "description": "Depth along the hole (md, measured depth)",
+          "unit": "m"
+        },
+        "dip": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Hole dip below horizontal (negative = inclined downward)",
+          "unit": "deg"
+        },
+        "azimuth": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Hole azimuth, clockwise from grid north",
+          "unit": "deg"
+        },
+        "alpha": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Acute angle between the structure and the core axis",
+          "unit": "deg"
+        },
+        "beta": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Rotation about the core axis to the long axis of the structure",
+          "unit": "deg"
+        },
+        "comments": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Per-row free-text comments"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "hole_id",
+        "depth"
+      ],
+      "additionalProperties": true,
+      "description": "Per-depth structural measurements (alpha/beta/strike/dip)",
+      "primaryKey": [
+        "hole_id",
+        "depth"
+      ]
+    },
+    "drill_assay": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/drill_assay.json",
+      "title": "drill_assay",
+      "type": "object",
+      "properties": {
+        "hole_id": {
+          "type": "string",
+          "description": "Unique hole identifier (string), joins every drillhole table",
+          "foreignKey": {
+            "table": "drill_collar",
+            "column": "hole_id"
+          }
+        },
+        "from": {
+          "type": "number",
+          "description": "Interval start depth (md)",
+          "unit": "m"
+        },
+        "to": {
+          "type": "number",
+          "description": "Interval end depth (md)",
+          "unit": "m"
+        },
+        "mid": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Interval midpoint depth (md, computed)",
+          "unit": "m"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "hole_id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": true,
+      "description": "Drillhole assay intervals (analyte columns are flexible)",
+      "primaryKey": [
+        "hole_id",
+        "from",
+        "to"
+      ]
+    },
+    "drill_geology": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/drill_geology.json",
+      "title": "drill_geology",
+      "type": "object",
+      "properties": {
+        "hole_id": {
+          "type": "string",
+          "description": "Unique hole identifier (string), joins every drillhole table",
+          "foreignKey": {
+            "table": "drill_collar",
+            "column": "hole_id"
+          }
+        },
+        "from": {
+          "type": "number",
+          "description": "Interval start depth (md)",
+          "unit": "m"
+        },
+        "to": {
+          "type": "number",
+          "description": "Interval end depth (md)",
+          "unit": "m"
+        },
+        "mid": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Interval midpoint depth (md, computed)",
+          "unit": "m"
+        },
+        "geology_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Standardised lithology / geology code for strip-log colouring"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "hole_id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": true,
+      "description": "Drillhole geology / lithology intervals",
+      "primaryKey": [
+        "hole_id",
+        "from",
+        "to"
+      ]
+    },
+    "geophysics": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/geophysics.json",
+      "title": "geophysics",
+      "type": "object",
+      "properties": {
+        "hole_id": {
+          "type": "string",
+          "description": "Unique hole identifier (string), joins every drillhole table",
+          "foreignKey": {
+            "table": "drill_collar",
+            "column": "hole_id"
+          }
+        },
+        "from": {
+          "type": "number",
+          "description": "Interval start depth (md)",
+          "unit": "m"
+        },
+        "to": {
+          "type": "number",
+          "description": "Interval end depth (md)",
+          "unit": "m"
+        },
+        "mid": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Interval midpoint depth (md, computed)",
+          "unit": "m"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "hole_id",
+        "from",
+        "to"
+      ],
+      "additionalProperties": true,
+      "description": "Downhole geophysics interval measurements",
+      "primaryKey": [
+        "hole_id",
+        "from",
+        "to"
+      ]
+    },
+    "surface_sample": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/surface_sample.json",
+      "title": "surface_sample",
+      "type": "object",
+      "properties": {
+        "sample_id": {
+          "type": "string",
+          "description": "Unique sample identifier (surface samples)"
+        },
+        "datasource_surface_sample_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Surface-sample identifier from the source dataset"
+        },
+        "report_number": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Source report identifier (WAMEX / DIGS / etc.)"
+        },
+        "latitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Latitude (WGS84)",
+          "unit": "deg"
+        },
+        "longitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Longitude (WGS84)",
+          "unit": "deg"
+        },
+        "elevation": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Elevation above sea level (WGS84)",
+          "unit": "m"
+        },
+        "easting": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Projected easting",
+          "unit": "m"
+        },
+        "northing": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Projected northing",
+          "unit": "m"
+        },
+        "crs": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Coordinate reference system as EPSG code or proj string"
+        },
+        "surface_sample_type": {
+          "type": "string",
+          "description": "rock_chip / stream_sediment / soil / outcrop / …"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "sample_id",
+        "surface_sample_type"
+      ],
+      "additionalProperties": true,
+      "description": "Out-of-hole sample points (rock chip / stream / soil / outcrop)",
+      "primaryKey": [
+        "sample_id"
+      ]
+    }
+  }
+}
