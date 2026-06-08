@@ -56,9 +56,15 @@ vec2 intersectAABB(vec3 ro, vec3 rd) {
 }
 
 vec4 xfer(float t) {
-  vec3  col   = mix(uColorLow, uColorHigh, clamp(t, 0.0, 1.0));
-  float alpha = clamp(t, 0.0, 1.0) * uOpacity;
-  return vec4(col, alpha);
+  // Colour follows the value (low → blue, high → red).
+  // Alpha is the user's opacity slider unchanged — value-modulating
+  // alpha makes "opacity 1" still look see-through, which isn't
+  // what users expect from a slider that maxes at 1.  Above-
+  // threshold voxels now reach full opacity together; the value
+  // taper is communicated through colour and through the threshold
+  // filter, not through translucency.
+  vec3 col = mix(uColorLow, uColorHigh, clamp(t, 0.0, 1.0));
+  return vec4(col, uOpacity);
 }
 
 void main() {
