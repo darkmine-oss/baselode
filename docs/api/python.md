@@ -397,6 +397,73 @@ merged = intervals.merge_tables({"assay": assays, "litho": geology})
 
 ---
 
+## baselode.drill.composite
+
+Length-weighted compositing of downhole intervals.  Soft + hard boundary modes plus a true-thickness (economic) compositor.
+
+```python
+from baselode.drill.composite import composite_intervals, composite_true_thickness
+```
+
+### composite_intervals
+
+```python
+composite_intervals(
+    df, value_col, from_col="from", to_col="to",
+    length=1.0, method="average", *,
+    mode="soft", boundary_col=None, residual="discard",
+)
+```
+
+Composite a column of an interval table into fixed-length downhole bins.
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `df` | `pandas.DataFrame` | — | Interval table with `hole_id`, *from_col*, *to_col*, *value_col*; in `mode="hard"` also *boundary_col* |
+| `value_col` | `str` | — | Numeric column to composite |
+| `length` | `float` | `1.0` | Composite length in metres (downhole).  Must be > 0 |
+| `method` | `{"average", "sum"}` | `"average"` | Length-weighted average or sum |
+| `mode` | `{"soft", "hard"}` | `"soft"` | Soft = bins extend across the full hole and may cross contacts (dhcomp / Leapfrog default).  Hard = bins reset at every change in `boundary_col` |
+| `boundary_col` | `str` | `None` | Domain column for hard mode (required when `mode="hard"`) |
+| `residual` | `{"discard", "add_to_previous", "distribute"}` | `"discard"` | Tail-of-domain handling for hard mode.  `discard` drops a sub-length tail; `add_to_previous` extends the previous composite to the domain end; `distribute` chooses `round(D/length)` equal-length bins covering the whole domain |
+
+**Returns:** `pandas.DataFrame` of composites with `hole_id`, *from_col*, *to_col*, *value_col*, plus *boundary_col* in hard mode.
+
+**Mass balance:** `sum(value × overlap)` is conserved between source intervals and composites (within each composite's coverage window in `"average"` mode; over the full hole in `"sum"` mode, modulo intervals dropped by residual handling).
+
+### composite_true_thickness
+
+```python
+composite_true_thickness(
+    intervals, traces, value_col, ref_dip, ref_dip_azimuth,
+    from_col="from", to_col="to",
+    length=1.0, method="average", hole_col=HOLE_ID,
+)
+```
+
+Composite in **true-thickness** space relative to a reference plane.  For each source interval the midpoint orientation is looked up in *traces* via `interpolate_trajectory`; true thickness is `L_downhole · |T · N|` where `T` is the hole's unit tangent and `N` is the unit normal of the reference plane.  Composites span `length` of true thickness, with downhole `from`/`to` recovered from the inverse cumulative map.
+
+Use this for "economic compositing" — composites that represent equal stratigraphic thickness across a known orebody plane.
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `intervals` | `pandas.DataFrame` | — | Interval table |
+| `traces` | `pandas.DataFrame` | — | Desurveyed trace with `azimuth` + `dip` columns (e.g. output of `minimum_curvature_desurvey`) |
+| `value_col` | `str` | — | Numeric column to composite |
+| `ref_dip` | `float` | — | Reference plane dip in degrees (0 = horizontal, 90 = vertical) |
+| `ref_dip_azimuth` | `float` | — | Dip azimuth (downdip direction) clockwise from grid north, in degrees |
+| `length` | `float` | `1.0` | Composite true-thickness in metres.  Must be > 0 |
+| `method` | `{"average", "sum"}` | `"average"` | Length-weighting applied with true thickness as the weight |
+| `hole_col` | `str` | `HOLE_ID` | Hole identifier column (propagates into the output) |
+
+**Returns:** `pandas.DataFrame` with `hole_id`, *from_col*, *to_col* (downhole metres), *value_col*, `length_md` (downhole length covered) and `length_true` (true thickness — usually equal to `length` except possibly the last bin per hole).
+
+A hole drilled parallel to the reference plane (`|T · N| ≈ 0`) produces no composites — no economic thickness is being captured.
+
+True-thickness compositing is **Python-only**; the JavaScript build ships `compositeIntervals` (soft + hard modes) but no true-thickness primitive, since it depends on a desurveyed trace.
+
+---
+
 ## baselode.drill.DrillholeSet
 
 Composition root for the drilling tables of a project.  Holds a collar + survey table plus N named interval tables (assay, geology, structural, …) and exposes the existing function-based API as methods.  No new algorithmic logic — every method is a thin delegator.  The trace is cached after the first `desurvey()` call.

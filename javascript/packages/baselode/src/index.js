@@ -160,6 +160,10 @@ export {
 } from './data/intercepts.js';
 
 export {
+  compositeIntervals
+} from './data/composite.js';
+
+export {
   intervalLength,
   fromToMidpoints,
   detectGaps,

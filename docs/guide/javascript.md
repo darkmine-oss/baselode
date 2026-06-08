@@ -347,6 +347,40 @@ const mids    = fromToMidpoints(assayRows);   // number[]
 
 ---
 
+## Compositing
+
+`compositeIntervals` mirrors the Python `composite_intervals` soft + hard boundary modes.  True-thickness compositing is **Python-only** because it needs a desurveyed trace; for browser-side workflows that need true-thickness, do the composite step server-side and ship the result to the client.
+
+```js
+import { compositeIntervals } from 'baselode';
+
+// Soft mode (default): fixed-length bins across each hole, length-weighted average
+const composites = compositeIntervals(assayRows, 'au_ppm', { length: 2 });
+
+// Hard-boundary by domain — composites reset at every change in the boundary column
+const byLitho = compositeIntervals(assayRows, 'au_ppm', {
+  length: 2,
+  mode: 'hard',
+  boundaryCol: 'lithology',
+  residual: 'distribute',  // or 'discard' (default) / 'add_to_previous'
+});
+```
+
+Options:
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `length` | `number` | `1` | Composite length (must be a positive finite number) |
+| `method` | `'average' \| 'sum'` | `'average'` | Length-weighted average or sum |
+| `mode` | `'soft' \| 'hard'` | `'soft'` | Boundary handling |
+| `boundaryCol` | `string` | — | Domain column for hard mode (required when `mode === 'hard'`) |
+| `residual` | `'discard' \| 'add_to_previous' \| 'distribute'` | `'discard'` | Tail-of-domain handling for hard mode |
+| `fromCol` / `toCol` / `holeCol` | `string` | `'from'` / `'to'` / `'hole_id'` | Column-name overrides |
+
+Both `length` and `method` are validated up front — passing `0`, `NaN` or `Infinity` for `length`, or an unknown `method`, throws with a clear message.
+
+---
+
 ## Visualization
 
 ### Column classification
