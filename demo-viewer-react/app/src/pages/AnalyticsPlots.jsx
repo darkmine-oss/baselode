@@ -102,6 +102,19 @@ function PlotPanel({ title, description, controls, data, layout, height = 380 })
   );
 }
 
+function LogToggle({ label, value, onChange }) {
+  return (
+    <label className="log-toggle">
+      <input
+        type="checkbox"
+        checked={Boolean(value)}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
 function PropertySelect({ label, value, onChange, options, includeBlank = false }) {
   // Render the dropdown alphabetically (case-insensitive) so the list is
   // scannable.  The unsorted ordering is preserved upstream for default
@@ -152,20 +165,26 @@ function AnalyticsPlots() {
   const [scatterX, setScatterX] = useState('');
   const [scatterY, setScatterY] = useState('');
   const [scatterColorBy, setScatterColorBy] = useState('');
+  const [scatterLogX, setScatterLogX] = useState(true);
+  const [scatterLogY, setScatterLogY] = useState(true);
 
-  // Per-plot state — histogram
+  // Per-plot state — histogram (Y-only log; X is the binned analyte and
+  // a log X on a histogram isn't a useful default per the page brief).
   const [histProp, setHistProp] = useState('');
   const [histGroupBy, setHistGroupBy] = useState('');
+  const [histLogY, setHistLogY] = useState(true);
 
-  // Per-plot state — box
+  // Per-plot state — box (value axis is Y; X is the categorical group)
   const [boxProp, setBoxProp] = useState('');
   const [boxGroupBy, setBoxGroupBy] = useState('');
+  const [boxLogY, setBoxLogY] = useState(true);
 
-  // Per-plot state — violin
+  // Per-plot state — violin (value axis is Y; X is the categorical group)
   const [violinProp, setViolinProp] = useState('');
   const [violinGroupBy, setViolinGroupBy] = useState('');
+  const [violinLogY, setViolinLogY] = useState(true);
 
-  // Per-plot state — ternary
+  // Per-plot state — ternary (no log — components are percentages)
   const [aProp, setAProp] = useState('');
   const [bProp, setBProp] = useState('');
   const [cProp, setCProp] = useState('');
@@ -203,20 +222,20 @@ function AnalyticsPlots() {
 
   const scatter = useMemo(() => buildScatterPlotConfig(assayRows, {
     xProp: scatterX, yProp: scatterY, colorBy: scatterColorBy, colourMap,
-    log: { x: true, y: true }, template,
-  }), [assayRows, scatterX, scatterY, scatterColorBy, colourMap, template]);
+    log: { x: scatterLogX, y: scatterLogY }, template,
+  }), [assayRows, scatterX, scatterY, scatterColorBy, scatterLogX, scatterLogY, colourMap, template]);
 
   const histogram = useMemo(() => buildHistogramPlotConfig(assayRows, {
-    prop: histProp, groupBy: histGroupBy, colourMap, log: true, template,
-  }), [assayRows, histProp, histGroupBy, colourMap, template]);
+    prop: histProp, groupBy: histGroupBy, colourMap, log: histLogY, template,
+  }), [assayRows, histProp, histGroupBy, histLogY, colourMap, template]);
 
   const box = useMemo(() => buildBoxPlotConfig(assayRows, {
-    prop: boxProp, groupBy: boxGroupBy, colourMap, log: true, template,
-  }), [assayRows, boxProp, boxGroupBy, colourMap, template]);
+    prop: boxProp, groupBy: boxGroupBy, colourMap, log: boxLogY, template,
+  }), [assayRows, boxProp, boxGroupBy, boxLogY, colourMap, template]);
 
   const violin = useMemo(() => buildViolinPlotConfig(assayRows, {
-    prop: violinProp, groupBy: violinGroupBy, colourMap, log: true, template,
-  }), [assayRows, violinProp, violinGroupBy, colourMap, template]);
+    prop: violinProp, groupBy: violinGroupBy, colourMap, log: violinLogY, template,
+  }), [assayRows, violinProp, violinGroupBy, violinLogY, colourMap, template]);
 
   const ternary = useMemo(() => buildTernaryPlotConfig(assayRows, {
     aProp, bProp, cProp, colorBy: ternaryColorBy, colourMap, template,
@@ -268,7 +287,7 @@ function AnalyticsPlots() {
         <>
           <PlotPanel
             title="Scatter"
-            description="buildScatterPlotConfig — analyte vs analyte, optional categorical colour-by, log axes."
+            description="buildScatterPlotConfig — analyte vs analyte with optional categorical colour-by."
             controls={(
               <>
                 <PropertySelect label="X" value={scatterX} onChange={setScatterX} options={numericColumns} />
@@ -282,6 +301,8 @@ function AnalyticsPlots() {
                     includeBlank
                   />
                 )}
+                <LogToggle label="log X" value={scatterLogX} onChange={setScatterLogX} />
+                <LogToggle label="log Y" value={scatterLogY} onChange={setScatterLogY} />
               </>
             )}
             data={scatter.data}
@@ -290,7 +311,7 @@ function AnalyticsPlots() {
 
           <PlotPanel
             title="Histogram"
-            description="buildHistogramPlotConfig — distribution per group overlaid, log Y."
+            description="buildHistogramPlotConfig — distribution per group overlaid."
             controls={(
               <>
                 <PropertySelect label="Property" value={histProp} onChange={setHistProp} options={numericColumns} />
@@ -303,6 +324,7 @@ function AnalyticsPlots() {
                     includeBlank
                   />
                 )}
+                <LogToggle label="log Y" value={histLogY} onChange={setHistLogY} />
               </>
             )}
             data={histogram.data}
@@ -312,7 +334,7 @@ function AnalyticsPlots() {
           <div className="analytics-grid">
             <PlotPanel
               title="Box"
-              description="buildBoxPlotConfig — quartiles per group, outliers shown, log Y."
+              description="buildBoxPlotConfig — quartiles per group, outliers shown."
               controls={(
                 <>
                   <PropertySelect label="Property" value={boxProp} onChange={setBoxProp} options={numericColumns} />
@@ -325,6 +347,7 @@ function AnalyticsPlots() {
                       includeBlank
                     />
                   )}
+                  <LogToggle label="log Y" value={boxLogY} onChange={setBoxLogY} />
                 </>
               )}
               data={box.data}
@@ -333,7 +356,7 @@ function AnalyticsPlots() {
             />
             <PlotPanel
               title="Violin"
-              description="buildViolinPlotConfig — distribution shape per group, inner box + mean line, log Y."
+              description="buildViolinPlotConfig — distribution shape per group, inner box + mean line."
               controls={(
                 <>
                   <PropertySelect label="Property" value={violinProp} onChange={setViolinProp} options={numericColumns} />
@@ -346,6 +369,7 @@ function AnalyticsPlots() {
                       includeBlank
                     />
                   )}
+                  <LogToggle label="log Y" value={violinLogY} onChange={setViolinLogY} />
                 </>
               )}
               data={violin.data}
