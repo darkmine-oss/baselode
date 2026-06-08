@@ -247,8 +247,19 @@
       ]
     },
     {
+      "name": "compositing",
+      "description": "Length-weighted compositing of downhole intervals. Soft mode (default) bins across each hole's full range and lets composites cross contacts; hard mode resets at every change in a coded boundary column with three residual-handling rules (discard / add_to_previous / distribute). True-thickness / economic compositing is Python-only (TRK-109 scope) because it depends on a desurveyed trace.",
+      "jsExports": [
+        "compositeIntervals"
+      ],
+      "pythonSymbols": [
+        ["baselode.drill.composite", "composite_intervals"],
+        ["baselode.drill.composite", "composite_true_thickness"]
+      ]
+    },
+    {
       "name": "drillhole_set",
-      "description": "Composition root for drilling tables — a thin object that holds collar + survey + N named interval tables plus optional CRS/project metadata. Both languages expose validate + desurvey + cached traces as methods; the Python class additionally provides composite() and to_omf() — the JS class intentionally omits both per TRK-111 (OMF is Python-only) and because there is no JS composite primitive yet. No new algorithmic logic; every method delegates to the existing function-based API.",
+      "description": "Composition root for drilling tables — a thin object that holds collar + survey + N named interval tables plus optional CRS/project metadata. Both languages expose validate + desurvey + cached traces as methods; the Python class additionally provides composite() and to_omf() — the JS class intentionally omits to_omf per TRK-111 (OMF is Python-only). No new algorithmic logic; every method delegates to the existing function-based API.",
       "jsExports": [
         "DrillholeSet"
       ],
