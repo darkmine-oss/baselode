@@ -114,7 +114,7 @@ function AnalyticsPlots() {
             description="Distribution per group overlaid; switch stack mode to compare absolute counts."
           />
 
-          <div className="analytics-grid">
+          <div className="analytics-grid baselode-analytics-grid">
             <BaselodeBoxPanel
               rows={assayRows}
               colourMap={colourMap}

@@ -33,9 +33,20 @@ import { useCallback, useRef, useState } from 'react';
  *   it into the current state shallowly.
  */
 export function useControllable({ value, onChange, defaultValue } = {}) {
-  const isControlled = value !== undefined && typeof onChange === 'function';
+  // The panel state is always an object — accept controlled mode
+  // only when the caller actually hands us one.  This rejects
+  // `value: null` (a common "not ready yet" sentinel) and
+  // `value: undefined`, both of which would otherwise enter
+  // controlled mode and then crash the first `{ ...value }` spread.
+  const isControlled = (
+    value !== null
+    && typeof value === 'object'
+    && typeof onChange === 'function'
+  );
   const controlledRef = useRef(isControlled);
-  const [internal, setInternal] = useState(defaultValue);
+  // Default the internal store to `{}` so an uncontrolled caller
+  // that omits `defaultValue` doesn't crash the merge below.
+  const [internal, setInternal] = useState(() => defaultValue ?? {});
 
   // Warn (dev only) if the caller flips between controlled and
   // uncontrolled — React's own components do the same and the
@@ -52,11 +63,16 @@ export function useControllable({ value, onChange, defaultValue } = {}) {
     if (isControlled) {
       const current = value;
       const patch = typeof patchOrFn === 'function' ? patchOrFn(current) : patchOrFn;
+      // Patch functions returning null / undefined → no-op (the
+      // current state stays).  Same shape as React's `setState`
+      // returning early when the next value is the same reference.
+      if (patch == null) return;
       onChange({ ...current, ...patch });
       return;
     }
     setInternal((current) => {
       const patch = typeof patchOrFn === 'function' ? patchOrFn(current) : patchOrFn;
+      if (patch == null) return current;
       return { ...current, ...patch };
     });
   }, [isControlled, value, onChange]);
