@@ -70,6 +70,18 @@ class TestSoftMode:
         out = composite_intervals(df, "value")
         assert out.empty
 
+    def test_rejects_non_positive_length(self):
+        df = _make_intervals("A", [0, 1, 2], [1.0, 2.0])
+        with pytest.raises(ValueError, match="length"):
+            composite_intervals(df, "value", length=0)
+        with pytest.raises(ValueError, match="length"):
+            composite_intervals(df, "value", length=-1.5)
+
+    def test_rejects_unknown_method(self):
+        df = _make_intervals("A", [0, 1, 2], [1.0, 2.0])
+        with pytest.raises(ValueError, match="method"):
+            composite_intervals(df, "value", method="median")
+
 
 class TestHardMode:
     def test_requires_boundary_col(self):
@@ -255,6 +267,33 @@ class TestTrueThickness:
         # No measurable thickness traversed → either empty or all-zero.
         if not out.empty:
             assert (out["length_true"] < 1e-6).all()
+
+    def test_rejects_non_positive_length_and_bad_method(self):
+        traces = self._vertical_trace(max_md=5.0)
+        intervals = _make_intervals("A", np.arange(0, 6), [1.0] * 5)
+        with pytest.raises(ValueError, match="length"):
+            composite_true_thickness(
+                intervals, traces, value_col="value",
+                ref_dip=0.0, ref_dip_azimuth=0.0, length=0,
+            )
+        with pytest.raises(ValueError, match="method"):
+            composite_true_thickness(
+                intervals, traces, value_col="value",
+                ref_dip=0.0, ref_dip_azimuth=0.0, method="median",
+            )
+
+    def test_honours_custom_hole_col(self):
+        # Caller uses `well_id` instead of the default `hole_id`.
+        traces = self._vertical_trace(max_md=5.0).rename(columns={HOLE_ID: "well_id"})
+        intervals = _make_intervals("A", np.arange(0, 6), [1.0] * 5).rename(columns={"hole_id": "well_id"})
+        out = composite_true_thickness(
+            intervals, traces, value_col="value",
+            ref_dip=0.0, ref_dip_azimuth=0.0, length=1.0,
+            hole_col="well_id",
+        )
+        assert "well_id" in out.columns
+        assert "hole_id" not in out.columns
+        assert set(out["well_id"]) == {"A"}
 
     def test_inclined_hole_planar_lode_matches_analytic_cos(self):
         # Inclined hole (60° dip due north) cutting through a

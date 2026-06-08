@@ -42,6 +42,8 @@ _RESIDUAL_ADD_TO_PREVIOUS = "add_to_previous"
 _RESIDUAL_DISTRIBUTE = "distribute"
 _VALID_RESIDUALS = (_RESIDUAL_DISCARD, _RESIDUAL_ADD_TO_PREVIOUS, _RESIDUAL_DISTRIBUTE)
 
+_VALID_METHODS = ("average", "sum")
+
 
 def composite_intervals(
     df,
@@ -134,6 +136,10 @@ def composite_intervals(
     """
     if mode not in _VALID_MODES:
         raise ValueError(f"mode must be one of {_VALID_MODES}, got {mode!r}")
+    if method not in _VALID_METHODS:
+        raise ValueError(f"method must be one of {_VALID_METHODS}, got {method!r}")
+    if not (length > 0):
+        raise ValueError(f"length must be > 0, got {length!r}")
     if mode == _HARD:
         if not boundary_col:
             raise ValueError("mode='hard' requires a boundary_col")
@@ -375,6 +381,10 @@ def composite_true_thickness(
     :math:`L_{\\mathrm{true}} \\approx 0` and the function emits
     nothing — no economic thickness is being captured.
     """
+    if method not in _VALID_METHODS:
+        raise ValueError(f"method must be one of {_VALID_METHODS}, got {method!r}")
+    if not (length > 0):
+        raise ValueError(f"length must be > 0, got {length!r}")
     if intervals.empty:
         return intervals.copy()
     if AZIMUTH not in traces.columns or DIP not in traces.columns:
@@ -385,15 +395,17 @@ def composite_true_thickness(
 
     intervals_sorted = intervals.sort_values([hole_col, from_col]).reset_index(drop=True)
     midpoints = (intervals_sorted[from_col] + intervals_sorted[to_col]) / 2.0
-    # interpolate_trajectory takes a depths DataFrame for the multi-hole case.
+    # `interpolate_trajectory` returns one orientation row per requested
+    # (hole, depth) row in the same order it was asked.  Because
+    # `intervals_sorted` (and therefore `depths_request`) is already
+    # ordered by (hole, from_col), we can align the returned tangents
+    # back onto the intervals by positional index — no per-row join is
+    # needed.  This also means duplicate midpoints (two assay rows
+    # sharing a from→to span) stay aligned with their originating row.
     depths_request = pd.DataFrame(
         {hole_col: intervals_sorted[hole_col].values, "depth": midpoints.values}
     )
     orient = interpolate_trajectory(traces, depths_request, hole_col=hole_col)
-    # Align orientation rows back onto the interval rows.  Build a
-    # composite key so that duplicate (hole_id, depth) pairs (which
-    # are common in real datasets — two assay rows sharing a midpoint)
-    # can't accidentally cross-join.
     azimuth = orient[AZIMUTH].to_numpy(dtype=float)
     dip = orient[DIP].to_numpy(dtype=float)
     tangents = _tangents_from_azimuth_dip(azimuth, dip)
@@ -414,13 +426,14 @@ def composite_true_thickness(
                 to_col,
                 length,
                 method,
+                hole_col,
             )
         )
     return pd.DataFrame(composites)
 
 
 def _composite_true_for_hole(
-    hole_id, hole_group, true_per_interval, value_col, from_col, to_col, length, method
+    hole_id, hole_group, true_per_interval, value_col, from_col, to_col, length, method, hole_col
 ):
     out = []
     cum_true = np.concatenate(([0.0], np.cumsum(true_per_interval)))
@@ -465,7 +478,7 @@ def _composite_true_for_hole(
         else:
             val = float((values * overlap_true).sum() / total_overlap)
         out.append({
-            "hole_id": hole_id,
+            hole_col: hole_id,
             from_col: float(md_from),
             to_col: float(md_to),
             value_col: val,

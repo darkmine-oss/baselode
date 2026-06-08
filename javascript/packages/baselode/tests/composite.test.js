@@ -42,6 +42,19 @@ describe('compositeIntervals — soft mode', () => {
   it('returns empty for empty input', () => {
     expect(compositeIntervals([], 'value')).toEqual([]);
   });
+
+  it('rejects non-positive length (would loop forever in soft mode)', () => {
+    const data = intervals('A', [0, 1, 2], [1, 2]);
+    expect(() => compositeIntervals(data, 'value', { length: 0 })).toThrow(/length/);
+    expect(() => compositeIntervals(data, 'value', { length: -1 })).toThrow(/length/);
+    expect(() => compositeIntervals(data, 'value', { length: NaN })).toThrow(/length/);
+    expect(() => compositeIntervals(data, 'value', { length: Infinity })).toThrow(/length/);
+  });
+
+  it('rejects unknown method', () => {
+    const data = intervals('A', [0, 1, 2], [1, 2]);
+    expect(() => compositeIntervals(data, 'value', { method: 'median' })).toThrow(/method/);
+  });
 });
 
 describe('compositeIntervals — hard mode', () => {

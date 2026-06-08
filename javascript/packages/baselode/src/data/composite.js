@@ -48,6 +48,15 @@ export function compositeIntervals(intervals, valueCol, options = {}) {
   if (mode !== 'soft' && mode !== 'hard') {
     throw new Error(`mode must be "soft" or "hard", got "${mode}"`);
   }
+  if (method !== 'average' && method !== 'sum') {
+    throw new Error(`method must be "average" or "sum", got "${method}"`);
+  }
+  // `Number.isFinite(length) && length > 0` rejects 0, negatives,
+  // NaN, Infinity and non-numeric inputs; without this, soft mode's
+  // `cFrom += length` would loop forever on length === 0.
+  if (!(Number.isFinite(length) && length > 0)) {
+    throw new Error(`length must be a positive finite number, got ${length}`);
+  }
   if (mode === 'hard') {
     if (!boundaryCol) throw new Error('mode="hard" requires a boundaryCol');
     if (!['discard', 'add_to_previous', 'distribute'].includes(residual)) {
