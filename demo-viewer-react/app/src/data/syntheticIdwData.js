@@ -61,11 +61,16 @@ export function buildSyntheticIdwDataset(options = {}) {
   const rng = mulberry32(seed);
   const [bx, by, bz] = boxSize;
 
-  // Two analytic Gaussian anomalies — the IDW volume should reproduce
-  // these as smooth coloured clouds at the same positions.
+  // Five analytic Gaussian anomalies spread across the box — the IDW
+  // volume should reproduce these as smooth coloured clouds at the
+  // same positions.  Mix of peak heights + sigmas gives a richer
+  // field to look at than a couple of isolated blobs.
   const anomalies = [
-    { center: [bx * 0.75, by * 0.25, bz * 0.75], peak: 100, sigma: bx * 0.12 },
-    { center: [bx * 0.20, by * 0.80, bz * 0.20], peak:  40, sigma: bx * 0.18 },
+    { center: [bx * 0.75, by * 0.25, bz * 0.75], peak: 100, sigma: bx * 0.10 },
+    { center: [bx * 0.20, by * 0.80, bz * 0.20], peak:  60, sigma: bx * 0.14 },
+    { center: [bx * 0.50, by * 0.50, bz * 0.55], peak:  75, sigma: bx * 0.08 },
+    { center: [bx * 0.85, by * 0.85, bz * 0.30], peak:  45, sigma: bx * 0.16 },
+    { center: [bx * 0.15, by * 0.30, bz * 0.65], peak:  35, sigma: bx * 0.12 },
   ];
 
   const samples = [];

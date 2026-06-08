@@ -76,22 +76,32 @@ function IdwVolumeDemo() {
     // Render the synthetic sample points as instanced spheres so the
     // user can spot the relationship between sample positions and
     // the interpolated field.
-    const sphereGeo = new THREE.SphereGeometry(8, 12, 8);
+    //
+    // For per-instance colours via `setColorAt`, the material starts
+    // with a neutral base colour and Three.js mixes in the instance
+    // colour via the `instanceColor` attribute.  Setting
+    // `vertexColors: true` is wrong here — that flag expects a
+    // per-VERTEX colour attribute on the geometry, not per-instance,
+    // and ends up suppressing the instance tinting altogether.
+    const sphereGeo = new THREE.SphereGeometry(10, 16, 12);
     const inst = new THREE.InstancedMesh(
       sphereGeo,
-      new THREE.MeshStandardMaterial({ color: 0xffffff, vertexColors: true }),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }),
       dataset.samples.length,
     );
     const dummy = new THREE.Object3D();
     const tmpColor = new THREE.Color();
     const range = (dataset.maxValue - dataset.minValue) || 1;
+    // Match the volume's blue→red transfer function so a high-value
+    // sample reads the same way as a high-value voxel.
+    const colorLow  = new THREE.Color(0.05, 0.10, 0.55);
+    const colorHigh = new THREE.Color(1.00, 0.30, 0.10);
     dataset.samples.forEach((s, i) => {
       dummy.position.set(s.x, s.y, s.z);
       dummy.updateMatrix();
       inst.setMatrixAt(i, dummy.matrix);
-      // Map value → cool→warm so the spheres echo the volume's transfer fn.
-      const t = (s.value - dataset.minValue) / range;
-      tmpColor.setHSL(0.65 - 0.65 * t, 0.7, 0.5);
+      const t = Math.max(0, Math.min(1, (s.value - dataset.minValue) / range));
+      tmpColor.copy(colorLow).lerp(colorHigh, t);
       inst.setColorAt(i, tmpColor);
     });
     inst.instanceMatrix.needsUpdate = true;
