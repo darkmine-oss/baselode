@@ -25,7 +25,9 @@ import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
  * @param {string} [options.markerColor='#475569']
  * @param {number} [options.bins=30] - Approximate bin count via `nbinsx`.
  * @param {number} [options.opacity=0.65] - Per-trace opacity; opaque single trace.
- * @param {boolean} [options.log=false] - Log-scale the y axis (count).
+ * @param {(boolean|{x?: boolean, y?: boolean})} [options.log=false] -
+ *   Log-scale the axes.  Pass a boolean for backward-compat (Y-only)
+ *   or `{ x, y }` to control each axis independently.
  * @param {string} [options.title]
  * @param {string} [options.xTitle] - Defaults to prop.
  * @param {Object} [options.template=BASELODE_TEMPLATE]
@@ -44,6 +46,9 @@ export function buildHistogramPlotConfig(rows, options = {}) {
     xTitle,
     template = BASELODE_TEMPLATE,
   } = options;
+
+  const xLog = typeof log === 'object' && log !== null ? Boolean(log.x) : false;
+  const yLog = typeof log === 'object' && log !== null ? Boolean(log.y) : Boolean(log);
 
   if (!prop) {
     return {
@@ -87,8 +92,8 @@ export function buildHistogramPlotConfig(rows, options = {}) {
     title: { text: title || '' },
     template,
     barmode: groupBy ? 'overlay' : 'group',
-    xaxis: { title: { text: xTitle || prop } },
-    yaxis: { title: { text: 'count' }, type: log ? 'log' : 'linear' },
+    xaxis: { title: { text: xTitle || prop }, type: xLog ? 'log' : 'linear' },
+    yaxis: { title: { text: 'count' }, type: yLog ? 'log' : 'linear' },
     legend: { itemclick: 'toggleothers' },
     margin: { l: 60, r: 20, t: title ? 50 : 20, b: 60 },
   };

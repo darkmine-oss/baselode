@@ -134,6 +134,20 @@ describe('buildHistogramPlotConfig', () => {
   it('returns empty config without prop', () => {
     expect(buildHistogramPlotConfig(SAMPLE, {}).data).toEqual([]);
   });
+
+  it('honours boolean log as y-only (backward compat)', () => {
+    const { layout } = buildHistogramPlotConfig(SAMPLE, { prop: 'au_ppm', log: true });
+    expect(layout.xaxis.type).toBe('linear');
+    expect(layout.yaxis.type).toBe('log');
+  });
+
+  it('honours object log on each axis independently', () => {
+    const { layout } = buildHistogramPlotConfig(SAMPLE, {
+      prop: 'au_ppm', log: { x: true, y: false },
+    });
+    expect(layout.xaxis.type).toBe('log');
+    expect(layout.yaxis.type).toBe('linear');
+  });
 });
 
 describe('buildBoxPlotConfig', () => {
