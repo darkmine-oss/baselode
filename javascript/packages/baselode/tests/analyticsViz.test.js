@@ -168,6 +168,23 @@ describe('buildHistogramPlotConfig', () => {
     expect(layout.yaxis.tickformat).toBe(',d');
     expect(layout.yaxis.dtick).toBeUndefined();
   });
+
+  it('emits shared xbins so grouped traces line up bin-for-bin', () => {
+    const { data } = buildHistogramPlotConfig(SAMPLE, {
+      prop: 'au_ppm', groupBy: 'lithology', bins: 4,
+    });
+    // Every trace must carry the SAME xbins so overlay bars stack
+    // exactly at the same x positions instead of being offset.
+    const firstBins = data[0].xbins;
+    expect(firstBins).toBeDefined();
+    expect(firstBins.start).toBe(0.1);
+    expect(firstBins.size).toBeCloseTo((1.2 - 0.1) / 4, 12);
+    for (const trace of data) {
+      expect(trace.xbins).toEqual(firstBins);
+      expect(trace.autobinx).toBe(false);
+      expect(trace.nbinsx).toBeUndefined();
+    }
+  });
 });
 
 describe('buildBoxPlotConfig', () => {

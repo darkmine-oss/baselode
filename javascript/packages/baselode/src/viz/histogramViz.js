@@ -61,17 +61,42 @@ export function buildHistogramPlotConfig(rows, options = {}) {
   const resolveColour = buildCategoricalColourResolver(colourMap, markerColor);
 
   if (groupBy) {
+    // Collect every group's values up front so we can compute a shared
+    // bin grid.  Plotly's per-trace `nbinsx` autobins each group
+    // independently, which means the bars don't line up between groups
+    // — they appear offset rather than stacked at the same x position.
     const groups = groupRowsBy(rows, groupBy);
+    const perGroup = [];
+    let globalMin = Infinity;
+    let globalMax = -Infinity;
     for (const group of groups) {
       const { values } = collectNumericValues(group.rows, prop);
       if (!values.length) continue;
+      perGroup.push({ key: group.key, values });
+      for (const value of values) {
+        if (value < globalMin) globalMin = value;
+        if (value > globalMax) globalMax = value;
+      }
+    }
+
+    // Shared xbins: one start/end/size used by every trace so the bin
+    // edges line up exactly.  `size = (max - min) / bins`, but guarded
+    // against zero-width ranges (every value identical → one bin).
+    let xbins;
+    if (perGroup.length && Number.isFinite(globalMin) && Number.isFinite(globalMax)) {
+      const span = globalMax - globalMin;
+      const size = span > 0 ? span / bins : 1;
+      xbins = { start: globalMin, end: globalMax + size, size };
+    }
+
+    for (const group of perGroup) {
       data.push({
         type: 'histogram',
-        x: values,
+        x: group.values,
         name: group.key,
         opacity,
         marker: { color: resolveColour(group.key) },
-        nbinsx: bins,
+        ...(xbins ? { xbins, autobinx: false } : { nbinsx: bins }),
       });
     }
   } else {
