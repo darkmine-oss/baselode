@@ -21,6 +21,7 @@ function Sidebar() {
     { path: '/polygon-blocks', label: 'Polygon Blocks' },
     { path: '/core-photo', label: 'Core Photos' },
     { path: '/analytics', label: 'Analytics Plots' },
+    { path: '/idw-volume', label: 'IDW Volume' },
     { path: '/chat-helpers', label: 'Chat Helpers' },
     // { path: '/raster-demo', label: 'Raster Overlay' },
   ];
