@@ -88,12 +88,27 @@ export function buildHistogramPlotConfig(rows, options = {}) {
     }
   }
 
+  // Counts are integers — force integer tick labels on the Y axis.
+  // Plotly's auto-tick will pick fractional steps (eg. 0.2) when the
+  // max bar height is tiny, producing "1.2 / 1.4 / 1.6" labels that
+  // make no sense for counts.  For small datasets we additionally
+  // pin `dtick: 1` to prevent integer-formatted dupes ("1 1 1 2").
+  const maxPossibleCount = data.reduce((max, trace) => Math.max(max, trace.x.length), 0);
+  const yaxis = {
+    title: { text: 'count' },
+    type: yLog ? 'log' : 'linear',
+    tickformat: ',d',
+  };
+  if (!yLog && maxPossibleCount > 0 && maxPossibleCount <= 50) {
+    yaxis.dtick = 1;
+  }
+
   const layout = {
     title: { text: title || '' },
     template,
     barmode: groupBy ? 'overlay' : 'group',
     xaxis: { title: { text: xTitle || prop }, type: xLog ? 'log' : 'linear' },
-    yaxis: { title: { text: 'count' }, type: yLog ? 'log' : 'linear' },
+    yaxis,
     legend: { itemclick: 'toggleothers' },
     margin: { l: 60, r: 20, t: title ? 50 : 20, b: 60 },
   };

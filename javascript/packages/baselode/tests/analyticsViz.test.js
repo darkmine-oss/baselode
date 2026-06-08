@@ -148,6 +148,26 @@ describe('buildHistogramPlotConfig', () => {
     expect(layout.xaxis.type).toBe('log');
     expect(layout.yaxis.type).toBe('linear');
   });
+
+  it('forces integer count labels on the Y axis', () => {
+    const { layout } = buildHistogramPlotConfig(SAMPLE, { prop: 'au_ppm' });
+    expect(layout.yaxis.tickformat).toBe(',d');
+    // Small dataset → pin dtick=1 to avoid duplicate integer labels.
+    expect(layout.yaxis.dtick).toBe(1);
+  });
+
+  it('omits dtick=1 on log Y axis so plotly can pick log ticks', () => {
+    const { layout } = buildHistogramPlotConfig(SAMPLE, { prop: 'au_ppm', log: true });
+    expect(layout.yaxis.tickformat).toBe(',d');
+    expect(layout.yaxis.dtick).toBeUndefined();
+  });
+
+  it('omits dtick=1 on large datasets so plotly picks an integer step', () => {
+    const big = Array.from({ length: 200 }, (_, index) => ({ v: index }));
+    const { layout } = buildHistogramPlotConfig(big, { prop: 'v' });
+    expect(layout.yaxis.tickformat).toBe(',d');
+    expect(layout.yaxis.dtick).toBeUndefined();
+  });
 });
 
 describe('buildBoxPlotConfig', () => {
