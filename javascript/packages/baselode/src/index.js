@@ -164,6 +164,11 @@ export {
 } from './data/composite.js';
 
 export {
+  BASELODE_DATA_MODEL_SCHEMAS,
+  getBaselodeSchema
+} from './data/schemas.js';
+
+export {
   intervalLength,
   fromToMidpoints,
   detectGaps,
