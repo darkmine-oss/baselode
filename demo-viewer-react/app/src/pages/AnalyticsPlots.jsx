@@ -115,6 +115,19 @@ function LogToggle({ label, value, onChange }) {
   );
 }
 
+function BarmodeSelect({ value, onChange }) {
+  return (
+    <label className="prop-select">
+      <span>stack</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="overlay">in z (overlay)</option>
+        <option value="stack">in y (stacked)</option>
+        <option value="group">side-by-side</option>
+      </select>
+    </label>
+  );
+}
+
 function PropertySelect({ label, value, onChange, options, includeBlank = false }) {
   // Render the dropdown alphabetically (case-insensitive) so the list is
   // scannable.  The unsorted ordering is preserved upstream for default
@@ -173,6 +186,7 @@ function AnalyticsPlots() {
   const [histProp, setHistProp] = useState('');
   const [histGroupBy, setHistGroupBy] = useState('');
   const [histLogY, setHistLogY] = useState(true);
+  const [histBarmode, setHistBarmode] = useState('overlay');
 
   // Per-plot state — box (value axis is Y; X is the categorical group)
   const [boxProp, setBoxProp] = useState('');
@@ -226,8 +240,9 @@ function AnalyticsPlots() {
   }), [assayRows, scatterX, scatterY, scatterColorBy, scatterLogX, scatterLogY, colourMap, template]);
 
   const histogram = useMemo(() => buildHistogramPlotConfig(assayRows, {
-    prop: histProp, groupBy: histGroupBy, colourMap, log: histLogY, template,
-  }), [assayRows, histProp, histGroupBy, histLogY, colourMap, template]);
+    prop: histProp, groupBy: histGroupBy, colourMap,
+    log: histLogY, barmode: histBarmode, template,
+  }), [assayRows, histProp, histGroupBy, histLogY, histBarmode, colourMap, template]);
 
   const box = useMemo(() => buildBoxPlotConfig(assayRows, {
     prop: boxProp, groupBy: boxGroupBy, colourMap, log: boxLogY, template,
@@ -325,6 +340,9 @@ function AnalyticsPlots() {
                   />
                 )}
                 <LogToggle label="log Y" value={histLogY} onChange={setHistLogY} />
+                {histGroupBy && (
+                  <BarmodeSelect value={histBarmode} onChange={setHistBarmode} />
+                )}
               </>
             )}
             data={histogram.data}

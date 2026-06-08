@@ -169,6 +169,22 @@ describe('buildHistogramPlotConfig', () => {
     expect(layout.yaxis.dtick).toBeUndefined();
   });
 
+  it('honours barmode=stack and emits opaque traces', () => {
+    const { data, layout } = buildHistogramPlotConfig(SAMPLE, {
+      prop: 'au_ppm', groupBy: 'lithology', barmode: 'stack',
+    });
+    expect(layout.barmode).toBe('stack');
+    for (const trace of data) expect(trace.opacity).toBe(1);
+  });
+
+  it('defaults barmode to overlay (z-stack) with the legacy opacity', () => {
+    const { data, layout } = buildHistogramPlotConfig(SAMPLE, {
+      prop: 'au_ppm', groupBy: 'lithology',
+    });
+    expect(layout.barmode).toBe('overlay');
+    for (const trace of data) expect(trace.opacity).toBe(0.65);
+  });
+
   it('emits shared xbins so grouped traces line up bin-for-bin', () => {
     const { data } = buildHistogramPlotConfig(SAMPLE, {
       prop: 'au_ppm', groupBy: 'lithology', bins: 4,

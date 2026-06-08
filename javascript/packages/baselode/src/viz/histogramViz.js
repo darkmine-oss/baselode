@@ -28,6 +28,11 @@ import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
  * @param {(boolean|{x?: boolean, y?: boolean})} [options.log=false] -
  *   Log-scale the axes.  Pass a boolean for backward-compat (Y-only)
  *   or `{ x, y }` to control each axis independently.
+ * @param {'overlay'|'stack'|'group'} [options.barmode='overlay'] -
+ *   How to render grouped traces.  `'overlay'` z-stacks them at the
+ *   same x with transparency; `'stack'` y-stacks them so the total
+ *   height per bin is the sum of group counts; `'group'` places them
+ *   side-by-side.  Ignored when *groupBy* is absent.
  * @param {string} [options.title]
  * @param {string} [options.xTitle] - Defaults to prop.
  * @param {Object} [options.template=BASELODE_TEMPLATE]
@@ -42,6 +47,7 @@ export function buildHistogramPlotConfig(rows, options = {}) {
     bins = 30,
     opacity = 0.65,
     log = false,
+    barmode = 'overlay',
     title = '',
     xTitle,
     template = BASELODE_TEMPLATE,
@@ -89,12 +95,16 @@ export function buildHistogramPlotConfig(rows, options = {}) {
       xbins = { start: globalMin, end: globalMax + size, size };
     }
 
+    // In `stack` (y-stack) or `group` (side-by-side), bars don't
+    // overlap visually so transparency just makes them washed out —
+    // render opaque.  Only `overlay` needs the per-trace opacity.
+    const traceOpacity = barmode === 'overlay' ? opacity : 1;
     for (const group of perGroup) {
       data.push({
         type: 'histogram',
         x: group.values,
         name: group.key,
-        opacity,
+        opacity: traceOpacity,
         marker: { color: resolveColour(group.key) },
         ...(xbins ? { xbins, autobinx: false } : { nbinsx: bins }),
       });
@@ -118,7 +128,12 @@ export function buildHistogramPlotConfig(rows, options = {}) {
   // max bar height is tiny, producing "1.2 / 1.4 / 1.6" labels that
   // make no sense for counts.  For small datasets we additionally
   // pin `dtick: 1` to prevent integer-formatted dupes ("1 1 1 2").
-  const maxPossibleCount = data.reduce((max, trace) => Math.max(max, trace.x.length), 0);
+  //
+  // In stack mode the max bar height per bin is the SUM of group
+  // counts (bounded by total rows), not the max per group.
+  const maxPossibleCount = groupBy && barmode === 'stack'
+    ? data.reduce((sum, trace) => sum + trace.x.length, 0)
+    : data.reduce((max, trace) => Math.max(max, trace.x.length), 0);
   const yaxis = {
     title: { text: 'count' },
     type: yLog ? 'log' : 'linear',
@@ -131,7 +146,7 @@ export function buildHistogramPlotConfig(rows, options = {}) {
   const layout = {
     title: { text: title || '' },
     template,
-    barmode: groupBy ? 'overlay' : 'group',
+    barmode: groupBy ? barmode : 'group',
     xaxis: { title: { text: xTitle || prop }, type: xLog ? 'log' : 'linear' },
     yaxis,
     legend: { itemclick: 'toggleothers' },
