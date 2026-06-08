@@ -19,12 +19,40 @@
 .plot-card__controls {
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   gap: 6px;
-  flex-wrap: wrap;
-  /* Allow the row to shrink below the natural width of its
-     children so flex-wrap actually kicks in. */
   min-width: 0;
   width: 100%;
+}
+
+/* Strict row layout: one row per logical group (project, hole,
+   property+charttype).  Avoids the previous `flex-wrap: wrap`
+   behaviour where the dropdowns shuffled around based on natural
+   widths — wrappers should give predictable, consistent layout. */
+.plot-card__row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Single-select rows (group, hole, field) — the select fills the
+   full row width and truncates its rendered value with `…` when a
+   long option would otherwise spill past the card. */
+.plot-card__row--group .plot-select,
+.plot-card__row--hole .plot-select,
+.plot-card__row--field .plot-select {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/* Property + chart-type sit side-by-side, exactly 50/50.
+   `flex: 1 1 0` + `min-width: 0` is the canonical "equal share,
+   shrinkable" combo. */
+.plot-card__row--split .plot-select {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .plot-card__body {
@@ -59,22 +87,3 @@
   white-space: nowrap;
 }
 
-/* The hole picker is usually the widest — give it the lion's share
-   when several pickers share a row, and let property / chart-type
-   take a fixed minimum. */
-.plot-card .plot-select--hole {
-  flex: 1 1 0;
-}
-
-/* The hole picker is rendered inside a `.plot-title` wrapper.
-   Without `min-width: 0` here the wrapper's flex layout uses the
-   select's natural (option-text) width as its minimum, which lets
-   the wrapper — and the surrounding card — grow past the grid
-   track's `1fr` allocation.  Setting `min-width: 0` + `max-width:
-   100%` makes the wrapper honour its parent's width, so the
-   select's `max-width: 100%` finally has a bounded reference. */
-.plot-card .plot-title {
-  min-width: 0;
-  max-width: 100%;
-  flex: 1 1 0;
-}
