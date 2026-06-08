@@ -38,6 +38,7 @@ from baselode.datamodel import (
 from baselode.datamodel.regen_schemas import (
     PY_OUT_PATH,
     JS_OUT_PATH,
+    _find_repo_root,
     render,
 )
 
@@ -127,3 +128,18 @@ class TestRegenerationParity:
         doc = json.loads(PY_OUT_PATH.read_text(encoding="utf-8"))
         assert doc["title"] == "baselode data model"
         assert "schemas" in doc
+
+
+class TestRepoRootDiscovery:
+    def test_finds_the_real_root_from_inside_the_repo(self):
+        # Resolved at import time — confirm the canonical paths land
+        # inside the repo and not in site-packages or similar.
+        assert PY_OUT_PATH.is_relative_to(REPO_ROOT)
+        assert JS_OUT_PATH.is_relative_to(REPO_ROOT)
+
+    def test_raises_clear_error_outside_a_source_checkout(self, tmp_path):
+        # Simulate the installed-wheel case: tmp_path has none of the
+        # baselode-specific markers, so walking up from it should
+        # never find a repo root.
+        with pytest.raises(RuntimeError, match="source checkout"):
+            _find_repo_root(tmp_path)

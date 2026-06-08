@@ -26,11 +26,42 @@ from pathlib import Path
 
 from baselode.datamodel.schemas import to_json_schema_all
 
-# This module lives under python/src/baselode/datamodel/.  The repo
-# root is four parents up (datamodel → baselode → src → python →
-# repo).  Walking parents explicitly is the same shape used by
-# `test/test_parity_contract.py`.
-_REPO_ROOT = Path(__file__).resolve().parents[4]
+# Baselode-specific filesystem markers that prove we're inside a
+# source checkout (and not, say, an installed wheel under
+# site-packages).  Both must exist at the same parent for us to call
+# that parent the repo root.
+_REPO_MARKERS = (
+    Path("test") / "data" / "parity_contract.json",
+    Path("javascript") / "packages" / "baselode" / "src" / "data",
+)
+
+
+def _find_repo_root(start):
+    """Walk upward from *start* looking for a baselode source checkout.
+
+    Raises ``RuntimeError`` with a clear message when no parent
+    contains every marker in :data:`_REPO_MARKERS` — i.e. when the
+    module is being run from an installed wheel rather than the repo.
+    """
+    for candidate in (start, *start.parents):
+        if all((candidate / marker).exists() for marker in _REPO_MARKERS):
+            return candidate
+    raise RuntimeError(
+        "baselode.datamodel.regen_schemas must be run from a source "
+        "checkout of the baselode repo — none of the parent "
+        f"directories of {start} contain the expected markers "
+        f"({', '.join(str(m) for m in _REPO_MARKERS)}).  Clone the "
+        "repo from https://github.com/darkmine-oss/baselode and run "
+        "the regen from there."
+    )
+
+
+# Lazily resolved at import time; safe because both the parity test
+# and the entrypoint script always run from inside the checkout.  If
+# an installed-wheel caller imports this module, the error fires
+# immediately with the explanation above rather than silently writing
+# into site-packages.
+_REPO_ROOT = _find_repo_root(Path(__file__).resolve().parent)
 PY_OUT_PATH = _REPO_ROOT / "test" / "data" / "baselode_schemas.json"
 JS_OUT_PATH = (
     _REPO_ROOT / "javascript" / "packages" / "baselode" / "src" / "data" / "baselode_schemas.json"
