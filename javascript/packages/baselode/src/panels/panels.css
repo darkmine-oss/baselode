@@ -100,12 +100,17 @@
 }
 
 /* Multi-track strip-log grid.  `grid-template-columns` is set
-   inline by `BaselodeStripLogGrid` so the column count is callable. */
+   inline by `BaselodeStripLogGrid` so the column count is callable.
+   `min-width: 0` + `max-width: 100%` make the grid honour the
+   `minmax(0, 1fr)` column tracks even when the parent is a scroll
+   container that would otherwise let cells grow to fit content. */
 .baselode-strip-log-grid {
   display: grid;
   grid-auto-rows: minmax(0, 1fr);
   gap: 12px;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   height: 100%;
   min-height: 0;
 }

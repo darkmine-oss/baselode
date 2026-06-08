@@ -102,8 +102,16 @@
 .drillhole2d-grid {
   flex: 1;
   min-height: 0;
+  /* `min-width: 0` lets the flex item shrink below its content's
+     natural width — without it, a too-wide grid cell pushes this
+     flex item wider than its parent and `overflow-y: auto` below
+     ends up granting horizontal scroll too.  Explicit `overflow-x:
+     hidden` is the second belt to make sure long hole-id picker
+     contents can't break out of the 4-up layout. */
+  min-width: 0;
   padding: 12px 12px 16px 12px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 :root.dark .drillhole2d-container {
