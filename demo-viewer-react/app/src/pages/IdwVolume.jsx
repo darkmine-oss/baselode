@@ -33,12 +33,14 @@ function IdwVolumeDemo() {
 
   const dataset = useMemo(() => buildSyntheticIdwDataset({ count: 250, seed: 42 }), []);
 
-  const [voxelDim, setVoxelDim]   = useState(48);
-  const [power, setPower]         = useState(2);
-  const [opacity, setOpacity]     = useState(0.3);
-  const [threshold, setThreshold] = useState(0.15);
-  const [blockMode, setBlockMode] = useState(true);
-  const [building, setBuilding]   = useState(false);
+  const [voxelDim, setVoxelDim]         = useState(48);
+  const [power, setPower]               = useState(2);
+  const [searchRadius, setSearchRadius] = useState(200);
+  const [maxNeighbors, setMaxNeighbors] = useState(8);
+  const [opacity, setOpacity]           = useState(0.3);
+  const [threshold, setThreshold]       = useState(0.15);
+  const [blockMode, setBlockMode]       = useState(true);
+  const [building, setBuilding]         = useState(false);
 
   // Initial scene + sample-point cloud — runs once.
   useEffect(() => {
@@ -232,7 +234,7 @@ function IdwVolumeDemo() {
             (dataset.bounds.min[2] + dataset.bounds.max[2]) / 2,
           ],
         },
-        idw: { power, searchRadius: 300, maxNeighbors: 24 },
+        idw: { power, searchRadius, maxNeighbors },
         grid: { dims: [voxelDim, voxelDim, voxelDim] },
         displayMin: dataset.minValue,
         displayMax: dataset.maxValue,
@@ -253,7 +255,7 @@ function IdwVolumeDemo() {
       setBuilding(false);
     })();
     return () => { cancelled = true; };
-  }, [dataset, voxelDim, power]);
+  }, [dataset, voxelDim, power, searchRadius, maxNeighbors]);
 
   // Display-only knobs — push straight through to the renderer without
   // rebuilding the voxel grid.
@@ -299,6 +301,30 @@ function IdwVolumeDemo() {
               step={0.5}
               value={power}
               onChange={(e) => setPower(Number(e.target.value))}
+            />
+          </label>
+
+          <label className="idw-control">
+            <span>Search radius: {searchRadius} m</span>
+            <input
+              type="range"
+              min={50}
+              max={500}
+              step={25}
+              value={searchRadius}
+              onChange={(e) => setSearchRadius(Number(e.target.value))}
+            />
+          </label>
+
+          <label className="idw-control">
+            <span>Max neighbours: {maxNeighbors}</span>
+            <input
+              type="range"
+              min={1}
+              max={32}
+              step={1}
+              value={maxNeighbors}
+              onChange={(e) => setMaxNeighbors(Number(e.target.value))}
             />
           </label>
 
