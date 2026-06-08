@@ -6,7 +6,14 @@
 .plot-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
+  /* Without this, a `<select>` whose widest option exceeds the
+     card's width (e.g. a long composite hole_id like
+     "119644Balladonia18BAC024") forces the card itself to grow,
+     breaking the grid.  `overflow: hidden` keeps the wrapper as
+     the authoritative bound. */
+  overflow: hidden;
 }
 
 .plot-card__controls {
@@ -14,11 +21,16 @@
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
+  /* Allow the row to shrink below the natural width of its
+     children so flex-wrap actually kicks in. */
+  min-width: 0;
+  width: 100%;
 }
 
 .plot-card__body {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   display: flex;
 }
 
@@ -31,4 +43,25 @@
 .plot-card.empty .plot-card__body {
   align-items: center;
   justify-content: center;
+}
+
+/* Every dropdown inside a TracePlot — the hole picker most
+   importantly — must respect the parent card's width.  Without
+   these rules a `<select>` reports its natural width as the widest
+   option's width, which can be many times the card's width for
+   composite hole IDs.  Truncate the rendered selected value with
+   an ellipsis instead. */
+.plot-card .plot-select {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The hole picker is usually the widest — give it the lion's share
+   when several pickers share a row, and let property / chart-type
+   take a fixed minimum. */
+.plot-card .plot-select--hole {
+  flex: 1 1 0;
 }
