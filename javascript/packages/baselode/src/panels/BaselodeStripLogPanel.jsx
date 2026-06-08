@@ -37,6 +37,7 @@ export function BaselodeStripLogPanel({
   holes,
   initialHoleId = '',
   holeSelector,
+  propertyMeta,
   template,
   height = 380,
 }) {
@@ -66,6 +67,7 @@ export function BaselodeStripLogPanel({
       holeOptions={labeledHoleOptions}
       holeSelector={holeSelector}
       propertyOptions={graph?.propertyOptions || []}
+      propertyMeta={propertyMeta}
       onConfigChange={(patch) => handleConfigChange(0, patch)}
       template={template}
       height={height}

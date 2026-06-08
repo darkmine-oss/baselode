@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   BaselodeScatterPanel,
   BaselodeHistogramPanel,
@@ -15,6 +15,7 @@ import {
   detectCategoricalColumns,
 } from 'baselode';
 import { useDemoData } from '../context/DemoDataContext.jsx';
+import { useTheme } from '../context/ThemeContext.jsx';
 import './AnalyticsPlots.css';
 
 function flattenAssayRows(combinedHoles) {
@@ -45,7 +46,8 @@ function flattenAssayRows(combinedHoles) {
  */
 function AnalyticsPlots() {
   const { loading, combinedHoles, errors } = useDemoData();
-  const [useDarkTemplate, setUseDarkTemplate] = useState(false);
+  const { theme } = useTheme();
+  const useDarkTemplate = theme === 'dark';
 
   const assayRows = useMemo(() => flattenAssayRows(combinedHoles), [combinedHoles]);
 
@@ -73,14 +75,6 @@ function AnalyticsPlots() {
           </p>
         </div>
         <div className="analytics-page__meta">
-          <label className="dark-toggle">
-            <input
-              type="checkbox"
-              checked={useDarkTemplate}
-              onChange={(event) => setUseDarkTemplate(event.target.checked)}
-            />
-            <span>Dark template</span>
-          </label>
           {assayRows.length > 0 && (
             <span className="analytics-rowcount">{assayRows.length.toLocaleString()} assay rows</span>
           )}

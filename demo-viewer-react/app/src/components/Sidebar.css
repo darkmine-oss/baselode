@@ -32,6 +32,61 @@
   margin-top: 4px;
 }
 
+.sidebar-theme-toggle {
+  margin-top: 10px;
+  appearance: none;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.sidebar-theme-toggle:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+:root.dark .sidebar-theme-toggle {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+:root.dark .sidebar-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Dark-theme overrides for the sidebar shell ───────────── */
+:root.dark .sidebar {
+  background: rgba(28, 28, 32, 0.9);
+  border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+:root.dark .sidebar-header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+:root.dark .sidebar-header h2 {
+  color: #e2e8f0;
+}
+
+:root.dark .sidebar-menu a {
+  color: #cbd5e1;
+}
+
+:root.dark .sidebar-menu a:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+:root.dark .sidebar-footer,
+:root.dark .sidebar-slot,
+:root.dark .sidebar-source-link {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
 .sidebar-header h2 {
   font-family: 'Lexend', sans-serif;
   font-size: 18px;

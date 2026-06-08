@@ -177,6 +177,7 @@ export { BaselodeBoxPanel } from './panels/BaselodeBoxPanel.jsx';
 export { BaselodeViolinPanel } from './panels/BaselodeViolinPanel.jsx';
 export { BaselodeTernaryPanel } from './panels/BaselodeTernaryPanel.jsx';
 export { BaselodeStripLogPanel } from './panels/BaselodeStripLogPanel.jsx';
+export { BaselodeStripLogGrid } from './panels/BaselodeStripLogGrid.jsx';
 export {
   PlotPanel,
   PropertySelect,

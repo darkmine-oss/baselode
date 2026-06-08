@@ -95,40 +95,49 @@
   font-size: 13px;
 }
 
-.template-toggle {
-  margin-left: auto;
-  padding: 6px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid #d0d0d0;
-  border-radius: 6px;
-  background: white;
-  color: #555;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.template-toggle:hover {
-  border-color: #888;
-  color: #222;
-}
-
-.template-toggle.active {
-  background: #1b1b1f;
-  color: #ffffbb;
-  border-color: #3a3a3f;
-}
-
-.plots-grid {
+/* The strip-log grid lives inside this page; the BaselodeStripLogGrid
+   wrapper supplies the grid-template-columns + gap rules.  We just
+   reserve the flex slot + padding so it fills the page below the
+   header. */
+.drillhole2d-grid {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
-  gap: 12px;
   padding: 12px 12px 16px 12px;
   overflow: auto;
+}
+
+:root.dark .drillhole2d-container {
+  background: #1b1b1f;
+}
+
+:root.dark .drillhole2d-header {
+  background: #24252a;
+  border-bottom-color: #34353b;
+  color: #e2e8f0;
+}
+
+:root.dark .drillhole2d-header h2 {
+  color: #e2e8f0;
+}
+
+/* Strip-log cards (lib `.plot-card`) carry no colours in the bundled
+   CSS — they're host-themable on purpose.  In light mode the rules
+   above this block apply; in dark mode re-theme the chrome to match
+   the rest of the page. */
+:root.dark .plot-card {
+  background: #24252a;
+  border-color: #34353b;
+}
+
+:root.dark .plot-select {
+  background: #24252a;
+  color: #e2e8f0;
+  border-color: #34353b;
+}
+
+:root.dark .plot-title,
+:root.dark .placeholder {
+  color: #cbd5e1;
 }
 
 .plot-card {
