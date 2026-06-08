@@ -13,6 +13,7 @@ import PolygonBlocks from './pages/PolygonBlocks';
 import Attribution from './pages/Attribution';
 import CorePhoto from './pages/CorePhoto';
 import ChatHelpers from './pages/ChatHelpers';
+import AnalyticsPlots from './pages/AnalyticsPlots';
 // import RasterDemo from './pages/RasterDemo';
 import './App.css';
 
@@ -30,6 +31,7 @@ function App() {
         <Route path="/attribution" element={<Attribution />} />
         <Route path="/core-photo" element={<CorePhoto />} />
         <Route path="/chat-helpers" element={<ChatHelpers />} />
+        <Route path="/analytics" element={<AnalyticsPlots />} />
         {/* <Route path="/raster-demo" element={<RasterDemo />} /> */}
       </Routes>
     </Layout>

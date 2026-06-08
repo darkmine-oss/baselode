@@ -267,6 +267,20 @@ export {
 } from './viz/colourMap.js';
 
 export {
+  asNumeric,
+  collectNumericValues,
+  groupRowsBy,
+  buildCategoricalColourResolver,
+  NULLISH_CATEGORY,
+} from './viz/analyticsViz.js';
+
+export { buildScatterPlotConfig } from './viz/scatterViz.js';
+export { buildHistogramPlotConfig } from './viz/histogramViz.js';
+export { buildBoxPlotConfig } from './viz/boxPlotViz.js';
+export { buildViolinPlotConfig } from './viz/violinPlotViz.js';
+export { buildTernaryPlotConfig } from './viz/ternaryPlotViz.js';
+
+export {
   projectTraceToSection,
   sectionWindow,
   planView,

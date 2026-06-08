@@ -2,9 +2,38 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { BaselodeStripLogToolUI, Baselode3DSceneToolUI } from 'baselode/tool-ui';
+import {
+  BaselodeStripLogToolUI,
+  Baselode3DSceneToolUI,
+  BaselodeScatterPlotToolUI,
+  BaselodeHistogramPlotToolUI,
+  BaselodeBoxPlotToolUI,
+  BaselodeViolinPlotToolUI,
+  BaselodeTernaryPlotToolUI,
+} from 'baselode/tool-ui';
 import 'baselode/tool-ui/style.css';
 import './ChatHelpers.css';
+
+// Surface sample rows that an assistant might emit from a database
+// query — `surface_sample_type` is the categorical axis the analytics
+// ToolUI components colour by.
+const SURFACE_SAMPLES = [
+  { sample_id: 'GS001', surface_sample_type: 'rock_chip',       Au_ppm: 0.05, Cu_ppm: 142, Zn_ppm: 88,  Pb_ppm: 12  },
+  { sample_id: 'GS002', surface_sample_type: 'rock_chip',       Au_ppm: 0.18, Cu_ppm: 320, Zn_ppm: 110, Pb_ppm: 28  },
+  { sample_id: 'GS003', surface_sample_type: 'rock_chip',       Au_ppm: 1.42, Cu_ppm: 980, Zn_ppm: 65,  Pb_ppm: 540 },
+  { sample_id: 'GS004', surface_sample_type: 'rock_chip',       Au_ppm: 0.62, Cu_ppm: 410, Zn_ppm: 240, Pb_ppm: 75  },
+  { sample_id: 'GS005', surface_sample_type: 'rock_chip',       Au_ppm: 2.85, Cu_ppm: 1240, Zn_ppm: 38, Pb_ppm: 880 },
+  { sample_id: 'GS006', surface_sample_type: 'stream_sediment', Au_ppm: 0.02, Cu_ppm: 38,  Zn_ppm: 64,  Pb_ppm: 8   },
+  { sample_id: 'GS007', surface_sample_type: 'stream_sediment', Au_ppm: 0.06, Cu_ppm: 52,  Zn_ppm: 90,  Pb_ppm: 14  },
+  { sample_id: 'GS008', surface_sample_type: 'stream_sediment', Au_ppm: 0.31, Cu_ppm: 96,  Zn_ppm: 140, Pb_ppm: 35  },
+  { sample_id: 'GS009', surface_sample_type: 'stream_sediment', Au_ppm: 0.04, Cu_ppm: 41,  Zn_ppm: 72,  Pb_ppm: 11  },
+  { sample_id: 'GS010', surface_sample_type: 'soil',            Au_ppm: 0.008, Cu_ppm: 22, Zn_ppm: 48,  Pb_ppm: 6   },
+  { sample_id: 'GS011', surface_sample_type: 'soil',            Au_ppm: 0.012, Cu_ppm: 28, Zn_ppm: 55,  Pb_ppm: 9   },
+  { sample_id: 'GS012', surface_sample_type: 'soil',            Au_ppm: 0.045, Cu_ppm: 67, Zn_ppm: 92,  Pb_ppm: 23  },
+  { sample_id: 'GS013', surface_sample_type: 'soil',            Au_ppm: 0.005, Cu_ppm: 18, Zn_ppm: 42,  Pb_ppm: 4   },
+  { sample_id: 'GS014', surface_sample_type: 'outcrop',         Au_ppm: 0.42, Cu_ppm: 540, Zn_ppm: 28,  Pb_ppm: 180 },
+  { sample_id: 'GS015', surface_sample_type: 'outcrop',         Au_ppm: 0.95, Cu_ppm: 720, Zn_ppm: 32,  Pb_ppm: 350 },
+];
 
 // --- Example data -----------------------------------------------------------
 // The Tool UI components are designed to render structured assistant results
@@ -163,6 +192,106 @@ function ChatHelpers() {
               height={460}
               drillholes={{ holes: SCENE_HOLES }}
               camera={{ fitToBounds: true }}
+            />
+          </div>
+        </ChatMessage>
+
+        <ChatMessage role="user">
+          I pulled 15 surface samples on the project boundary — can you check
+          Au vs Cu and see how the sample types separate?
+        </ChatMessage>
+
+        <ChatMessage role="assistant">
+          <p>
+            Rock chips trend high-grade NE, soils sit at the low corner, and
+            stream sediments fall in between — see for yourself. Coloured by
+            <code> surface_sample_type</code>; the colour palette cycles
+            <code> BASELODE_COLORWAY</code> because no built-in map covers
+            sample types.
+          </p>
+          <div className="chat-tool">
+            <BaselodeScatterPlotToolUI
+              id="chat-analytics-scatter"
+              rows={SURFACE_SAMPLES}
+              xProp="Au_ppm"
+              yProp="Cu_ppm"
+              colorBy="surface_sample_type"
+              log={{ x: true, y: true }}
+              height={380}
+              showModeBar
+            />
+          </div>
+        </ChatMessage>
+
+        <ChatMessage role="user">What does the Au distribution look like per sample type?</ChatMessage>
+
+        <ChatMessage role="assistant">
+          <p>
+            Histogram and box plot side-by-side. Rock chips and outcrop samples
+            sit well above the soil baseline.
+          </p>
+          <div className="chat-tool">
+            <BaselodeHistogramPlotToolUI
+              id="chat-analytics-histogram"
+              rows={SURFACE_SAMPLES}
+              prop="Au_ppm"
+              groupBy="surface_sample_type"
+              log
+              bins={15}
+              height={320}
+              showModeBar
+            />
+          </div>
+          <div className="chat-tool">
+            <BaselodeBoxPlotToolUI
+              id="chat-analytics-box"
+              rows={SURFACE_SAMPLES}
+              prop="Au_ppm"
+              groupBy="surface_sample_type"
+              log
+              height={320}
+              showModeBar
+            />
+          </div>
+        </ChatMessage>
+
+        <ChatMessage role="user">Show the shape of Cu by sample type too.</ChatMessage>
+
+        <ChatMessage role="assistant">
+          <p>
+            Violin shows the density profile — outcrops have a long tail,
+            soils cluster tight.
+          </p>
+          <div className="chat-tool">
+            <BaselodeViolinPlotToolUI
+              id="chat-analytics-violin"
+              rows={SURFACE_SAMPLES}
+              prop="Cu_ppm"
+              groupBy="surface_sample_type"
+              log
+              height={340}
+              showModeBar
+            />
+          </div>
+        </ChatMessage>
+
+        <ChatMessage role="user">Plot Cu / Pb / Zn as a ternary so we can read the base-metal mix.</ChatMessage>
+
+        <ChatMessage role="assistant">
+          <p>
+            Plotly normalises each row's three components to 100, so you read
+            it as relative proportions of the base metals.
+          </p>
+          <div className="chat-tool">
+            <BaselodeTernaryPlotToolUI
+              id="chat-analytics-ternary"
+              rows={SURFACE_SAMPLES}
+              aProp="Cu_ppm"
+              bProp="Pb_ppm"
+              cProp="Zn_ppm"
+              colorBy="surface_sample_type"
+              height={460}
+              showModeBar
             />
           </div>
         </ChatMessage>
