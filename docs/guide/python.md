@@ -437,6 +437,88 @@ assays["mid"]      = intervals.from_to_midpoints(assays)
 
 ---
 
+## Compositing
+
+Length-weighted compositing of downhole intervals.  `baselode.drill.composite` ships three modes:
+
+| Mode | When to use |
+|---|---|
+| **Soft** (default) | Fixed-length bins extending across each hole.  Bins may cross geological contacts; values are length-weighted across whatever overlaps each bin.  Matches the dhcomp / Leapfrog default. |
+| **Hard-boundary** | Bins reset at every change in a coded domain column (lithology, regolith, alteration).  No composite straddles a contact. |
+| **True-thickness** | Bins are equal *true thickness* perpendicular to a reference plane, computed via interpolated midpoint orientation.  This is "economic compositing" — what you want for resource estimation across a known orebody plane. |
+
+### Soft mode — the default
+
+```python
+from baselode.drill.composite import composite_intervals
+
+composites = composite_intervals(assays, value_col="au_ppm", length=2.0)
+# columns: hole_id, from, to, au_ppm
+```
+
+`method="sum"` returns total contribution (`value × overlap`) per bin instead of the length-weighted average.
+
+### Hard-boundary by domain
+
+Composite within each contiguous run of a coded boundary column — no composite spans a contact.
+
+```python
+composites = composite_intervals(
+    assays_with_litho,
+    value_col="au_ppm",
+    length=2.0,
+    mode="hard",
+    boundary_col="lithology",
+    residual="distribute",  # or "discard" / "add_to_previous"
+)
+# columns: hole_id, from, to, au_ppm, lithology
+```
+
+Three `residual` rules control what happens when a domain length isn't an exact multiple of `length`:
+
+- `"discard"` (default) — drop the sub-length tail.
+- `"add_to_previous"` — extend the previous composite to the domain end.
+- `"distribute"` — choose `round(D / length)` equal-length bins covering the whole domain (slightly compressed or stretched bin length).
+
+Non-abutting same-domain intervals are treated as separate runs — an unsampled gap breaks the run, matching how downhole-compositing tools handle interval breaks.
+
+### True-thickness compositing
+
+Composite in true-thickness space relative to a reference plane.  Needs a desurveyed trace because the midpoint orientation of each interval is what converts downhole length → true thickness.
+
+```python
+from baselode.drill.composite import composite_true_thickness
+from baselode.drill.desurvey import minimum_curvature_desurvey
+
+traces = minimum_curvature_desurvey(collars, surveys, step=1.0)
+
+composites = composite_true_thickness(
+    assays, traces,
+    value_col="au_ppm",
+    ref_dip=60.0,           # plane dipping 60° below horizontal
+    ref_dip_azimuth=270.0,  # downdip points west
+    length=1.0,             # 1 m of TRUE thickness per composite
+)
+# columns: hole_id, from, to, au_ppm, length_md, length_true
+```
+
+Each composite represents the same vertical (or near-vertical) slice across the orebody regardless of how steeply the hole was drilled through it.  A hole drilled parallel to the plane (`|T · N| ≈ 0`) produces no composites — no economic thickness is being captured.
+
+True-thickness compositing is Python-only.
+
+### How baselode compares to other OSS compositors
+
+| Feature | dhcomp | PyGSLIB | baselode |
+|---|---|---|---|
+| Soft-boundary | ✓ | ✓ | ✓ (default) |
+| Hard-boundary by coded domain | ✓ | ✗ | ✓ |
+| Residual rules (`discard` / `add_to_previous` / `distribute`) | ✗ | `minlen` filter only | ✓ all three |
+| True-thickness | ✗ | ✗ | ✓ |
+| JS implementation | ✗ | ✗ | ✓ (soft + hard) |
+| Pure-function pandas API | ~ | ✗ (needs `Drillhole` container object) | ✓ |
+
+---
+
 ## Visualization
 
 ### Map

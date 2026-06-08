@@ -416,6 +416,32 @@ const merged = mergeTables({ assay: assayRows, litho: lithoRows });
 
 ---
 
+## Compositing
+
+Length-weighted compositing of downhole intervals.  Soft + hard boundary modes; true-thickness is Python-only because it depends on a desurveyed trace.
+
+#### `compositeIntervals(intervals, valueCol, options?)`
+Composite an array of interval rows into fixed-length downhole bins.
+
+| Parameter | Type | Default | Meaning |
+|---|---|---|---|
+| `intervals` | `Array<Object>` | — | Interval rows.  Each row must carry `hole_id`, `from`, `to` and `valueCol`; in `mode === 'hard'` also `boundaryCol` |
+| `valueCol` | `string` | — | Property to composite |
+| `options.length` | `number` | `1.0` | Composite length (positive, finite) |
+| `options.method` | `'average' \| 'sum'` | `'average'` | Length-weighted average or total contribution |
+| `options.mode` | `'soft' \| 'hard'` | `'soft'` | Soft = bins extend across the full hole and may cross contacts.  Hard = bins reset at every change in `boundaryCol` |
+| `options.boundaryCol` | `string` | — | Domain column for hard mode (required when `mode === 'hard'`) |
+| `options.residual` | `'discard' \| 'add_to_previous' \| 'distribute'` | `'discard'` | Tail-of-domain handling in hard mode |
+| `options.fromCol` / `options.toCol` / `options.holeCol` | `string` | `'from'` / `'to'` / `'hole_id'` | Column-name overrides |
+
+**Returns:** `Array<Object>` of composites with the same key names as the input plus (in hard mode) the boundary column carrying the originating domain value.
+
+Throws if `length` is not a positive finite number, if `method` isn't `'average'` or `'sum'`, if `mode` is unknown, or if `mode === 'hard'` without a `boundaryCol`.
+
+Mirrors `baselode.drill.composite.composite_intervals` in Python (mass-balance semantics, residual rules, run-grouping).
+
+---
+
 ## Column Metadata
 
 #### `classifyColumns(rows)`

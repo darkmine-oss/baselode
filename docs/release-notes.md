@@ -2,6 +2,20 @@
 
 ---
 
+## Unreleased
+**Compositing extensions: hard-boundary + true-thickness**
+
+- `composite_intervals` (Python + JavaScript) grows three new kwargs that preserve the existing soft-mode call signature:
+  - `mode="soft"` (default) — the prior length-weighted overlap behaviour, now documented and named explicitly (matches the dhcomp / Leapfrog convention)
+  - `mode="hard"` + `boundary_col` — composites reset at every change in the boundary column within a hole; no composite straddles a coded contact
+  - `residual={"discard","add_to_previous","distribute"}` — how to handle a sub-`length` tail at the end of a hard-mode domain
+- New Python primitive `composite_true_thickness(intervals, traces, value_col, ref_dip, ref_dip_azimuth, ...)` for economic compositing: composites span equal *true thickness* perpendicular to a reference plane, with downhole bounds recovered from the inverse cumulative map.  Reports `length_md` + `length_true` per composite.  Python-only — depends on a desurveyed trace.
+- JavaScript `compositeIntervals` mirrors the soft/hard modes (no JS true-thickness).
+- Both implementations validate `method ∈ {average, sum}` and `length > 0` up front to fail loudly instead of producing nonsense (JS soft mode would have looped forever on `length === 0`).
+- Updated docs: new "Compositing" sections in the Python + JavaScript guides, full API references for both, and a comparison table against `dhcomp` and `PyGSLIB` — true-thickness, all three residual rules, and a JS implementation are all features that don't exist in any other OSS compositor we could find.
+
+---
+
 ## v0.1.12
 **Demo viewer Vercel deployment**
 
