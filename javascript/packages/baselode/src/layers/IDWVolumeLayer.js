@@ -174,6 +174,19 @@ export class IDWVolumeLayer {
     this._renderer.setVisible(this._visible);
   }
 
+  /**
+   * Restrict the visible volume to an axis-aligned sub-box.  Bounds
+   * are in normalised [0, 1] box-local space.  Default = (0,0,0)
+   * → (1,1,1) (no clipping).  Setting any face inward exposes an
+   * axis-aligned slice through the interpolated field.
+   *
+   * @param {[number, number, number]} min - Per-axis lower bound in [0, 1]
+   * @param {[number, number, number]} max - Per-axis upper bound in [0, 1]
+   */
+  setClipBounds(min, max) {
+    this._renderer.setClipBounds(min, max);
+  }
+
   // ---------------------------------------------------------------------------
   // Build pipeline
   // ---------------------------------------------------------------------------

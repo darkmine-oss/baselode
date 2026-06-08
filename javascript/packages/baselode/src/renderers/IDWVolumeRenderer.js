@@ -36,10 +36,17 @@ uniform vec3      uColorLow;
 uniform vec3      uColorHigh;
 uniform int       uSteps;
 
+// Per-axis clip bounds in local [0,1] box space.  Defaults are
+// (0,0,0) → (1,1,1) — the full volume.  Driving these moves the
+// visible region in from each face, which is how the caller exposes
+// axis-aligned slices through the interpolated field.
+uniform vec3 uClipMin;
+uniform vec3 uClipMax;
+
 vec2 intersectAABB(vec3 ro, vec3 rd) {
   vec3 inv  = 1.0 / rd;
-  vec3 t0   = (vec3(0.0) - ro) * inv;
-  vec3 t1   = (vec3(1.0) - ro) * inv;
+  vec3 t0   = (uClipMin - ro) * inv;
+  vec3 t1   = (uClipMax - ro) * inv;
   vec3 tMin = min(t0, t1);
   vec3 tMax = max(t0, t1);
   return vec2(
@@ -73,7 +80,11 @@ void main() {
     float t   = tStart + (float(i) + 0.5) * step;
     vec3  pos = camLocal + t * rayDir;
 
-    if (any(lessThan(pos, vec3(0.0))) || any(greaterThan(pos, vec3(1.0)))) continue;
+    // Discard samples outside the clipped sub-box.  The AABB
+    // intersection above already trimmed the ray to this range,
+    // but step-sampling can land slightly outside due to floating-
+    // point drift, so re-check per sample.
+    if (any(lessThan(pos, uClipMin)) || any(greaterThan(pos, uClipMax))) continue;
 
     vec3 uvw = pos;
     if (uBlockMode == 1) {
@@ -201,6 +212,29 @@ export class IDWVolumeRenderer {
   }
 
   /**
+   * Restrict the rendered region to an axis-aligned sub-box of the
+   * volume.  Both bounds are in local [0, 1] box space.  Use this
+   * to expose axis-aligned slices — e.g. set `max.x = 0.5` to show
+   * only the half-volume on the low-X side of the box.
+   *
+   * Cheap: just two uniform updates, no rebuild required.
+   *
+   * @param {[number, number, number]} min - Per-axis lower bound in [0, 1]
+   * @param {[number, number, number]} max - Per-axis upper bound in [0, 1]
+   */
+  setClipBounds(min, max) {
+    if (!this._material) return;
+    const u = this._material.uniforms;
+    const clamp01 = (v) => Math.max(0, Math.min(1, Number(v)));
+    if (Array.isArray(min) && min.length === 3) {
+      u.uClipMin.value.set(clamp01(min[0]), clamp01(min[1]), clamp01(min[2]));
+    }
+    if (Array.isArray(max) && max.length === 3) {
+      u.uClipMax.value.set(clamp01(max[0]), clamp01(max[1]), clamp01(max[2]));
+    }
+  }
+
+  /**
    * Show or hide the volume render object.
    * @param {boolean} visible
    */
@@ -255,6 +289,8 @@ export class IDWVolumeRenderer {
         uColorLow:   { value: new THREE.Color(0, 0, 1) },  // blue
         uColorHigh:  { value: new THREE.Color(1, 0, 0) },  // red
         uSteps:      { value: 64 },
+        uClipMin:    { value: new THREE.Vector3(0, 0, 0) },
+        uClipMax:    { value: new THREE.Vector3(1, 1, 1) },
       },
       transparent: true,
       depthWrite:  false,

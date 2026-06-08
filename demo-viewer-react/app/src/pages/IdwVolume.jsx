@@ -42,6 +42,13 @@ function IdwVolumeDemo() {
   const [blockMode, setBlockMode]       = useState(true);
   const [building, setBuilding]         = useState(false);
 
+  // Slice planes — per-axis upper clip in normalised [0, 1] box space.
+  // 1.0 = no clipping; lower the slider to slice from the high side
+  // and expose the cross-section.
+  const [sliceMaxX, setSliceMaxX] = useState(1);
+  const [sliceMaxY, setSliceMaxY] = useState(1);
+  const [sliceMaxZ, setSliceMaxZ] = useState(1);
+
   // Initial scene + sample-point cloud — runs once.
   useEffect(() => {
     const container = containerRef.current;
@@ -266,6 +273,12 @@ function IdwVolumeDemo() {
     layerRef.current.setBlockMode(blockMode);
   }, [opacity, threshold, blockMode]);
 
+  // Slice planes — also display-only.
+  useEffect(() => {
+    if (!layerRef.current) return;
+    layerRef.current.setClipBounds([0, 0, 0], [sliceMaxX, sliceMaxY, sliceMaxZ]);
+  }, [sliceMaxX, sliceMaxY, sliceMaxZ]);
+
   return (
     <div className="idw-page">
       <header className="idw-page__header">
@@ -360,6 +373,43 @@ function IdwVolumeDemo() {
             />
             <span>Block mode (crisp voxels)</span>
           </label>
+
+          <div className="idw-control idw-control--group">
+            <span className="idw-group-title">Slice planes</span>
+            <label className="idw-control">
+              <span>X max: {(sliceMaxX * 100).toFixed(0)}%</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.02}
+                value={sliceMaxX}
+                onChange={(e) => setSliceMaxX(Number(e.target.value))}
+              />
+            </label>
+            <label className="idw-control">
+              <span>Y max: {(sliceMaxY * 100).toFixed(0)}%</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.02}
+                value={sliceMaxY}
+                onChange={(e) => setSliceMaxY(Number(e.target.value))}
+              />
+            </label>
+            <label className="idw-control">
+              <span>Z max: {(sliceMaxZ * 100).toFixed(0)}%</span>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.02}
+                value={sliceMaxZ}
+                onChange={(e) => setSliceMaxZ(Number(e.target.value))}
+              />
+            </label>
+          </div>
 
           <div className="idw-control idw-control--info">
             <div><strong>Samples</strong>: {dataset.samples.length}</div>

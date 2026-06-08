@@ -99,6 +99,29 @@
   gap: 4px;
 }
 
+.idw-control--group {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #e0e0e0;
+  gap: 8px;
+}
+
+.idw-group-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+:root.dark .idw-group-title {
+  color: #cbd5e1;
+}
+
+:root.dark .idw-control--group {
+  border-top-color: #34353b;
+}
+
 .idw-building {
   margin-top: 4px;
   font-style: italic;
