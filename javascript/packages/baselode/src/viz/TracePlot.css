@@ -65,3 +65,16 @@
 .plot-card .plot-select--hole {
   flex: 1 1 0;
 }
+
+/* The hole picker is rendered inside a `.plot-title` wrapper.
+   Without `min-width: 0` here the wrapper's flex layout uses the
+   select's natural (option-text) width as its minimum, which lets
+   the wrapper — and the surrounding card — grow past the grid
+   track's `1fr` allocation.  Setting `min-width: 0` + `max-width:
+   100%` makes the wrapper honour its parent's width, so the
+   select's `max-width: 100%` finally has a bounded reference. */
+.plot-card .plot-title {
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 0;
+}
