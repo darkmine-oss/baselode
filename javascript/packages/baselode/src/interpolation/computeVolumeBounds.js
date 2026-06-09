@@ -47,7 +47,10 @@ export function computeVolumeBounds(points, padding = 0) {
     return { min: [0, 0, 0], max: [0, 0, 0], size: [0, 0, 0], center: [0, 0, 0] };
   }
 
-  const pad = isFinite(padding) ? padding : 0;
+  // Clamp to >= 0 — negative padding would shrink the bbox and can
+  // invert min/max for tight datasets, producing negative `size`
+  // values that break voxel sizing downstream.
+  const pad = isFinite(padding) ? Math.max(0, Number(padding)) : 0;
   minX -= pad; minY -= pad; minZ -= pad;
   maxX += pad; maxY += pad; maxZ += pad;
 

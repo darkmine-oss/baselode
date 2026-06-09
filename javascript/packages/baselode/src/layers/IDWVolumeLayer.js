@@ -210,7 +210,14 @@ export class IDWVolumeLayer {
     this._cancellationToken = token;
 
     const samples = this._samples;
-    if (!samples.length) return;
+    if (!samples.length) {
+      // Clear any prior build so a stale volume doesn't keep
+      // rendering after the caller emptied the sample set.
+      this._sampler = null;
+      this._grid = null;
+      this._renderer.setVisible(false);
+      return;
+    }
 
     // 1. Bounding box
     const bounds = this._boundsOverride ?? computeVolumeBounds(samples, this._boundsPadding);

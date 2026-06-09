@@ -231,18 +231,24 @@ export class IDWVolumeRenderer {
       colorHigh,
     } = options;
 
-    u.uDisplayMin.value = displayMin;
-    u.uDisplayMax.value = displayMax;
+    // Coerce explicitly — these may come straight from `<input
+    // type="range">` controls and arrive as strings.  Without
+    // `Number(...)` the float uniforms would end up holding NaN.
+    u.uDisplayMin.value = Number(displayMin);
+    u.uDisplayMax.value = Number(displayMax);
     u.uOpacity.value    = Math.max(0, Math.min(1, Number(opacity)));
 
-    if (threshold != null) {
-      u.uThreshold.value = threshold;
+    // `hasOwnProperty` (not `!= null`) so callers can clear the
+    // threshold with `{ threshold: null }` — `-1.0` is the
+    // shader-side sentinel for "no threshold".
+    if (Object.prototype.hasOwnProperty.call(options, 'threshold')) {
+      u.uThreshold.value = threshold != null ? Number(threshold) : -1.0;
     }
     if (blockMode != null) {
       u.uBlockMode.value = blockMode ? 1 : 0;
     }
     if (steps != null) {
-      u.uSteps.value = Math.max(1, Math.round(steps));
+      u.uSteps.value = Math.max(1, Math.round(Number(steps)));
     }
     if (Array.isArray(colorLow) && colorLow.length === 3) {
       u.uColorLow.value.setRGB(colorLow[0], colorLow[1], colorLow[2]);
@@ -422,8 +428,26 @@ export class IDWVolumeRenderer {
     const [minX, minY, minZ] = bounds.min;
     const [sx,   sy,   sz  ] = bounds.size;
 
+    // The shader divides world positions by `uWorldSize` to convert
+    // to local box space.  A zero or non-finite component would
+    // produce Inf/NaN at every sample and the volume would either
+    // vanish or render garbage.  Hide the mesh instead — the caller
+    // can show it again via `setVisible(true)` once a valid bounds
+    // is in place.
+    const sizeIsFinite = Number.isFinite(sx) && Number.isFinite(sy) && Number.isFinite(sz);
+    const sizeIsNonZero = sx > 0 && sy > 0 && sz > 0;
+    if (!sizeIsFinite || !sizeIsNonZero) {
+      if (this._mesh) this._mesh.visible = false;
+      if (this._material) {
+        this._material.uniforms.uWorldMin.value.set(minX, minY, minZ);
+        this._material.uniforms.uWorldSize.value.set(1, 1, 1);
+      }
+      return;
+    }
+
     // The geometry is a unit cube [0,1]^3; scale it to match world bounds.
     if (this._mesh) {
+      this._mesh.visible = true;
       this._mesh.position.set(minX, minY, minZ);
       this._mesh.scale.set(sx, sy, sz);
       this._mesh.updateMatrixWorld(true);

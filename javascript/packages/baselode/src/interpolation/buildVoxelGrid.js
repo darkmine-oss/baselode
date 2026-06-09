@@ -68,6 +68,15 @@ export async function buildVoxelGrid(sampler, bounds, dims, options = {}) {
   const values    = new Float32Array(total);
   const nodataMask = new Uint8Array(total);
 
+  // Recognise the sampler's own no-data sentinel (default NaN, but
+  // callers can configure a finite sentinel like `-9999`).  Without
+  // this, a finite sentinel would be written to `values` as a valid
+  // datum and downstream rendering would treat it as a real value.
+  const sentinel = sampler && typeof sampler.nodataValue === 'number'
+    ? sampler.nodataValue
+    : NaN;
+  const sentinelIsFinite = Number.isFinite(sentinel);
+
   const YIELD_EVERY = 4096; // voxels between async yields
   let cursor = 0;
 
@@ -84,7 +93,12 @@ export async function buildVoxelGrid(sampler, bounds, dims, options = {}) {
         const idx = ix + nx * (iy + ny * iz);
 
         const v = sampler.getValueAt(wx, wy, wz);
-        if (v === null || (typeof v === 'number' && !isFinite(v))) {
+        const isNoData = (
+          v === null
+          || (typeof v === 'number' && !isFinite(v))
+          || (sentinelIsFinite && v === sentinel)
+        );
+        if (isNoData) {
           nodataMask[idx] = 1;
           values[idx] = 0;
         } else {

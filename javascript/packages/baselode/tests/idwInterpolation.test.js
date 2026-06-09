@@ -131,6 +131,14 @@ describe('computeVolumeBounds', () => {
     const b = computeVolumeBounds(pts);
     expect(b.min[0]).toBe(0);
   });
+
+  it('clamps negative padding to zero so size never goes negative', () => {
+    const pts = [{ x: 0, y: 0, z: 0 }, { x: 10, y: 10, z: 10 }];
+    const b = computeVolumeBounds(pts, -100);
+    expect(b.size).toEqual([10, 10, 10]);
+    expect(b.min).toEqual([0, 0, 0]);
+    expect(b.max).toEqual([10, 10, 10]);
+  });
 });
 
 describe('buildVolumeBoundsFromMinMax', () => {
@@ -352,6 +360,24 @@ describe('buildVoxelGrid', () => {
     const grid = await buildVoxelGrid(narrowSampler, bounds, [4, 4, 4], { sync: true });
     const nodataCount = Array.from(grid.nodataMask).filter(v => v === 1).length;
     expect(nodataCount).toBeGreaterThan(0);
+  });
+
+  it('honours the samplers finite nodataValue sentinel', async () => {
+    // Configure a finite sentinel; without the sampler.nodataValue
+    // wiring, the resulting voxels would land in `values` as -9999
+    // and be treated as real data downstream.
+    const narrowSampler = new IDWSampler(samples, {
+      power: 2,
+      searchRadius: 0.1,
+      nodataValue: -9999,
+    });
+    const grid = await buildVoxelGrid(narrowSampler, bounds, [4, 4, 4], { sync: true });
+    const nodataCount = Array.from(grid.nodataMask).filter(v => v === 1).length;
+    expect(nodataCount).toBeGreaterThan(0);
+    // Every flagged voxel must store 0 in `values` (not the sentinel).
+    for (let i = 0; i < grid.values.length; i++) {
+      if (grid.nodataMask[i] === 1) expect(grid.values[i]).toBe(0);
+    }
   });
 
   it('voxelSize matches bounds / dims', async () => {

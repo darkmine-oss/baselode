@@ -117,6 +117,18 @@ export class IDWSampler {
     this._searchRadius = Math.max(0, Number(radius));
   }
 
+  /**
+   * The configured no-data sentinel.  Downstream consumers (notably
+   * `buildVoxelGrid`) need to know this so they can flag voxels that
+   * came back as the sentinel — when it's a finite value like
+   * `-9999`, the default `!isFinite()` check would otherwise accept
+   * those voxels as valid data.
+   * @returns {number}
+   */
+  get nodataValue() {
+    return this._nodataValue;
+  }
+
   /** @param {number|null} max */
   setMaxNeighbors(max) {
     this._maxNeighbors = (max != null && max > 0) ? Math.round(max) : null;
