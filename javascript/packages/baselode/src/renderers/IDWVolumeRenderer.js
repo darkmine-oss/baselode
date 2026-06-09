@@ -282,6 +282,16 @@ export class IDWVolumeRenderer {
     this._material = new THREE.ShaderMaterial({
       vertexShader:   VERT_SHADER,
       fragmentShader: FRAG_SHADER,
+      // `depthTest: false` so the volume always paints over opaque
+      // objects drawn before it (notably sample point clouds rendered
+      // inside the bounding box).  The volume mesh's per-fragment
+      // depth is the BACK wall of the bbox — without disabling depth
+      // test, anything physically inside the box (and therefore in
+      // front of the back wall) fails the depth comparison and the
+      // volume can't render at those pixels.  The ray-march inside
+      // the shader is the real visibility decision; the GL depth
+      // test would only contradict it.
+      depthTest: false,
       uniforms: {
         uVolumeTex:  { value: null },
         uVolumeDims: { value: new THREE.Vector3(1, 1, 1) },
@@ -305,6 +315,10 @@ export class IDWVolumeRenderer {
 
     this._mesh = new THREE.Mesh(geometry, this._material);
     this._mesh.userData._isIDWVolume = true;
+    // Render after every other object in the scene so the front-to-
+    // back compositing inside the shader always sees the final
+    // colour buffer underneath.
+    this._mesh.renderOrder = 999;
     return this._mesh;
   }
 
