@@ -3,6 +3,21 @@
 ---
 
 ## Unreleased
+**Drillhole QA: auto-fix interval overlaps + numeric-negative BDL handling**
+
+- New `baselode.drill.validate.fix_overlaps` resolves three classes of interval overlap automatically — touching (snap `A.to` down to `B.from` within `touching_tol`), exact duplicate (drop), resampled superset (drop the coarser interval when finer rows fully cover it and their length-weighted mean ≈ the coarse value within `merge_tol`) — and leaves genuine value-conflicts in a `conflicts` frame for human review.  Pass `return_diagnostics=True` to also get a per-row audit log of every snap / drop / kept-conflict.  Overlaps are the load-bearing failure mode for compositing, intercepts, and IDW — auto-resolving the safe cases shrinks the surgical-review list to true conflicts only.
+- `replace_below_detection_limit` now handles two BDL conventions in a single call: the historical `<X` string sentinels (unchanged) **plus** the GSWA / WAMEX numeric-negative encoding where a value `V < 0` means below detection at MDL = `abs(V)`.  New `strategy` kwarg switches the replacement rule — `half-mdl` (default), `mdl`, `zero`, or `nan` — without breaking the existing `sentinel_factor` API.  Opt out of the numeric-negative path with `numeric_negative_sentinels=False` when negatives are real signed values.
+
+**Desurvey: traces emit RL elevation (breaking)**
+
+- `_direction_cosines` had a sign flip that produced trace `elevation` as TVD (positive going down) rather than RL (positive going up).  Every `*_desurvey` function and `attach_assay_positions` now emit elevation following the standard right-handed +Z = up convention — a vertical hole from a 0 m collar lands at –100 m elevation at 100 m depth.  OMF / Leapfrog / Surpac and any standard +Z-up 3D scene now render holes correctly.
+- Downstream consumers that were reading the trace `elevation` field will see a sign flip.  Code paths that compared `trace.elevation - collar.elevation == TVD` should switch to `collar.elevation - trace.elevation == TVD`.
+
+**3D scene polish**
+
+- `parseDrillholesCSV` (JS) standardises the source `md` / `survey_depth` / `measured_depth` column to the canonical `depth` field and now also copies it onto an `md` field on each output point.  Scene renderers reading `point.md` (rather than `point.depth`) get a finite value, which fixes a silent grey-on-grey colour-by failure that affected every consumer of the standardised trace.
+- Default `ASSAY_COLOR_PALETTE_10` swapped from a diverging blue↔red ramp (poor shape for grade data) to a magma-style sequential palette — low values fade into a dark scene background and high-grade samples pop as bright cream/gold.  Both `buildEqualRangeColorScale` and the 3D scene's internal colour pipeline share this export so the legend and rendered geometry stay in lockstep.
+
 **3D IDW interpolation volumes**
 
 - New JavaScript primitives `IDWSampler` (pure scalar-field sampler backed by a `SpatialHash3D`), `buildVoxelGrid` (async voxel-grid evaluator with progress + cancellation), `IDWVolumeRenderer` (Three.js shader-based ray-march of a `Data3DTexture`), and `IDWVolumeLayer` (one-call wrapper that does the whole pipeline and returns a `THREE.Object3D` for the scene).

@@ -738,19 +738,71 @@ Wrap survey azimuths into `[0, 360)` by applying `value mod 360`.  Folds `360` t
 
 ---
 
+### fix_overlaps
+
+```python
+fix_overlaps(table,
+             hole_col=HOLE_ID, from_col=FROM, to_col=TO,
+             value_cols=None,
+             touching_tol=0.01, merge_tol=0.05, coverage_min=0.95,
+             return_diagnostics=False)
+```
+
+Auto-resolve safe interval overlaps and surface only genuine value-conflicts for human review.  Handles three classes:
+
+| Class | Pattern | Action |
+|---|---|---|
+| **Touching** | `A.to > B.from` by less than `touching_tol` metres | Snap `A.to = B.from` (float-rounding cleanup) |
+| **Duplicate** | Identical `(hole_id, from, to)` *and* identical `value_cols` | Drop all but the first |
+| **Resampled superset** | A longer interval fully contains shorter ones whose length-weighted mean ≈ the longer's value within `merge_tol`, with coverage ≥ `coverage_min` | Drop the longer, keep the higher-resolution rows |
+| **Conflict** | Anything else — partial overlap, same depth-zone with materially different values | Leave untouched, return in the `conflicts` frame |
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `table` | `pandas.DataFrame` | — | Interval table |
+| `value_cols` | iterable of str | `None` | Columns to compare for duplicate / superset detection; defaults to every column other than `hole_col`/`from_col`/`to_col` |
+| `touching_tol` | float | `0.01` | Max overlap (m) treated as a snap-me glitch |
+| `merge_tol` | float | `0.05` | Max relative diff between superset value and inner mean |
+| `coverage_min` | float | `0.95` | Min coverage of a superset by inner rows before it qualifies |
+| `return_diagnostics` | bool | `False` | When `True`, return `(fixed, conflicts, report)` instead of just `fixed` |
+
+**Returns:** `pandas.DataFrame`, or `(pandas.DataFrame, pandas.DataFrame, pandas.DataFrame)` when `return_diagnostics=True`.  The report has columns `hole_id, kind, action, from, to, note` — one row per resolved or flagged overlap.
+
+---
+
 ### replace_below_detection_limit
 
 ```python
-replace_below_detection_limit(df, columns=None, sentinel_factor=0.5)
+replace_below_detection_limit(df,
+                              columns=None,
+                              sentinel_factor=0.5,
+                              strategy=None,
+                              numeric_negative_sentinels=True)
 ```
 
-Replace `<MDL` strings (e.g. `"<0.005"`) with `MDL * sentinel_factor`.  Defaults to half-MDL, the industry-standard convention for QAQC statistics.
+Replace below-detection-limit (BDL) sentinels with imputed values.  Handles both common BDL conventions:
+
+- **String sentinels** like `"<0.005"` (common in lab CSV exports).  The numeric is parsed as the MDL.
+- **Numeric negative sentinels** like `-0.005` (common in WAMEX / GSWA legacy exports).  A value `V < 0` is treated as BDL with `MDL = abs(V)`.  Set `numeric_negative_sentinels=False` to leave numeric negatives untouched when they're real signed measurements.
+
+The replacement is controlled by `strategy` (preferred) or `sentinel_factor` (legacy):
+
+| `strategy` | Replacement |
+|---|---|
+| `"half-mdl"` | `MDL * 0.5` (industry default for stats) |
+| `"mdl"` | `MDL` (full detection limit) |
+| `"zero"` | `0.0` |
+| `"nan"` | `NaN` (best for visualisation — colour ramps tighten around real measurements) |
+
+When `strategy` is omitted, falls back to `sentinel_factor` (default `0.5`) so existing callers keep working.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `df` | `pandas.DataFrame` | — | Source table |
-| `columns` | iterable of str | `None` | Columns to scan; defaults to every string-dtype column |
-| `sentinel_factor` | float | `0.5` | Multiplier applied to the detection limit |
+| `columns` | iterable of str | `None` | Columns to scan; defaults to every numeric or string column |
+| `sentinel_factor` | float | `0.5` | Multiplier applied to the detection limit; ignored if `strategy` is set |
+| `strategy` | str | `None` | One of `BDL_STRATEGIES`; takes precedence over `sentinel_factor` |
+| `numeric_negative_sentinels` | bool | `True` | Treat numeric negatives as BDL |
 
 **Returns:** `pandas.DataFrame` — copy of `df` with replacements applied; touched columns are coerced numeric where possible.
 

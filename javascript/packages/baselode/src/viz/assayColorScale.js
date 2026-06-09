@@ -3,18 +3,25 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-/** Default 10-color palette for assay visualization (blue to red gradient) */
+/**
+ * Default 10-color palette for assay visualization — a sequential,
+ * perceptually uniform magma-style ramp.  Low values fade into a dark
+ * scene background, high values jump out as bright cream/gold, which
+ * is what you want for grade-style data (and far more legible than a
+ * diverging blue↔red palette where half the range is wasted on a
+ * meaningless midpoint).
+ */
 export const ASSAY_COLOR_PALETTE_10 = [
-  '#313695',
-  '#4575b4',
-  '#74add1',
-  '#abd9e9',
-  '#e0f3f8',
-  '#fee090',
-  '#fdae61',
-  '#f46d43',
-  '#d73027',
-  '#a50026'
+  '#1d1147',
+  '#3b0f70',
+  '#641a80',
+  '#8c2981',
+  '#b73779',
+  '#de4968',
+  '#f7705c',
+  '#fe9f6d',
+  '#fece91',
+  '#fcfdbf'
 ];
 
 /**

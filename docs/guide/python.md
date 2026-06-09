@@ -212,6 +212,8 @@ traces = desurvey.desurvey_holes(
 # Returns a pandas.DataFrame with columns: hole_id, md, easting, northing, elevation, azimuth, dip
 ```
 
+`elevation` is true RL (height above the collar's reference datum, positive going up) — a vertical hole from a 0 m collar lands at –100 m at 100 m depth.  This matches OMF / Leapfrog / Surpac and any standard +Z-up 3D scene.  To recover TVD (positive going down), use `collar.elevation - trace.elevation`.
+
 ### Joining assay positions to traces
 
 ```python
@@ -319,8 +321,18 @@ assays_matched = validate.drop_orphan_intervals(assays, collar)
 # Swap from/to where they're inverted (fixes the common data-entry typo)
 assays_swapped = validate.swap_inverted_intervals(assays)
 
-# Substitute below-detection sentinels with half-MDL
-assays_clean = validate.replace_below_detection_limit(assays, columns=["au_ppm", "cu_pct"])
+# Auto-resolve safe interval overlaps (touching / duplicate / resampled
+# superset) and surface only the genuine value-conflicts for review.
+assays_clean, conflicts, report = validate.fix_overlaps(
+    assays, return_diagnostics=True,
+)
+
+# Substitute below-detection sentinels with half-MDL — handles both
+# `"<X"` strings AND numeric negatives (V < 0 → BDL at MDL = abs(V)).
+# `strategy` ∈ {"half-mdl" (default), "mdl", "zero", "nan"}.
+assays_bdl = validate.replace_below_detection_limit(
+    assays, columns=["au_ppm", "cu_pct"], strategy="half-mdl",
+)
 ```
 
 All helpers are pure — they return new DataFrames and leave the source unchanged.

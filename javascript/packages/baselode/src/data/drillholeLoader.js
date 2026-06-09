@@ -5,7 +5,7 @@
 import Papa from 'papaparse';
 import { standardizeColumns } from './keying.js';
 import { withDataErrorContext } from './dataErrorUtils.js';
-import { HOLE_ID, EASTING, NORTHING, ELEVATION } from './datamodel.js';
+import { HOLE_ID, EASTING, NORTHING, ELEVATION, DEPTH } from './datamodel.js';
 
 /**
  * Parse drillholes CSV with desurveyed trace points
@@ -35,10 +35,17 @@ export function parseDrillholesCSV(file, sourceColumnMap = null) {
           if (!holeId || x === null || x === undefined || y === null || y === undefined || z === null || z === undefined) return;
 
           if (!byHole.has(holeId)) byHole.set(holeId, []);
+          // standardizeColumns renames the source `md` (or `measured_depth`,
+          // `survey_depth`, etc.) to the canonical `depth`.  Expose both as
+          // `md` and `depth` on the output point so consumers reading either
+          // field name (notably scene renderers that look up segment MD via
+          // `point.md`) don't see NaN.
+          const md = row[DEPTH];
           byHole.get(holeId).push({
             ...row,
             holeId,
             order,
+            md,
             x: Number(x) ?? 0,
             y: Number(y) ?? 0,
             z: Number(z) ?? 0

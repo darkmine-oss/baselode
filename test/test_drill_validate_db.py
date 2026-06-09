@@ -256,6 +256,109 @@ def test_swap_inverted_intervals_preserves_other_columns():
     assert fixed.iloc[0]["lithology"] == "granite"
 
 
+def test_fix_overlaps_snaps_touching_within_tolerance():
+    assays = _assays([
+        ("A", 0.0, 5.005, 0.1),
+        ("A", 5.0, 10.0, 0.2),
+    ])
+    fixed = validate.fix_overlaps(assays, touching_tol=0.01)
+    assert list(fixed["from"]) == [0.0, 5.0]
+    assert list(fixed["to"]) == [5.0, 10.0]
+
+
+def test_fix_overlaps_leaves_overlap_larger_than_tolerance_alone():
+    assays = _assays([
+        ("A", 0.0, 5.5, 0.1),
+        ("A", 5.0, 10.0, 0.2),
+    ])
+    fixed, conflicts, _ = validate.fix_overlaps(assays, touching_tol=0.01, return_diagnostics=True)
+    # Untouched (still overlapping by 0.5 m), and flagged as conflict.
+    assert list(fixed["to"]) == [5.5, 10.0]
+    assert len(conflicts) == 2
+
+
+def test_fix_overlaps_drops_exact_duplicates():
+    assays = _assays([
+        ("A", 0.0, 1.0, 0.1),
+        ("A", 0.0, 1.0, 0.1),  # exact duplicate
+        ("A", 1.0, 2.0, 0.2),
+    ])
+    fixed = validate.fix_overlaps(assays)
+    assert len(fixed) == 2
+    assert list(fixed["from"]) == [0.0, 1.0]
+
+
+def test_fix_overlaps_keeps_partial_duplicates_as_conflicts():
+    # Same (from, to) but different values — not a true duplicate.
+    assays = _assays([
+        ("A", 0.0, 1.0, 0.1),
+        ("A", 0.0, 1.0, 0.7),
+    ])
+    fixed, conflicts, _ = validate.fix_overlaps(assays, return_diagnostics=True)
+    assert len(fixed) == 2
+    assert len(conflicts) == 2
+
+
+def test_fix_overlaps_drops_resampled_superset():
+    # 0-10 m coarse interval @ 0.3, fully covered by 1 m fines averaging 0.3
+    assays = _assays([("A", 0.0, 10.0, 0.3)]
+        + [("A", float(i), float(i + 1), 0.3) for i in range(10)])
+    fixed = validate.fix_overlaps(assays, merge_tol=0.05)
+    assert len(fixed) == 10
+    assert (fixed["to"] - fixed["from"] == 1.0).all()
+
+
+def test_fix_overlaps_keeps_superset_when_values_disagree():
+    # Coarse says 0.3, fines average 0.7 — materially different, not safe.
+    assays = _assays([("A", 0.0, 4.0, 0.3)]
+        + [("A", float(i), float(i + 1), 0.7) for i in range(4)])
+    fixed, conflicts, _ = validate.fix_overlaps(assays, merge_tol=0.05, return_diagnostics=True)
+    assert len(fixed) == 5  # nothing dropped
+    assert len(conflicts) >= 2  # outer + at least one inner reported
+
+
+def test_fix_overlaps_keeps_superset_when_coverage_too_low():
+    # 0-10 coarse, but only 0-3 has fines (30% coverage) — keep coarse.
+    assays = _assays([("A", 0.0, 10.0, 0.3)]
+        + [("A", float(i), float(i + 1), 0.3) for i in range(3)])
+    fixed = validate.fix_overlaps(assays, coverage_min=0.95)
+    assert len(fixed) == 4
+
+
+def test_fix_overlaps_handles_holes_independently():
+    # Hole A has a touching overlap, hole B is clean — A is fixed, B unchanged.
+    assays = _assays([
+        ("A", 0.0, 5.005, 0.1),
+        ("A", 5.0, 10.0, 0.2),
+        ("B", 0.0, 5.0, 0.5),
+        ("B", 5.0, 10.0, 0.6),
+    ])
+    fixed = validate.fix_overlaps(assays, touching_tol=0.01)
+    a_rows = fixed[fixed["hole_id"] == "A"]
+    b_rows = fixed[fixed["hole_id"] == "B"]
+    assert list(a_rows["to"]) == [5.0, 10.0]
+    assert list(b_rows["to"]) == [5.0, 10.0]
+
+
+def test_fix_overlaps_diagnostic_report_shape():
+    assays = _assays([
+        ("A", 0.0, 1.0, 0.1),
+        ("A", 0.0, 1.0, 0.1),
+    ])
+    fixed, conflicts, report = validate.fix_overlaps(assays, return_diagnostics=True)
+    assert list(report.columns) == ["hole_id", "kind", "action", "from", "to", "note"]
+    assert len(report) == 1
+    assert report.iloc[0]["kind"] == "duplicate"
+    assert report.iloc[0]["action"] == "dropped"
+
+
+def test_fix_overlaps_returns_copy_when_empty():
+    empty = _assays([])
+    fixed = validate.fix_overlaps(empty)
+    assert fixed.empty
+    assert fixed is not empty
+
+
 def test_orphan_intervals_fix_recipe_points_at_drop_helper():
     collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
     survey = _survey([("A", 0.0, 0.0, -90.0), ("A", 100.0, 0.0, -90.0)])
@@ -294,6 +397,68 @@ def test_normalize_azimuth_leaves_nan_untouched():
     survey = pd.DataFrame({"hole_id": ["A"], "depth": [0.0], "azimuth": [float("nan")], "dip": [-90.0]})
     fixed = validate.normalize_azimuth(survey)
     assert pd.isna(fixed["azimuth"].iloc[0])
+
+
+def test_replace_below_detection_limit_handles_numeric_negative_sentinels():
+    df = pd.DataFrame({
+        "hole_id": ["A"] * 4,
+        "from": [0.0, 1.0, 2.0, 3.0],
+        "to": [1.0, 2.0, 3.0, 4.0],
+        "au_ppm": [-0.005, 0.012, -0.01, 2.5],
+    })
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"])
+    assert list(out["au_ppm"]) == [0.0025, 0.012, 0.005, 2.5]
+
+
+def test_replace_below_detection_limit_strategy_nan_drops_to_nan():
+    df = pd.DataFrame({"au_ppm": [-0.005, 0.012, -0.01, 2.5]})
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"], strategy="nan")
+    assert pd.isna(out["au_ppm"].iloc[0])
+    assert out["au_ppm"].iloc[1] == 0.012
+    assert pd.isna(out["au_ppm"].iloc[2])
+    assert out["au_ppm"].iloc[3] == 2.5
+
+
+def test_replace_below_detection_limit_strategy_zero_zeros_negatives():
+    df = pd.DataFrame({"au_ppm": [-0.005, 0.012, -0.01, 2.5]})
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"], strategy="zero")
+    assert list(out["au_ppm"]) == [0.0, 0.012, 0.0, 2.5]
+
+
+def test_replace_below_detection_limit_strategy_mdl_uses_full_limit():
+    df = pd.DataFrame({"au_ppm": [-0.005, 0.012, -0.01]})
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"], strategy="mdl")
+    assert list(out["au_ppm"]) == [0.005, 0.012, 0.01]
+
+
+def test_replace_below_detection_limit_handles_both_string_and_numeric_in_same_call():
+    df = pd.DataFrame({
+        "au_ppm": ["<0.005", "0.012", "<0.02"],
+        "cu_ppm": [-0.001, 5.0, -0.002],
+    })
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm", "cu_ppm"])
+    assert list(out["au_ppm"]) == [0.0025, 0.012, 0.01]
+    assert list(out["cu_ppm"]) == [0.0005, 5.0, 0.001]
+
+
+def test_replace_below_detection_limit_can_opt_out_of_numeric_negatives():
+    # When `numeric_negative_sentinels=False`, negative numerics are real
+    # signed measurements and should be left untouched.
+    df = pd.DataFrame({"residual": [-1.5, 0.2, -0.4, 0.6]})
+    out = validate.replace_below_detection_limit(
+        df, columns=["residual"], numeric_negative_sentinels=False
+    )
+    assert list(out["residual"]) == [-1.5, 0.2, -0.4, 0.6]
+
+
+def test_replace_below_detection_limit_rejects_unknown_strategy():
+    df = pd.DataFrame({"au_ppm": ["<0.005"]})
+    try:
+        validate.replace_below_detection_limit(df, strategy="bogus")
+    except ValueError as exc:
+        assert "bogus" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unknown strategy")
 
 
 def test_replace_below_detection_limit_substitutes_half_mdl():

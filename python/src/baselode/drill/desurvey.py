@@ -38,11 +38,22 @@ from baselode.datamodel import HOLE_ID, AZIMUTH, DIP, FROM, TO, EASTING, NORTHIN
 
 
 def _direction_cosines(azimuth, dip):
+    """Unit direction cosines for a hole-orientation reading.
+
+    Convention: ``dip`` is degrees below horizontal — a value of ``-90``
+    means "straight down" and a value of ``0`` means "horizontal".  The
+    returned ``cc`` (Z component) follows the standard 3D-space
+    convention where +Z is up, so a downward-pointing hole produces a
+    *negative* dz — its `elevation` decreases as you walk down the
+    trace.  This matches how every downstream consumer (OMF, Leapfrog,
+    Surpac, the 3D scene with the standard +Z=up camera) interprets the
+    field.
+    """
     az_rad = math.radians(azimuth)
     dip_rad = math.radians(dip)
     ca = math.cos(dip_rad) * math.sin(az_rad)
     cb = math.cos(dip_rad) * math.cos(az_rad)
-    cc = math.sin(dip_rad) * -1
+    cc = math.sin(dip_rad)
     return ca, cb, cc
 
 
