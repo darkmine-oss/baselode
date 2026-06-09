@@ -26,6 +26,14 @@ const FRAG_SHADER = /* glsl */`
 precision highp float;
 precision highp sampler3D;
 
+// Three.js auto-prepends projectionMatrix / viewMatrix / cameraPosition
+// etc. in the *vertex* shader for ShaderMaterial, but not in the
+// *fragment* shader under GLSL 300 ES.  Declare the ones we actually
+// use in main() here -- Three.js still matches and fills them in by
+// name at link time.
+uniform mat4 projectionMatrix;
+uniform mat4 viewMatrix;
+
 in vec3 vLocalPos;
 out vec4 outColor;
 
