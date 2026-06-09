@@ -151,7 +151,9 @@ Set of column names that are structural/metadata (not analyte values).
 ### Drillhole loaders
 
 #### `parseDrillholesCSV(csvText)`
-Parse a combined drillhole CSV (collars + surveys in one file).
+Parse a desurveyed-trace CSV (`hole_id`, `easting`/`x`, `northing`/`y`, `elevation`/`z`, `md`/`depth`, …).  Returns `{ holes: [{ id, points: [...] }] }`.
+
+Source column-name aliases are standardised on read — `md`, `measured_depth`, `survey_depth` all collapse to the canonical `depth` field.  Each output point carries both `point.depth` (canonical) and `point.md` (preserved alias) so consumers reading either name get a finite value.
 
 ---
 
@@ -692,7 +694,7 @@ Return the bin index for `value` in a pre-built scale.
 Return the hex color for `value` in a pre-built scale.
 
 #### `ASSAY_COLOR_PALETTE_10`
-Default 10-color palette array for assay visualisation.
+Default 10-colour palette array for assay visualisation — a sequential magma-style ramp from deep purple (low) to bright cream/gold (high).  Used by both `buildEqualRangeColorScale` (legend) and the 3D scene's internal colour pipeline, so the legend and rendered geometry stay in lockstep.  Pass a custom array to `buildEqualRangeColorScale` to override.
 
 ---
 
