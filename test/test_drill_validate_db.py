@@ -399,6 +399,68 @@ def test_normalize_azimuth_leaves_nan_untouched():
     assert pd.isna(fixed["azimuth"].iloc[0])
 
 
+def test_replace_below_detection_limit_handles_numeric_negative_sentinels():
+    df = pd.DataFrame({
+        "hole_id": ["A"] * 4,
+        "from": [0.0, 1.0, 2.0, 3.0],
+        "to": [1.0, 2.0, 3.0, 4.0],
+        "au_ppm": [-0.005, 0.012, -0.01, 2.5],
+    })
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"])
+    assert list(out["au_ppm"]) == [0.0025, 0.012, 0.005, 2.5]
+
+
+def test_replace_below_detection_limit_strategy_nan_drops_to_nan():
+    df = pd.DataFrame({"au_ppm": [-0.005, 0.012, -0.01, 2.5]})
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"], strategy="nan")
+    assert pd.isna(out["au_ppm"].iloc[0])
+    assert out["au_ppm"].iloc[1] == 0.012
+    assert pd.isna(out["au_ppm"].iloc[2])
+    assert out["au_ppm"].iloc[3] == 2.5
+
+
+def test_replace_below_detection_limit_strategy_zero_zeros_negatives():
+    df = pd.DataFrame({"au_ppm": [-0.005, 0.012, -0.01, 2.5]})
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"], strategy="zero")
+    assert list(out["au_ppm"]) == [0.0, 0.012, 0.0, 2.5]
+
+
+def test_replace_below_detection_limit_strategy_mdl_uses_full_limit():
+    df = pd.DataFrame({"au_ppm": [-0.005, 0.012, -0.01]})
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm"], strategy="mdl")
+    assert list(out["au_ppm"]) == [0.005, 0.012, 0.01]
+
+
+def test_replace_below_detection_limit_handles_both_string_and_numeric_in_same_call():
+    df = pd.DataFrame({
+        "au_ppm": ["<0.005", "0.012", "<0.02"],
+        "cu_ppm": [-0.001, 5.0, -0.002],
+    })
+    out = validate.replace_below_detection_limit(df, columns=["au_ppm", "cu_ppm"])
+    assert list(out["au_ppm"]) == [0.0025, 0.012, 0.01]
+    assert list(out["cu_ppm"]) == [0.0005, 5.0, 0.001]
+
+
+def test_replace_below_detection_limit_can_opt_out_of_numeric_negatives():
+    # When `numeric_negative_sentinels=False`, negative numerics are real
+    # signed measurements and should be left untouched.
+    df = pd.DataFrame({"residual": [-1.5, 0.2, -0.4, 0.6]})
+    out = validate.replace_below_detection_limit(
+        df, columns=["residual"], numeric_negative_sentinels=False
+    )
+    assert list(out["residual"]) == [-1.5, 0.2, -0.4, 0.6]
+
+
+def test_replace_below_detection_limit_rejects_unknown_strategy():
+    df = pd.DataFrame({"au_ppm": ["<0.005"]})
+    try:
+        validate.replace_below_detection_limit(df, strategy="bogus")
+    except ValueError as exc:
+        assert "bogus" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unknown strategy")
+
+
 def test_replace_below_detection_limit_substitutes_half_mdl():
     df = pd.DataFrame({
         "hole_id": ["A", "A", "A"],

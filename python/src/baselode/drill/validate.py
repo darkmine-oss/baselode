@@ -580,61 +580,126 @@ def normalize_azimuth(survey, azimuth_col=AZIMUTH):
     return out
 
 
-def replace_below_detection_limit(df, columns=None, sentinel_factor=0.5):
-    """Replace ``<MDL`` strings with ``MDL * sentinel_factor``.
+BDL_STRATEGIES = ("half-mdl", "mdl", "zero", "nan")
 
-    The industry convention is to substitute below-detection-limit assay
-    values (e.g. ``"<0.005"``) with half the reported limit when running
-    statistics.  This helper detects strings matching ``<NUMBER`` and
-    rewrites the cell to a float; other values are left untouched.
+
+def replace_below_detection_limit(
+    df,
+    columns=None,
+    sentinel_factor=0.5,
+    strategy=None,
+    numeric_negative_sentinels=True,
+):
+    """Replace below-detection-limit (BDL) sentinels with imputed values.
+
+    Handles two BDL conventions:
+
+    - **String sentinels** like ``"<0.005"`` (common in lab CSV
+      exports).  The numeric is parsed out and treated as the MDL.
+    - **Numeric negative sentinels** like ``-0.005`` (common in legacy
+      WAMEX / GSWA exports).  A value ``V < 0`` is treated as BDL with
+      ``MDL = abs(V)``.  Set ``numeric_negative_sentinels=False`` to
+      leave numeric negatives untouched (e.g. when they're real signed
+      measurements).
+
+    The replacement is controlled by ``strategy`` (preferred) or, for
+    backward compatibility, ``sentinel_factor``:
+
+    ============  ==============================  =================
+    ``strategy``  Replacement                     Equivalent factor
+    ============  ==============================  =================
+    ``half-mdl``  ``MDL * 0.5``                   ``0.5``
+    ``mdl``       ``MDL``                         ``1.0``
+    ``zero``      ``0.0``                         ``0.0``
+    ``nan``       ``NaN``                         —
+    ============  ==============================  =================
+
+    When ``strategy`` is omitted, falls back to
+    ``sentinel_factor`` (default ``0.5`` = half-MDL) so existing
+    callers stay green.
 
     Parameters
     ----------
     df : pd.DataFrame
         Source table.
     columns : iterable of str, optional
-        Columns to scan.  Defaults to every column whose dtype is
-        ``object`` (i.e. potentially contains strings).
+        Columns to scan.  Defaults to every numeric or string column.
     sentinel_factor : float
-        Multiplier applied to the detection limit (default ``0.5`` —
-        half-MDL).
+        Multiplier applied to the detection limit (default ``0.5``).
+        Ignored if ``strategy`` is set.
+    strategy : str, optional
+        One of :data:`BDL_STRATEGIES`.  Takes precedence over
+        ``sentinel_factor``.
+    numeric_negative_sentinels : bool
+        When ``True`` (default), values ``< 0`` in numeric columns are
+        treated as BDL with MDL = ``abs(value)``.  Set to ``False`` to
+        leave them alone.
 
     Returns
     -------
     pd.DataFrame
-        Copy of *df* with BDL strings replaced.  Columns where any
-        substitution happened are coerced via
-        :func:`pandas.to_numeric` with ``errors='coerce'``, and any
-        non-numeric values that remain (e.g. residual category strings)
-        are preserved via ``combine_first``.
+        Copy of *df* with BDL sentinels replaced.  Columns where any
+        substitution happened are coerced via :func:`pandas.to_numeric`.
     """
     if df.empty:
         return df.copy()
 
+    if strategy is not None:
+        if strategy not in BDL_STRATEGIES:
+            raise ValueError(
+                f"Unknown strategy {strategy!r}; expected one of {BDL_STRATEGIES}"
+            )
+
+    def _imputed(mdl):
+        if strategy == "half-mdl":
+            return mdl * 0.5
+        if strategy == "mdl":
+            return mdl
+        if strategy == "zero":
+            return 0.0
+        if strategy == "nan":
+            return float("nan")
+        return mdl * sentinel_factor
+
     out = df.copy()
     target_columns = list(columns) if columns is not None else [
-        col for col in out.columns if pd.api.types.is_string_dtype(out[col])
+        col for col in out.columns
+        if pd.api.types.is_string_dtype(out[col])
+        or pd.api.types.is_numeric_dtype(out[col])
     ]
 
     for col in target_columns:
         if col not in out.columns:
             continue
         column_data = out[col]
-        if not pd.api.types.is_string_dtype(column_data):
-            continue
-        new_values = []
         any_replaced = False
-        for value in column_data:
-            if isinstance(value, str):
-                match = _BDL_PATTERN.match(value)
-                if match is not None:
-                    new_values.append(float(match.group(1)) * sentinel_factor)
-                    any_replaced = True
-                    continue
-            new_values.append(value)
-        if any_replaced:
-            replaced = pd.Series(new_values, index=column_data.index)
-            out[col] = pd.to_numeric(replaced, errors="coerce").combine_first(replaced)
+
+        # --- String "<X" path -------------------------------------------------
+        if pd.api.types.is_string_dtype(column_data):
+            new_values = []
+            for value in column_data:
+                if isinstance(value, str):
+                    match = _BDL_PATTERN.match(value)
+                    if match is not None:
+                        new_values.append(_imputed(abs(float(match.group(1)))))
+                        any_replaced = True
+                        continue
+                new_values.append(value)
+            if any_replaced:
+                replaced = pd.Series(new_values, index=column_data.index)
+                out[col] = pd.to_numeric(replaced, errors="coerce").combine_first(replaced)
+            continue
+
+        # --- Numeric negative path -------------------------------------------
+        if numeric_negative_sentinels and pd.api.types.is_numeric_dtype(column_data):
+            negatives = column_data < 0
+            if negatives.any():
+                mdl_series = column_data.where(negatives).abs()
+                replacement = mdl_series.apply(_imputed) if strategy != "nan" else pd.Series(
+                    float("nan"), index=column_data.index
+                ).where(negatives)
+                out[col] = column_data.where(~negatives, replacement)
+
     return out
 
 
