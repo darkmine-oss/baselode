@@ -8,8 +8,13 @@ import * as THREE from 'three';
 // A bundler with a glsl/raw-text loader could alternatively import the .glsl
 // files directly.
 
+// GLSL 300 ES (WebGL2).  The fragment shader needs `gl_FragDepth` for
+// the per-fragment depth write at the first ray hit, and that only
+// exists as a built-in in GLSL 3.  Setting `glslVersion: THREE.GLSL3`
+// on the material (see below) tells Three.js to compile these as
+// 300-es shaders.
 const VERT_SHADER = /* glsl */`
-varying vec3 vLocalPos;
+out vec3 vLocalPos;
 
 void main() {
   vLocalPos   = position;
@@ -21,7 +26,8 @@ const FRAG_SHADER = /* glsl */`
 precision highp float;
 precision highp sampler3D;
 
-varying vec3 vLocalPos;
+in vec3 vLocalPos;
+out vec4 outColor;
 
 uniform sampler3D uVolumeTex;
 uniform vec3      uVolumeDims;
@@ -132,7 +138,7 @@ void main() {
   vec4  clipPos   = projectionMatrix * viewMatrix * vec4(worldHit, 1.0);
   gl_FragDepth    = (clipPos.z / clipPos.w) * 0.5 + 0.5;
 
-  gl_FragColor = accum;
+  outColor = accum;
 }
 `;
 
@@ -302,6 +308,12 @@ export class IDWVolumeRenderer {
     this._material = new THREE.ShaderMaterial({
       vertexShader:   VERT_SHADER,
       fragmentShader: FRAG_SHADER,
+      // Force GLSL 300 ES so the fragment shader's `gl_FragDepth`
+      // write (and `out vec4 outColor`, `in vec3 vLocalPos`) actually
+      // compile.  Without this Three.js falls back to GLSL 100 where
+      // `gl_FragDepth` doesn't exist, and the volume silently fails
+      // to render anywhere — the symptom is "no voxels visible".
+      glslVersion: THREE.GLSL3,
       // The fragment shader writes `gl_FragDepth` at the first ray
       // hit, so the volume's effective depth is the visible voxel
       // surface (not the bbox back wall).  With proper per-fragment
