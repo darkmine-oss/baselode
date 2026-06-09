@@ -125,7 +125,11 @@ def test_baselode_matches_wellpathpy_within_tolerance(trajectory, method_name, f
             f"no baselode sample at md={expected_md}"
         )
         row = matching_rows.iloc[0]
-        actual_tvd = float(row["elevation"]) - collar_elevation
+        # TVD (True Vertical Depth) is positive going down by convention,
+        # whereas baselode's `elevation` is RL (positive up).  For a hole
+        # that descends from the collar, elevation drops below collar
+        # elevation so `collar - elevation` recovers TVD.
+        actual_tvd = collar_elevation - float(row["elevation"])
         actual_northing_offset = float(row["northing"]) - collar_northing
         actual_easting_offset = float(row["easting"]) - collar_easting
 
