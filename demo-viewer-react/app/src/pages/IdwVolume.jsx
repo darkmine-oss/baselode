@@ -93,30 +93,17 @@ function IdwVolumeDemo() {
     // per-VERTEX colour attribute on the geometry, not per-instance,
     // and ends up suppressing the instance tinting altogether.
     //
-    // The volume mesh disables depth-test (the ray-march inside the
-    // shader is the visibility decision; the GL depth test would
-    // contradict it).  Without that, spheres inside the bounding
-    // box would punch through the otherwise-opaque volume.  Once
-    // depth test is off on the volume, though, the spheres get
-    // painted over by the volume in the transparent pass and
-    // disappear.  To put the sample points back on top — so the
-    // user can always see where the data lives relative to the
-    // voxels — switch the sphere material into the transparent
-    // queue and give the mesh a higher `renderOrder` than the
-    // volume's 999.  Result: solid spheres always render on top,
-    // grounding each voxel cluster on its underlying data point.
+    // No special depth/renderOrder hacks here — the volume shader
+    // writes `gl_FragDepth` at the first ray hit, so the standard
+    // GL depth test gives correct ordering between spheres and the
+    // visible voxel surface: spheres in front of the surface stay
+    // visible, spheres behind it are correctly occluded.
     const sphereGeo = new THREE.SphereGeometry(10, 16, 12);
     const inst = new THREE.InstancedMesh(
       sphereGeo,
-      new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-      }),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }),
       dataset.samples.length,
     );
-    inst.renderOrder = 1000;
     const dummy = new THREE.Object3D();
     const tmpColor = new THREE.Color();
     const range = (dataset.maxValue - dataset.minValue) || 1;

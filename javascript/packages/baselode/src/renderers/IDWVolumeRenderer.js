@@ -78,7 +78,9 @@ void main() {
   float tEnd   = tr.y;
   float step   = (tEnd - tStart) / float(uSteps);
 
-  vec4 accum = vec4(0.0);
+  vec4 accum         = vec4(0.0);
+  vec3 firstHitPos   = vec3(0.0);
+  bool haveFirstHit  = false;
 
   for (int i = 0; i < uSteps; i++) {
     if (accum.a >= 0.99) break;
@@ -105,6 +107,11 @@ void main() {
 
     if (uThreshold >= 0.0 && norm < uThreshold) continue;
 
+    if (!haveFirstHit) {
+      firstHitPos = pos;
+      haveFirstHit = true;
+    }
+
     vec4 col  = xfer(norm);
     col.a    *= (1.0 - accum.a);
     accum.rgb += col.a * col.rgb;
@@ -112,6 +119,19 @@ void main() {
   }
 
   if (accum.a < 0.001) discard;
+
+  // Write per-fragment depth at the first significant ray hit so
+  // opaque geometry rendered alongside the volume (e.g. the sample
+  // point spheres in the demo) composites correctly: spheres in
+  // front of the visible voxel surface stay visible, spheres
+  // behind it are occluded by the volume.  Without this, the
+  // fragment depth would be the bounding-box back-wall depth,
+  // which makes the GL depth test useless for the actual volume
+  // content.
+  vec3  worldHit  = firstHitPos * uWorldSize + uWorldMin;
+  vec4  clipPos   = projectionMatrix * viewMatrix * vec4(worldHit, 1.0);
+  gl_FragDepth    = (clipPos.z / clipPos.w) * 0.5 + 0.5;
+
   gl_FragColor = accum;
 }
 `;
@@ -282,16 +302,16 @@ export class IDWVolumeRenderer {
     this._material = new THREE.ShaderMaterial({
       vertexShader:   VERT_SHADER,
       fragmentShader: FRAG_SHADER,
-      // `depthTest: false` so the volume always paints over opaque
-      // objects drawn before it (notably sample point clouds rendered
-      // inside the bounding box).  The volume mesh's per-fragment
-      // depth is the BACK wall of the bbox — without disabling depth
-      // test, anything physically inside the box (and therefore in
-      // front of the back wall) fails the depth comparison and the
-      // volume can't render at those pixels.  The ray-march inside
-      // the shader is the real visibility decision; the GL depth
-      // test would only contradict it.
-      depthTest: false,
+      // The fragment shader writes `gl_FragDepth` at the first ray
+      // hit, so the volume's effective depth is the visible voxel
+      // surface (not the bbox back wall).  With proper per-fragment
+      // depth in place, the GL depth test and depth write both
+      // work normally — opaque geometry inside the bounding box
+      // (e.g. sample-point spheres) gets correctly occluded when
+      // it sits behind the visible voxel surface, and stays visible
+      // when it sits in front.
+      depthTest:  true,
+      depthWrite: true,
       uniforms: {
         uVolumeTex:  { value: null },
         uVolumeDims: { value: new THREE.Vector3(1, 1, 1) },
@@ -309,8 +329,11 @@ export class IDWVolumeRenderer {
         uClipMax:    { value: new THREE.Vector3(1, 1, 1) },
       },
       transparent: true,
-      depthWrite:  false,
-      side: THREE.BackSide, // render inside faces for ray marching
+      // BackSide so the box still renders when the camera is inside
+      // it (front faces would get culled).  The shader's per-fragment
+      // `gl_FragDepth` write at the first ray hit gives the correct
+      // depth regardless of which face the fragment lives on.
+      side: THREE.BackSide,
     });
 
     this._mesh = new THREE.Mesh(geometry, this._material);
