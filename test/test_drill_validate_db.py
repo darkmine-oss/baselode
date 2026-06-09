@@ -256,6 +256,109 @@ def test_swap_inverted_intervals_preserves_other_columns():
     assert fixed.iloc[0]["lithology"] == "granite"
 
 
+def test_fix_overlaps_snaps_touching_within_tolerance():
+    assays = _assays([
+        ("A", 0.0, 5.005, 0.1),
+        ("A", 5.0, 10.0, 0.2),
+    ])
+    fixed = validate.fix_overlaps(assays, touching_tol=0.01)
+    assert list(fixed["from"]) == [0.0, 5.0]
+    assert list(fixed["to"]) == [5.0, 10.0]
+
+
+def test_fix_overlaps_leaves_overlap_larger_than_tolerance_alone():
+    assays = _assays([
+        ("A", 0.0, 5.5, 0.1),
+        ("A", 5.0, 10.0, 0.2),
+    ])
+    fixed, conflicts, _ = validate.fix_overlaps(assays, touching_tol=0.01, return_diagnostics=True)
+    # Untouched (still overlapping by 0.5 m), and flagged as conflict.
+    assert list(fixed["to"]) == [5.5, 10.0]
+    assert len(conflicts) == 2
+
+
+def test_fix_overlaps_drops_exact_duplicates():
+    assays = _assays([
+        ("A", 0.0, 1.0, 0.1),
+        ("A", 0.0, 1.0, 0.1),  # exact duplicate
+        ("A", 1.0, 2.0, 0.2),
+    ])
+    fixed = validate.fix_overlaps(assays)
+    assert len(fixed) == 2
+    assert list(fixed["from"]) == [0.0, 1.0]
+
+
+def test_fix_overlaps_keeps_partial_duplicates_as_conflicts():
+    # Same (from, to) but different values — not a true duplicate.
+    assays = _assays([
+        ("A", 0.0, 1.0, 0.1),
+        ("A", 0.0, 1.0, 0.7),
+    ])
+    fixed, conflicts, _ = validate.fix_overlaps(assays, return_diagnostics=True)
+    assert len(fixed) == 2
+    assert len(conflicts) == 2
+
+
+def test_fix_overlaps_drops_resampled_superset():
+    # 0-10 m coarse interval @ 0.3, fully covered by 1 m fines averaging 0.3
+    assays = _assays([("A", 0.0, 10.0, 0.3)]
+        + [("A", float(i), float(i + 1), 0.3) for i in range(10)])
+    fixed = validate.fix_overlaps(assays, merge_tol=0.05)
+    assert len(fixed) == 10
+    assert (fixed["to"] - fixed["from"] == 1.0).all()
+
+
+def test_fix_overlaps_keeps_superset_when_values_disagree():
+    # Coarse says 0.3, fines average 0.7 — materially different, not safe.
+    assays = _assays([("A", 0.0, 4.0, 0.3)]
+        + [("A", float(i), float(i + 1), 0.7) for i in range(4)])
+    fixed, conflicts, _ = validate.fix_overlaps(assays, merge_tol=0.05, return_diagnostics=True)
+    assert len(fixed) == 5  # nothing dropped
+    assert len(conflicts) >= 2  # outer + at least one inner reported
+
+
+def test_fix_overlaps_keeps_superset_when_coverage_too_low():
+    # 0-10 coarse, but only 0-3 has fines (30% coverage) — keep coarse.
+    assays = _assays([("A", 0.0, 10.0, 0.3)]
+        + [("A", float(i), float(i + 1), 0.3) for i in range(3)])
+    fixed = validate.fix_overlaps(assays, coverage_min=0.95)
+    assert len(fixed) == 4
+
+
+def test_fix_overlaps_handles_holes_independently():
+    # Hole A has a touching overlap, hole B is clean — A is fixed, B unchanged.
+    assays = _assays([
+        ("A", 0.0, 5.005, 0.1),
+        ("A", 5.0, 10.0, 0.2),
+        ("B", 0.0, 5.0, 0.5),
+        ("B", 5.0, 10.0, 0.6),
+    ])
+    fixed = validate.fix_overlaps(assays, touching_tol=0.01)
+    a_rows = fixed[fixed["hole_id"] == "A"]
+    b_rows = fixed[fixed["hole_id"] == "B"]
+    assert list(a_rows["to"]) == [5.0, 10.0]
+    assert list(b_rows["to"]) == [5.0, 10.0]
+
+
+def test_fix_overlaps_diagnostic_report_shape():
+    assays = _assays([
+        ("A", 0.0, 1.0, 0.1),
+        ("A", 0.0, 1.0, 0.1),
+    ])
+    fixed, conflicts, report = validate.fix_overlaps(assays, return_diagnostics=True)
+    assert list(report.columns) == ["hole_id", "kind", "action", "from", "to", "note"]
+    assert len(report) == 1
+    assert report.iloc[0]["kind"] == "duplicate"
+    assert report.iloc[0]["action"] == "dropped"
+
+
+def test_fix_overlaps_returns_copy_when_empty():
+    empty = _assays([])
+    fixed = validate.fix_overlaps(empty)
+    assert fixed.empty
+    assert fixed is not empty
+
+
 def test_orphan_intervals_fix_recipe_points_at_drop_helper():
     collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
     survey = _survey([("A", 0.0, 0.0, -90.0), ("A", 100.0, 0.0, -90.0)])

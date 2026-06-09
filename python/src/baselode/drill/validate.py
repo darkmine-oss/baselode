@@ -304,6 +304,253 @@ def swap_inverted_intervals(table, from_col=FROM, to_col=TO):
     return out
 
 
+OVERLAP_REPORT_COLUMNS = ("hole_id", "kind", "action", "from", "to", "note")
+
+
+def _values_agree(outer_idx, inner_idxs, value_cols, work, from_col, to_col, merge_tol):
+    """Return True if outer-row values agree with inner-rows length-weighted.
+
+    For each value column:
+
+    - If the outer value is NaN, the column is skipped (nothing to compare).
+    - If the column is non-numeric, every non-NaN inner value must equal
+      the outer value exactly.
+    - If the column is numeric, the length-weighted mean of inner non-NaN
+      values must be within ``merge_tol`` (relative) of the outer value.
+    """
+    for col in value_cols:
+        outer_val = work.at[outer_idx, col]
+        if pd.isna(outer_val):
+            continue
+        try:
+            outer_float = float(outer_val)
+        except (TypeError, ValueError):
+            outer_float = None
+
+        if outer_float is None:
+            for inner_idx in inner_idxs:
+                inner_val = work.at[inner_idx, col]
+                if pd.isna(inner_val):
+                    continue
+                if inner_val != outer_val:
+                    return False
+            continue
+
+        weighted_sum = 0.0
+        total_weight = 0.0
+        for inner_idx in inner_idxs:
+            inner_val = work.at[inner_idx, col]
+            if pd.isna(inner_val):
+                continue
+            try:
+                inner_float = float(inner_val)
+            except (TypeError, ValueError):
+                return False
+            weight = float(work.at[inner_idx, to_col]) - float(work.at[inner_idx, from_col])
+            weighted_sum += inner_float * weight
+            total_weight += weight
+        if total_weight == 0:
+            continue
+        inner_mean = weighted_sum / total_weight
+        denom = max(abs(outer_float), 1e-9)
+        if abs(inner_mean - outer_float) / denom > merge_tol:
+            return False
+    return True
+
+
+def fix_overlaps(
+    table,
+    hole_col=HOLE_ID,
+    from_col=FROM,
+    to_col=TO,
+    value_cols=None,
+    touching_tol=0.01,
+    merge_tol=0.05,
+    coverage_min=0.95,
+    return_diagnostics=False,
+):
+    """Resolve interval overlaps where it's safe, leave the rest flagged.
+
+    Handles three classes of overlap automatically:
+
+    * **Touching overlap** — consecutive intervals where the later one
+      starts inside the earlier by less than ``touching_tol`` metres.
+      Caused by floating-point rounding.  Snaps the earlier ``to`` down
+      to the later ``from``.
+    * **Exact duplicate** — rows with identical ``(hole_id, from, to)``
+      *and* identical values in every column of ``value_cols``.  Drops
+      all but the first row of each duplicate group.
+    * **Resampled superset** — a longer interval fully contains shorter
+      ones whose length-weighted mean of ``value_cols`` matches the
+      longer's value within ``merge_tol`` (relative), and the shorter
+      intervals cover at least ``coverage_min`` of the longer.  Drops
+      the longer interval, keeps the higher-resolution rows.
+
+    Anything else — same depth zone, materially different values, or
+    partial overlaps — is left untouched and returned in the
+    *conflicts* frame for human review.
+
+    Parameters
+    ----------
+    table : pd.DataFrame
+        Interval table.
+    hole_col, from_col, to_col : str
+        Column-name overrides (defaults from :mod:`baselode.datamodel`).
+    value_cols : iterable of str, optional
+        Columns to compare for duplicate / superset classification.
+        Default: every column other than ``hole_col``/``from_col``/``to_col``.
+    touching_tol : float, optional
+        Maximum overlap, in metres, treated as a "snap me" rounding
+        glitch.  Default ``0.01``.
+    merge_tol : float, optional
+        Maximum relative difference, per value column, allowed between
+        a candidate superset interval and the length-weighted mean of
+        its inner intervals.  Default ``0.05`` (5%).
+    coverage_min : float, optional
+        Minimum fraction of a candidate superset that must be covered by
+        inner intervals before it qualifies as a "resampled superset".
+        Default ``0.95``.
+    return_diagnostics : bool, optional
+        When ``True``, return ``(fixed, conflicts, report)``: the fixed
+        table, the rows still in conflict, and an audit-log frame with
+        one row per resolved overlap.  Default ``False`` (returns just
+        the fixed table).
+
+    Returns
+    -------
+    pd.DataFrame, or tuple of (pd.DataFrame, pd.DataFrame, pd.DataFrame)
+        See ``return_diagnostics``.
+    """
+    empty_report = pd.DataFrame(columns=list(OVERLAP_REPORT_COLUMNS))
+
+    if table.empty:
+        if return_diagnostics:
+            return table.copy(), table.iloc[0:0].copy(), empty_report
+        return table.copy()
+
+    required = {hole_col, from_col, to_col}
+    if not required.issubset(table.columns):
+        if return_diagnostics:
+            return table.copy(), table.iloc[0:0].copy(), empty_report
+        return table.copy()
+
+    if value_cols is None:
+        value_cols = [c for c in table.columns if c not in (hole_col, from_col, to_col)]
+    else:
+        value_cols = [c for c in value_cols if c in table.columns]
+
+    work = table.copy().reset_index(drop=True)
+    work[from_col] = pd.to_numeric(work[from_col], errors="coerce")
+    work[to_col] = pd.to_numeric(work[to_col], errors="coerce")
+
+    keep = pd.Series(True, index=work.index)
+    report_rows = []
+
+    def _emit(hole_id, kind, action, frm, to, note=""):
+        report_rows.append({
+            "hole_id": hole_id,
+            "kind": kind,
+            "action": action,
+            "from": frm,
+            "to": to,
+            "note": note,
+        })
+
+    # ---- Pass 1: drop exact duplicates -------------------------------------
+    dup_keys = [hole_col, from_col, to_col] + value_cols
+    dup_keys = [k for k in dup_keys if k in work.columns]
+    duplicated_mask = work.duplicated(subset=dup_keys, keep="first")
+    for idx in work.index[duplicated_mask]:
+        row = work.loc[idx]
+        _emit(row[hole_col], "duplicate", "dropped", row[from_col], row[to_col])
+    keep &= ~duplicated_mask
+
+    # ---- Pass 2: snap touching overlaps ------------------------------------
+    for hole_id, group in work.loc[keep].groupby(hole_col, sort=False):
+        ordered = group.sort_values([from_col, to_col])
+        prev_idx = None
+        for idx in ordered.index:
+            if prev_idx is None:
+                prev_idx = idx
+                continue
+            a_to = float(work.at[prev_idx, to_col])
+            b_from = float(work.at[idx, from_col])
+            if a_to > b_from and (a_to - b_from) <= touching_tol:
+                work.at[prev_idx, to_col] = b_from
+                _emit(hole_id, "touching", "snapped",
+                      float(work.at[prev_idx, from_col]), a_to,
+                      f"{to_col}: {a_to} -> {b_from}")
+            prev_idx = idx
+
+    # ---- Pass 3: resampled supersets ---------------------------------------
+    for hole_id, group in work.loc[keep].groupby(hole_col, sort=False):
+        ordered_idxs = list(group.sort_values([from_col, to_col]).index)
+        for outer_idx in ordered_idxs:
+            if not keep[outer_idx]:
+                continue
+            outer_from = float(work.at[outer_idx, from_col])
+            outer_to = float(work.at[outer_idx, to_col])
+            outer_length = outer_to - outer_from
+            if outer_length <= 0:
+                continue
+            inner_idxs = []
+            for inner_idx in ordered_idxs:
+                if inner_idx == outer_idx or not keep[inner_idx]:
+                    continue
+                inner_from = float(work.at[inner_idx, from_col])
+                inner_to = float(work.at[inner_idx, to_col])
+                if inner_from >= outer_from and inner_to <= outer_to and (
+                    inner_from > outer_from or inner_to < outer_to
+                ):
+                    inner_idxs.append(inner_idx)
+            if not inner_idxs:
+                continue
+            covered = sum(
+                float(work.at[i, to_col]) - float(work.at[i, from_col])
+                for i in inner_idxs
+            )
+            if covered / outer_length < coverage_min:
+                continue
+            if not _values_agree(outer_idx, inner_idxs, value_cols, work,
+                                 from_col, to_col, merge_tol):
+                continue
+            keep[outer_idx] = False
+            _emit(hole_id, "superset", "dropped",
+                  outer_from, outer_to,
+                  f"covered by {len(inner_idxs)} finer rows ({covered / outer_length:.0%})")
+
+    # ---- Pass 4: surface remaining real conflicts --------------------------
+    conflict_idx_set = []
+    seen = set()
+    for hole_id, group in work.loc[keep].groupby(hole_col, sort=False):
+        ordered_idxs = list(group.sort_values([from_col, to_col]).index)
+        for a_pos, a_idx in enumerate(ordered_idxs):
+            a_from = float(work.at[a_idx, from_col])
+            a_to = float(work.at[a_idx, to_col])
+            for b_idx in ordered_idxs[a_pos + 1:]:
+                b_from = float(work.at[b_idx, from_col])
+                if b_from >= a_to:
+                    break
+                b_to = float(work.at[b_idx, to_col])
+                if a_idx not in seen:
+                    conflict_idx_set.append(a_idx)
+                    seen.add(a_idx)
+                if b_idx not in seen:
+                    conflict_idx_set.append(b_idx)
+                    seen.add(b_idx)
+                _emit(hole_id, "conflict", "kept",
+                      min(a_from, b_from), max(a_to, b_to),
+                      "unresolved overlap")
+
+    fixed = work.loc[keep].reset_index(drop=True)
+    conflicts = work.loc[conflict_idx_set].reset_index(drop=True) if conflict_idx_set else work.iloc[0:0].copy()
+    report = pd.DataFrame(report_rows, columns=list(OVERLAP_REPORT_COLUMNS))
+
+    if return_diagnostics:
+        return fixed, conflicts, report
+    return fixed
+
+
 def normalize_azimuth(survey, azimuth_col=AZIMUTH):
     """Wrap survey azimuths into ``[0, 360)``.
 
