@@ -416,6 +416,96 @@ const merged = mergeTables({ assay: assayRows, litho: lithoRows });
 
 ---
 
+## 3D Interpolation Volumes
+
+GPU-rendered IDW (inverse-distance-weighted) interpolation volumes for visualising how a drilling attribute varies between sample points in 3D.  See the [guide section](/guide/javascript#3d-interpolation-volumes) for an end-to-end example.
+
+#### `IDWVolumeLayer(options)`
+
+One-call wrapper that builds the spatial index, evaluates the IDW field over a voxel grid, and renders the result as a Three.js mesh.
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `samples` | `Array<InterpSamplePoint>` | `[]` | Sample points: `{ id, x, y, z, value }`.  Use `buildInterpSamplesFromAssays` to derive from raw assay rows |
+| `bounds` | `VolumeBounds \| null` | auto | Axis-aligned bbox to interpolate over.  Auto-computed from `samples` if omitted |
+| `boundsPadding` | `number` | `10` | Extra world units added on every side of the auto-computed bounds |
+| `idw.power` | `number` | `2` | Distance exponent for the IDW weight `1 / d^p` |
+| `idw.searchRadius` | `number` | `50` | Maximum distance (world units) to query for neighbours per voxel |
+| `idw.maxNeighbors` | `number` | unset | Cap on neighbour count per query; null = unlimited |
+| `idw.minNeighbors` | `number` | `1` | Below this, the voxel is marked no-data |
+| `grid.dims` | `[nx, ny, nz]` | `[32, 32, 32]` | Voxel count per axis.  Mutually exclusive with `grid.voxelSize` |
+| `grid.voxelSize` | `[vx, vy, vz]` | — | Voxel size in world units; the grid count is derived from the bounds |
+| `displayMin` / `displayMax` | `number` | `0` / `1` | Value range mapped to the colour gradient |
+| `opacity` | `number` | `0.4` | `[0, 1]` per-voxel alpha; `1` makes the volume fully opaque |
+| `threshold` | `number \| null` | `null` | Normalised `[0, 1]` cutoff; voxels below this are skipped |
+| `blockMode` | `boolean` | `true` | Crisp voxel-block look (`true`) vs trilinear-smoothed (`false`) |
+| `steps` | `number` | `64` | Ray-march samples per fragment |
+| `colorLow` / `colorHigh` | `[r, g, b]` | blue / red | Two-stop colour gradient |
+
+**Methods:**
+
+- `await layer.rebuild({ onProgress?, })` — re-build the spatial index + voxel grid.  Returns when the field is uploaded to the GPU.  Honours an internal cancellation token (back-to-back `rebuild()` calls abort the previous build).
+- `layer.setOpacity(v)` / `setThreshold(v)` / `setBlockMode(b)` — display-only knobs, no rebuild.
+- `layer.setClipBounds(min, max)` — per-axis clip in normalised `[0, 1]` box-local space.  `setClipBounds([0,0,0], [1,1,0.6])` slices the top 40% of Z off the rendered volume.
+- `layer.setSamples(samples)` / `setIDWOptions(opts)` / `setGridOptions(opts)` — update inputs; call `rebuild()` afterwards.
+- `layer.getValueAt(x, y, z)` — interpolate a single point in world coords without going through the GPU.
+- `layer.dispose()` — release the GPU resources.  Remove `object3D` from the scene first.
+
+**Property:**
+
+- `layer.object3D` — the Three.js mesh to add to the scene.
+
+#### `IDWVolumeRenderer()`
+
+Lower-level renderer used internally by the layer.  Useful when you want to drive the voxel grid yourself.
+
+- `renderer.setGrid(grid, options?)` — upload a `VoxelGrid` to a `Data3DTexture` and configure display options.
+- `renderer.setDisplayOptions(options)` — update display knobs without re-uploading the texture.
+- `renderer.setClipBounds(min, max)` — same as the layer method.
+- `renderer.setVisible(visible)` — show/hide the volume.
+- `renderer.dispose()` — release the texture + material.
+- `renderer.object3D` — the Three.js mesh.
+
+#### `IDWSampler(samples, options?)`
+
+Pure scalar-field sampler.  No Three.js dependency — reusable for slice/probe tools or CPU-side analytics.
+
+- `new IDWSampler(samples, { power, searchRadius, maxNeighbors, minNeighbors, nodataValue, epsilon, cellSize })`
+- `sampler.getValueAt(x, y, z)` → `number | NaN`
+- `sampler.setPower(p)` / `setSearchRadius(r)` / `setMaxNeighbors(n)` / `setSamples(arr)` — runtime configuration; no rebuild needed for the first three.
+
+#### `SpatialHash3D({ cellSize? })`
+
+Uniform 3D spatial hash for radius queries.  Used internally by `IDWSampler` but exported in case callers need a fast `queryRadius(x, y, z, r)` on their own point sets.
+
+- `index.build(points)` — points must expose numeric `x`, `y`, `z`.
+- `index.queryRadius(x, y, z, radius)` → `Array<T>`
+- `index.queryKNearest(x, y, z, k)` → `Array<T>`
+
+#### `buildVoxelGrid(sampler, bounds, dims, options?)`
+
+Async builder that walks the sampler over a regular grid.  Returns `Promise<VoxelGrid>` with `{ bounds, dims, voxelSize, values, nodataMask }`.
+
+| Option | Default | Meaning |
+|---|---|---|
+| `sync` | `false` | Disable the periodic `await new Promise(setTimeout)` yields — set when calling from a Web Worker |
+| `onProgress` | — | `({ completed, total }) => void` callback fired after each XZ slab |
+| `cancellationToken` | — | Object with `.cancelled` — set to `true` mid-build to abort |
+
+Also exported:
+
+- `voxelGridStats(bounds, dims)` → `{ voxelSize, total }` — compute size + count without building.
+
+#### `computeVolumeBounds(points, padding?)` / `buildVolumeBoundsFromMinMax(...)`
+
+Compute `VolumeBounds = { min, max, size, center }` from a point set, or directly from explicit min/max values.
+
+#### `buildInterpSamplesFromAssays(assayRows, attributeName)`
+
+Convert raw assay-interval rows into the `InterpSamplePoint` shape the IDW pipeline expects.  Uses desurveyed `x/y/z` when present on the rows, falls back to `(x_collar, y_collar, z_collar - midMd)` for vertical-hole approximations when desurvey isn't available.
+
+---
+
 ## Compositing
 
 Length-weighted compositing of downhole intervals.  Soft + hard boundary modes; true-thickness is Python-only because it depends on a desurveyed trace.

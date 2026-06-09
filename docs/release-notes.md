@@ -3,6 +3,15 @@
 ---
 
 ## Unreleased
+**3D IDW interpolation volumes**
+
+- New JavaScript primitives `IDWSampler` (pure scalar-field sampler backed by a `SpatialHash3D`), `buildVoxelGrid` (async voxel-grid evaluator with progress + cancellation), `IDWVolumeRenderer` (Three.js shader-based ray-march of a `Data3DTexture`), and `IDWVolumeLayer` (one-call wrapper that does the whole pipeline and returns a `THREE.Object3D` for the scene).
+- Fragment shader writes `gl_FragDepth` at the first significant ray hit so opaque objects placed inside the volume (sample-point markers, drillhole traces) get correctly occluded behind the visible voxel surface and stay visible in front of it.  Built on GLSL 300 ES with a manually-uploaded world-to-clip matrix so the depth value is always correct regardless of Three.js's GLSL3 fragment-stage uniform injection quirks.
+- Axis-aligned slice planes via `layer.setClipBounds(min, max)` in normalised `[0, 1]` box-local space; cheap uniform-only update, no voxel-grid rebuild.
+- Live display knobs (`setOpacity`, `setThreshold`, `setBlockMode`) that push straight through to the GPU.  IDW kernel parameters (`power`, `searchRadius`, `maxNeighbors`) trigger a rebuild with progress + cancellation.
+- Demo viewer page at `/idw-volume` exercising the feature against a synthetic five-Gaussian-anomaly dataset.  Sample points are drawn as instanced spheres colour-matched to the volume's transfer function so the rendered field can be sanity-checked against the inputs.
+- New "3D Interpolation Volumes" sections in the JavaScript guide + API reference.
+
 **Compositing extensions: hard-boundary + true-thickness**
 
 - `composite_intervals` (Python + JavaScript) grows three new kwargs that preserve the existing soft-mode call signature:
