@@ -26,13 +26,14 @@ const FRAG_SHADER = /* glsl */`
 precision highp float;
 precision highp sampler3D;
 
-// Three.js auto-prepends projectionMatrix / viewMatrix / cameraPosition
-// etc. in the *vertex* shader for ShaderMaterial, but not in the
-// *fragment* shader under GLSL 300 ES.  Declare the ones we actually
-// use in main() here -- Three.js still matches and fills them in by
-// name at link time.
-uniform mat4 projectionMatrix;
-uniform mat4 viewMatrix;
+// Combined world-to-clip matrix uploaded from the JS side via
+// onBeforeRender each frame.  Three.js auto-fills projectionMatrix /
+// viewMatrix for the *vertex* shader under GLSL 300 ES but not for
+// the *fragment* shader -- declaring them here is enough to make the
+// compiler happy but the values stay at zero, so the depth write
+// computed to NaN and the volume vanished.  Using our own uniform
+// avoids the issue entirely.
+uniform mat4 uWorldToClip;
 
 in vec3 vLocalPos;
 out vec4 outColor;
@@ -143,7 +144,7 @@ void main() {
   // which makes the GL depth test useless for the actual volume
   // content.
   vec3  worldHit  = firstHitPos * uWorldSize + uWorldMin;
-  vec4  clipPos   = projectionMatrix * viewMatrix * vec4(worldHit, 1.0);
+  vec4  clipPos   = uWorldToClip * vec4(worldHit, 1.0);
   gl_FragDepth    = (clipPos.z / clipPos.w) * 0.5 + 0.5;
 
   outColor = accum;
@@ -347,6 +348,10 @@ export class IDWVolumeRenderer {
         uSteps:      { value: 64 },
         uClipMin:    { value: new THREE.Vector3(0, 0, 0) },
         uClipMax:    { value: new THREE.Vector3(1, 1, 1) },
+        // World-space → clip-space matrix used to compute the
+        // per-fragment depth at the first ray hit.  Updated each
+        // frame in the mesh's onBeforeRender below.
+        uWorldToClip: { value: new THREE.Matrix4() },
       },
       transparent: true,
       // BackSide so the box still renders when the camera is inside
@@ -362,6 +367,19 @@ export class IDWVolumeRenderer {
     // back compositing inside the shader always sees the final
     // colour buffer underneath.
     this._mesh.renderOrder = 999;
+
+    // Refresh the world→clip matrix every frame so the per-fragment
+    // depth write in the shader stays consistent with whatever
+    // camera the scene is rendered through.  Three.js's
+    // matrixWorldInverse is the view matrix (camera.matrixWorld
+    // inverted), and `projectionMatrix * viewMatrix` is the
+    // standard transform we need.
+    const tmpMat = new THREE.Matrix4();
+    this._mesh.onBeforeRender = (_renderer, _scene, camera) => {
+      if (!this._material) return;
+      tmpMat.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      this._material.uniforms.uWorldToClip.value.copy(tmpMat);
+    };
     return this._mesh;
   }
 
