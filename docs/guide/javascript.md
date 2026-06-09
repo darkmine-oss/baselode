@@ -347,6 +347,97 @@ const mids    = fromToMidpoints(assayRows);   // number[]
 
 ---
 
+## 3D Interpolation Volumes
+
+`baselode` ships a small GPU-rendered IDW (inverse-distance-weighted) interpolation volume — the kind of "fuzzy 3D heatmap" you want for a quick look at how a drilling attribute (Au grade, alteration index, anything numeric) varies between sample points before committing to a full block model.
+
+The stack composes four primitives so each piece is reusable on its own:
+
+| Piece | What it does |
+|---|---|
+| `buildInterpSamplesFromAssays(rows, attribute)` | Convert assay-interval rows (with desurveyed `x/y/z` or collar-vertical fallback) into `{ id, x, y, z, value }` sample points |
+| `computeVolumeBounds(points, padding)` | Auto-compute an axis-aligned bbox from a sample set, with optional uniform world-unit padding |
+| `IDWSampler(samples, opts)` | Pure scalar-field sampler: `getValueAt(x, y, z)` returns the IDW-interpolated value.  Backed by `SpatialHash3D` for fast radius queries |
+| `buildVoxelGrid(sampler, bounds, dims)` | Walk the sampler across a regular voxel grid; returns `{ values: Float32Array, nodataMask: Uint8Array, dims, voxelSize, bounds }` |
+| `IDWVolumeRenderer` | Three.js shader-based volume renderer; uploads the voxel grid as a `Data3DTexture` and ray-marches it inside a bounding box |
+| `IDWVolumeLayer` | One-call wrapper that does all of the above and exposes a `Three.Object3D` for the scene |
+
+### Single-call workflow
+
+```js
+import {
+  IDWVolumeLayer,
+  buildInterpSamplesFromAssays,
+} from 'baselode';
+
+const samples = buildInterpSamplesFromAssays(assayRowsWithPositions, 'au_ppm');
+
+const layer = new IDWVolumeLayer({
+  samples,
+  idw:        { power: 2, searchRadius: 60, maxNeighbors: 8 },
+  grid:       { dims: [64, 64, 64] },   // or { voxelSize: [10, 10, 10] }
+  displayMin: 0,
+  displayMax: 5,
+  opacity:    0.6,
+  threshold:  0.15,   // normalised [0,1] cutoff; null disables
+  blockMode:  true,   // crisp voxel-blocks vs smooth trilinear blend
+});
+
+await layer.rebuild();
+scene.add(layer.object3D);
+
+// Display-only knobs — no rebuild required
+layer.setOpacity(0.4);
+layer.setThreshold(0.3);
+layer.setBlockMode(false);
+
+// Axis-aligned slice planes (per-axis bounds in [0,1] box-local space)
+layer.setClipBounds([0, 0, 0], [1, 1, 0.6]);  // slice off the top 40% of Z
+
+// Cleanup
+scene.remove(layer.object3D);
+layer.dispose();
+```
+
+### How the rendering works
+
+`IDWVolumeRenderer` ray-marches a Three.js box mesh in a custom GLSL 3 fragment shader.  Each ray:
+
+- Intersects the AABB clipped to the current `[uClipMin, uClipMax]` sub-box.
+- Steps through the volume (default 64–96 samples per ray).
+- Samples a `Data3DTexture` at each step.  `blockMode=true` snaps to voxel centres for the crisp block-model look; `false` lets the GPU's trilinear filter smooth between voxels.
+- Composites front-to-back with the active transfer function (blue→red by default; override via `colorLow` / `colorHigh`).
+- Writes `gl_FragDepth` at the first significant ray hit, so opaque objects placed inside the volume (sample-point markers, drillhole traces, etc.) get correctly occluded when they sit behind the visible voxel surface and stay visible when they sit in front.
+
+### Performance guidance
+
+`buildVoxelGrid` runs an `async` build that yields to the event loop every 4096 voxels by default — UIs stay responsive while a grid evaluates.  Pass `{ sync: true }` from inside a Web Worker.
+
+Memory cost (`Float32` values + `Uint8` no-data mask):
+
+| Grid | Bytes | Notes |
+|---|---|---|
+| 32³ | ~165 KB | Quick preview |
+| 64³ | ~1.3 MB | Comfortable for routine viewing |
+| 128³ | ~10 MB | Good for hi-detail; rebuild is noticeable |
+| 256³ | ~85 MB | Use with care |
+
+Cancellation tokens are honoured (`{ cancellationToken: { cancelled: false } }`) so an in-flight rebuild can be aborted when the user nudges a parameter.
+
+### Comparison to a full block-model estimator
+
+This is a **visualisation primitive**, not a resource estimator.  Use it when you want to look at the field; reach for kriging / pyGSLIB when you need to report it.
+
+| | `IDWVolumeLayer` | `BlockModel` |
+|---|---|---|
+| Run on the fly | ✓ | ✗ (pre-computed CSV) |
+| Tweakable interactively (power / radius / threshold) | ✓ | ✗ |
+| Anisotropic / geological-domain aware | ✗ | ✓ |
+| Estimator validation / variography | ✗ | ✓ (via external tools) |
+| Memory footprint | <100 MB | scales with rows |
+
+---
+
 ## Compositing
 
 `compositeIntervals` mirrors the Python `composite_intervals` soft + hard boundary modes.  True-thickness compositing is **Python-only** because it needs a desurveyed trace; for browser-side workflows that need true-thickness, do the composite step server-side and ship the result to the client.
