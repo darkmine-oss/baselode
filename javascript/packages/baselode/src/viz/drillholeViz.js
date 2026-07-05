@@ -559,8 +559,10 @@ function buildNumericConfig(points, property, chartType, color, template, meta, 
         ...baseTrace,
         type: 'bar',
         orientation: 'h',
-        marker: { color: lineColor },
-        error_y: errorConfig
+        // Each bar spans its own down-hole interval (thickness = to − from),
+        // so the interval extent is shown by the bar itself — no error bars.
+        width: points.map((p) => Math.max(Math.abs(p.to - p.from), 0.01)),
+        marker: { color: lineColor }
       }
     : {
         ...baseTrace,

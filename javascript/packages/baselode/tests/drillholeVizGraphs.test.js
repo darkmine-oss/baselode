@@ -85,6 +85,28 @@ describe('strip-log hover', () => {
   });
 });
 
+describe('buildPlotConfig — numeric bar chart', () => {
+  it('sizes each bar to its interval and uses no error bars', () => {
+    const { data } = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'Au', chartType: 'bar',
+    });
+    const [trace] = data;
+    expect(trace.type).toBe('bar');
+    expect(trace.orientation).toBe('h');
+    // Bar thickness equals the interval length (to − from), all 10 m here.
+    expect(trace.width).toEqual([10, 10, 10]);
+    expect(trace.error_y).toBeUndefined();
+  });
+
+  it('keeps error bars on markers/line chart types', () => {
+    const { data } = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'Au', chartType: 'markers+line',
+    });
+    expect(data[0].error_y).toBeDefined();
+    expect(data[0].width).toBeUndefined();
+  });
+});
+
 describe('buildPlotConfig — graded (colored-line) chart type', () => {
   it('colours markers by value with a continuous scale and colour bar', () => {
     const { data, layout } = buildPlotConfig({
