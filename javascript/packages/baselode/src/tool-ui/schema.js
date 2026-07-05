@@ -19,8 +19,17 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
   property: z.string().min(1),
   label: z.string().optional(),
   displayType: z.enum(['numeric', 'categorical']).default('numeric'),
-  chartType: z.enum(['bar', 'markers', 'line', 'markers+line', 'categorical']).optional(),
+  chartType: z.enum([
+    'bar', 'markers', 'line', 'markers+line', 'categorical',
+    'colored-line', 'multi-line', 'multi-stacked',
+  ]).optional(),
   colourMap: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
+  // Colour a single numeric track by a separate categorical column (joined per
+  // interval at its mid-depth). Ignored for multi-assay / categorical tracks.
+  colorBy: z.string().min(1).optional(),
+  // Assays plotted together in a `multi-line` / `multi-stacked` track. When
+  // omitted the component seeds from the track property + other numeric columns.
+  multiProps: z.array(z.string().min(1)).optional(),
   propertyOptions: z.array(z.string().min(1)).optional(),
   allowPropertySelection: z.boolean().optional(),
   allowChartTypeSelection: z.boolean().optional(),
