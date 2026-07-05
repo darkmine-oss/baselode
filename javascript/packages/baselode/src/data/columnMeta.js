@@ -39,6 +39,9 @@ export const CHART_OPTIONS = {
     { value: 'colored-line', label: 'Graded line' },
     { value: 'multi-line', label: 'Multiple: lines' },
     { value: 'multi-stacked', label: 'Multiple: stacked bars' },
+    { value: 'filled-line', label: 'Filled line' },
+    { value: 'step-line', label: 'Stepped line' },
+    { value: 'heat-strip', label: 'Heat strip' },
   ],
   [DISPLAY_CATEGORICAL]: [
     { value: 'categorical', label: 'Categorical bands' },

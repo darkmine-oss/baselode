@@ -108,6 +108,8 @@ function normalizeTrackConfig(track, {
     allowPropertySelection: track.allowPropertySelection ?? allowPropertySelection ?? false,
     allowChartTypeSelection: track.allowChartTypeSelection ?? allowChartTypeSelection ?? false,
     showLegend: track.showLegend ?? showLegend ?? displayType === DISPLAY_CATEGORICAL,
+    logScale: track.logScale ?? false,
+    usePatterns: track.usePatterns ?? false,
   };
 }
 
@@ -199,12 +201,15 @@ function StripLogTrack({
       colorBy,
       series,
       metaByProperty: propertyMeta,
+      logScale: track.logScale === true,
+      // Hatch categorical bands with the built-in lithology patterns on opt-in.
+      patternMap: isCategorical && track.usePatterns === true ? 'lithology' : undefined,
     });
     return {
       data: nextConfig.data,
       layout: applyDepthRange(nextConfig.layout, depthRange),
     };
-  }, [chartType, colorBy, depthRange, isCategorical, meta, points, propertyMeta, series, template, track.colourMap, track.label, track.property]);
+  }, [chartType, colorBy, depthRange, isCategorical, meta, points, propertyMeta, series, template, track.colourMap, track.label, track.logScale, track.property, track.usePatterns]);
   const legendItems = useMemo(
     () => (track.showLegend && isCategorical ? getLegendItems(plotConfig.data) : []),
     [isCategorical, plotConfig.data, track.showLegend]

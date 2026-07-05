@@ -5,7 +5,7 @@
 // Shared drillhole 2D visualization helpers for reuse beyond the UI layer.
 // These helpers build Plotly-ready data/layout objects based on interval points.
 
-import { getColour, resolveColourMap, COMMODITY_COLOURS } from './colourMap.js';
+import { getColour, resolveColourMap, resolvePatternMap, COMMODITY_COLOURS } from './colourMap.js';
 import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
 import { ASSAY_COLOR_PALETTE_10 } from './assayColorScale.js';
 import { formatPropertyLabel, resolvePropertyLabelParts } from '../data/propertyLabels.js';
@@ -282,9 +282,11 @@ export function buildIntervalPoints(hole, property, isCategorical) {
  * @param {Object|string|null} [colourMap] - Optional semantic colour map (object or built-in name)
  * @param {Object} [template] - Plotly template to include in layout
  * @param {import('../data/propertyLabels.js').PropertyMeta} [meta] - Optional per-property metadata
+ * @param {Object|string|null} [patternMap] - Optional hatch-pattern map (object or built-in name,
+ *   e.g. `'lithology'`) of category → Plotly pattern shape; unmapped categories render solid
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildCategoricalConfig(points, property, colourMap, template, meta) {
+function buildCategoricalConfig(points, property, colourMap, template, meta, patternMap) {
   if (!points.length) return { data: [], layout: {} };
   const safe = points
     .filter((point) => Number.isFinite(point?.from) && Number.isFinite(point?.to) && point.to > point.from)
@@ -295,6 +297,7 @@ function buildCategoricalConfig(points, property, colourMap, template, meta) {
   if (!safe.length) return { data: [], layout: {} };
 
   const resolvedCmap = resolveColourMap(colourMap);
+  const resolvedPmap = resolvePatternMap(patternMap);
 
   const fallbackPalette = [
     '#1f77b4', // blue
@@ -333,13 +336,28 @@ function buildCategoricalConfig(points, property, colourMap, template, meta) {
   // from different traces coexist at the same x position.
   const traces = uniqueCategories.map((cat) => {
     const intervals = safe.filter((seg) => seg.category === cat);
+    const bandColour = colorByCategory.get(cat);
+    // Optional hatch overlay: a white pattern at low solidity over the band
+    // colour, so the fill still reads as the category colour. Categories with
+    // no mapped shape emit no pattern dict — byte-identical to the solid path.
+    const patternShape = getColour(cat, resolvedPmap, '');
+    const marker = { color: bandColour, line: { width: 0 } };
+    if (patternShape) {
+      marker.pattern = {
+        shape: patternShape,
+        solidity: 0.3,
+        fgcolor: '#ffffff',
+        bgcolor: bandColour,
+        size: 6,
+      };
+    }
     return {
       type: 'bar',
       x: intervals.map(() => 0.5),
       y: intervals.map((s) => s.to - s.from),
       base: intervals.map((s) => s.from),
       width: 1,
-      marker: { color: colorByCategory.get(cat), line: { width: 0 } },
+      marker,
       name: cat,
       showlegend: false,
       customdata: intervals.map((s) => [s.from, s.to]),
@@ -407,6 +425,116 @@ function buildGradedLineConfig(points, property, template, meta) {
   };
 
   const layout = numericLayout(property, meta, template);
+  // Widen the right gutter so the colour bar has room outside the plot area.
+  layout.margin = { ...STRIPLOG_COMPACT_MARGIN, r: 30 };
+  return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
+}
+
+/**
+ * Filled line: the `line` chart type with the area between the curve and
+ * x=0 shaded in the series colour at low alpha. Interval mids, no error bars.
+ * @private
+ */
+function buildFilledLineConfig(points, property, color, template, meta, logScale) {
+  const lineColor = color || NUMERIC_LINE_COLOR;
+  const hover = buildHoverParts(property, meta);
+
+  const trace = {
+    x: points.map((p) => p.val),
+    y: points.map((p) => p.z),
+    customdata: numericCustomdata(points),
+    hovertemplate: `${hover.label}: %{x}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
+    type: 'scatter',
+    mode: 'lines',
+    // Value is on x, so fill toward x=0 ("tozerox"), not the y baseline.
+    fill: 'tozerox',
+    fillcolor: withAlpha(lineColor, 0.35),
+    line: { color: lineColor, width: 2 },
+  };
+
+  const layout = numericLayout(property, meta, template, logScale ? { type: 'log' } : undefined);
+  return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
+}
+
+/**
+ * Stepped line: honours interval extents (blocked/composited assays). Each
+ * interval contributes two vertices — (val, from) and (val, to) — sorted
+ * shallow→deep in one polyline, so consecutive intervals join with a vertical
+ * jump at the shared boundary. Gaps between intervals stay connected (no
+ * nulls); the extent is explicit in the step, so no error bars.
+ * @private
+ */
+function buildStepLineConfig(points, property, color, template, meta, logScale) {
+  const lineColor = color || NUMERIC_LINE_COLOR;
+  const hover = buildHoverParts(property, meta);
+
+  const ordered = [...points].sort((a, b) => a.z - b.z);
+  const xVals = [];
+  const yVals = [];
+  const customdata = [];
+  ordered.forEach((point) => {
+    const fromDepth = Math.min(point.from, point.to);
+    const toDepth = Math.max(point.from, point.to);
+    xVals.push(point.val, point.val);
+    yVals.push(fromDepth, toDepth);
+    customdata.push([fromDepth, toDepth], [fromDepth, toDepth]);
+  });
+
+  const trace = {
+    x: xVals,
+    y: yVals,
+    customdata,
+    hovertemplate: `${hover.label}: %{x}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
+    type: 'scatter',
+    mode: 'lines',
+    line: { color: lineColor, width: 2 },
+  };
+
+  const layout = numericLayout(property, meta, template, logScale ? { type: 'log' } : undefined);
+  return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
+}
+
+/**
+ * Heat strip: continuous grade display. One full-width horizontal bar per
+ * interval, coloured by the assay value on the sequential ramp, with a slim
+ * colour bar. The dummy bar length (x=1) never reaches the hover — the
+ * template reports the value and from–to interval instead.
+ * @private
+ */
+function buildHeatStripConfig(points, property, template, meta) {
+  const vals = points.map((p) => p.val);
+  const cmin = Math.min(...vals);
+  const cmax = Math.max(...vals);
+  const hover = buildHoverParts(property, meta);
+
+  const trace = {
+    type: 'bar',
+    orientation: 'h',
+    x: points.map(() => 1),
+    base: 0,
+    y: points.map((p) => p.z),
+    width: points.map((p) => Math.max(Math.abs(p.to - p.from), 0.01)),
+    marker: {
+      color: vals,
+      colorscale: buildPlotlyColorscale(ASSAY_COLOR_PALETTE_10),
+      cmin,
+      cmax,
+      showscale: true,
+      colorbar: { thickness: 8, len: 0.92, x: 1.02, xanchor: 'left', tickfont: { size: 9 } },
+      line: { width: 0 },
+    },
+    customdata: points.map((p) => [Math.min(p.from, p.to), Math.max(p.from, p.to), p.val]),
+    hovertemplate: `${hover.label}: %{customdata[2]}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
+    showlegend: false,
+  };
+
+  const layout = numericLayout(property, meta, template, {
+    range: [0, 1],
+    fixedrange: true,
+    showticklabels: false,
+    ticks: '',
+    title: '',
+  });
   // Widen the right gutter so the colour bar has room outside the plot area.
   layout.margin = { ...STRIPLOG_COMPACT_MARGIN, r: 30 };
   return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
@@ -549,16 +677,30 @@ function buildCategoryColouredNumericConfig(points, property, chartType, colorBy
  * @param {Object} [colorBy] - Optional colour-by-category spec
  *   `{ property, label?, segments: [{from,to,val}], colourMap? }`. When present,
  *   the track is coloured by category instead of by the assay value.
+ * @param {Object} [options] - Extra numeric-track options. `logScale` (default
+ *   false) puts the value axis on a log scale for bar / markers / markers+line /
+ *   line / filled-line / step-line; other chart types ignore it.
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
-function buildNumericConfig(points, property, chartType, color, template, meta, colorBy) {
+function buildNumericConfig(points, property, chartType, color, template, meta, colorBy, options = {}) {
   if (!points.length) return { data: [], layout: {} };
+
+  const logScale = options.logScale === true;
 
   if (colorBy && Array.isArray(colorBy.segments) && colorBy.segments.length) {
     return buildCategoryColouredNumericConfig(points, property, chartType, colorBy, template, meta);
   }
   if (chartType === 'colored-line') {
     return buildGradedLineConfig(points, property, template, meta);
+  }
+  if (chartType === 'filled-line') {
+    return buildFilledLineConfig(points, property, color, template, meta, logScale);
+  }
+  if (chartType === 'step-line') {
+    return buildStepLineConfig(points, property, color, template, meta, logScale);
+  }
+  if (chartType === 'heat-strip') {
+    return buildHeatStripConfig(points, property, template, meta);
   }
 
   const isBar = chartType === 'bar';
@@ -606,7 +748,8 @@ function buildNumericConfig(points, property, chartType, color, template, meta, 
         error_y: isLineOnly ? undefined : errorConfig
       };
 
-  return { data: [trace], layout: applyStriplogLayoutDefaults(numericLayout(property, meta, template)) };
+  const layout = numericLayout(property, meta, template, logScale ? { type: 'log' } : undefined);
+  return { data: [trace], layout: applyStriplogLayoutDefaults(layout) };
 }
 
 /**
@@ -748,10 +891,15 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
  * @param {Array<Object>} [options.series] - Multi-assay series for `multi-line`/`multi-stacked`
  *   chart types; `[{ property, points, color? }]`. When present, overrides the single-property path.
  * @param {Object} [options.metaByProperty] - Per-property metadata map for multi-assay legends/hover.
+ * @param {boolean} [options.logScale=false] - Log-scale the numeric value axis. Applies to the
+ *   bar / markers / markers+line / line / filled-line / step-line chart types; ignored otherwise.
+ * @param {Object|string|null} [options.patternMap] - Optional hatch-pattern map for categorical
+ *   bands (object or built-in name, e.g. `'lithology'`).
  * @returns {{data: Array, layout: Object}} Complete Plotly configuration
  */
 export function buildPlotConfig({
   points, isCategorical, property, chartType, colourMap, template, meta, colorBy, series, metaByProperty,
+  logScale, patternMap,
 }) {
   // Multi-assay path: render several assays in one track when a series is supplied.
   if ((chartType === 'multi-line' || chartType === 'multi-stacked') && Array.isArray(series) && series.length) {
@@ -759,7 +907,7 @@ export function buildPlotConfig({
   }
   if (!points || !points.length || !property) return { data: [], layout: {} };
   if (isCategorical || chartType === 'categorical') {
-    return buildCategoricalConfig(points, property, colourMap, template, meta);
+    return buildCategoricalConfig(points, property, colourMap, template, meta, patternMap);
   }
   const colour = commodityColourForProperty(property);
   // Fall back to the track's `colourMap` for the colour-by categories so a
@@ -768,7 +916,7 @@ export function buildPlotConfig({
   const resolvedColorBy = colorBy && colorBy.colourMap == null && colourMap != null
     ? { ...colorBy, colourMap }
     : colorBy;
-  return buildNumericConfig(points, property, chartType, colour, template, meta, resolvedColorBy);
+  return buildNumericConfig(points, property, chartType, colour, template, meta, resolvedColorBy, { logScale });
 }
 
 /**
@@ -819,4 +967,268 @@ export function buildCategoricalStripLogConfig(
     colourMap,
     template,
   });
+}
+
+/**
+ * Linearly interpolate a series of interval points onto arbitrary depths.
+ * Depths outside the series' span clamp to the nearest end value so the
+ * result is always finite.
+ * @private
+ * @param {Array<Object>} points - Interval points (uses `z` mid-depth and `val`)
+ * @param {Array<number>} depths - Target depths
+ * @returns {Array<number>} Interpolated values, index-aligned with `depths`
+ */
+function interpolateSeriesAtDepths(points, depths) {
+  const ordered = [...points].sort((a, b) => a.z - b.z);
+  const depthsAsc = ordered.map((point) => point.z);
+  const valsAsc = ordered.map((point) => point.val);
+  const lastIndex = depthsAsc.length - 1;
+  return depths.map((depth) => {
+    if (depth <= depthsAsc[0]) return valsAsc[0];
+    if (depth >= depthsAsc[lastIndex]) return valsAsc[lastIndex];
+    let upper = 1;
+    while (depthsAsc[upper] < depth) upper += 1;
+    const lower = upper - 1;
+    const span = depthsAsc[upper] - depthsAsc[lower];
+    const fraction = span === 0 ? 0 : (depth - depthsAsc[lower]) / span;
+    return valsAsc[lower] + fraction * (valsAsc[upper] - valsAsc[lower]);
+  });
+}
+
+/**
+ * Build a two-curve fill (cross-plot) track: two numeric curves down the hole
+ * with the region between them shaded, flipping colour exactly at each
+ * crossover — the classic neutron–density display.
+ *
+ * Both properties are sampled onto the union of their interval mid-depths
+ * (linear interpolation), crossing depths are computed by linear interpolation
+ * and the fill is split there: where A > B the band is colour A at alpha 0.4,
+ * where B > A it is colour B. Fill runs are drawn as an invisible anchor trace
+ * plus a `fill: "tonextx"` trace (`hoverinfo: "skip"`); hover lives on the two
+ * main curves.
+ *
+ * @param {Object} options
+ * @param {Object} options.hole - Hole object with a points array
+ * @param {string} options.propertyA - First numeric property
+ * @param {string} options.propertyB - Second numeric property
+ * @param {string} [options.colorA] - Curve A colour (defaults to its commodity
+ *   colour or MULTI_SERIES_COLORWAY[0])
+ * @param {string} [options.colorB] - Curve B colour (defaults to its commodity
+ *   colour or MULTI_SERIES_COLORWAY[1])
+ * @param {boolean} [options.logScale=false] - Log-scale the value axis
+ * @param {string} [options.title] - Optional layout title
+ * @param {Object} [options.template] - Plotly template (defaults to the Baselode template)
+ * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
+ */
+export function buildTwoCurveFillConfig({
+  hole, propertyA, propertyB, colorA, colorB, logScale = false, title, template,
+} = {}) {
+  const pointsA = buildIntervalPoints(hole, propertyA, false);
+  const pointsB = buildIntervalPoints(hole, propertyB, false);
+  if (!pointsA.length || !pointsB.length) return { data: [], layout: {} };
+
+  const curveColourA = colorA || seriesColour(propertyA, 0);
+  const curveColourB = colorB || seriesColour(propertyB, 1);
+
+  // Union depth grid (ascending) with both curves interpolated onto it.
+  const depths = [...new Set([...pointsA, ...pointsB].map((point) => point.z))].sort(
+    (first, second) => first - second
+  );
+  const valsA = interpolateSeriesAtDepths(pointsA, depths);
+  const valsB = interpolateSeriesAtDepths(pointsB, depths);
+
+  // Augment the sampled polylines with the exact crossing points so the fill
+  // colour flips precisely where the curves intersect.
+  const augmented = [];
+  for (let index = 0; index < depths.length; index += 1) {
+    augmented.push({ depth: depths[index], valA: valsA[index], valB: valsB[index] });
+    if (index === depths.length - 1) break;
+    const diffHere = valsA[index] - valsB[index];
+    const diffNext = valsA[index + 1] - valsB[index + 1];
+    if (diffHere * diffNext < 0) {
+      const fraction = diffHere / (diffHere - diffNext);
+      const crossDepth = depths[index] + fraction * (depths[index + 1] - depths[index]);
+      const crossVal = valsA[index] + fraction * (valsA[index + 1] - valsA[index]);
+      augmented.push({ depth: crossDepth, valA: crossVal, valB: crossVal });
+    }
+  }
+
+  // Split into constant-sign runs. Crossing points carry sign 0 and terminate
+  // the current run while seeding the next, so adjacent fills share the vertex.
+  const runs = [];
+  let runPoints = [augmented[0]];
+  let runSign = Math.sign(augmented[0].valA - augmented[0].valB);
+  for (let index = 1; index < augmented.length; index += 1) {
+    const sample = augmented[index];
+    const sampleSign = Math.sign(sample.valA - sample.valB);
+    runPoints.push(sample);
+    if (runSign === 0) runSign = sampleSign;
+    if (sampleSign === 0 && index < augmented.length - 1) {
+      runs.push({ points: runPoints, sign: runSign });
+      runPoints = [sample];
+      runSign = 0;
+    }
+  }
+  runs.push({ points: runPoints, sign: runSign });
+
+  const data = [];
+  runs.forEach((run) => {
+    if (run.sign === 0 || run.points.length < 2) return;
+    const fillColour = run.sign > 0
+      ? withAlpha(curveColourA, 0.4)
+      : withAlpha(curveColourB, 0.4);
+    // Invisible anchor along curve B, then curve A filled back to it.
+    data.push({
+      type: 'scatter',
+      mode: 'lines',
+      x: run.points.map((sample) => sample.valB),
+      y: run.points.map((sample) => sample.depth),
+      line: { width: 0 },
+      hoverinfo: 'skip',
+      showlegend: false,
+    });
+    data.push({
+      type: 'scatter',
+      mode: 'lines',
+      x: run.points.map((sample) => sample.valA),
+      y: run.points.map((sample) => sample.depth),
+      line: { width: 0 },
+      fill: 'tonextx',
+      fillcolor: fillColour,
+      hoverinfo: 'skip',
+      showlegend: false,
+    });
+  });
+
+  // The two visible curves carry the hover and the legend.
+  data.push({
+    type: 'scatter',
+    mode: 'lines',
+    x: valsA,
+    y: depths,
+    line: { color: curveColourA, width: 2 },
+    name: propertyA,
+    showlegend: true,
+    hovertemplate: `${propertyA}: %{x}<br>depth: %{y:.3f}<extra></extra>`,
+  });
+  data.push({
+    type: 'scatter',
+    mode: 'lines',
+    x: valsB,
+    y: depths,
+    line: { color: curveColourB, width: 2 },
+    name: propertyB,
+    showlegend: true,
+    hovertemplate: `${propertyB}: %{x}<br>depth: %{y:.3f}<extra></extra>`,
+  });
+
+  const layout = {
+    xaxis: {
+      title: `${propertyA} / ${propertyB}`,
+      zeroline: false,
+      ...(logScale ? { type: 'log' } : {}),
+    },
+    yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
+    showlegend: true,
+    legend: { orientation: 'h', y: 1.02, yanchor: 'bottom', x: 0, font: { size: 9 } },
+    title: title || undefined,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
+  };
+
+  return { data, layout: applyStriplogLayoutDefaults(layout) };
+}
+
+/**
+ * Build a percent-composition track: divided horizontal stacked bars per
+ * interval, one trace per component (legend + stack order follow the
+ * `properties` order).
+ *
+ * With `normalize` (default) each interval's components are scaled to
+ * fractions of their sum, the x-axis is fixed to [0, 1] titled "Fraction" and
+ * formatted as percentages; otherwise raw values are stacked on an autoranged
+ * axis. Intervals whose components are all null/zero are skipped; negative
+ * values are clamped to 0 for the bar while the raw value stays in the hover
+ * (same convention as the multi-assay below-detection handling).
+ *
+ * @param {Object} options
+ * @param {Object} options.hole - Hole object with a points array
+ * @param {Array<string>} options.properties - Component columns, in stack order
+ * @param {Object|string|null} [options.colourMap] - Optional semantic colour map
+ *   (object or built-in name); components missing from it fall back to
+ *   MULTI_SERIES_COLORWAY
+ * @param {boolean} [options.normalize=true] - Scale each interval to fractions of its sum
+ * @param {string} [options.title] - Optional layout title
+ * @param {Object} [options.template] - Plotly template (defaults to the Baselode template)
+ * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
+ */
+export function buildCompositionConfig({
+  hole, properties = [], colourMap = null, normalize = true, title, template,
+} = {}) {
+  const usable = properties.filter((property) => typeof property === 'string' && property);
+  if (!usable.length) return { data: [], layout: {} };
+
+  const series = usable.map((property) => ({
+    property,
+    points: buildIntervalPoints(hole, property, false),
+  }));
+  if (series.every((entry) => !entry.points.length)) return { data: [], layout: {} };
+
+  // Shared interval grid across all components (missing cells fill with 0).
+  const aligned = alignSeriesToCommonDepths(series);
+  const grid = aligned[0].points;
+
+  // Clamp negatives to 0 for the stack (raw value stays in the hover), then
+  // skip intervals whose components sum to nothing.
+  const clamped = aligned.map((entry) => entry.points.map((point) => Math.max(point.val, 0)));
+  const sums = grid.map((_, cellIndex) => clamped.reduce(
+    (total, componentVals) => total + componentVals[cellIndex], 0
+  ));
+  const keptCells = grid.map((_, cellIndex) => cellIndex).filter((cellIndex) => sums[cellIndex] > 0);
+  if (!keptCells.length) return { data: [], layout: {} };
+
+  const resolvedCmap = resolveColourMap(colourMap);
+
+  const data = aligned.map((entry, componentIndex) => {
+    const mapped = Object.keys(resolvedCmap).length > 0
+      ? getColour(entry.property, resolvedCmap, null)
+      : null;
+    const colour = mapped || MULTI_SERIES_COLORWAY[componentIndex % MULTI_SERIES_COLORWAY.length];
+    return {
+      type: 'bar',
+      orientation: 'h',
+      x: keptCells.map((cellIndex) => (normalize
+        ? clamped[componentIndex][cellIndex] / sums[cellIndex]
+        : clamped[componentIndex][cellIndex])),
+      y: keptCells.map((cellIndex) => grid[cellIndex].z),
+      width: keptCells.map((cellIndex) => Math.max(Math.abs(grid[cellIndex].to - grid[cellIndex].from), 0.01)),
+      marker: { color: colour, line: { width: 0 } },
+      name: entry.property,
+      showlegend: true,
+      // [rawValue, percentage, fromDepth, toDepth] — hover reports the raw
+      // value and its share of the interval regardless of normalisation.
+      customdata: keptCells.map((cellIndex) => [
+        entry.points[cellIndex].val,
+        (100 * clamped[componentIndex][cellIndex]) / sums[cellIndex],
+        Math.min(grid[cellIndex].from, grid[cellIndex].to),
+        Math.max(grid[cellIndex].from, grid[cellIndex].to),
+      ]),
+      hovertemplate: `${entry.property}: %{customdata[0]:.4~r} (%{customdata[1]:.1f}%)<br>`
+        + 'from: %{customdata[2]:.3f} to: %{customdata[3]:.3f}<extra></extra>',
+    };
+  });
+
+  const layout = {
+    barmode: 'stack',
+    bargap: 0,
+    xaxis: normalize
+      ? { title: 'Fraction', range: [0, 1], tickformat: '.0%', zeroline: false }
+      : { title: 'Value', zeroline: false },
+    yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
+    showlegend: true,
+    legend: { orientation: 'h', y: 1.02, yanchor: 'bottom', x: 0, font: { size: 9 } },
+    title: title || undefined,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
+  };
+
+  return { data, layout: applyStriplogLayoutDefaults(layout) };
 }

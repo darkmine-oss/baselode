@@ -288,6 +288,7 @@ function TracePlot({
           colorBy,
           series: multiSeries,
           metaByProperty: propertyMeta,
+          logScale: config?.logScale === true,
         });
       }
     } catch (err) {
@@ -341,6 +342,7 @@ function TracePlot({
     multiSeries,
     propertyMeta,
     template,
+    config?.logScale,
     plotSize.width,
     plotSize.height,
   ]);

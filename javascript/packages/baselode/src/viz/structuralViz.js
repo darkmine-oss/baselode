@@ -12,12 +12,25 @@
  * - buildStrikeDipSymbol: 2D map strike/dip symbol geometry
  */
 
-import { AZIMUTH, DEPTH, DIP, FROM, TO } from '../data/datamodel.js';
+import { AZIMUTH, COMMENTS, DEPTH, DIP, FROM, TO } from '../data/datamodel.js';
 import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
 
 const DEFAULT_PALETTE = [
   '#0f172a', '#1e3a5f', '#7c3aed', '#dc2626', '#16a34a',
   '#d97706', '#0ea5e9', '#db2777', '#65a30d', '#9333ea',
+];
+
+// Point-log category styling — mirrors the Python _DEFAULT_POINT_LOG_PALETTE /
+// _DEFAULT_POINT_LOG_SYMBOLS so both languages render identical logs.
+const POINT_LOG_PALETTE = [
+  '#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
+  '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac',
+  '#d4a6c8', '#86bcb6',
+];
+
+const POINT_LOG_SYMBOLS = [
+  'circle', 'square', 'diamond', 'triangle-up', 'triangle-down',
+  'cross', 'x', 'star', 'hexagon', 'pentagon', 'bowtie', 'hourglass',
 ];
 
 const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 36 };
@@ -372,6 +385,284 @@ export function buildCommentsConfig(intervals, {
   };
 
   return { data, layout: applyStriplogLayoutDefaults(layout) };
+}
+
+/**
+ * Build a Plotly point-log config: categorical point measurements at depth,
+ * with a distinct x slot, colour, and marker symbol per category.
+ *
+ * JS port of the Python `plot_point_log`. Unlike the interval strip log this
+ * accepts point measurements indexed only by depth; each unique category is
+ * assigned an evenly spaced x position, a palette colour, and a marker symbol
+ * (all cycling), with one trace per category so the legend is fully functional.
+ *
+ * @param {Object} options
+ * @param {Object} [options.hole] - Hole object with a points array (alternative to `rows`)
+ * @param {Array<Object>} [options.rows] - Point measurement rows
+ * @param {string} [options.depthKey='depth'] - Column holding measured depth
+ * @param {string} [options.categoryKey='defect'] - Column holding the categorical value
+ * @param {string[]} [options.palette] - Hex colours, one per category (cycles)
+ * @param {string[]} [options.markerSymbols] - Plotly marker symbols, one per category (cycles)
+ * @param {number} [options.markerSize=8] - Marker size in pixels
+ * @param {string} [options.title] - Optional layout title
+ * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
+ * @returns {{ data: Array, layout: Object }} Plotly figure config
+ */
+export function buildPointLogConfig({
+  hole,
+  rows,
+  depthKey = DEPTH,
+  categoryKey = 'defect',
+  palette = POINT_LOG_PALETTE,
+  markerSymbols = POINT_LOG_SYMBOLS,
+  markerSize = 8,
+  title,
+  template = undefined,
+} = {}) {
+  const sourceRows = Array.isArray(rows) ? rows : (hole?.points || []);
+  const records = sourceRows
+    .map((row) => ({ depth: Number(row?.[depthKey]), category: `${row?.[categoryKey] ?? ''}`.trim() }))
+    .filter((rec) => Number.isFinite(rec.depth)
+      && rec.category !== ''
+      && !/^(nan|null|none)$/i.test(rec.category));
+
+  if (!records.length) {
+    return { data: [], layout: {} };
+  }
+
+  // Stable ordering: sort alphabetically so colours are reproducible.
+  const uniqueCats = [...new Set(records.map((rec) => rec.category))].sort();
+
+  const data = uniqueCats.map((cat, catIndex) => {
+    const depths = records.filter((rec) => rec.category === cat).map((rec) => rec.depth);
+    return {
+      type: 'scatter',
+      x: depths.map(() => catIndex),
+      y: depths,
+      mode: 'markers',
+      name: cat,
+      marker: {
+        symbol: markerSymbols[catIndex % markerSymbols.length],
+        color: palette[catIndex % palette.length],
+        size: markerSize,
+        line: { width: 0.5, color: 'rgba(0,0,0,0.3)' },
+      },
+      hovertemplate: `${cat}<br>depth: %{y:.1f} m<extra></extra>`,
+    };
+  });
+
+  const layout = {
+    xaxis: {
+      tickvals: uniqueCats.map((_, catIndex) => catIndex),
+      ticktext: uniqueCats,
+      tickangle: -45,
+      tickfont: { size: 9 },
+      zeroline: false,
+      showgrid: false,
+      fixedrange: true,
+      range: [-0.5, uniqueCats.length - 0.5],
+    },
+    yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
+    legend: { title: categoryKey, font: { size: 9 } },
+    showlegend: true,
+    title: title || undefined,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
+  };
+
+  return { data, layout: applyStriplogLayoutDefaults(layout) };
+}
+
+/**
+ * Word-truncate text to roughly `maxChars`, appending an ellipsis.
+ * @private
+ * @param {string} text
+ * @param {number} maxChars
+ * @returns {string}
+ */
+function truncateAnnotationText(text, maxChars) {
+  const trimmed = String(text).trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  const head = trimmed.slice(0, maxChars);
+  const lastSpace = head.lastIndexOf(' ');
+  return `${(lastSpace > 0 ? head.slice(0, lastSpace) : head).trimEnd()}…`;
+}
+
+/**
+ * Build a Plotly depth-pinned annotations config — free text pinned to point
+ * depths, rendered as a small left-edge tick marker with the text to its right.
+ *
+ * Long text is word-truncated to ~40 characters; the full text lives in the
+ * hover. The layout composes with the multi-track strip-log machinery so the
+ * annotations can sit beside other tracks.
+ *
+ * @param {Object} options
+ * @param {Array<Object>} options.rows - Point rows with a depth and a text column
+ * @param {string} [options.depthKey='depth'] - Column holding measured depth
+ * @param {string} [options.textKey='comments'] - Column holding the annotation text
+ * @param {string} [options.markerColor='#475569'] - Colour of the depth tick marker
+ * @param {number} [options.maxChars=40] - Characters before word-truncating the label
+ * @param {string} [options.title] - Optional layout title
+ * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
+ * @returns {{ data: Array, layout: Object }} Plotly figure config
+ */
+export function buildDepthAnnotationsConfig({
+  rows = [],
+  depthKey = DEPTH,
+  textKey = COMMENTS,
+  markerColor = '#475569',
+  maxChars = 40,
+  title,
+  template = undefined,
+} = {}) {
+  const records = rows
+    .map((row) => {
+      const raw = row?.[textKey];
+      const text = (raw != null && String(raw).trim() !== '' && String(raw) !== 'null')
+        ? String(raw).trim()
+        : '';
+      return { depth: Number(row?.[depthKey]), text };
+    })
+    .filter((rec) => Number.isFinite(rec.depth) && rec.text !== '')
+    .sort((first, second) => first.depth - second.depth);
+
+  if (!records.length) {
+    return { data: [], layout: {} };
+  }
+
+  const data = [{
+    type: 'scatter',
+    x: records.map(() => 0),
+    y: records.map((rec) => rec.depth),
+    mode: 'markers+text',
+    marker: { symbol: 'line-ew-open', size: 9, color: markerColor, line: { width: 1.5 } },
+    text: records.map((rec) => truncateAnnotationText(rec.text, maxChars)),
+    textposition: 'middle right',
+    textfont: { size: 9 },
+    hovertext: records.map((rec) => `${rec.depth.toFixed(3)} m<br>${rec.text}`),
+    hoverinfo: 'text',
+    showlegend: false,
+  }];
+
+  const layout = {
+    xaxis: { range: [0, 1], visible: false, fixedrange: true },
+    yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
+    showlegend: false,
+    title: title || undefined,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
+  };
+
+  return { data, layout: applyStriplogLayoutDefaults(layout) };
+}
+
+/**
+ * Build a Plotly split dip-magnitude / dip-azimuth log: two shared-depth
+ * tracks — dip markers on a fixed [0, 90] axis and azimuth markers on a fixed
+ * [0, 360] axis (ticks every 90°) — using xaxis / xaxis2 domains.
+ *
+ * @param {Object} options
+ * @param {Array<Object>} options.rows - Structural point rows
+ * @param {string} [options.depthKey='depth'] - Column for measured depth
+ * @param {string} [options.dipKey='dip'] - Column for dip magnitude
+ * @param {string} [options.azimuthKey='azimuth'] - Column for dip azimuth
+ * @param {string|null} [options.colorBy=null] - Categorical column (e.g. defect type);
+ *   one legend entry per category shared across both tracks via legendgroup
+ * @param {string[]} [options.palette] - Colour palette for colorBy categories
+ * @param {string} [options.title] - Optional layout title
+ * @param {Object} [options.template] - Plotly template to apply. Defaults to the Baselode template.
+ * @returns {{ data: Array, layout: Object }} Plotly figure config
+ */
+export function buildDipAzimuthConfig({
+  rows = [],
+  depthKey = DEPTH,
+  dipKey = DIP,
+  azimuthKey = AZIMUTH,
+  colorBy = null,
+  palette = DEFAULT_PALETTE,
+  title,
+  template = undefined,
+} = {}) {
+  const valid = rows
+    .map((row) => ({
+      depth: Number(row?.[depthKey]),
+      dip: Number(row?.[dipKey]),
+      azimuth: Number(row?.[azimuthKey]),
+      category: colorBy ? `${row?.[colorBy] ?? ''}`.trim() : '',
+    }))
+    .filter((rec) => Number.isFinite(rec.depth) && Number.isFinite(rec.dip) && Number.isFinite(rec.azimuth));
+
+  if (!valid.length) {
+    return { data: [], layout: {} };
+  }
+
+  // One group per category when colouring; a single anonymous group otherwise.
+  const groups = colorBy
+    ? [...new Set(valid.map((rec) => rec.category))].sort()
+    : [''];
+  const showLegend = Boolean(colorBy) && groups.length > 0;
+
+  const data = [];
+  groups.forEach((groupName, groupIndex) => {
+    const groupRecords = colorBy
+      ? valid.filter((rec) => rec.category === groupName)
+      : valid;
+    if (!groupRecords.length) return;
+    const colour = colorBy ? palette[groupIndex % palette.length] : DEFAULT_PALETTE[0];
+    const legendName = groupName || undefined;
+    const shared = {
+      type: 'scatter',
+      mode: 'markers',
+      y: groupRecords.map((rec) => rec.depth),
+      marker: { size: 7, color: colour },
+      name: legendName,
+      legendgroup: legendName,
+    };
+    // Left track: dip magnitude. Carries the legend entry for the group.
+    data.push({
+      ...shared,
+      x: groupRecords.map((rec) => rec.dip),
+      xaxis: 'x',
+      showlegend: showLegend,
+      hovertemplate: 'Dip: %{x}°<extra></extra>',
+    });
+    // Right track: azimuth. Same legendgroup so both toggle together.
+    data.push({
+      ...shared,
+      x: groupRecords.map((rec) => rec.azimuth),
+      xaxis: 'x2',
+      showlegend: false,
+      hovertemplate: 'Azimuth: %{x}°<extra></extra>',
+    });
+  });
+
+  const layout = applyStriplogLayoutDefaults({
+    xaxis: {
+      title: 'Dip (°)',
+      domain: [0, 0.46],
+      range: [0, 90],
+      fixedrange: true,
+      zeroline: false,
+      tickvals: [0, 30, 60, 90],
+    },
+    yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
+    hovermode: 'y unified',
+    showlegend: showLegend,
+    legend: { orientation: 'h', y: 1.02, yanchor: 'bottom', x: 0, font: { size: 9 } },
+    title: title || undefined,
+    template: template !== undefined ? template : BASELODE_TEMPLATE,
+  });
+  // applyStriplogLayoutDefaults only knows the base axes; style the second
+  // track's axis to match.
+  layout.xaxis2 = {
+    title: { text: 'Azimuth (°)', font: { size: STRIPLOG_AXIS_TITLE_FONT_SIZE } },
+    domain: [0.54, 1],
+    range: [0, 360],
+    dtick: 90,
+    fixedrange: true,
+    zeroline: false,
+    tickfont: { size: STRIPLOG_AXIS_TICK_FONT_SIZE },
+  };
+
+  return { data, layout };
 }
 
 /**

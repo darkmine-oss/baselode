@@ -22,11 +22,17 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
   chartType: z.enum([
     'bar', 'markers', 'line', 'markers+line', 'categorical',
     'colored-line', 'multi-line', 'multi-stacked',
+    'filled-line', 'step-line', 'heat-strip',
   ]).optional(),
   colourMap: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
   // Colour a single numeric track by a separate categorical column (joined per
   // interval at its mid-depth). Ignored for multi-assay / categorical tracks.
   colorBy: z.string().min(1).optional(),
+  // Log-scale the numeric value axis (bar / markers / markers+line / line /
+  // filled-line / step-line chart types; ignored otherwise).
+  logScale: z.boolean().optional(),
+  // Hatch categorical bands with the built-in lithology pattern map.
+  usePatterns: z.boolean().optional(),
   // Assays plotted together in a `multi-line` / `multi-stacked` track. When
   // omitted the component seeds from the track property + other numeric columns.
   multiProps: z.array(z.string().min(1)).optional(),

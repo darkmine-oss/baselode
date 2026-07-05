@@ -230,6 +230,10 @@ export {
   computeStructuralPositions
 } from './data/structuralPositions.js';
 
+export {
+  alphaBetaToDipAzimuth
+} from './data/structural.js';
+
 // --- Column metadata ---
 export {
   DISPLAY_NUMERIC,
@@ -271,6 +275,8 @@ export {
   buildPlotConfig,
   buildCategoricalStripLogConfig,
   buildMultiAssayConfig,
+  buildTwoCurveFillConfig,
+  buildCompositionConfig,
   buildPlotlyColorscale,
   assignCategoriesByDepth,
   commodityColourForProperty
@@ -298,9 +304,12 @@ export {
   FALLBACK_COLOUR,
   COMMODITY_COLOURS,
   LITHOLOGY_COLOURS,
+  LITHOLOGY_PATTERNS,
   BUILTIN_COLOUR_MAPS,
+  BUILTIN_PATTERN_MAPS,
   getColour,
-  resolveColourMap
+  resolveColourMap,
+  resolvePatternMap
 } from './viz/colourMap.js';
 
 export {
@@ -334,6 +343,9 @@ export {
   buildTadpoleConfig,
   buildStructuralStripConfig,
   buildCommentsConfig,
+  buildPointLogConfig,
+  buildDepthAnnotationsConfig,
+  buildDipAzimuthConfig,
   buildStrikeDipSymbol
 } from './viz/structuralViz.js';
 

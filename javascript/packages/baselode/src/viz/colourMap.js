@@ -94,12 +94,51 @@ export const LITHOLOGY_COLOURS = {
 };
 
 /**
+ * Built-in hatch-pattern shapes for common lithology categories.
+ *
+ * Values are Plotly `marker.pattern.shape` strings (`"/" "\\" "x" "-" "|"
+ * "+" "." ""`). Keys are a subset of {@link LITHOLOGY_COLOURS} so a category
+ * always resolves both a band colour and (optionally) a hatch. Categories
+ * absent from the map render solid (no pattern).
+ * @type {Object.<string, string>}
+ */
+export const LITHOLOGY_PATTERNS = {
+  // Sedimentary
+  shale:        '-',
+  mudstone:     '-',
+  siltstone:    '-',
+  sandstone:    '.',
+  limestone:    '+',
+  dolomite:     '/',
+  conglomerate: '.',
+  // Igneous – intrusive
+  granite:      '+',
+  // Igneous – extrusive / volcanic
+  basalt:       'x',
+  breccia:      '.',
+  // Metamorphic
+  schist:       '\\',
+  gneiss:       '\\',
+  // Other
+  quartz:       '/',
+  vein:         '/',
+};
+
+/**
  * Registry of all built-in colour maps, keyed by lower-case name.
  * @type {Object.<string, Object.<string, string>>}
  */
 export const BUILTIN_COLOUR_MAPS = {
   commodity: COMMODITY_COLOURS,
   lithology: LITHOLOGY_COLOURS,
+};
+
+/**
+ * Registry of all built-in pattern maps, keyed by lower-case name.
+ * @type {Object.<string, Object.<string, string>>}
+ */
+export const BUILTIN_PATTERN_MAPS = {
+  lithology: LITHOLOGY_PATTERNS,
 };
 
 /**
@@ -156,6 +195,40 @@ export function resolveColourMap(nameOrMap) {
   ) return nameOrMap;
   throw new TypeError(
     `colourMap must be null, a string, or a plain object; got ${
+      Array.isArray(nameOrMap) ? 'Array' : Object.prototype.toString.call(nameOrMap)
+    }`
+  );
+}
+
+/**
+ * Return a pattern map object from a name or pass through a user-supplied object.
+ *
+ * Same semantics as {@link resolveColourMap}, but over
+ * {@link BUILTIN_PATTERN_MAPS} (`"lithology"` is the only built-in).
+ *
+ * @param {string|Object.<string, string>|null|undefined} nameOrMap
+ * @returns {Object.<string, string>} Pattern map of category → Plotly pattern shape.
+ * @throws {RangeError} If *nameOrMap* is a string that does not match any built-in map.
+ * @throws {TypeError} If *nameOrMap* is not `null`, a string, or a plain object.
+ */
+export function resolvePatternMap(nameOrMap) {
+  if (nameOrMap == null) return {};
+  if (typeof nameOrMap === 'string') {
+    const key = nameOrMap.trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(BUILTIN_PATTERN_MAPS, key)) {
+      return BUILTIN_PATTERN_MAPS[key];
+    }
+    const available = Object.keys(BUILTIN_PATTERN_MAPS).sort().join(', ');
+    throw new RangeError(
+      `Unknown built-in pattern map '${nameOrMap}'. Available maps: ${available}`
+    );
+  }
+  if (
+    typeof nameOrMap === 'object' &&
+    Object.getPrototypeOf(nameOrMap) === Object.prototype
+  ) return nameOrMap;
+  throw new TypeError(
+    `patternMap must be null, a string, or a plain object; got ${
       Array.isArray(nameOrMap) ? 'Array' : Object.prototype.toString.call(nameOrMap)
     }`
   );
