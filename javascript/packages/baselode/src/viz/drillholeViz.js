@@ -445,57 +445,90 @@ function buildCategoryColouredNumericConfig(points, property, chartType, colorBy
   const UNCATEGORISED = '#9ca3af';
 
   const isBar = chartType === 'bar';
-  const includeLine = !isBar && chartType !== 'markers';
+  const isLine = chartType === 'line';
+  const nameForCat = (cat) => (cat == null ? 'Uncategorised' : cat);
+  const colourForCatOrNull = (cat) => (cat == null ? UNCATEGORISED : colourForCat.get(cat));
   const data = [];
 
-  // A single neutral connecting line keeps the downhole trend readable
-  // across category changes (only for line-bearing chart types).
-  if (includeLine) {
-    data.push({
-      x: points.map((p) => p.val),
-      y: points.map((p) => p.z),
-      type: 'scatter',
-      mode: 'lines',
-      line: { color: 'rgba(136,136,136,0.5)', width: 1.5 },
-      hoverinfo: 'skip',
-      showlegend: false,
-    });
-  }
-
-  // One trace per category so the legend lists the colour-by values.
-  const groups = [...uniqueCats, null];
-  groups.forEach((cat) => {
-    const idxs = points.map((_, i) => i).filter((i) => categories[i] === cat);
-    if (!idxs.length) return;
-    const colour = cat == null ? UNCATEGORISED : colourForCat.get(cat);
-    const common = {
-      x: idxs.map((i) => points[i].val),
-      y: idxs.map((i) => points[i].z),
-      customdata: idxs.map((i) => customdata[i]),
-      hovertemplate,
-      name: cat == null ? 'Uncategorised' : cat,
-      showlegend: true,
-    };
-    if (isBar) {
+  if (isLine) {
+    // "Line only": colour the line itself by category. One segment per
+    // consecutive category run (no markers), each bridged to the next point so
+    // the downhole line stays continuous across category boundaries.
+    const seenLegend = new Set();
+    let start = 0;
+    while (start < points.length) {
+      let end = start;
+      while (end + 1 < points.length && categories[end + 1] === categories[start]) end += 1;
+      const runIdxs = [];
+      for (let i = start; i <= end; i += 1) runIdxs.push(i);
+      if (end + 1 < points.length) runIdxs.push(end + 1); // bridge to the next run
+      const name = nameForCat(categories[start]);
+      const showlegend = !seenLegend.has(name);
+      seenLegend.add(name);
       data.push({
-        ...common,
-        type: 'bar',
-        orientation: 'h',
-        // Horizontal bar: length = value (x, from 0), positioned at the
-        // interval mid-depth (y) with thickness = interval length so adjacent
-        // intervals form a continuous column coloured by category.
-        width: idxs.map((i) => Math.max(Math.abs(points[i].to - points[i].from), 0.01)),
-        marker: { color: colour },
-      });
-    } else {
-      data.push({
-        ...common,
+        x: runIdxs.map((i) => points[i].val),
+        y: runIdxs.map((i) => points[i].z),
+        customdata: runIdxs.map((i) => customdata[i]),
+        hovertemplate,
         type: 'scatter',
-        mode: 'markers',
-        marker: { size: 8, color: colour },
+        mode: 'lines',
+        line: { color: colourForCatOrNull(categories[start]), width: 2 },
+        name,
+        legendgroup: name,
+        showlegend,
+      });
+      start = end + 1;
+    }
+  } else {
+    // A single neutral connecting line keeps the downhole trend readable
+    // across category changes (markers+line only; markers/bar draw none).
+    if (chartType === 'markers+line') {
+      data.push({
+        x: points.map((p) => p.val),
+        y: points.map((p) => p.z),
+        type: 'scatter',
+        mode: 'lines',
+        line: { color: 'rgba(136,136,136,0.5)', width: 1.5 },
+        hoverinfo: 'skip',
+        showlegend: false,
       });
     }
-  });
+
+    // One trace per category so the legend lists the colour-by values.
+    const groups = [...uniqueCats, null];
+    groups.forEach((cat) => {
+      const idxs = points.map((_, i) => i).filter((i) => categories[i] === cat);
+      if (!idxs.length) return;
+      const colour = colourForCatOrNull(cat);
+      const common = {
+        x: idxs.map((i) => points[i].val),
+        y: idxs.map((i) => points[i].z),
+        customdata: idxs.map((i) => customdata[i]),
+        hovertemplate,
+        name: nameForCat(cat),
+        showlegend: true,
+      };
+      if (isBar) {
+        data.push({
+          ...common,
+          type: 'bar',
+          orientation: 'h',
+          // Horizontal bar: length = value (x, from 0), positioned at the
+          // interval mid-depth (y) with thickness = interval length so adjacent
+          // intervals form a continuous column coloured by category.
+          width: idxs.map((i) => Math.max(Math.abs(points[i].to - points[i].from), 0.01)),
+          marker: { color: colour },
+        });
+      } else {
+        data.push({
+          ...common,
+          type: 'scatter',
+          mode: 'markers',
+          marker: { size: 8, color: colour },
+        });
+      }
+    });
+  }
 
   const layout = numericLayout(property, meta, template);
   layout.showlegend = true;

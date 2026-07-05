@@ -279,48 +279,80 @@ def _build_category_coloured_numeric(interval_df, value_col, chart_type, color_b
     uncategorised = "#9ca3af"
 
     is_bar = chart_type == "bar"
-    include_line = (not is_bar) and chart_type != "markers"
+    is_line = chart_type == "line"
     froms = interval_df["from_val"].tolist()
     tos = interval_df["to_val"].tolist()
     vals = interval_df["val"].tolist()
     zs = interval_df["z"].tolist()
 
-    data = []
-    if include_line:
-        # A neutral connecting line keeps the downhole trend readable across
-        # category changes (line-bearing chart types only).
-        data.append(go.Scatter(
-            x=vals, y=zs, mode="lines",
-            line=dict(color="rgba(136,136,136,0.5)", width=1.5),
-            hoverinfo="skip", showlegend=False,
-        ))
+    def _name(cat):
+        return "Uncategorised" if cat is None else cat
 
-    for cat in [*unique_cats, None]:
-        idxs = [i for i, c in enumerate(categories) if c == cat]
-        if not idxs:
-            continue
-        colour = uncategorised if cat is None else colour_for_cat[cat]
-        name = "Uncategorised" if cat is None else cat
-        customdata = [[min(froms[i], tos[i]), max(froms[i], tos[i]), cat if cat is not None else "—"] for i in idxs]
-        hovertemplate = (
-            f"{value_col}: %{{x}}<br>{colour_by_label}: %{{customdata[2]}}<br>"
-            f"from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>"
-        )
-        if is_bar:
-            data.append(go.Bar(
-                x=[vals[i] for i in idxs], y=[zs[i] for i in idxs],
-                orientation="h",
-                width=[max(abs(tos[i] - froms[i]), 0.01) for i in idxs],
-                marker=dict(color=colour), name=name, showlegend=True,
-                customdata=customdata, hovertemplate=hovertemplate,
-            ))
-        else:
+    def _colour(cat):
+        return uncategorised if cat is None else colour_for_cat[cat]
+
+    hovertemplate = (
+        f"{value_col}: %{{x}}<br>{colour_by_label}: %{{customdata[2]}}<br>"
+        f"from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>"
+    )
+    all_customdata = [
+        [min(froms[i], tos[i]), max(froms[i], tos[i]), c if c is not None else "—"]
+        for i, c in enumerate(categories)
+    ]
+
+    data = []
+    if is_line:
+        # "Line only": colour the line itself by category. One segment per
+        # consecutive category run (no markers), each bridged to the next point
+        # so the downhole line stays continuous across category boundaries.
+        seen_legend = set()
+        start = 0
+        n = len(categories)
+        while start < n:
+            end = start
+            while end + 1 < n and categories[end + 1] == categories[start]:
+                end += 1
+            run = list(range(start, end + 1))
+            if end + 1 < n:
+                run.append(end + 1)  # bridge to the next run
+            name = _name(categories[start])
+            show = name not in seen_legend
+            seen_legend.add(name)
             data.append(go.Scatter(
-                x=[vals[i] for i in idxs], y=[zs[i] for i in idxs],
-                mode="markers", marker=dict(size=8, color=colour),
-                name=name, showlegend=True,
-                customdata=customdata, hovertemplate=hovertemplate,
+                x=[vals[i] for i in run], y=[zs[i] for i in run],
+                mode="lines", line=dict(color=_colour(categories[start]), width=2),
+                name=name, legendgroup=name, showlegend=show,
+                customdata=[all_customdata[i] for i in run], hovertemplate=hovertemplate,
             ))
+            start = end + 1
+    else:
+        if chart_type == "markers+line":
+            # A neutral connecting line keeps the downhole trend readable across
+            # category changes (markers+line only; markers/bar draw none).
+            data.append(go.Scatter(
+                x=vals, y=zs, mode="lines",
+                line=dict(color="rgba(136,136,136,0.5)", width=1.5),
+                hoverinfo="skip", showlegend=False,
+            ))
+        for cat in [*unique_cats, None]:
+            idxs = [i for i, c in enumerate(categories) if c == cat]
+            if not idxs:
+                continue
+            common = dict(
+                x=[vals[i] for i in idxs], y=[zs[i] for i in idxs],
+                name=_name(cat), showlegend=True,
+                customdata=[all_customdata[i] for i in idxs], hovertemplate=hovertemplate,
+            )
+            if is_bar:
+                data.append(go.Bar(
+                    orientation="h",
+                    width=[max(abs(tos[i] - froms[i]), 0.01) for i in idxs],
+                    marker=dict(color=_colour(cat)), **common,
+                ))
+            else:
+                data.append(go.Scatter(
+                    mode="markers", marker=dict(size=8, color=_colour(cat)), **common,
+                ))
 
     layout = _numeric_layout(value_col)
     layout.showlegend = True

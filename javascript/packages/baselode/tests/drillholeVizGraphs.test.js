@@ -158,6 +158,25 @@ describe('buildPlotConfig — colour numeric by categorical', () => {
     expect(byName.BAS).toBe('#222222');
   });
 
+  it('colours the line itself (no markers) for the line-only chart type', () => {
+    const { data } = buildPlotConfig({
+      points: numericPoints,
+      isCategorical: false,
+      property: 'Au',
+      chartType: 'line',
+      colorBy: { property: 'lithology', segments: lithoSegments },
+    });
+    // Every trace is a line — no marker traces, no neutral grey connector.
+    expect(data.length).toBeGreaterThan(0);
+    expect(data.every((t) => t.mode === 'lines')).toBe(true);
+    expect(data.some((t) => t.mode === 'markers')).toBe(false);
+    // Segments are coloured by category, not the neutral grey.
+    expect(data.every((t) => t.line.color !== 'rgba(136,136,136,0.5)')).toBe(true);
+    // Legend lists each category once.
+    const legendNames = data.filter((t) => t.showlegend).map((t) => t.name);
+    expect(legendNames).toEqual([...new Set(legendNames)]);
+  });
+
   it('renders coloured horizontal bars when chartType is bar', () => {
     const { data } = buildPlotConfig({
       points: numericPoints,

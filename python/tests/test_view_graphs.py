@@ -77,6 +77,18 @@ def test_colour_by_uses_the_configured_colour_map_for_categories():
     assert by_name["BAS"] == "#222222"
 
 
+def test_colour_by_line_only_colours_the_line_without_markers():
+    fig = view.plot_drillhole_trace(
+        ROWS, "Au_ppm", chart_type="line", color_by="lithology",
+    )
+    # Every trace is a line — no marker traces, no neutral grey connector.
+    assert fig.data and all(t.mode == "lines" for t in fig.data)
+    assert all(t.line.color != "rgba(136,136,136,0.5)" for t in fig.data)
+    # Legend lists each category once.
+    legend_names = [t.name for t in fig.data if t.showlegend]
+    assert legend_names == list(dict.fromkeys(legend_names))
+
+
 def test_colour_by_categorical_bar_variant_has_no_connecting_line():
     fig = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="bar", color_by="lithology")
     bars = [t for t in fig.data if t.type == "bar"]
