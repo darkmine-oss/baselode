@@ -65,6 +65,82 @@ def compute_plane_normal(dip, azimuth):
     return (nx, ny, nz)
 
 
+def alpha_beta_to_dip_azimuth(hole_dip, hole_azimuth, alpha, beta):
+    """Convert core-frame alpha/beta measurements to true dip / dip direction.
+
+    Vectorised with numpy — accepts scalars or array-likes (broadcast
+    together) and returns ``(dip, dip_direction)`` in degrees.
+
+    Conventions
+    -----------
+    - ``hole_dip``: survey convention, negative = downward (GSWA style,
+      e.g. -60 for a hole plunging 60° below horizontal).
+    - ``hole_azimuth``: degrees clockwise from north.
+    - ``alpha``: acute angle between the planar feature and the core axis
+      (90° = plane perpendicular to core).
+    - ``beta``: degrees clockwise (looking downhole) from the bottom-of-hole
+      (BOH) reference line to the down-hole apex of the ellipse trace.
+    - Returns ``dip`` (0-90, positive down) and ``dip_direction`` (0-360,
+      azimuth of steepest descent). When dip is exactly 0, dip_direction is
+      0 by convention.
+
+    For a near-vertical hole (``|hole_dip| > 89.9``) the BOH reference is
+    degenerate; the reference line falls back to north projected
+    perpendicular to the core axis, i.e. beta is then measured clockwise
+    from north.
+    """
+    hole_dip_arr, hole_azimuth_arr, alpha_arr, beta_arr = np.broadcast_arrays(
+        np.asarray(hole_dip, dtype=float),
+        np.asarray(hole_azimuth, dtype=float),
+        np.asarray(alpha, dtype=float),
+        np.asarray(beta, dtype=float),
+    )
+    scalar_input = hole_dip_arr.ndim == 0
+    hole_dip_arr = np.atleast_1d(hole_dip_arr)
+    hole_azimuth_arr = np.atleast_1d(hole_azimuth_arr)
+    alpha_arr = np.atleast_1d(alpha_arr)
+    beta_arr = np.atleast_1d(beta_arr)
+
+    # Frame: X=east, Y=north, Z=up. Downhole unit axis from plunge/trend.
+    plunge_rad = np.radians(-hole_dip_arr)
+    trend_rad = np.radians(hole_azimuth_arr)
+    axis_vec = np.stack([
+        np.cos(plunge_rad) * np.sin(trend_rad),
+        np.cos(plunge_rad) * np.cos(trend_rad),
+        -np.sin(plunge_rad),
+    ], axis=-1)
+
+    # BOH reference line: gravity projected perpendicular to the axis. A
+    # near-vertical hole makes that degenerate — fall back to north projected
+    # perpendicular to the axis (beta measured from north).
+    gravity_vec = np.array([0.0, 0.0, -1.0])
+    north_vec = np.array([0.0, 1.0, 0.0])
+    is_vertical = np.abs(hole_dip_arr) > 89.9
+    reference_vec = np.where(is_vertical[..., np.newaxis], north_vec, gravity_vec)
+    boh_vec = reference_vec - np.sum(reference_vec * axis_vec, axis=-1, keepdims=True) * axis_vec
+    boh_vec = boh_vec / np.linalg.norm(boh_vec, axis=-1, keepdims=True)
+
+    # Apex direction: rotate the BOH line by beta about the axis. Clockwise
+    # looking downhole equals positive right-hand rotation about the axis.
+    beta_rad = np.radians(beta_arr)[..., np.newaxis]
+    apex_vec = boh_vec * np.cos(beta_rad) + np.cross(axis_vec, boh_vec) * np.sin(beta_rad)
+
+    # Pole to the plane, flipped to point up.
+    alpha_rad = np.radians(alpha_arr)[..., np.newaxis]
+    pole_vec = axis_vec * np.sin(alpha_rad) - apex_vec * np.cos(alpha_rad)
+    pole_vec = np.where((pole_vec[..., 2] < 0)[..., np.newaxis], -pole_vec, pole_vec)
+
+    dip = np.degrees(np.arccos(np.clip(pole_vec[..., 2], 0.0, 1.0)))
+    # The upward pole's horizontal component points toward the dip direction
+    # (steepest descent): e.g. a plane dipping east has upward pole up-and-east.
+    dip_direction = np.degrees(np.arctan2(pole_vec[..., 0], pole_vec[..., 1])) % 360.0
+    dip_direction = np.where(dip == 0.0, 0.0, dip_direction)
+
+    if scalar_input:
+        return float(dip[0]), float(dip_direction[0])
+    return dip, dip_direction
+
+
 def attach_structure_positions(structures, traces, depth_col=DEPTH):
     """Attach (easting, northing, elevation) at each structure depth.
 

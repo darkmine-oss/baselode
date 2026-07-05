@@ -119,6 +119,41 @@ BUILTIN_COLOUR_MAPS = {
 }
 
 # ---------------------------------------------------------------------------
+# Built-in pattern (hatch) maps for categorical strip-log bands
+# ---------------------------------------------------------------------------
+
+# Plotly-native ``marker.pattern`` shapes: "/", "\\", "x", "-", "|", "+", ".",
+# and "" (solid). Keys are a subset of :data:`LITHOLOGY_COLOURS` following
+# common geologic hatch conventions; categories absent from the map render
+# solid. Mirrors the JS ``LITHOLOGY_PATTERNS``.
+LITHOLOGY_PATTERNS = {
+    # Sedimentary
+    "shale":       "-",
+    "mudstone":    "-",
+    "siltstone":   "-",
+    "sandstone":   ".",
+    "limestone":   "+",
+    "dolomite":    "/",
+    "conglomerate":".",
+    # Igneous – intrusive
+    "granite":     "+",
+    # Igneous – extrusive / volcanic
+    "basalt":      "x",
+    "breccia":     ".",
+    # Metamorphic
+    "schist":      "\\",
+    "gneiss":      "\\",
+    # Other
+    "quartz":      "/",
+    "vein":        "/",
+}
+
+# Registry of all built-in pattern maps; users can look these up by name.
+BUILTIN_PATTERN_MAPS = {
+    "lithology": LITHOLOGY_PATTERNS,
+}
+
+# ---------------------------------------------------------------------------
 # Sequential + qualitative ramps for numeric strip logs
 # ---------------------------------------------------------------------------
 
@@ -319,4 +354,68 @@ def resolve_colour_map(name_or_map):
         )
     raise TypeError(
         f"colour_map must be None, a str, or a dict; got {type(name_or_map).__name__!r}"
+    )
+
+
+def get_pattern(value, pattern_map, fallback=""):
+    """Return the pattern shape for *value* from *pattern_map*, or *fallback*.
+
+    Lookup semantics match :func:`get_colour` (case-insensitive, trimmed).
+    The default fallback is ``""`` — a solid fill with no hatch overlay.
+
+    Parameters
+    ----------
+    value : str
+        Domain value to look up (e.g. ``"sandstone"``).
+    pattern_map : dict
+        Mapping of domain values to Plotly pattern shape strings.
+    fallback : str, optional
+        Shape returned when *value* is not found. Defaults to ``""`` (solid).
+
+    Returns
+    -------
+    str
+        A Plotly ``marker.pattern.shape`` string.
+    """
+    return get_colour(value, pattern_map, fallback=fallback)
+
+
+def resolve_pattern_map(name_or_map):
+    """Return a pattern map dict from a name or pass through a user-supplied dict.
+
+    Parameters
+    ----------
+    name_or_map : str or dict or None
+        - ``None``: returns an empty dict.
+        - A ``str``: looked up in :data:`BUILTIN_PATTERN_MAPS`.  Unknown names
+          raise a ``ValueError``.
+        - A ``dict``: returned as-is (user-supplied mapping).
+
+    Returns
+    -------
+    dict
+        Pattern map dictionary (category → Plotly pattern shape).
+
+    Raises
+    ------
+    ValueError
+        If *name_or_map* is a string that does not match any built-in map.
+    TypeError
+        If *name_or_map* is neither ``None``, a ``str``, nor a ``dict``.
+    """
+    if name_or_map is None:
+        return {}
+    if isinstance(name_or_map, dict):
+        return name_or_map
+    if isinstance(name_or_map, str):
+        key = name_or_map.strip().lower()
+        if key in BUILTIN_PATTERN_MAPS:
+            return BUILTIN_PATTERN_MAPS[key]
+        available = ", ".join(sorted(BUILTIN_PATTERN_MAPS))
+        raise ValueError(
+            f"Unknown built-in pattern map '{name_or_map}'. "
+            f"Available maps: {available}"
+        )
+    raise TypeError(
+        f"pattern_map must be None, a str, or a dict; got {type(name_or_map).__name__!r}"
     )

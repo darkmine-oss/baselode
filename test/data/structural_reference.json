@@ -1,0 +1,490 @@
+[
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 0.0,
+    "expected_dip": 55.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 90.0,
+    "expected_dip": 82.9469778697,
+    "expected_dip_direction": 262.8929238896
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 180.0,
+    "expected_dip": 35.0,
+    "expected_dip_direction": 360.0
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 270.0,
+    "expected_dip": 82.9469778697,
+    "expected_dip_direction": 97.1070761104
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 0.0,
+    "expected_dip": 90.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 90.0,
+    "expected_dip": 60.0,
+    "expected_dip_direction": 234.7356103172
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 180.0,
+    "expected_dip": 0.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 270.0,
+    "expected_dip": 60.0,
+    "expected_dip_direction": 125.2643896828
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 0.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 180.0
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 180.0
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 180.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 180.0
+  },
+  {
+    "hole_dip": -45.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 270.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 180.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 10.0,
+    "beta": 0.0,
+    "expected_dip": 70.0,
+    "expected_dip_direction": 90.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 10.0,
+    "beta": 90.0,
+    "expected_dip": 81.3508348947,
+    "expected_dip_direction": 354.9616312267
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 10.0,
+    "beta": 180.0,
+    "expected_dip": 50.0,
+    "expected_dip_direction": 90.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 10.0,
+    "beta": 270.0,
+    "expected_dip": 81.3508348947,
+    "expected_dip_direction": 185.0383687733
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 45.0,
+    "beta": 0.0,
+    "expected_dip": 75.0,
+    "expected_dip_direction": 270.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 45.0,
+    "beta": 90.0,
+    "expected_dip": 52.238756093,
+    "expected_dip_direction": 333.4349488229
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 45.0,
+    "beta": 180.0,
+    "expected_dip": 15.0,
+    "expected_dip_direction": 90.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 45.0,
+    "beta": 270.0,
+    "expected_dip": 52.238756093,
+    "expected_dip_direction": 206.5650511771
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 90.0,
+    "beta": 0.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 270.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 270.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 90.0,
+    "beta": 180.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 270.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 90.0,
+    "alpha": 90.0,
+    "beta": 270.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 270.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 10.0,
+    "beta": 0.0,
+    "expected_dip": 70.0,
+    "expected_dip_direction": 225.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 10.0,
+    "beta": 90.0,
+    "expected_dip": 81.3508348947,
+    "expected_dip_direction": 129.9616312267
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 10.0,
+    "beta": 180.0,
+    "expected_dip": 50.0,
+    "expected_dip_direction": 225.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 10.0,
+    "beta": 270.0,
+    "expected_dip": 81.3508348947,
+    "expected_dip_direction": 320.0383687733
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 45.0,
+    "beta": 0.0,
+    "expected_dip": 75.0,
+    "expected_dip_direction": 45.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 45.0,
+    "beta": 90.0,
+    "expected_dip": 52.238756093,
+    "expected_dip_direction": 108.4349488229
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 45.0,
+    "beta": 180.0,
+    "expected_dip": 15.0,
+    "expected_dip_direction": 225.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 45.0,
+    "beta": 270.0,
+    "expected_dip": 52.238756093,
+    "expected_dip_direction": 341.5650511771
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 90.0,
+    "beta": 0.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 45.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 45.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 90.0,
+    "beta": 180.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 45.0
+  },
+  {
+    "hole_dip": -60.0,
+    "hole_azimuth": 225.0,
+    "alpha": 90.0,
+    "beta": 270.0,
+    "expected_dip": 30.0,
+    "expected_dip_direction": 45.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 10.0,
+    "beta": 0.0,
+    "expected_dip": 80.0,
+    "expected_dip_direction": 315.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 10.0,
+    "beta": 90.0,
+    "expected_dip": 80.608714198,
+    "expected_dip_direction": 221.548821603
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 10.0,
+    "beta": 180.0,
+    "expected_dip": 60.0,
+    "expected_dip_direction": 315.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 10.0,
+    "beta": 270.0,
+    "expected_dip": 80.608714198,
+    "expected_dip_direction": 48.451178397
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 45.0,
+    "beta": 0.0,
+    "expected_dip": 65.0,
+    "expected_dip_direction": 135.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 45.0,
+    "beta": 90.0,
+    "expected_dip": 48.3588567321,
+    "expected_dip_direction": 206.1182787691
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 45.0,
+    "beta": 180.0,
+    "expected_dip": 25.0,
+    "expected_dip_direction": 315.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 45.0,
+    "beta": 270.0,
+    "expected_dip": 48.3588567321,
+    "expected_dip_direction": 63.8817212309
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 90.0,
+    "beta": 0.0,
+    "expected_dip": 20.0,
+    "expected_dip_direction": 135.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "expected_dip": 20.0,
+    "expected_dip_direction": 135.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 90.0,
+    "beta": 180.0,
+    "expected_dip": 20.0,
+    "expected_dip_direction": 135.0
+  },
+  {
+    "hole_dip": -70.0,
+    "hole_azimuth": 315.0,
+    "alpha": 90.0,
+    "beta": 270.0,
+    "expected_dip": 20.0,
+    "expected_dip_direction": 135.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 0.0,
+    "expected_dip": 80.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 90.0,
+    "expected_dip": 80.0,
+    "expected_dip_direction": 90.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 180.0,
+    "expected_dip": 80.0,
+    "expected_dip_direction": 180.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 10.0,
+    "beta": 270.0,
+    "expected_dip": 80.0,
+    "expected_dip_direction": 270.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 0.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 90.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 90.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 180.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 180.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 45.0,
+    "beta": 270.0,
+    "expected_dip": 45.0,
+    "expected_dip_direction": 270.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 0.0,
+    "expected_dip": 0.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 90.0,
+    "expected_dip": 0.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 180.0,
+    "expected_dip": 0.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 90.0,
+    "beta": 270.0,
+    "expected_dip": 0.0,
+    "expected_dip_direction": 0.0
+  },
+  {
+    "hole_dip": -90.0,
+    "hole_azimuth": 0.0,
+    "alpha": 30.0,
+    "beta": 90.0,
+    "expected_dip": 60.0,
+    "expected_dip_direction": 90.0
+  }
+]

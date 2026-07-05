@@ -19,6 +19,7 @@
 
 """Tests for the structural/geotechnical module."""
 
+import json
 import math
 import pathlib
 
@@ -27,12 +28,20 @@ import pytest
 
 from baselode.drill import structural, validate
 from baselode.drill.data import load_structures
-from baselode.drill.view import plot_tadpole_log, plot_strip_log, plot_comments_log
+from baselode.drill.view import (
+    plot_tadpole_log,
+    plot_strip_log,
+    plot_comments_log,
+    plot_dip_azimuth_log,
+    plot_point_log,
+)
 from baselode.drill.view_3d import structures_as_discs
 
 DATA_DIR = pathlib.Path(__file__).parent / "data"
 POINTS_CSV = DATA_DIR / "structural_points_sample.csv"
 INTERVALS_CSV = DATA_DIR / "structural_intervals_sample.csv"
+GSWA_STRUCTURE_CSV = DATA_DIR / "gswa" / "gswa_sample_structure.csv"
+STRUCTURAL_REFERENCE_PATH = DATA_DIR / "structural_reference.json"
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +165,70 @@ def test_poles_from_dip_dipdir():
     assert pp == 45   # 90 - 45
 
 
+def test_alpha_beta_perpendicular_plane_dips_back_along_the_hole():
+    """Hole az=0, dip=-45, alpha=90: the plane is perpendicular to the core,
+    so it dips 45° back toward south, whatever beta is."""
+    for beta in (0.0, 33.0, 90.0, 217.0):
+        dip, dip_direction = structural.alpha_beta_to_dip_azimuth(-45.0, 0.0, 90.0, beta)
+        assert dip == pytest.approx(45.0, abs=1e-9)
+        assert dip_direction == pytest.approx(180.0, abs=1e-9)
+
+
+def test_alpha_beta_vertical_hole_perpendicular_plane_is_horizontal():
+    dip, dip_direction = structural.alpha_beta_to_dip_azimuth(-90.0, 0.0, 90.0, 45.0)
+    assert dip == pytest.approx(0.0, abs=1e-9)
+    # Dip direction is 0 by convention when the plane is horizontal.
+    assert dip_direction == 0.0
+
+
+def test_alpha_beta_vertical_hole_uses_north_reference_fallback():
+    """Vertical hole, alpha=30, beta=90: beta is measured from north, so the
+    apex (downdip direction) points east — dip 60 toward 090."""
+    dip, dip_direction = structural.alpha_beta_to_dip_azimuth(-90.0, 0.0, 30.0, 90.0)
+    assert dip == pytest.approx(60.0, abs=1e-9)
+    assert dip_direction == pytest.approx(90.0, abs=1e-9)
+
+
+def test_alpha_beta_accepts_arrays_and_broadcasts():
+    dip, dip_direction = structural.alpha_beta_to_dip_azimuth(
+        [-45.0, -90.0], [0.0, 0.0], [90.0, 30.0], [0.0, 90.0],
+    )
+    assert list(dip) == pytest.approx([45.0, 60.0])
+    assert list(dip_direction) == pytest.approx([180.0, 90.0])
+
+
+def _structural_reference_cases():
+    if not STRUCTURAL_REFERENCE_PATH.exists():
+        return [], []
+    with STRUCTURAL_REFERENCE_PATH.open("r", encoding="utf-8") as handle:
+        cases = json.load(handle)
+    ids = [
+        f"dip{case['hole_dip']:g}_az{case['hole_azimuth']:g}_a{case['alpha']:g}_b{case['beta']:g}"
+        for case in cases
+    ]
+    return cases, ids
+
+
+_STRUCTURAL_CASES, _STRUCTURAL_IDS = _structural_reference_cases()
+
+
+def test_structural_reference_fixture_is_present():
+    assert STRUCTURAL_REFERENCE_PATH.exists(), f"Fixture missing at {STRUCTURAL_REFERENCE_PATH}"
+    assert _STRUCTURAL_CASES, "Fixture has no cases"
+    # The fixture must cover the vertical-hole fallback alongside inclined holes.
+    assert any(case["hole_dip"] == -90.0 for case in _STRUCTURAL_CASES)
+    assert any(case["hole_dip"] > -90.0 for case in _STRUCTURAL_CASES)
+
+
+@pytest.mark.parametrize("case", _STRUCTURAL_CASES, ids=_STRUCTURAL_IDS)
+def test_alpha_beta_matches_reference_fixture(case):
+    dip, dip_direction = structural.alpha_beta_to_dip_azimuth(
+        case["hole_dip"], case["hole_azimuth"], case["alpha"], case["beta"],
+    )
+    assert dip == pytest.approx(case["expected_dip"], abs=1e-6)
+    assert dip_direction == pytest.approx(case["expected_dip_direction"], abs=1e-6)
+
+
 def test_normalize_dip_azimuth():
     df = pd.DataFrame({
         "dip": [-5.0, 45.0, 95.0],
@@ -264,6 +337,69 @@ def test_plot_comments_log_text_wrapping():
 def test_plot_comments_log_empty_df():
     fig = plot_comments_log(pd.DataFrame())
     assert fig is not None
+
+
+def _gswa_structure_measurements(limit=200):
+    df = pd.read_csv(
+        GSWA_STRUCTURE_CSV,
+        usecols=["Depth", "Dip", "Azimuth", "Defect"],
+    ).dropna(subset=["Depth", "Dip", "Azimuth"])
+    return df.head(limit).rename(columns={
+        "Depth": "depth", "Dip": "dip", "Azimuth": "azimuth",
+    })
+
+
+def test_plot_dip_azimuth_log_splits_dip_and_azimuth_tracks():
+    df = _gswa_structure_measurements()
+    fig = plot_dip_azimuth_log(df)
+    # One dip trace + one azimuth trace on separate x axes over a shared depth axis.
+    assert len(fig.data) == 2
+    assert fig.data[0].xaxis == "x"
+    assert fig.data[1].xaxis == "x2"
+    assert fig.layout.xaxis.range == (0, 90)
+    assert fig.layout.xaxis2.range == (0, 360)
+    assert fig.layout.xaxis2.dtick == 90
+    assert fig.layout.yaxis.autorange == "reversed"
+    assert fig.layout.hovermode == "y unified"
+
+
+def test_plot_dip_azimuth_log_color_by_shares_the_legend_across_tracks():
+    df = _gswa_structure_measurements()
+    fig = plot_dip_azimuth_log(df, color_by="Defect")
+    categories = sorted(df["Defect"].dropna().astype(str).unique())
+    # One trace per category per track; the legend entry appears once.
+    assert len(fig.data) == 2 * len(categories)
+    legend_names = [t.name for t in fig.data if t.showlegend]
+    assert legend_names == categories
+    by_group = {}
+    for trace in fig.data:
+        by_group.setdefault(trace.legendgroup, set()).add(trace.xaxis)
+    assert all(axes == {"x", "x2"} for axes in by_group.values())
+
+
+def test_plot_dip_azimuth_log_empty_and_missing_columns():
+    assert list(plot_dip_azimuth_log(pd.DataFrame()).data) == []
+    assert list(plot_dip_azimuth_log(pd.DataFrame({"depth": [1.0]})).data) == []
+
+
+def test_plot_point_log_assigns_slot_colour_and_symbol_per_category():
+    """Behaviour contract mirrored by the JS buildPointLogConfig port."""
+    df = pd.DataFrame({
+        "depth": [5.0, 10.0, 15.0, 20.0],
+        "defect": ["fr", "jt", "fr", "vn"],
+    })
+    fig = plot_point_log(df, depth_col="depth", label_col="defect")
+    by_name = {t.name: t for t in fig.data}
+    # Alphabetical categories, one trace (and one legend entry) each.
+    assert list(by_name) == ["fr", "jt", "vn"]
+    # Distinct x slots keep categories from overlapping.
+    assert [t.x[0] for t in fig.data] == [0, 1, 2]
+    assert list(by_name["fr"].y) == [5.0, 15.0]
+    # Distinct colour + marker symbol per category.
+    assert len({t.marker.color for t in fig.data}) == 3
+    assert len({t.marker.symbol for t in fig.data}) == 3
+    assert fig.layout.xaxis.range == (-0.5, 2.5)
+    assert fig.layout.yaxis.autorange == "reversed"
 
 
 # ---------------------------------------------------------------------------
