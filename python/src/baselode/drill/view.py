@@ -787,13 +787,14 @@ def plot_two_curve_fill(df, value_col_a, value_col_b, from_cols=None, to_cols=No
             showlegend=False, hoverinfo="skip",
         ))
 
-    for name, points, colour in ((value_col_a, aligned_a, colour_a), (value_col_b, aligned_b, colour_b)):
+    # The two visible curves carry the hover and the legend, drawn on the
+    # shared interpolated grid so they meet the fills exactly.
+    for name, vals, colour in ((value_col_a, vals_a, colour_a), (value_col_b, vals_b, colour_b)):
         data.append(go.Scatter(
-            x=points["val"], y=points["z"],
+            x=vals, y=depths,
             mode="lines", line=dict(color=colour, width=2),
             name=name, showlegend=True,
-            customdata=points[["from_val", "to_val"]],
-            hovertemplate=f"{name}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+            hovertemplate=f"{name}: %{{x}}<br>depth: %{{y:.3f}}<extra></extra>",
         ))
 
     layout = go.Layout(
