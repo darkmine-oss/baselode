@@ -226,13 +226,19 @@ function StripLogTrack({
     const handleClick = (event) => {
       const point = event?.points?.[0];
       if (!point || !onIntervalClick) return;
-      const bounds = Array.isArray(point.customdata) ? point.customdata : [];
+      const cd = Array.isArray(point.customdata) ? point.customdata : [];
+      // Multi-assay traces store customdata as [trueValue, from, to] (one series
+      // per assay); every other track stores [from, to, ...]. Read from/to and
+      // the reported value accordingly, and report the clicked assay's property.
+      const from = isMulti ? cd[1] : cd[0];
+      const to = isMulti ? cd[2] : cd[1];
+      const value = isMulti ? cd[0] : (isCategorical ? point.data?.name : point.x);
       onIntervalClick({
         trackId: track.id || track.property,
-        property: track.property,
-        value: isCategorical ? point.data?.name : point.x,
-        from: Number(bounds[0]),
-        to: Number(bounds[1]),
+        property: isMulti ? (point.data?.name || track.property) : track.property,
+        value,
+        from: Number(from),
+        to: Number(to),
         pointIndex: point.pointIndex,
       });
     };
@@ -286,6 +292,7 @@ function StripLogTrack({
     track.property,
     trackLabel,
     isCategorical,
+    isMulti,
   ]);
 
   return (
