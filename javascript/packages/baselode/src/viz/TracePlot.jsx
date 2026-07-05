@@ -465,8 +465,11 @@ function TracePlot({
         )}
         {/* Row 4a: colour a single numeric track by value (default) or by a
             categorical column (lithology, alteration, …). Only for numeric,
-            non-multi chart types when categorical columns are available. */}
-        {visibility.property && !isMultiChart && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0 && (
+            non-multi chart types when categorical columns are available.
+            filled-line / step-line / heat-strip don't compose with colour-by
+            (their geometry or colour already encodes the value). */}
+        {visibility.property && !isMultiChart && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0
+          && !['filled-line', 'step-line', 'heat-strip'].includes(effectiveChartType) && (
           <div className="plot-card__row plot-card__row--colorby">
             <select
               className="plot-select plot-select--colorby"

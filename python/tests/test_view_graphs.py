@@ -99,6 +99,21 @@ def test_colour_by_categorical_bar_variant_has_no_connecting_line():
     assert not any(getattr(t, "mode", None) == "lines" for t in fig.data)
 
 
+def test_new_chart_types_take_precedence_over_colour_by():
+    """filled-line / step-line / heat-strip keep their geometry when colour-by
+    is requested — the category-coloured builder can't render them."""
+    stepped = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="step-line", color_by="lithology")
+    assert len(stepped.data) == 1
+    assert list(stepped.data[0].x) == [0.10, 0.10, 0.35, 0.35, 0.90, 0.90]
+
+    filled = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="filled-line", color_by="lithology")
+    assert filled.data[0].fill == "tozerox"
+
+    heat = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="heat-strip", color_by="lithology")
+    assert heat.data[0].type == "bar"
+    assert heat.data[0].marker.showscale is True
+
+
 def test_assign_categories_by_depth_uses_mid_depth_and_ignores_blanks():
     points = _points("Au_ppm")  # mid-depths 10, 6, 2 (deep→shallow)
     segments = view.compute_interval_points(ROWS, "lithology")

@@ -676,7 +676,9 @@ function buildCategoryColouredNumericConfig(points, property, chartType, colorBy
  * @param {import('../data/propertyLabels.js').PropertyMeta} [meta] - Optional per-property metadata
  * @param {Object} [colorBy] - Optional colour-by-category spec
  *   `{ property, label?, segments: [{from,to,val}], colourMap? }`. When present,
- *   the track is coloured by category instead of by the assay value.
+ *   the track is coloured by category instead of by the assay value. Ignored
+ *   for filled-line / step-line / heat-strip, whose geometry or colour already
+ *   encodes the value.
  * @param {Object} [options] - Extra numeric-track options. `logScale` (default
  *   false) puts the value axis on a log scale for bar / markers / markers+line /
  *   line / filled-line / step-line; other chart types ignore it.
@@ -687,8 +689,21 @@ function buildNumericConfig(points, property, chartType, color, template, meta, 
 
   const logScale = options.logScale === true;
 
-  if (colorBy && Array.isArray(colorBy.segments) && colorBy.segments.length) {
-    return buildCategoryColouredNumericConfig(points, property, chartType, colorBy, template, meta);
+  // Colour-by only composes with the chart types the category-coloured
+  // builder implements; filled-line / step-line keep their geometry and
+  // heat-strip's colour already encodes the value, so those types win.
+  const chartTypeOverridesColorBy = chartType === 'filled-line'
+    || chartType === 'step-line'
+    || chartType === 'heat-strip';
+  if (colorBy && !chartTypeOverridesColorBy && Array.isArray(colorBy.segments) && colorBy.segments.length) {
+    const colouredConfig = buildCategoryColouredNumericConfig(points, property, chartType, colorBy, template, meta);
+    if (logScale && ['bar', 'markers', 'markers+line', 'line'].includes(chartType)) {
+      colouredConfig.layout = {
+        ...colouredConfig.layout,
+        xaxis: { ...colouredConfig.layout?.xaxis, type: 'log' },
+      };
+    }
+    return colouredConfig;
   }
   if (chartType === 'colored-line') {
     return buildGradedLineConfig(points, property, template, meta);

@@ -456,7 +456,9 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     color_by : dict, optional
         Colour the track by a separate categorical column instead of by value.
         ``{"property"/"label": str, "segments": DataFrame|list, "colour_map": ...}``
-        where *segments* are categorical interval rows (from/to/val).
+        where *segments* are categorical interval rows (from/to/val). Ignored
+        for the ``filled-line``, ``step-line`` and ``heat-strip`` chart types,
+        whose geometry or colour already encodes the value.
 
     intervals : bool, optional
         When True (default) draw error-bar markers showing each interval's depth
@@ -476,7 +478,11 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     if interval_df.empty:
         return go.Figure()
 
-    if color_by and len(_normalize_segments(color_by.get("segments"))):
+    # Colour-by only composes with the chart types the category-coloured
+    # builder implements; filled-line / step-line keep their geometry and
+    # heat-strip's colour already encodes the value, so those types win.
+    chart_type_overrides_color_by = chart_type in ("filled-line", "step-line", "heat-strip")
+    if color_by and not chart_type_overrides_color_by and len(_normalize_segments(color_by.get("segments"))):
         fig = _build_category_coloured_numeric(interval_df, value_col, chart_type, color_by, template)
         return _apply_log_scale(fig, chart_type, log_scale)
     if chart_type == "colored-line":
