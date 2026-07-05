@@ -119,6 +119,97 @@ BUILTIN_COLOUR_MAPS = {
 }
 
 # ---------------------------------------------------------------------------
+# Sequential + qualitative ramps for numeric strip logs
+# ---------------------------------------------------------------------------
+
+# Magma-style sequential ramp (low → high) used to grade a numeric downhole
+# curve by assay value. Mirrors the JS ``ASSAY_COLOR_PALETTE_10``.
+ASSAY_COLOR_PALETTE_10 = [
+    "#1d1147", "#3b0f70", "#641a80", "#8c2981", "#b73779",
+    "#de4968", "#f7705c", "#fe9f6d", "#fece91", "#fcfdbf",
+]
+
+# Qualitative colorway for multi-assay overlays — used when a series' column
+# name does not resolve to a known commodity colour. Mirrors the JS
+# ``MULTI_SERIES_COLORWAY``.
+MULTI_SERIES_COLORWAY = [
+    "#4e79a7", "#f28e2b", "#59a14f", "#e15759",
+    "#b07aa1", "#76b7b2", "#edc948", "#ff9da7",
+    "#9c755f", "#bab0ac",
+]
+
+
+def build_plotly_colorscale(palette=None):
+    """Convert a hex colour ramp into a Plotly ``colorscale``.
+
+    Returns a list of ``[stop, colour]`` pairs with stops spread evenly across
+    ``[0, 1]``. A single-colour palette maps to a flat ``[[0, c], [1, c]]`` so
+    Plotly never divides by zero.
+
+    Parameters
+    ----------
+    palette : list of str, optional
+        Ordered low→high hex colours. Defaults to :data:`ASSAY_COLOR_PALETTE_10`.
+
+    Returns
+    -------
+    list of [float, str]
+    """
+    colours = palette if palette else ASSAY_COLOR_PALETTE_10
+    if len(colours) == 1:
+        return [[0.0, colours[0]], [1.0, colours[0]]]
+    last = len(colours) - 1
+    return [[idx / last, colour] for idx, colour in enumerate(colours)]
+
+
+def series_colour(col_name, index):
+    """Pick a stable colour for an assay series.
+
+    Uses the commodity colour when the column name encodes one (e.g.
+    ``"Au_ppm"`` → gold), else cycles :data:`MULTI_SERIES_COLORWAY`.
+
+    Parameters
+    ----------
+    col_name : str
+        Series / column name.
+    index : int
+        Series index, used to cycle the fallback colorway.
+
+    Returns
+    -------
+    str
+        A CSS hex colour string.
+    """
+    return commodity_colour_for_property(col_name) or MULTI_SERIES_COLORWAY[index % len(MULTI_SERIES_COLORWAY)]
+
+
+def with_alpha(colour, alpha):
+    """Return *colour* as an ``rgba(...)`` string with the given *alpha*.
+
+    Accepts a ``#rgb`` / ``#rrggbb`` hex; any other input (already-rgba or a
+    named colour) is returned unchanged.
+
+    Parameters
+    ----------
+    colour : str
+    alpha : float
+        Opacity in ``[0, 1]``.
+
+    Returns
+    -------
+    str
+    """
+    import re
+    match = re.fullmatch(r"#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})", str(colour).strip())
+    if not match:
+        return colour
+    body = match.group(1)
+    if len(body) == 3:
+        body = "".join(ch * 2 for ch in body)
+    red, green, blue = int(body[0:2], 16), int(body[2:4], 16), int(body[4:6], 16)
+    return f"rgba({red}, {green}, {blue}, {alpha})"
+
+# ---------------------------------------------------------------------------
 # Helper functions
 # ---------------------------------------------------------------------------
 
