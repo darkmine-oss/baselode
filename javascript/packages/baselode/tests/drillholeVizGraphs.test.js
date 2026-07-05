@@ -144,6 +144,20 @@ describe('buildPlotConfig — colour numeric by categorical', () => {
     expect(named[0].hovertemplate).toContain('lithology');
   });
 
+  it('colours categories from the top-level colourMap when colorBy has none', () => {
+    const { data } = buildPlotConfig({
+      points: numericPoints,
+      isCategorical: false,
+      property: 'Au',
+      chartType: 'markers',
+      colourMap: { SAP: '#111111', BAS: '#222222' },
+      colorBy: { property: 'lithology', segments: lithoSegments },
+    });
+    const byName = Object.fromEntries(data.filter((t) => t.showlegend).map((t) => [t.name, t.marker.color]));
+    expect(byName.SAP).toBe('#111111');
+    expect(byName.BAS).toBe('#222222');
+  });
+
   it('renders coloured horizontal bars when chartType is bar', () => {
     const { data } = buildPlotConfig({
       points: numericPoints,

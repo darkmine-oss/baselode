@@ -67,6 +67,16 @@ def test_colour_numeric_by_categorical_emits_legend_traces_and_line():
     assert "lithology" in [t for t in fig.data if t.showlegend][0].hovertemplate
 
 
+def test_colour_by_uses_the_configured_colour_map_for_categories():
+    fig = view.plot_drillhole_trace(
+        ROWS, "Au_ppm", chart_type="markers",
+        color_by="lithology", colour_map={"SAP": "#111111", "BAS": "#222222"},
+    )
+    by_name = {t.name: t.marker.color for t in fig.data if t.showlegend}
+    assert by_name["SAP"] == "#111111"
+    assert by_name["BAS"] == "#222222"
+
+
 def test_colour_by_categorical_bar_variant_has_no_connecting_line():
     fig = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="bar", color_by="lithology")
     bars = [t for t in fig.data if t.type == "bar"]

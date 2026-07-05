@@ -729,7 +729,13 @@ export function buildPlotConfig({
     return buildCategoricalConfig(points, property, colourMap, template, meta);
   }
   const colour = commodityColourForProperty(property);
-  return buildNumericConfig(points, property, chartType, colour, template, meta, colorBy);
+  // Fall back to the track's `colourMap` for the colour-by categories so a
+  // configured semantic map (e.g. lithology) drives the legend colours; an
+  // explicit `colorBy.colourMap` still wins.
+  const resolvedColorBy = colorBy && colorBy.colourMap == null && colourMap != null
+    ? { ...colorBy, colourMap }
+    : colorBy;
+  return buildNumericConfig(points, property, chartType, colour, template, meta, resolvedColorBy);
 }
 
 /**
