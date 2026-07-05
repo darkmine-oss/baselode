@@ -13,7 +13,7 @@ demo-viewer-dash/assets/baselode-module.js
 
 demo-viewer-react/app/dist/
 demo-viewer-react/app/node_modules/
-demo-viewer-react/app/public/data/nvcl/
+demo-viewer-react/app/public/data/
 
 docs/.vitepress/cache/
 docs/.vitepress/dist/
@@ -27,6 +27,7 @@ javascript/packages/baselode/node_modules/
 
 python/src/baselode.egg-info/
 python/src/build/
+python/build/
 python/dist/
 
 test/data/nvcl

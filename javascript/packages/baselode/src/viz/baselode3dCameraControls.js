@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+const Z_UP = Object.freeze({ x: 0, y: 0, z: 1 });
+const POLE_ALIGNMENT_LIMIT = 0.999;
+
 /**
  * Build a string signature from view state for comparison (to detect changes)
  * @param {Object} viewState - View state object with camera, target, up vectors
@@ -60,17 +63,14 @@ export function setViewState(state, viewState) {
   if (!state.camera || !state.controls || !viewState) return false;
   const camera = viewState.camera || {};
   const target = viewState.target || {};
-  const up = viewState.up || {};
 
-  const values = [camera.x, camera.y, camera.z, target.x, target.y, target.z, up.x, up.y, up.z];
+  const values = [camera.x, camera.y, camera.z, target.x, target.y, target.z];
   if (!values.every(Number.isFinite)) return false;
 
   state.camera.position.set(camera.x, camera.y, camera.z);
   state.controls.target.set(target.x, target.y, target.z);
-  state.camera.up.set(up.x, up.y, up.z);
-  state.camera.lookAt(target.x, target.y, target.z);
-  state.controls.update();
-  state._lastViewSignature = buildViewSignature(viewState);
+  applyZUpOrbit(state);
+  state._lastViewSignature = buildViewSignature(getViewState(state));
   return true;
 }
 
@@ -108,8 +108,7 @@ export function fitCameraToBounds(state, { minX, maxX, minY, maxY, minZ, maxZ })
 
   state.controls.target.set(centerX, centerY, centerZ);
   state.camera.position.set(centerX + distance, centerY + distance, centerZ + distance);
-  state.camera.lookAt(centerX, centerY, centerZ);
-  state.controls.update();
+  applyZUpOrbit(state);
 }
 
 /**
@@ -121,8 +120,7 @@ export function recenterCameraToOrigin(state, distance = 1000) {
   if (!state.camera || !state.controls) return;
   state.controls.target.set(0, 0, 0);
   state.camera.position.set(distance, distance, distance);
-  state.camera.lookAt(0, 0, 0);
-  state.controls.update();
+  applyZUpOrbit(state);
 }
 
 /**
@@ -132,11 +130,11 @@ export function recenterCameraToOrigin(state, distance = 1000) {
  */
 export function lookDown(state, distance = 2000) {
   if (!state.camera || !state.controls) return;
+  const safeDistance = Number.isFinite(distance) && distance > 0 ? distance : 2000;
+  const nudge = Math.max(safeDistance * 0.001, 1);
   state.controls.target.set(0, 0, 0);
-  state.camera.position.set(0, 0, distance);
-  state.camera.up.set(0, 1, 0);
-  state.camera.lookAt(0, 0, 0);
-  state.controls.update();
+  state.camera.position.set(nudge, 0, safeDistance);
+  applyZUpOrbit(state);
 }
 
 /**
@@ -188,8 +186,7 @@ export function focusOnLastBounds(state, padding = 1.2) {
   const distance = maxDim * 2;
   state.controls.target.set(centerX, centerY, centerZ);
   state.camera.position.set(centerX + distance, centerY + distance, centerZ + distance);
-  state.camera.lookAt(centerX, centerY, centerZ);
-  state.controls.update();
+  applyZUpOrbit(state);
 }
 
 /** Minimum and maximum permitted camera FOV in degrees. */
@@ -242,7 +239,26 @@ export function setControlMode(state, mode = 'orbit') {
       state.camera.getWorldDirection(state._tmpDir);
       const target = state.camera.position.clone().addScaledVector(state._tmpDir, 10);
       state.controls.target.copy(target);
-      state.controls.update();
+      applyZUpOrbit(state);
     }
   }
+}
+
+function applyZUpOrbit(state) {
+  if (!state.camera || !state.controls) return false;
+  const target = state.controls.target;
+  nudgeOffZPole(state, target);
+  state.camera.up.set(Z_UP.x, Z_UP.y, Z_UP.z);
+  state.camera.lookAt(target.x, target.y, target.z);
+  state.controls.update();
+  return true;
+}
+
+function nudgeOffZPole(state, target) {
+  const offset = state.camera.position.clone().sub(target);
+  const distance = offset.length();
+  if (!Number.isFinite(distance) || distance <= 0) return;
+  const alignment = Math.abs(offset.normalize().dot(Z_UP));
+  if (alignment <= POLE_ALIGNMENT_LIMIT) return;
+  state.camera.position.x += Math.max(distance * 0.001, 1);
 }

@@ -100,8 +100,9 @@ function Drillhole() {
     const allValues = Object.values(selectedAssayIntervalsByHole)
       .flatMap((ivs) => ivs.map((iv) => Number(iv.value)))
       .filter(Number.isFinite);
-    const valueMin = allValues.length ? Math.min(...allValues) : null;
-    const valueMax = allValues.length ? Math.max(...allValues) : null;
+    const valueRange = finiteValueRange(allValues);
+    const valueMin = valueRange?.min ?? null;
+    const valueMax = valueRange?.max ?? null;
     const color = commodityColorForVariable(colorByVariable);
     const logs = holes.flatMap((hole) => {
       const key = normalizeHoleKey(hole.id);
@@ -662,6 +663,19 @@ function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALETTE_10)
 
 function normalizeHoleKey(value) {
   return `${value ?? ''}`.trim().toLowerCase();
+}
+
+function finiteValueRange(values) {
+  let min = Infinity;
+  let max = -Infinity;
+  let count = 0;
+  for (const value of values || []) {
+    if (!Number.isFinite(value)) continue;
+    if (value < min) min = value;
+    if (value > max) max = value;
+    count += 1;
+  }
+  return count ? { min, max } : null;
 }
 
 function buildCategoryIntervalsByHole(holes, variable) {

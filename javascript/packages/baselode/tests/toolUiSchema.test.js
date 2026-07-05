@@ -57,6 +57,26 @@ describe('Tool UI serializable schemas', () => {
     expect(parsed.deriveMetaFromRows).toBe(true);
   });
 
+  it('accepts the graded, multi-assay, and colour-by track options', () => {
+    const parsed = safeParseSerializableBaselodeStripLog({
+      id: 'strip-log-BLDD001',
+      hole: {
+        id: 'BLDD001',
+        points: [{ from: 0, to: 12, au_ppm: 0.11, cu_ppm: 40, lithology: 'SAP' }],
+      },
+      tracks: [
+        { property: 'au_ppm', chartType: 'colored-line' },
+        { property: 'au_ppm', chartType: 'markers+line', colorBy: 'lithology' },
+        { property: 'au_ppm', chartType: 'multi-stacked', multiProps: ['au_ppm', 'cu_ppm'] },
+      ],
+    });
+
+    expect(parsed).not.toBeNull();
+    expect(parsed.tracks[0].chartType).toBe('colored-line');
+    expect(parsed.tracks[1].colorBy).toBe('lithology');
+    expect(parsed.tracks[2].multiProps).toEqual(['au_ppm', 'cu_ppm']);
+  });
+
   it('rejects invalid strip-log payloads', () => {
     expect(safeParseSerializableBaselodeStripLog({
       id: 'strip-log-BLDD001',

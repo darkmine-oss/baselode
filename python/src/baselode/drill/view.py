@@ -32,7 +32,16 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from baselode.datamodel import MID, AZIMUTH, DIP, HOLE_ID, DEPTH, COMMENTS, NORTHING, EASTING
-from baselode.colours import get_colour, resolve_colour_map, commodity_colour_for_property
+from baselode.colours import (
+    get_colour,
+    resolve_colour_map,
+    commodity_colour_for_property,
+    ASSAY_COLOR_PALETTE_10,
+    MULTI_SERIES_COLORWAY,
+    build_plotly_colorscale,
+    series_colour,
+    with_alpha,
+)
 from baselode.template import BASELODE_TEMPLATE_NAME
 
 
@@ -54,13 +63,23 @@ def _apply_striplog_defaults(fig, template=None):
     The ``template`` argument defaults to the Baselode template. Pass a
     different Plotly template name or object to override the visual style.
     """
-    fig.update_layout(
+    updates = dict(
         template=template if template is not None else BASELODE_TEMPLATE_NAME,
-        margin=STRIPLOG_COMPACT_MARGIN,
         autosize=True,
         height=None,
         width=None,
+        # Strip logs read down-hole, so hover horizontally along depth: a spike
+        # line at the hovered depth and a single unified box listing every
+        # trace's value there. Depth is the shared Y axis, hence unify on Y.
+        hovermode="y unified",
     )
+    # Respect an explicit margin (e.g. a widened right gutter for a colour bar);
+    # otherwise fall back to the compact strip-log default. Only pass `margin`
+    # when unset — `update_layout(margin=None)` would clear an existing one.
+    margin = fig.layout.margin
+    if not any(v is not None for v in (margin.l, margin.r, margin.t, margin.b)):
+        updates["margin"] = STRIPLOG_COMPACT_MARGIN
+    fig.update_layout(**updates)
     fig.update_xaxes(
         tickfont=dict(size=STRIPLOG_AXIS_TICK_FONT_SIZE),
         title_font=dict(size=STRIPLOG_AXIS_TITLE_FONT_SIZE),
@@ -136,19 +155,232 @@ def compute_interval_points(df,
     return out.sort_values("z", ascending=False).reset_index(drop=True)
 
 
-def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color="#8b1e3f", intervals=True, template=None):
-    """Plot numeric assay intervals with mid-depth markers and optional interval extent markers.
+def _numeric_layout(value_col, extra_xaxis=None):
+    """Shared numeric strip-log layout (depth axis reversed, value axis titled)."""
+    xaxis = dict(title=value_col, zeroline=False)
+    if extra_xaxis:
+        xaxis.update(extra_xaxis)
+    return go.Layout(
+        xaxis=xaxis,
+        yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
+        barmode="overlay",
+        showlegend=False,
+    )
+
+
+def _normalize_segments(segments):
+    """Return categorical colour-by segments as a list of ``{from, to, val}`` dicts.
+
+    Accepts a DataFrame (``from_val``/``to_val``/``val`` or ``from``/``to``/``val``)
+    or an iterable of dicts. Blank / nan categories and inverted intervals are
+    dropped; the result is sorted shallow → deep.
+    """
+    rows = []
+    if isinstance(segments, pd.DataFrame):
+        from_col = "from_val" if "from_val" in segments.columns else "from"
+        to_col = "to_val" if "to_val" in segments.columns else "to"
+        iterable = (
+            {"from": r[from_col], "to": r[to_col], "val": r["val"]}
+            for _, r in segments.iterrows()
+        )
+    else:
+        iterable = (
+            {"from": s.get("from", s.get("from_val")), "to": s.get("to", s.get("to_val")), "val": s.get("val")}
+            for s in (segments or [])
+        )
+    for seg in iterable:
+        try:
+            f_num = float(seg["from"])
+            t_num = float(seg["to"])
+        except (TypeError, ValueError):
+            continue
+        if not (t_num >= f_num):
+            continue
+        label = str(seg["val"]).strip() if seg["val"] is not None else ""
+        if label == "" or label.lower() in ("nan", "null", "none"):
+            continue
+        rows.append({"from": f_num, "to": t_num, "val": label})
+    rows.sort(key=lambda s: s["from"])
+    return rows
+
+
+def assign_categories_by_depth(points_df, segments):
+    """Assign each numeric interval point the category covering its mid-depth.
+
+    Parameters
+    ----------
+    points_df : pd.DataFrame
+        Numeric interval points (with ``z`` mid-depth, ``from_val``, ``to_val``).
+    segments : pd.DataFrame or list of dict
+        Categorical interval rows (e.g. lithology). See :func:`_normalize_segments`.
+
+    Returns
+    -------
+    list
+        Category per point (``None`` where no segment contains the mid-depth),
+        index-aligned with *points_df*.
+    """
+    safe = _normalize_segments(segments)
+    categories = []
+    for _, point in points_df.iterrows():
+        depth = point["z"]
+        if depth is None or (isinstance(depth, float) and math.isnan(depth)):
+            depth = 0.5 * (point["from_val"] + point["to_val"])
+        hit = next((s["val"] for s in safe if s["from"] <= depth <= s["to"]), None)
+        categories.append(hit)
+    return categories
+
+
+def _build_graded_line(interval_df, value_col, template):
+    """Graded (value-coloured) line: a neutral connecting line with markers
+    coloured by the assay value on the magma ramp, plus a slim colour bar."""
+    vals = interval_df["val"]
+    trace = go.Scatter(
+        x=vals,
+        y=interval_df["z"],
+        mode="lines+markers",
+        line=dict(color="rgba(136,136,136,0.45)", width=1),
+        marker=dict(
+            size=8,
+            color=vals,
+            colorscale=build_plotly_colorscale(ASSAY_COLOR_PALETTE_10),
+            cmin=float(vals.min()),
+            cmax=float(vals.max()),
+            showscale=True,
+            colorbar=dict(thickness=8, len=0.92, x=1.02, xanchor="left", tickfont=dict(size=9)),
+        ),
+        customdata=interval_df[["from_val", "to_val"]],
+        hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+    )
+    layout = _numeric_layout(value_col)
+    # Widen the right gutter so the colour bar sits outside the plot area.
+    layout.margin = dict(l=4, r=30, t=4, b=4)
+    fig = go.Figure(data=[trace], layout=layout)
+    return _apply_striplog_defaults(fig, template=template)
+
+
+def _build_category_coloured_numeric(interval_df, value_col, chart_type, color_by, template):
+    """Colour a numeric track by a separate categorical column: one trace per
+    category (legend), coloured markers or horizontal bars, with a neutral
+    connecting line under line-bearing chart types."""
+    categories = assign_categories_by_depth(interval_df, color_by.get("segments"))
+    resolved_cmap = resolve_colour_map(color_by.get("colour_map"))
+    colour_by_label = color_by.get("label") or color_by.get("property") or "category"
+    unique_cats = list(dict.fromkeys(c for c in categories if c is not None))
+
+    def _colour_for(cat, idx):
+        if resolved_cmap:
+            mapped = get_colour(cat, resolved_cmap, fallback=None)
+            if mapped is not None:
+                return mapped
+        return MULTI_SERIES_COLORWAY[idx % len(MULTI_SERIES_COLORWAY)]
+
+    colour_for_cat = {cat: _colour_for(cat, idx) for idx, cat in enumerate(unique_cats)}
+    uncategorised = "#9ca3af"
+
+    is_bar = chart_type == "bar"
+    is_line = chart_type == "line"
+    froms = interval_df["from_val"].tolist()
+    tos = interval_df["to_val"].tolist()
+    vals = interval_df["val"].tolist()
+    zs = interval_df["z"].tolist()
+
+    def _name(cat):
+        return "Uncategorised" if cat is None else cat
+
+    def _colour(cat):
+        return uncategorised if cat is None else colour_for_cat[cat]
+
+    hovertemplate = (
+        f"{value_col}: %{{x}}<br>{colour_by_label}: %{{customdata[2]}}<br>"
+        f"from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>"
+    )
+    all_customdata = [
+        [min(froms[i], tos[i]), max(froms[i], tos[i]), c if c is not None else "—"]
+        for i, c in enumerate(categories)
+    ]
+
+    data = []
+    if is_line:
+        # "Line only": colour the line itself by category. One segment per
+        # consecutive category run (no markers), each bridged to the next point
+        # so the downhole line stays continuous across category boundaries.
+        seen_legend = set()
+        start = 0
+        n = len(categories)
+        while start < n:
+            end = start
+            while end + 1 < n and categories[end + 1] == categories[start]:
+                end += 1
+            run = list(range(start, end + 1))
+            if end + 1 < n:
+                run.append(end + 1)  # bridge to the next run
+            name = _name(categories[start])
+            show = name not in seen_legend
+            seen_legend.add(name)
+            data.append(go.Scatter(
+                x=[vals[i] for i in run], y=[zs[i] for i in run],
+                mode="lines", line=dict(color=_colour(categories[start]), width=2),
+                name=name, legendgroup=name, showlegend=show,
+                customdata=[all_customdata[i] for i in run], hovertemplate=hovertemplate,
+            ))
+            start = end + 1
+    else:
+        if chart_type == "markers+line":
+            # A neutral connecting line keeps the downhole trend readable across
+            # category changes (markers+line only; markers/bar draw none).
+            data.append(go.Scatter(
+                x=vals, y=zs, mode="lines",
+                line=dict(color="rgba(136,136,136,0.5)", width=1.5),
+                hoverinfo="skip", showlegend=False,
+            ))
+        for cat in [*unique_cats, None]:
+            idxs = [i for i, c in enumerate(categories) if c == cat]
+            if not idxs:
+                continue
+            common = dict(
+                x=[vals[i] for i in idxs], y=[zs[i] for i in idxs],
+                name=_name(cat), showlegend=True,
+                customdata=[all_customdata[i] for i in idxs], hovertemplate=hovertemplate,
+            )
+            if is_bar:
+                data.append(go.Bar(
+                    orientation="h",
+                    width=[max(abs(tos[i] - froms[i]), 0.01) for i in idxs],
+                    marker=dict(color=_colour(cat)), **common,
+                ))
+            else:
+                data.append(go.Scatter(
+                    mode="markers", marker=dict(size=8, color=_colour(cat)), **common,
+                ))
+
+    layout = _numeric_layout(value_col)
+    layout.showlegend = True
+    layout.legend = dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(size=9))
+    fig = go.Figure(data=data, layout=layout)
+    return _apply_striplog_defaults(fig, template=template)
+
+
+def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color="#8b1e3f",
+                       intervals=True, template=None, color_by=None):
+    """Plot numeric assay intervals with mid-depth markers and interval extent.
 
     chart_type options:
-    - "bar": horizontal bars
+    - "bar": horizontal bars, each sized to its own interval (thickness = to-from)
     - "markers": markers with error bars
     - "markers+line": markers + line with error bars (default)
     - "line": line only (no error bars)
+    - "colored-line": graded line coloured by value on the magma ramp + colour bar
+
+    color_by : dict, optional
+        Colour the track by a separate categorical column instead of by value.
+        ``{"property"/"label": str, "segments": DataFrame|list, "colour_map": ...}``
+        where *segments* are categorical interval rows (from/to/val).
 
     intervals : bool, optional
-        When True (default) draw error-bar style markers that show the depth extent
-        of each sample interval (from/to range). Set to False to show point markers
-        only, without interval extent indicators.
+        When True (default) draw error-bar markers showing each interval's depth
+        extent for the marker/line chart types. The ``bar`` type shows extent via
+        the bar thickness instead, so it never draws error bars.
 
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
@@ -157,6 +389,11 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     """
     if interval_df.empty:
         return go.Figure()
+
+    if color_by and len(_normalize_segments(color_by.get("segments"))):
+        return _build_category_coloured_numeric(interval_df, value_col, chart_type, color_by, template)
+    if chart_type == "colored-line":
+        return _build_graded_line(interval_df, value_col, template)
 
     is_bar = chart_type == "bar"
     is_markers = chart_type == "markers"
@@ -180,10 +417,12 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     )
 
     if is_bar:
+        # Each bar spans its own down-hole interval (thickness = to-from), so the
+        # interval extent is shown by the bar itself — no error bars.
         trace = go.Bar(
             orientation="h",
+            width=(interval_df["to_val"] - interval_df["from_val"]).abs().clip(lower=0.01),
             marker=dict(color=color),
-            error_y=error_config,
             **trace_common,
         )
     else:
@@ -196,13 +435,121 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
             **trace_common,
         )
 
-    layout = go.Layout(
-        xaxis=dict(title=value_col, zeroline=False),
-        yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
-        showlegend=False,
-    )
+    fig = go.Figure(data=[trace], layout=_numeric_layout(value_col))
+    return _apply_striplog_defaults(fig, template=template)
 
-    fig = go.Figure(data=[trace], layout=layout)
+
+def _align_series_to_common_depths(series):
+    """Align several assay series onto a shared depth grid (the union of every
+    series' intervals, keyed by from/to).
+
+    Assays are sampled on the same intervals but individual cells may be blank,
+    so each series carries a different subset of points. Filling every series
+    across the full grid (missing cells → 0, as below-detection is treated) keeps
+    the rows aligned so a stacked area/bar hover always resolves. Ordered
+    deep → shallow, matching :func:`compute_interval_points`.
+    """
+    grid = {}
+    for entry in series:
+        for _, point in entry["points"].iterrows():
+            key = (point["from_val"], point["to_val"])
+            if key not in grid:
+                grid[key] = {"z": point["z"], "from_val": point["from_val"], "to_val": point["to_val"]}
+    ordered = sorted(grid.values(), key=lambda cell: cell["z"], reverse=True)
+
+    aligned = []
+    for entry in series:
+        by_key = {
+            (point["from_val"], point["to_val"]): point
+            for _, point in entry["points"].iterrows()
+        }
+        rows = []
+        for cell in ordered:
+            hit = by_key.get((cell["from_val"], cell["to_val"]))
+            if hit is not None:
+                rows.append({"z": hit["z"], "val": hit["val"], "from_val": hit["from_val"], "to_val": hit["to_val"]})
+            else:
+                rows.append({"z": cell["z"], "val": 0, "from_val": cell["from_val"], "to_val": cell["to_val"]})
+        aligned.append({**entry, "points": pd.DataFrame(rows)})
+    return aligned
+
+
+def plot_multi_assay_trace(series, mode="multi-line", template=None):
+    """Plot several numeric assays in one track.
+
+    Two modes:
+    - ``"multi-line"`` (default): a stacked area per assay (Plotly ``stackgroup``),
+      plotting raw values; below-detection sentinels (negative) are floored at 0.
+    - ``"multi-stacked"``: horizontal bars per interval, stacked across assays
+      (``barmode='stack'``), so each interval shows the assays' additive contribution.
+
+    Parameters
+    ----------
+    series : list of dict
+        One entry per assay: ``{"property": str, "points": DataFrame, "color": optional}``
+        where *points* is the output of :func:`compute_interval_points`.
+    mode : str, optional
+        ``"multi-line"`` or ``"multi-stacked"``.
+    template : str or plotly template, optional
+
+    Returns a plotly.graph_objects.Figure.
+    """
+    usable = [
+        s for s in (series or [])
+        if s and s.get("property") and isinstance(s.get("points"), pd.DataFrame) and not s["points"].empty
+    ]
+    if not usable:
+        return go.Figure()
+
+    stacked = mode == "multi-stacked"
+    aligned = _align_series_to_common_depths(usable)
+
+    data = []
+    for idx, entry in enumerate(aligned):
+        points = entry["points"]
+        colour = entry.get("color") or series_colour(entry["property"], idx)
+        name = entry["property"]
+        vals = points["val"].astype(float)
+        floored = vals.clip(lower=0)
+        # [trueValue, fromDepth, toDepth] — hover reports the true reported value.
+        customdata = [
+            [v, min(f, t), max(f, t)]
+            for v, f, t in zip(points["val"], points["from_val"], points["to_val"])
+        ]
+        # Depth-unified hover: the shared depth is the box header, so each row
+        # only needs its label + value.
+        hovertemplate = f"{name}: %{{customdata[0]:.4~r}}<extra></extra>"
+        if stacked:
+            data.append(go.Bar(
+                orientation="h",
+                x=floored,
+                y=points["z"],
+                width=(points["to_val"] - points["from_val"]).abs().clip(lower=0.01),
+                marker=dict(color=colour),
+                name=name, showlegend=True,
+                customdata=customdata, hovertemplate=hovertemplate,
+            ))
+        else:
+            data.append(go.Scatter(
+                mode="lines",
+                stackgroup="assays",
+                orientation="h",
+                x=floored,
+                y=points["z"],
+                line=dict(color=colour, width=1.5),
+                fillcolor=with_alpha(colour, 0.5),
+                name=name, showlegend=True,
+                customdata=customdata, hovertemplate=hovertemplate,
+            ))
+
+    layout = go.Layout(
+        xaxis=dict(title="Value (stacked)", zeroline=False),
+        yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
+        barmode="stack" if stacked else "overlay",
+        showlegend=True,
+        legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(size=9)),
+    )
+    fig = go.Figure(data=data, layout=layout)
     return _apply_striplog_defaults(fig, template=template)
 
 
@@ -302,6 +649,34 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
     return _apply_striplog_defaults(fig, template=template)
 
 
+def plot_multi_assay(df, value_cols, mode="multi-line", template=None):
+    """Plot several numeric assays from one drillhole in a single stacked track.
+
+    Convenience wrapper over :func:`plot_multi_assay_trace` that builds an
+    interval series per column from *df*.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Assay rows for a single hole.
+    value_cols : iterable of str
+        Numeric columns to plot together.
+    mode : str, optional
+        ``"multi-line"`` (stacked areas) or ``"multi-stacked"`` (stacked bars).
+    template : str or plotly template, optional
+
+    Returns a plotly.graph_objects.Figure.
+    """
+    series = []
+    for col in value_cols or []:
+        if col not in df.columns:
+            continue
+        points = compute_interval_points(df, col)
+        if not points.empty:
+            series.append({"property": col, "points": points})
+    return plot_multi_assay_trace(series, mode=mode, template=template)
+
+
 def plot_drillhole_trace(df,
     value_col,
     chart_type=None,
@@ -311,25 +686,37 @@ def plot_drillhole_trace(df,
     use_mid=False,
     intervals=True,
     colour_map=None,
+    color_by=None,
+    multi_props=None,
     template=None):
     """
     Plot a 2D downhole trace or strip log for a single drillhole, for a single variable.
 
-    chart_type: override to one of {"categorical", "bar", "markers", "markers+line", "line"}.
-    If omitted, we infer categorical if value_col in categorical_props, else numeric_chart.
+    chart_type: override to one of {"categorical", "bar", "markers", "markers+line",
+    "line", "colored-line", "multi-line", "multi-stacked"}. If omitted, we infer
+    categorical if value_col in categorical_props, else numeric_chart.
 
     intervals : bool, optional
         When True (default) draw error-bar style markers showing the depth extent of each
         sample interval (from/to range). Set to False for point markers only.
     colour_map : dict or str or None, optional
-        Semantic colour map for categorical traces. Passed through to
-        :func:`plot_categorical_trace`. Has no effect on numeric traces.
+        Semantic colour map for categorical traces and for the ``color_by`` legend.
+    color_by : str, optional
+        A separate categorical column to colour a numeric track by (joined per
+        interval at its mid-depth). Ignored for categorical / multi-assay charts.
+    multi_props : iterable of str, optional
+        Extra numeric columns to plot alongside *value_col* for the ``multi-line``
+        / ``multi-stacked`` chart types. Defaults to just *value_col*.
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
     """
     categorical_props = set(categorical_props or [])
     is_cat = value_col in categorical_props
     resolved_chart = chart_type or ("categorical" if is_cat else numeric_chart)
+
+    if resolved_chart in ("multi-line", "multi-stacked"):
+        cols = list(dict.fromkeys([value_col, *(multi_props or [])]))
+        return plot_multi_assay(df, cols, mode=resolved_chart, template=template)
 
     if use_mid:
         if MID not in df.columns:
@@ -349,7 +736,15 @@ def plot_drillhole_trace(df,
     if is_cat or resolved_chart == "categorical":
         return plot_categorical_trace(interval_df, value_col, colour_map=colour_map, template=template)
     resolved_color = color or commodity_colour_for_property(value_col) or "#8b1e3f"
-    return plot_numeric_trace(interval_df, value_col, chart_type=resolved_chart, color=resolved_color, intervals=intervals, template=template)
+    resolved_color_by = None
+    if color_by and color_by in df.columns:
+        segments = compute_interval_points(df, color_by)
+        if not segments.empty:
+            resolved_color_by = {"property": color_by, "segments": segments, "colour_map": colour_map}
+    return plot_numeric_trace(
+        interval_df, value_col, chart_type=resolved_chart, color=resolved_color,
+        intervals=intervals, template=template, color_by=resolved_color_by,
+    )
 
 
 def combine_trace_configs(configs, df, categorical_props=None):

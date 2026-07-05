@@ -140,6 +140,7 @@ function applyDepthRange(layout, depthRange) {
 function StripLogTrack({
   hole,
   track,
+  classified,
   propertyMeta,
   height,
   template,
@@ -150,28 +151,60 @@ function StripLogTrack({
   onDepthRangeChange,
 }) {
   const ref = useRef(null);
-  const isCategorical = track.displayType === DISPLAY_CATEGORICAL || track.chartType === 'categorical';
+  const chartType = track.chartType || (track.displayType === DISPLAY_CATEGORICAL ? 'categorical' : 'markers+line');
+  const isMulti = chartType === 'multi-line' || chartType === 'multi-stacked';
+  const isCategorical = track.displayType === DISPLAY_CATEGORICAL || chartType === 'categorical';
   const meta = propertyMeta?.[track.property];
   const trackLabel = formatPropertyLabel(track.label || track.property, meta);
+  const numericCols = classified?.numericCols || [];
+  const categoricalCols = classified?.categoricalCols || [];
   const points = useMemo(
     () => buildIntervalPoints(hole, track.property, isCategorical),
     [hole, isCategorical, track.property]
   );
+
+  // Multi-assay: one numeric series per selected column, seeded from the track
+  // property + other numeric columns when `multiProps` is not supplied.
+  const series = useMemo(() => {
+    if (!isMulti) return null;
+    const requested = Array.isArray(track.multiProps)
+      ? track.multiProps.filter((property) => numericCols.includes(property))
+      : [];
+    const seed = numericCols.includes(track.property) ? [track.property] : [];
+    const properties = requested.length ? requested : [...new Set([...seed, ...numericCols])].slice(0, 3);
+    return properties
+      .map((property) => ({ property, points: buildIntervalPoints(hole, property, false) }))
+      .filter((entry) => entry.points.length);
+  }, [hole, isMulti, numericCols, track.multiProps, track.property]);
+
+  // Colour-by: join the numeric track to a separate categorical column's
+  // intervals at their mid-depths. Only for single numeric tracks.
+  const colorBy = useMemo(() => {
+    if (isMulti || isCategorical) return null;
+    const column = track.colorBy && categoricalCols.includes(track.colorBy) ? track.colorBy : '';
+    if (!column) return null;
+    const segments = buildIntervalPoints(hole, column, true);
+    return segments.length ? { property: column, segments } : null;
+  }, [hole, isMulti, isCategorical, categoricalCols, track.colorBy]);
+
   const plotConfig = useMemo(() => {
     const nextConfig = buildPlotConfig({
       points,
       isCategorical,
       property: track.label || track.property,
-      chartType: track.chartType || (isCategorical ? 'categorical' : 'markers+line'),
+      chartType,
       colourMap: track.colourMap,
       template: resolveTemplate(template),
       meta,
+      colorBy,
+      series,
+      metaByProperty: propertyMeta,
     });
     return {
       data: nextConfig.data,
       layout: applyDepthRange(nextConfig.layout, depthRange),
     };
-  }, [depthRange, isCategorical, meta, points, template, track.chartType, track.colourMap, track.label, track.property]);
+  }, [chartType, colorBy, depthRange, isCategorical, meta, points, propertyMeta, series, template, track.colourMap, track.label, track.property]);
   const legendItems = useMemo(
     () => (track.showLegend && isCategorical ? getLegendItems(plotConfig.data) : []),
     [isCategorical, plotConfig.data, track.showLegend]
@@ -193,13 +226,19 @@ function StripLogTrack({
     const handleClick = (event) => {
       const point = event?.points?.[0];
       if (!point || !onIntervalClick) return;
-      const bounds = Array.isArray(point.customdata) ? point.customdata : [];
+      const cd = Array.isArray(point.customdata) ? point.customdata : [];
+      // Multi-assay traces store customdata as [trueValue, from, to] (one series
+      // per assay); every other track stores [from, to, ...]. Read from/to and
+      // the reported value accordingly, and report the clicked assay's property.
+      const from = isMulti ? cd[1] : cd[0];
+      const to = isMulti ? cd[2] : cd[1];
+      const value = isMulti ? cd[0] : (isCategorical ? point.data?.name : point.x);
       onIntervalClick({
         trackId: track.id || track.property,
-        property: track.property,
-        value: isCategorical ? point.data?.name : point.x,
-        from: Number(bounds[0]),
-        to: Number(bounds[1]),
+        property: isMulti ? (point.data?.name || track.property) : track.property,
+        value,
+        from: Number(from),
+        to: Number(to),
         pointIndex: point.pointIndex,
       });
     };
@@ -253,6 +292,7 @@ function StripLogTrack({
     track.property,
     trackLabel,
     isCategorical,
+    isMulti,
   ]);
 
   return (
@@ -461,6 +501,7 @@ export function BaselodeStripLogToolUI({
             key={track.id || track.property}
             hole={hole}
             track={track}
+            classified={classified}
             propertyMeta={resolvedPropertyMeta}
             height={height}
             template={template}

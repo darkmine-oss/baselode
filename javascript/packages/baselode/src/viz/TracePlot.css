@@ -55,6 +55,34 @@
   min-width: 0;
 }
 
+/* Colour-by select fills its own row, like the hole/field rows. */
+.plot-card__row--colorby .plot-select {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 100%;
+}
+
+/* For multi-assay chart types the property slot is a multi-select list
+   box. Keep the chart-type select beside it anchored to the top rather
+   than stretched to the list box's height. */
+.plot-card__row--split-multi {
+  align-items: flex-start;
+}
+
+/* The multi-select list box shows a few rows and scrolls internally when
+   there are more numeric columns than fit — it must never grow to fit
+   every option (that clipped the picker and hid the scroll). Needs higher
+   specificity than the `.plot-card .plot-select` ellipsis rule below,
+   whose `overflow: hidden` / `white-space: nowrap` would otherwise clip
+   the list box and defeat the scroll. */
+.plot-card .plot-select.plot-select--multi {
+  height: auto;
+  max-height: 8rem;
+  overflow: hidden auto;
+  white-space: normal;
+  text-overflow: clip;
+}
+
 .plot-card__body {
   flex: 1;
   min-height: 0;
