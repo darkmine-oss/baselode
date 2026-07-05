@@ -289,6 +289,7 @@ function TracePlot({
           series: multiSeries,
           metaByProperty: propertyMeta,
           logScale: config?.logScale === true,
+          patternMap: config?.usePatterns === true ? 'lithology' : config?.patternMap ?? null,
         });
       }
     } catch (err) {
@@ -343,6 +344,8 @@ function TracePlot({
     propertyMeta,
     template,
     config?.logScale,
+    config?.usePatterns,
+    config?.patternMap,
     plotSize.width,
     plotSize.height,
   ]);
