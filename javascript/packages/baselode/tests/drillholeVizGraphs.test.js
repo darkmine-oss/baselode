@@ -193,8 +193,26 @@ describe('buildMultiAssayConfig', () => {
     expect(data[0].hovertemplate).not.toContain('from:');
     // The element label must precede the value — in unified mode `<extra>` hides
     // the trace name, so relying on colour alone would leave the row unlabelled.
-    expect(data[0].hovertemplate).toMatch(/\S+: %\{customdata\[0\]\}/);
-    expect(data[0].hovertemplate).not.toMatch(/^%\{customdata\[0\]\}/);
+    expect(data[0].hovertemplate).toMatch(/\S+: %\{customdata\[0\]:/);
+    expect(data[0].hovertemplate).not.toMatch(/^%\{customdata\[0\]/);
+    // Value is formatted (significant figures) to avoid float noise like
+    // 0.0020000000949949.
+    expect(data[0].hovertemplate).toContain('customdata[0]:.4~r');
+  });
+
+  it('aligns assays onto a shared depth grid so every hover row resolves', () => {
+    // As is present only at one depth; Au at all three. After alignment both
+    // series span the same grid, so no densified point is left without a value.
+    const sparse = [
+      { property: 'Au_ppm', points: numericPoints },
+      { property: 'As_ppm', points: [{ z: 15, val: 5, from: 10, to: 20 }] },
+    ];
+    const { data } = buildMultiAssayConfig({ series: sparse, mode: 'multi-line' });
+    expect(data[0].x).toHaveLength(3);
+    expect(data[1].x).toHaveLength(3);
+    // The two intervals As does not cover are filled with 0 (no gaps).
+    expect(data[1].x).toEqual([0, 5, 0]);
+    expect(data[1].customdata.every((cd) => Number.isFinite(cd[0]))).toBe(true);
   });
 
   it('stacks horizontal bars across assays', () => {

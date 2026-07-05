@@ -577,12 +577,40 @@ function buildNumericConfig(points, property, chartType, color, template, meta, 
 }
 
 /**
+ * Align several assay series onto a shared depth grid (the union of every
+ * series' intervals, keyed by from/to). Assays are sampled on the same
+ * intervals but individual cells may be blank, so each series carries a
+ * different subset of points; a stacked area/bar densifies onto the union of
+ * depths, and any densified point without a matching row loses its hover
+ * `customdata`. Filling every series across the full grid (missing cells → 0,
+ * which is also how below-detection is treated) keeps the arrays index-aligned
+ * so every hover row resolves.
+ * @private
+ * @param {Array<{property: string, points: Array<Object>}>} series
+ * @returns {Array<{property: string, points: Array<Object>}>} Series with points over the shared grid
+ */
+function alignSeriesToCommonDepths(series) {
+  const gridByKey = new Map();
+  series.forEach((s) => s.points.forEach((p) => {
+    const key = `${p.from}|${p.to}`;
+    if (!gridByKey.has(key)) gridByKey.set(key, { z: p.z, from: p.from, to: p.to });
+  }));
+  // Deep → shallow, matching the order buildIntervalPoints emits.
+  const grid = [...gridByKey.values()].sort((a, b) => b.z - a.z);
+  return series.map((s) => {
+    const byKey = new Map(s.points.map((p) => [`${p.from}|${p.to}`, p]));
+    const points = grid.map((cell) => byKey.get(`${cell.from}|${cell.to}`)
+      || { z: cell.z, from: cell.from, to: cell.to, val: 0 });
+    return { ...s, points };
+  });
+}
+
+/**
  * Build a Plotly config that plots several numeric assays in one track.
  *
  * Two modes:
- * - `'multi-line'` (default): one line per assay. Each assay is normalised to
- *   its own [min,max] so curves with different magnitudes are comparable on a
- *   shared 0–1 axis; the true value is preserved in the hover tooltip.
+ * - `'multi-line'` (default): a stacked area per assay (Plotly `stackgroup`),
+ *   plotting raw values; below-detection sentinels are floored at 0.
  * - `'multi-stacked'`: horizontal bars per interval, stacked across assays
  *   (`barmode:'stack'`), so each interval shows the assays' additive contribution.
  *
@@ -600,8 +628,10 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
   if (!usable.length) return { data: [], layout: {} };
 
   const stacked = mode === 'multi-stacked';
+  // Stack/densify onto a shared depth grid so every hover row has customdata.
+  const aligned = alignSeriesToCommonDepths(usable);
 
-  const data = usable.map((s, idx) => {
+  const data = aligned.map((s, idx) => {
     const meta = metaByProperty?.[s.property];
     const hover = buildHoverParts(s.property, meta);
     const colour = s.color || seriesColour(s.property, idx);
@@ -628,7 +658,7 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
         // per-row from/to. Keep the element label in the body — in unified mode
         // `<extra></extra>` hides the trace name, so the label must be inline or
         // the row would show only a colour swatch and a bare value.
-        hovertemplate: `${hover.label}: %{customdata[0]}${hover.unitSuffix}<extra></extra>`,
+        hovertemplate: `${hover.label}: %{customdata[0]:.4~r}${hover.unitSuffix}<extra></extra>`,
       };
     }
 
@@ -653,7 +683,7 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
       // per-row from/to. Keep the element label in the body — in unified mode
       // `<extra></extra>` hides the trace name, so the label must be inline or
       // the row would show only a colour swatch and a bare value.
-      hovertemplate: `${hover.label}: %{customdata[0]}${hover.unitSuffix}<extra></extra>`,
+      hovertemplate: `${hover.label}: %{customdata[0]:.4~r}${hover.unitSuffix}<extra></extra>`,
     };
   });
 
