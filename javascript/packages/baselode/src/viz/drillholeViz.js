@@ -163,6 +163,10 @@ function applyStriplogLayoutDefaults(layout = {}) {
     // Respect an explicit margin (e.g. widened right gutter for a colour bar);
     // otherwise fall back to the compact strip-log default.
     margin: layout.margin || STRIPLOG_COMPACT_MARGIN,
+    // Strip logs read down-hole, so hover horizontally along depth: a spike line
+    // at the hovered depth and a single unified box listing every trace's value
+    // there. Depth is the shared Y axis, hence unify on Y.
+    hovermode: layout.hovermode || 'y unified',
     autosize: true,
     width: undefined,
     xaxis: {
@@ -618,7 +622,11 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
         showlegend: true,
         // [trueValue, fromDepth, toDepth] — hover shows the real reported value.
         customdata: s.points.map((p) => [p.val, Math.min(p.from, p.to), Math.max(p.from, p.to)]),
-        hovertemplate: `${hover.label}: %{customdata[0]}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[1]:.3f} to: %{customdata[2]:.3f}<extra></extra>`,
+        // Depth-unified hover: the shared depth is the box header, so drop the
+        // per-row from/to. Keep the element label in the body — in unified mode
+        // `<extra></extra>` hides the trace name, so the label must be inline or
+        // the row would show only a colour swatch and a bare value.
+        hovertemplate: `${hover.label}: %{customdata[0]}${hover.unitSuffix}<extra></extra>`,
       };
     }
 
@@ -639,7 +647,11 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
       showlegend: true,
       // [trueValue, fromDepth, toDepth] — hover shows the real reported value.
       customdata: s.points.map((p) => [p.val, Math.min(p.from, p.to), Math.max(p.from, p.to)]),
-      hovertemplate: `${hover.label}: %{customdata[0]}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[1]:.3f} to: %{customdata[2]:.3f}<extra></extra>`,
+      // Depth-unified hover: the shared depth is the box header, so drop the
+      // per-row from/to. Keep the element label in the body — in unified mode
+      // `<extra></extra>` hides the trace name, so the label must be inline or
+      // the row would show only a colour swatch and a bare value.
+      hovertemplate: `${hover.label}: %{customdata[0]}${hover.unitSuffix}<extra></extra>`,
     };
   });
 

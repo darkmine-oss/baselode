@@ -69,6 +69,22 @@ describe('assignCategoriesByDepth', () => {
   });
 });
 
+describe('strip-log hover', () => {
+  it('uses a depth-unified (horizontal) hover across single-property chart types', () => {
+    for (const chartType of ['markers+line', 'bar', 'line', 'colored-line']) {
+      const { layout } = buildPlotConfig({
+        points: numericPoints, isCategorical: false, property: 'Au', chartType,
+      });
+      expect(layout.hovermode).toBe('y unified');
+    }
+    // Categorical bands too.
+    const cat = buildPlotConfig({
+      points: [{ z: 5, val: 'SAP', from: 0, to: 10 }], isCategorical: true, property: 'geol', chartType: 'categorical',
+    });
+    expect(cat.layout.hovermode).toBe('y unified');
+  });
+});
+
 describe('buildPlotConfig — graded (colored-line) chart type', () => {
   it('colours markers by value with a continuous scale and colour bar', () => {
     const { data, layout } = buildPlotConfig({
@@ -149,6 +165,14 @@ describe('buildMultiAssayConfig', () => {
     expect(layout.showlegend).toBe(true);
     // Hover reports the raw value.
     expect(data[0].customdata[0][0]).toBe(40);
+    // Depth-unified hover: one horizontal box per depth (the shared depth is the
+    // box header, so the per-row template drops from/to).
+    expect(layout.hovermode).toBe('y unified');
+    expect(data[0].hovertemplate).not.toContain('from:');
+    // The element label must precede the value — in unified mode `<extra>` hides
+    // the trace name, so relying on colour alone would leave the row unlabelled.
+    expect(data[0].hovertemplate).toMatch(/\S+: %\{customdata\[0\]\}/);
+    expect(data[0].hovertemplate).not.toMatch(/^%\{customdata\[0\]\}/);
   });
 
   it('stacks horizontal bars across assays', () => {
@@ -156,6 +180,8 @@ describe('buildMultiAssayConfig', () => {
     expect(layout.barmode).toBe('stack');
     expect(data.every((t) => t.type === 'bar' && t.orientation === 'h')).toBe(true);
     expect(data[0].x).toEqual([40, 20, 5]);
+    // Depth-unified hover lists every assay's value at the hovered depth.
+    expect(layout.hovermode).toBe('y unified');
   });
 
   it('floors below-detection (negative) values at 0 but keeps the true value in hover', () => {
