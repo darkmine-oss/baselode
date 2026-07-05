@@ -1,0 +1,123 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+.striplog-gallery {
+  /* Sidebar is `position: absolute; width: 200px`, so reserve the gutter. */
+  padding: 16px 24px 32px 224px;
+  box-sizing: border-box;
+  max-width: 1620px;
+  margin: 0 auto;
+}
+
+.striplog-gallery__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.striplog-gallery__header h1 {
+  margin: 0 0 6px;
+  font-size: 1.5rem;
+}
+
+.striplog-gallery__header p {
+  margin: 0;
+  color: var(--text-muted, #475569);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.striplog-gallery__header code,
+.striplog-gallery__section code {
+  background: rgba(148, 163, 184, 0.15);
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.striplog-gallery__status {
+  padding: 8px 12px;
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.striplog-gallery__status--error {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.striplog-gallery__section {
+  margin-bottom: 26px;
+  min-width: 0;
+}
+
+.striplog-gallery__section h2 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+}
+
+.striplog-gallery__section > p {
+  margin: 0 0 10px;
+  color: var(--text-muted, #475569);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  max-width: 72ch;
+}
+
+/* Section-level control row shared by the panels beneath it — same look
+   as the library's per-panel `.baselode-plot-panel__controls` bar. */
+.striplog-gallery__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: end;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 6px;
+}
+
+.striplog-gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+
+.striplog-gallery__grid--wide {
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  margin-bottom: 26px;
+}
+
+.striplog-gallery__grid .baselode-plot-panel,
+.striplog-gallery__grid--wide .baselode-plot-panel {
+  margin-bottom: 0;
+  min-width: 0;
+}
+
+.striplog-gallery__grid--wide .striplog-gallery__section {
+  margin-bottom: 0;
+}
+
+.striplog-gallery--dark {
+  background-color: #1b1b1f;
+  color: #e2e8f0;
+  /* Re-theme the library panels via the CSS custom properties they
+     expose, keeping the dark toggle in sync with the Plotly dark
+     template chosen in JS. */
+  --baselode-panel-bg: #24252a;
+  --baselode-panel-fg: #e2e8f0;
+  --baselode-panel-border: 1px solid #34353b;
+  --baselode-panel-muted: #94a3b8;
+  --baselode-panel-controls-bg: rgba(148, 163, 184, 0.08);
+  --baselode-control-bg: #24252a;
+  --baselode-control-border: #34353b;
+}
+
+.striplog-gallery--dark .striplog-gallery__header p,
+.striplog-gallery--dark .striplog-gallery__section > p {
+  color: #94a3b8;
+}

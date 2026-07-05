@@ -101,3 +101,9 @@ export function loadDemoStructuralCsvText({
 } = {}) {
   return loadDemoCsvText({ url, label: 'demo structural' });
 }
+
+export function loadDemoGeophysicsCsvText({
+  url = '/data/gswa/gswa_sample_geophysics.csv'
+} = {}) {
+  return loadDemoCsvText({ url, label: 'demo geophysics' });
+}

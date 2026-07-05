@@ -2,10 +2,12 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  BaselodeStripLogGrid,
+  TracePlot,
+  useDrillholeTraceGrid,
+  LogToggle,
   BASELODE_DARK_TEMPLATE,
   BASELODE_TEMPLATE,
 } from 'baselode';
@@ -14,6 +16,17 @@ import './Drillhole2D.css';
 import { createPortal } from 'react-dom';
 import { useDemoData } from '../context/DemoDataContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
+import { loadDemoGeophysicsCsvText } from '../data/demoGswaData.js';
+import { parseGeophysicsIntervalHoles } from '../data/geophysicsHoles.js';
+
+const PLOT_COUNT = 4;
+
+// `config.logScale` is honoured by the single-series numeric chart types
+// only (buildPlotConfig ignores it for graded / heat / multi variants), so
+// the toggle is offered exactly where it has an effect.
+const LOG_SCALE_CHART_TYPES = new Set([
+  'bar', 'markers', 'markers+line', 'line', 'filled-line', 'step-line',
+]);
 
 // The demo GSWA assay columns encode the unit as a trailing token, e.g.
 // "Au_PPM". Split that into a clean label + unit so the strip-log axes and
@@ -54,8 +67,8 @@ function buildPropertyMeta(combinedHoles) {
     for (const row of points) {
       for (const key of Object.keys(row || {})) {
         if (key in map) continue;
-        const m = metaForProperty(key);
-        if (m) map[key] = m;
+        const meta = metaForProperty(key);
+        if (meta) map[key] = meta;
       }
     }
   }
@@ -67,9 +80,57 @@ function Drillhole2D() {
   const { combinedHoles } = useDemoData();
   const { theme } = useTheme();
   const template = theme === 'dark' ? BASELODE_DARK_TEMPLATE : BASELODE_TEMPLATE;
-  const holeCount = (combinedHoles || []).length;
 
-  const propertyMeta = useMemo(() => buildPropertyMeta(combinedHoles), [combinedHoles]);
+  // Geophysics probe logs (resistivity, gamma, density, mag-sus) join the
+  // grid as extra interval holes so their channels show up as ordinary
+  // numeric properties — the natural data for the log-scale toggle below.
+  const [geophysicsHoles, setGeophysicsHoles] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    loadDemoGeophysicsCsvText()
+      .then((csvText) => parseGeophysicsIntervalHoles(csvText))
+      .then((holes) => {
+        if (!cancelled) setGeophysicsHoles(holes);
+      })
+      .catch((err) => console.warn('Geophysics demo data load failed:', err.message));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const gridHoles = useMemo(
+    () => [...(combinedHoles || []), ...geophysicsHoles],
+    [combinedHoles, geophysicsHoles]
+  );
+  const holeCount = gridHoles.length;
+
+  const propertyMeta = useMemo(() => buildPropertyMeta(gridHoles), [gridHoles]);
+
+  const {
+    setFocusedHoleId,
+    labeledHoleOptions,
+    traceGraphs,
+    handleConfigChange,
+  } = useDrillholeTraceGrid({
+    initialFocusedHoleId: location.state?.holeId || '',
+    extraHoles: gridHoles,
+    plotCount: PLOT_COUNT,
+  });
+
+  // Push later initialHoleId changes (route nav, parent re-render)
+  // through to the hook.
+  useEffect(() => {
+    if (location.state?.holeId) setFocusedHoleId(location.state.holeId);
+  }, [location.state?.holeId, setFocusedHoleId]);
+
+  // Per-track log-scale state lives here (not in the hook's trace configs)
+  // because `useDrillholeTraceGrid` rebuilds each graph's config from its
+  // own fields — the page owns the toggle and folds it into the config
+  // passed to TracePlot.
+  const [trackLogScale, setTrackLogScale] = useState(() => Array(PLOT_COUNT).fill(false));
+  const [trackPatterns, setTrackPatterns] = useState(() => Array(PLOT_COUNT).fill(false));
+
+  const gridStyle = { gridTemplateColumns: `repeat(${PLOT_COUNT}, minmax(0, 1fr))` };
 
   return (
     <div className="drillhole2d-container">
@@ -77,14 +138,53 @@ function Drillhole2D() {
         <h2>Drillhole Strip Logs</h2>
       </div>
 
-      <BaselodeStripLogGrid
-        holes={combinedHoles}
-        initialHoleId={location.state?.holeId || ''}
-        plotCount={4}
-        propertyMeta={propertyMeta}
-        template={template}
-        className="drillhole2d-grid"
-      />
+      <div className="baselode-strip-log-grid drillhole2d-grid" style={gridStyle}>
+        {Array.from({ length: PLOT_COUNT }).map((_, trackIndex) => {
+          const graph = traceGraphs[trackIndex];
+          const chartType = graph?.config?.chartType || '';
+          const logScaleAvailable = graph?.displayType === 'numeric'
+            && LOG_SCALE_CHART_TYPES.has(chartType);
+          const patternsAvailable = graph?.displayType === 'categorical';
+          const config = {
+            ...(graph?.config || { holeId: '', property: '', chartType: 'markers+line' }),
+            logScale: logScaleAvailable && trackLogScale[trackIndex],
+            usePatterns: patternsAvailable && trackPatterns[trackIndex],
+          };
+          return (
+            <div className="drillhole2d-track" key={trackIndex}>
+              <TracePlot
+                config={config}
+                graph={graph}
+                holeOptions={labeledHoleOptions}
+                propertyOptions={graph?.propertyOptions || []}
+                propertyMeta={propertyMeta}
+                onConfigChange={(patch) => handleConfigChange(trackIndex, patch)}
+                template={template}
+              />
+              <div className="drillhole2d-track__footer">
+                {logScaleAvailable && (
+                  <LogToggle
+                    label="Log scale"
+                    value={trackLogScale[trackIndex]}
+                    onChange={(next) => setTrackLogScale((prev) => prev.map(
+                      (current, stateIndex) => (stateIndex === trackIndex ? next : current)
+                    ))}
+                  />
+                )}
+                {patternsAvailable && (
+                  <LogToggle
+                    label="Hatch patterns"
+                    value={trackPatterns[trackIndex]}
+                    onChange={(next) => setTrackPatterns((prev) => prev.map(
+                      (current, stateIndex) => (stateIndex === trackIndex ? next : current)
+                    ))}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       {(() => {
         const dataSourceTarget = typeof document !== 'undefined' ? document.getElementById('data-source-slot') : null;
@@ -92,7 +192,7 @@ function Drillhole2D() {
         const dataSourceInfo = (
           <div className="data-source-text">
             {holeCount > 0 && (
-              <div>demo_gswa ({holeCount} holes, assay + structural + geology)</div>
+              <div>demo_gswa ({holeCount} holes, assay + structural + geology + geophysics)</div>
             )}
           </div>
         );

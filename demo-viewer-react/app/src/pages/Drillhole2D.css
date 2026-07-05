@@ -114,6 +114,36 @@
   overflow-y: auto;
 }
 
+/* Each grid cell wraps a TracePlot plus a footer row holding the
+   log-scale toggle.  The wrapper flexes so the plot-card keeps
+   filling the cell and the footer keeps a fixed slot whether or not
+   the toggle renders (numeric single-series tracks only). */
+.drillhole2d-track {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  min-width: 0;
+}
+
+.drillhole2d-track .plot-card {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.drillhole2d-track__footer {
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+}
+
+:root.dark .baselode-log-toggle {
+  background: #24252a;
+  color: #94a3b8;
+  border-color: #34353b;
+}
+
 :root.dark .drillhole2d-container {
   background: #1b1b1f;
 }
