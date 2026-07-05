@@ -275,6 +275,25 @@ def test_two_curve_fill_interpolates_the_crossing_depth():
     assert all(depth == pytest.approx(4.0) for depth in boundary_depths)
 
 
+def test_two_curve_fill_interpolates_offset_grids_without_zero_fill():
+    """Curves sampled on different interval grids are linearly interpolated
+    onto the union of mid-depths — never zero-filled (which would fabricate
+    crossovers and bogus fill dominance)."""
+    offset_rows = pd.DataFrame([
+        {"from": 0, "to": 4, "density": 10.0},   # mid 2
+        {"from": 4, "to": 8, "density": 10.0},   # mid 6
+        {"from": 2, "to": 6, "neutron": 4.0},    # mid 4 — no density sample here
+    ])
+    fig = view.plot_two_curve_fill(offset_rows, "density", "neutron")
+    curves = {t.name: t for t in fig.data if t.showlegend}
+    density_by_depth = dict(zip(curves["density"].y, curves["density"].x))
+    # At neutron's mid-depth 4 density is interpolated (10.0), not 0.
+    assert density_by_depth[4.0] == pytest.approx(10.0)
+    # Constant 10 vs constant 4 never cross → a single dominance run.
+    fills = [t for t in fig.data if t.fill == "tonextx"]
+    assert len(fills) == 1
+
+
 def test_two_curve_fill_respects_colour_overrides_and_log_scale():
     fig = view.plot_two_curve_fill(
         TWO_CURVE_ROWS, "density", "neutron",

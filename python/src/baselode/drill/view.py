@@ -27,6 +27,7 @@ banded rectangles. All plots keep depth increasing downward.
 
 import math
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -657,6 +658,20 @@ def plot_multi_assay_trace(series, mode="multi-line", template=None):
     return _apply_striplog_defaults(fig, template=template)
 
 
+def _interpolate_series_at_depths(points_df, depths):
+    """Sample a series at the given depths by linear interpolation.
+
+    End-clamped: depths outside the series' span take the first/last value.
+    Mirrors the JS ``interpolateSeriesAtDepths`` helper — unlike
+    :func:`_align_series_to_common_depths`, missing cells are never
+    zero-filled (zero-fill is only correct for stacked multi-assay plots).
+    """
+    ordered = points_df.sort_values("z")
+    return np.interp(
+        depths, ordered["z"].astype(float), ordered["val"].astype(float)
+    ).tolist()
+
+
 def _split_fill_runs(depths, vals_a, vals_b):
     """Split two aligned curves into runs of constant A-vs-B dominance.
 
@@ -741,15 +756,13 @@ def plot_two_curve_fill(df, value_col_a, value_col_b, from_cols=None, to_cols=No
     if points_a.empty or points_b.empty:
         return go.Figure()
 
-    aligned = _align_series_to_common_depths([
-        {"property": value_col_a, "points": points_a},
-        {"property": value_col_b, "points": points_b},
-    ])
-    aligned_a = aligned[0]["points"]
-    aligned_b = aligned[1]["points"]
-    depths = aligned_a["z"].astype(float).tolist()
-    vals_a = aligned_a["val"].astype(float).tolist()
-    vals_b = aligned_b["val"].astype(float).tolist()
+    # Union of both series' mid-depths, each curve linearly interpolated onto
+    # it (end-clamped) — matching the JS implementation.
+    depths = sorted(
+        set(points_a["z"].astype(float)) | set(points_b["z"].astype(float))
+    )
+    vals_a = _interpolate_series_at_depths(points_a, depths)
+    vals_b = _interpolate_series_at_depths(points_b, depths)
 
     colour_a = color_a or commodity_colour_for_property(value_col_a) or MULTI_SERIES_COLORWAY[0]
     colour_b = color_b or commodity_colour_for_property(value_col_b) or MULTI_SERIES_COLORWAY[1]
