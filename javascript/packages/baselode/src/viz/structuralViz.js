@@ -515,14 +515,10 @@ export function buildDepthAnnotationsConfig({
   template = undefined,
 } = {}) {
   const records = rows
-    .map((row) => {
-      const raw = row?.[textKey];
-      const text = (raw != null && String(raw).trim() !== '' && String(raw) !== 'null')
-        ? String(raw).trim()
-        : '';
-      return { depth: Number(row?.[depthKey]), text };
-    })
-    .filter((rec) => Number.isFinite(rec.depth) && rec.text !== '')
+    .map((row) => ({ depth: Number(row?.[depthKey]), text: `${row?.[textKey] ?? ''}`.trim() }))
+    .filter((rec) => Number.isFinite(rec.depth)
+      && rec.text !== ''
+      && !/^(nan|null|none)$/i.test(rec.text))
     .sort((first, second) => first.depth - second.depth);
 
   if (!records.length) {

@@ -375,6 +375,22 @@ describe('buildDepthAnnotationsConfig', () => {
     expect(layout.xaxis.visible).toBe(false);
     expect(layout.yaxis.autorange).toBe('reversed');
   });
+
+  it('drops missing-value sentinels instead of rendering them as labels', () => {
+    const { data } = buildDepthAnnotationsConfig({
+      rows: [
+        { depth: 5, comments: 'Real note' },
+        { depth: 10, comments: 'NaN' },
+        { depth: 15, comments: ' None ' },
+        { depth: 20, comments: 'NULL' },
+        { depth: 25, comments: null },
+      ],
+    });
+    expect(data).toHaveLength(1);
+    expect(data[0].y).toEqual([5]);
+    expect(data[0].hovertext).toHaveLength(1);
+    expect(data[0].hovertext[0]).toContain('Real note');
+  });
 });
 
 describe('buildDipAzimuthConfig', () => {
