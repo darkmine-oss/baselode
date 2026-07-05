@@ -182,13 +182,25 @@
       "name": "strip_log_1d",
       "jsExports": [
         "buildIntervalPoints",
-        "buildPlotConfig"
+        "buildPlotConfig",
+        "buildTwoCurveFillConfig",
+        "buildCompositionConfig",
+        "buildDepthAnnotationsConfig",
+        "LITHOLOGY_PATTERNS",
+        "BUILTIN_PATTERN_MAPS",
+        "resolvePatternMap"
       ],
       "pythonSymbols": [
         ["baselode.drill.view", "compute_interval_points"],
         ["baselode.drill.view", "plot_drillhole_trace"],
         ["baselode.drill.view", "plot_drillhole_traces"],
-        ["baselode.drill.view", "plot_strip_log"]
+        ["baselode.drill.view", "plot_strip_log"],
+        ["baselode.drill.view", "plot_two_curve_fill"],
+        ["baselode.drill.view", "plot_composition_log"],
+        ["baselode.drill.view", "plot_depth_annotations"],
+        ["baselode.colours", "LITHOLOGY_PATTERNS"],
+        ["baselode.colours", "BUILTIN_PATTERN_MAPS"],
+        ["baselode.colours", "resolve_pattern_map"]
       ]
     },
     {
@@ -234,7 +246,10 @@
         "buildCommentsConfig",
         "buildStrikeDipSymbol",
         "dipAzimuthToNormal",
-        "buildStructuralDiscs"
+        "buildStructuralDiscs",
+        "alphaBetaToDipAzimuth",
+        "buildPointLogConfig",
+        "buildDipAzimuthConfig"
       ],
       "pythonSymbols": [
         ["baselode.drill.data", "load_structures"],
@@ -242,11 +257,14 @@
         ["baselode.drill.structural", "attach_structure_positions"],
         ["baselode.drill.structural", "normalize_dip_azimuth"],
         ["baselode.drill.structural", "compute_strike"],
+        ["baselode.drill.structural", "alpha_beta_to_dip_azimuth"],
         ["baselode.drill.validate", "validate_structural_points"],
         ["baselode.drill.validate", "validate_structural_intervals"],
         ["baselode.drill.view", "plot_tadpole_log"],
         ["baselode.drill.view", "plot_strip_log"],
         ["baselode.drill.view", "plot_comments_log"],
+        ["baselode.drill.view", "plot_point_log"],
+        ["baselode.drill.view", "plot_dip_azimuth_log"],
         ["baselode.drill.view_3d", "structures_as_discs"]
       ]
     },

@@ -249,6 +249,13 @@ Load and merge assays and structural data.  Returns a combined array tagged with
 #### `interpolateTrace(trace, depth)`
 Interpolate a 3D position along a hole trace at the given measured depth.
 
+#### `alphaBetaToDipAzimuth(holeDip, holeAzimuth, alpha, beta)`
+Convert oriented-core alpha/beta angles into `{ dip, dipDirection }` (degrees)
+using the hole orientation. `holeDip` uses the survey convention (negative =
+downward), `beta` is measured clockwise looking downhole from the bottom-of-hole
+line (from north for near-vertical holes). Accepts scalars or index-aligned
+arrays (scalars broadcast). Matches the Python `alpha_beta_to_dip_azimuth`.
+
 #### `alphaBetaToNormal(alpha, beta, traceOrientation)`
 Convert alpha/beta angles to a 3D normal vector.
 
@@ -646,11 +653,44 @@ Convert assay rows into interval point objects for plotting.
 #### `buildPlotConfig(points, property, options?)`
 Build a Plotly trace/layout config for a property.
 
+Numeric chart types: `bar`, `markers`, `markers+line`, `line`, `colored-line`,
+`multi-line`, `multi-stacked`, `filled-line` (line with the area to x=0 shaded
+in the series colour), `step-line` (one vertex pair per interval so blocked
+assays render their true extents), and `heat-strip` (full-track-width bars
+coloured by value on the assay ramp with a slim colour bar).
+
+Extra options:
+
+- `logScale` (boolean, default `false`) — log-scale the value axis. Applies to
+  `bar` / `markers` / `markers+line` / `line` / `filled-line` / `step-line`;
+  silently ignored for other chart types.
+- `patternMap` (object or built-in name, e.g. `'lithology'`) — hatch categorical
+  bands per category; see `resolvePatternMap`.
+
+#### `buildTwoCurveFillConfig({ hole, propertyA, propertyB, colorA?, colorB?, logScale?, title?, template? })`
+Two numeric curves down the hole with the region between them shaded, flipping
+colour exactly at each crossover (classic neutron–density display). Where
+A > B the band is colour A at alpha 0.4; where B > A it is colour B.
+
+#### `buildCompositionConfig({ hole, properties, colourMap?, normalize?, title?, template? })`
+Percent-composition track: divided horizontal stacked bars per interval, one
+trace per component. With `normalize` (default `true`) each interval is scaled
+to fractions of its sum on a fixed [0, 1] percent axis; intervals whose
+components are all null/zero are skipped and negatives are clamped to 0 for the
+bar (raw value stays in the hover).
+
 #### `holeHasData(rows, property)`
 Return `true` if the hole has at least one non-null value for `property`.
 
 #### Constants
 `NUMERIC_LINE_COLOR`, `NUMERIC_MARKER_COLOR`, `ERROR_COLOR`
+
+#### Colour & pattern maps
+`getColour(value, colourMap, fallback?)`, `resolveColourMap(nameOrMap)`,
+`resolvePatternMap(nameOrMap)` and the built-ins `COMMODITY_COLOURS`,
+`LITHOLOGY_COLOURS`, `LITHOLOGY_PATTERNS` (category → Plotly
+`marker.pattern.shape`, keys a subset of `LITHOLOGY_COLOURS`; built-in name
+`'lithology'`).
 
 ---
 
@@ -737,6 +777,21 @@ Build a Plotly config for a structural strip track.
 
 #### `buildCommentsConfig(rows, commentsColumn)`
 Build a Plotly config for a free-text comments track.
+
+#### `buildPointLogConfig({ hole?, rows?, depthKey?, categoryKey?, title?, template? })`
+Categorical point measurements at depth: each unique category gets a distinct
+x slot, palette colour, and marker symbol, one trace per category (functional
+legend). JS port of the Python `plot_point_log`.
+
+#### `buildDepthAnnotationsConfig({ rows, depthKey?, textKey?, markerColor?, title?, template? })`
+Depth-pinned text annotations: a small left-edge tick marker at each depth with
+the text to its right, word-truncated to ~40 characters (full text in hover).
+Composes with the multi-track strip-log layout.
+
+#### `buildDipAzimuthConfig({ rows, depthKey?, dipKey?, azimuthKey?, colorBy?, title?, template? })`
+Split dip-magnitude / dip-azimuth log: two shared-depth tracks — dip on a fixed
+[0, 90] axis, azimuth on a fixed [0, 360] axis with ticks every 90°. Optional
+`colorBy` emits one legendgrouped trace pair per category.
 
 #### `buildStrikeDipSymbol(dip, azimuth)`
 Return SVG path data for a strike/dip symbol.

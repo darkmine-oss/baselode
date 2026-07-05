@@ -830,12 +830,99 @@ Convert assay rows into midpoint-based interval points suitable for Plotly error
 
 ```python
 plot_numeric_trace(interval_df, value_col, chart_type="markers+line",
-                   color="#8b1e3f", intervals=True)
+                   color="#8b1e3f", intervals=True, template=None,
+                   color_by=None, log_scale=False)
 ```
 
 Plot a single numeric assay column as a Plotly figure.
 
-**`chart_type` options:** `"bar"`, `"markers"`, `"markers+line"`, `"line"`
+**`chart_type` options:** `"bar"`, `"markers"`, `"markers+line"`, `"line"`, `"colored-line"`, `"filled-line"`, `"step-line"`, `"heat-strip"`
+
+| Chart type | Rendering |
+|---|---|
+| `"colored-line"` | Graded line — markers coloured by value on the magma ramp + colour bar |
+| `"filled-line"` | Line with the area back to zero shaded (series colour at alpha 0.35) |
+| `"step-line"` | Stepped line drawn along each interval's from/to extent |
+| `"heat-strip"` | Full-track-width bars coloured by value on the magma ramp |
+
+`log_scale=True` switches the value axis to a log scale for the `bar`, `markers`, `markers+line`, `line`, `filled-line`, and `step-line` chart types (silently ignored elsewhere). Also accepted by `plot_drillhole_trace`.
+
+### plot_two_curve_fill
+
+```python
+plot_two_curve_fill(df, value_col_a, value_col_b, from_cols=None, to_cols=None,
+                    color_a=None, color_b=None, log_scale=False, template=None)
+```
+
+Two numeric curves with the region between them shaded by dominance, split at every crossing (classic neutron–density display).  Where A > B the fill uses A's colour at alpha 0.4; where B > A it uses B's.  Curve colours default to the commodity colour for each column name, falling back to `MULTI_SERIES_COLORWAY[0]` / `[1]`.
+
+**Returns:** `plotly.graph_objects.Figure`
+
+### plot_composition_log
+
+```python
+plot_composition_log(df, value_cols, from_col=FROM, to_col=TO,
+                     colour_map=None, normalize=True, template=None)
+```
+
+Percent-composition track: divided horizontal stacked bars per interval, one trace per component (*value_cols* order = legend + stack order).  With `normalize=True` (default) each interval's components are scaled to fractions of their sum and the axis is fixed to [0, 1] with percent ticks; with `normalize=False` raw values are stacked and the axis autoranges.  All-null/zero intervals are skipped; negative values are clamped to 0 for the bar (raw value in hover).
+
+**Returns:** `plotly.graph_objects.Figure`
+
+### plot_depth_annotations
+
+```python
+plot_depth_annotations(df, depth_col=DEPTH, text_col=COMMENTS,
+                       marker_color=None, template=None)
+```
+
+Depth-pinned text annotations: a tick at the track's left edge with the note text alongside.  Long notes are word-truncated to ~40 characters for display; the full text stays in hover.  Composes with the other strip-log tracks (reversed depth axis, hidden [0, 1] x-axis).
+
+**Returns:** `plotly.graph_objects.Figure`
+
+### plot_dip_azimuth_log
+
+```python
+plot_dip_azimuth_log(df, depth_col=DEPTH, dip_col=DIP, azimuth_col=AZIMUTH,
+                     color_by=None, template=None)
+```
+
+Split dip-magnitude / dip-azimuth tracks sharing one reversed depth axis: dip markers on a fixed [0, 90] axis, azimuth markers on a fixed [0, 360] axis with ticks every 90°.  `color_by` (e.g. defect type) renders one trace per category with a legend shared across both tracks.
+
+**Returns:** `plotly.graph_objects.Figure`
+
+### Pattern (hatch) fills
+
+`plot_strip_log` and `plot_categorical_trace` accept an optional `pattern_map` — category → Plotly `marker.pattern` shape (`"/"`, `"\\"`, `"x"`, `"-"`, `"|"`, `"+"`, `"."`, or `""` = solid), looked up case-insensitively like the colour maps.  Pass a `dict` or the built-in name `"lithology"` (`baselode.colours.LITHOLOGY_PATTERNS`, resolved via `resolve_pattern_map`).  Matched categories render a light white hatch over the band colour; unmapped categories stay solid.
+
+---
+
+## baselode.drill.structural
+
+Structural measurement processing and geometry helpers.
+
+```python
+import baselode.drill.structural as structural
+```
+
+### alpha_beta_to_dip_azimuth
+
+```python
+alpha_beta_to_dip_azimuth(hole_dip, hole_azimuth, alpha, beta)
+```
+
+Convert core-frame alpha/beta measurements to true dip / dip direction.  Vectorised with numpy — accepts scalars or array-likes (broadcast together).
+
+| Parameter | Convention |
+|---|---|
+| `hole_dip` | Survey convention, negative = downward (e.g. −60) |
+| `hole_azimuth` | Degrees clockwise from north |
+| `alpha` | Acute angle between the planar feature and the core axis (90° = perpendicular) |
+| `beta` | Degrees clockwise (looking downhole) from the bottom-of-hole reference line to the down-hole apex of the ellipse trace |
+
+For a near-vertical hole (`|hole_dip| > 89.9`) the bottom-of-hole reference is degenerate and falls back to north projected perpendicular to the core axis (beta is then measured from north).
+
+**Returns:** `(dip, dip_direction)` in degrees — dip in [0, 90] positive down, dip direction in [0, 360) as the azimuth of steepest descent.  Cross-validated against the committed golden fixture `test/data/structural_reference.json` (shared with the JS implementation).
 
 ---
 
