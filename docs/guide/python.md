@@ -567,6 +567,50 @@ The strip-log renderer automatically classifies columns as:
 - **Structural** — tadpole symbols for alpha/beta measurements
 - **Comments** — free-text annotations at depth
 
+Numeric and categorical tracks hover **horizontally along depth** (`hovermode="y unified"`): hovering shows a spike line at the depth and a single box listing each trace's value there.
+
+### Numeric chart types
+
+A numeric track is drawn with `plot_drillhole_trace(df, value_col, chart_type=...)`. Beyond `"markers"`, `"line"`, and `"markers+line"`:
+
+```python
+# Bar: each bar is sized to its own interval (thickness = to − from), so the
+# sampled extent is shown by the bar itself — no error bars.
+view.plot_drillhole_trace(df, "au_ppm", chart_type="bar")
+
+# Graded line: markers coloured by value on the magma ASSAY_COLOR_PALETTE_10
+# ramp, with a colour bar.
+view.plot_drillhole_trace(df, "au_ppm", chart_type="colored-line")
+```
+
+#### Colour a numeric track by a categorical column
+
+Pass `color_by` to colour a numeric line or bar track by a *separate* categorical column (e.g. lithology), joining each numeric interval to the categorical interval that contains its mid-depth. A per-category legend is added.
+
+```python
+view.plot_drillhole_trace(
+    df, "au_ppm", chart_type="markers+line",
+    color_by="lithology", colour_map="lithology",
+)
+```
+
+#### Multiple assays in one track
+
+Plot several numeric columns together — either overlaid stacked areas or horizontal stacked bars. Each assay is aligned onto a shared depth grid; below-detection (negative) values are floored at 0 while the hover still reports the true value.
+
+```python
+# Stacked filled areas (raw values), one band per assay.
+view.plot_multi_assay(df, ["au_ppm", "cu_ppm", "as_ppm"], mode="multi-line")
+
+# Horizontal stacked bars per interval.
+view.plot_multi_assay(df, ["au_ppm", "cu_ppm"], mode="multi-stacked")
+
+# Equivalently through the dispatcher:
+view.plot_drillhole_trace(
+    df, "au_ppm", chart_type="multi-stacked", multi_props=["cu_ppm", "as_ppm"],
+)
+```
+
 ### Plotly templates
 
 Baselode ships two named Plotly templates.
