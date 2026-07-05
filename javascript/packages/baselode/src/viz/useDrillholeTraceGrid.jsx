@@ -287,8 +287,40 @@ export default function useDrillholeTraceGrid({
           ? buildCommentPoints(hole, property)
           : buildIntervalPoints(hole, property, isCategorical);
 
+      // Numeric/categorical sub-lists for the colour-by and multi-assay pickers.
+      const numericOptions = holePropertyOptions.filter((p) => numericProps.includes(p));
+      const categoricalOptions = holePropertyOptions.filter((p) => categoricalProps.includes(p));
+
+      const isMulti = chartType === 'multi-line' || chartType === 'multi-stacked';
+
+      // Colour-by: join the numeric track to a separate categorical column's
+      // intervals. Only meaningful for single-property numeric charts.
+      let colorBy = null;
+      const colorByCol = cfg.colorBy && categoricalOptions.includes(cfg.colorBy) ? cfg.colorBy : '';
+      if (!isCategorical && !isComment && !isTadpole && !isMulti && colorByCol && hole) {
+        colorBy = { property: colorByCol, segments: buildIntervalPoints(hole, colorByCol, true) };
+      }
+
+      // Multi-assay: build one series per selected numeric column. Defaults to
+      // the primary property plus the next couple of numeric columns.
+      let multiSeries = null;
+      let multiProps = Array.isArray(cfg.multiProps)
+        ? cfg.multiProps.filter((p) => numericOptions.includes(p))
+        : [];
+      if (isMulti) {
+        if (!multiProps.length) {
+          const seed = property && numericOptions.includes(property) ? [property] : [];
+          multiProps = [...new Set([...seed, ...numericOptions])].slice(0, 3);
+        }
+        multiSeries = hole
+          ? multiProps
+            .map((p) => ({ property: p, points: buildIntervalPoints(hole, p, false) }))
+            .filter((s) => s.points.length)
+          : [];
+      }
+
       return {
-        config: { holeId, property, chartType },
+        config: { holeId, property, chartType, colorBy: colorByCol, multiProps },
         hole,
         loading: loadingHoles.includes(cfg.holeId),
         isCategorical,
@@ -297,6 +329,10 @@ export default function useDrillholeTraceGrid({
         displayType,
         points,
         propertyOptions: holePropertyOptions,
+        numericOptions,
+        colorByOptions: categoricalOptions,
+        colorBy,
+        multiSeries,
         label: holeId
       };
     });

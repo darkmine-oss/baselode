@@ -201,9 +201,21 @@ function TracePlot({
   const chartOptions = getChartOptions(displayType);
   const effectiveChartType = resolveChartType(displayType, chartType);
 
+  // Colour-by + multi-assay state (supplied by useDrillholeTraceGrid).
+  const isMultiChart = effectiveChartType === 'multi-line' || effectiveChartType === 'multi-stacked';
+  const colorBy = graph?.colorBy || null;
+  const multiSeries = graph?.multiSeries || null;
+  const numericOptions = graph?.numericOptions || [];
+  const colorByOptions = graph?.colorByOptions || [];
+  const selectedColorBy = config?.colorBy || '';
+  const selectedMultiProps = config?.multiProps || [];
+
   const [renderError, setRenderError] = useState('');
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
 
+  // Multi-assay charts draw from `multiSeries`, not the primary `points`, so
+  // gate the body on the first series when in a multi chart type.
+  const bodyPoints = isMultiChart && multiSeries?.length ? multiSeries[0].points : points;
   const bodyState = resolveTracePlotBody({
     holeId: selectedHoleId,
     hole,
@@ -211,7 +223,7 @@ function TracePlot({
     property,
     propertyOptions,
     displayType,
-    points,
+    points: bodyPoints,
     renderError,
   });
   const isPlaceholder = bodyState.kind !== 'chart';
@@ -273,6 +285,9 @@ function TracePlot({
           chartType: effectiveChartType,
           template,
           meta,
+          colorBy,
+          series: multiSeries,
+          metaByProperty: propertyMeta,
         });
       }
     } catch (err) {
@@ -322,6 +337,9 @@ function TracePlot({
     effectiveChartType,
     displayType,
     points,
+    colorBy,
+    multiSeries,
+    propertyMeta,
     template,
     plotSize.width,
     plotSize.height,
@@ -384,10 +402,30 @@ function TracePlot({
           </div>
         )}
         {/* Row 3: property + chart-type, split 50/50.  When only
-            one is visible it fills the whole row. */}
+            one is visible it fills the whole row.  For multi-assay
+            chart types the property slot becomes a scrollable
+            multi-select bound to the assays plotted in the track, so
+            the primary picker always matches the graph. */}
         {(visibility.property || visibility.chartType) && (
-          <div className="plot-card__row plot-card__row--split">
-            {visibility.property && (
+          <div className={`plot-card__row plot-card__row--split${isMultiChart ? ' plot-card__row--split-multi' : ''}`}>
+            {visibility.property && isMultiChart && (
+              <select
+                multiple
+                className="plot-select plot-select--property plot-select--multi"
+                value={selectedMultiProps}
+                onChange={(e) => {
+                  const vals = Array.from(e.target.selectedOptions, (o) => o.value);
+                  onConfigChange && onConfigChange({ multiProps: vals });
+                }}
+                aria-label="Assays"
+                size={Math.min(Math.max(numericOptions.length, 2), 6)}
+              >
+                {numericOptions.map((p) => (
+                  <option key={p} value={p}>{formatPropertyLabel(p, propertyMeta?.[p])}</option>
+                ))}
+              </select>
+            )}
+            {visibility.property && !isMultiChart && (
               <select
                 className="plot-select plot-select--property"
                 value={property}
@@ -418,6 +456,24 @@ function TracePlot({
                 ))}
               </select>
             )}
+          </div>
+        )}
+        {/* Row 4a: colour a single numeric track by value (default) or by a
+            categorical column (lithology, alteration, …). Only for numeric,
+            non-multi chart types when categorical columns are available. */}
+        {visibility.property && !isMultiChart && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0 && (
+          <div className="plot-card__row plot-card__row--colorby">
+            <select
+              className="plot-select plot-select--colorby"
+              value={selectedColorBy}
+              onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
+              aria-label="Colour by"
+            >
+              <option value="">Colour: by value</option>
+              {colorByOptions.map((c) => (
+                <option key={c} value={c}>{`Colour: ${formatPropertyLabel(c, propertyMeta?.[c])}`}</option>
+              ))}
+            </select>
           </div>
         )}
       </header>

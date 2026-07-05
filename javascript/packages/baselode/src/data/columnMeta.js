@@ -36,6 +36,9 @@ export const CHART_OPTIONS = {
     { value: 'markers', label: 'Markers' },
     { value: 'markers+line', label: 'Markers + Line' },
     { value: 'line', label: 'Line only' },
+    { value: 'colored-line', label: 'Graded line' },
+    { value: 'multi-line', label: 'Multiple: lines' },
+    { value: 'multi-stacked', label: 'Multiple: stacked bars' },
   ],
   [DISPLAY_CATEGORICAL]: [
     { value: 'categorical', label: 'Categorical bands' },

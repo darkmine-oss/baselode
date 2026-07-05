@@ -265,10 +265,15 @@ export {
   NUMERIC_LINE_COLOR,
   NUMERIC_MARKER_COLOR,
   ERROR_COLOR,
+  MULTI_SERIES_COLORWAY,
   holeHasData,
   buildIntervalPoints,
   buildPlotConfig,
-  buildCategoricalStripLogConfig
+  buildCategoricalStripLogConfig,
+  buildMultiAssayConfig,
+  buildPlotlyColorscale,
+  assignCategoriesByDepth,
+  commodityColourForProperty
 } from './viz/drillholeViz.js';
 
 export {
