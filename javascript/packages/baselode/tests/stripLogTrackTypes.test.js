@@ -258,6 +258,13 @@ describe('buildCompositionConfig', () => {
     expect(data[0].marker.color).toBe('#123456');
     expect(data[1].marker.color).not.toBe('#123456');
   });
+
+  it('drops components with no readings instead of faking measured zeros', () => {
+    const { data } = buildCompositionConfig({
+      hole, properties: ['sand', 'no_such_column', 'silt'],
+    });
+    expect(data.map((trace) => trace.name)).toEqual(['sand', 'silt']);
+  });
 });
 
 describe('categorical pattern fills', () => {

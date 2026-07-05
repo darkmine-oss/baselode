@@ -1182,11 +1182,13 @@ export function buildCompositionConfig({
   const usable = properties.filter((property) => typeof property === 'string' && property);
   if (!usable.length) return { data: [], layout: {} };
 
+  // Drop components with no readings before aligning — the shared-grid
+  // zero-fill would otherwise present an absent component as measured zeros.
   const series = usable.map((property) => ({
     property,
     points: buildIntervalPoints(hole, property, false),
-  }));
-  if (series.every((entry) => !entry.points.length)) return { data: [], layout: {} };
+  })).filter((entry) => entry.points.length);
+  if (!series.length) return { data: [], layout: {} };
 
   // Shared interval grid across all components (missing cells fill with 0).
   const aligned = alignSeriesToCommonDepths(series);

@@ -842,7 +842,12 @@ def plot_composition_log(df, value_cols, from_col=FROM, to_col=TO, colour_map=No
 
     Returns a plotly.graph_objects.Figure.
     """
-    value_cols = [col for col in (value_cols or []) if col in df.columns]
+    # Keep only components that actually have readings — a present-but-empty
+    # column would otherwise render as a legend entry of measured zeros.
+    value_cols = [
+        col for col in (value_cols or [])
+        if col in df.columns and pd.to_numeric(df[col], errors="coerce").notna().any()
+    ]
     if df.empty or not value_cols:
         return go.Figure()
 

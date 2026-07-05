@@ -341,6 +341,13 @@ def test_composition_log_normalizes_each_interval_to_fractions():
     assert fig.layout.xaxis.title.text == "Fraction"
 
 
+def test_composition_log_drops_components_without_readings():
+    """Absent or all-null components never render as measured zeros."""
+    with_empty = COMPOSITION_ROWS.assign(ash=float("nan"))
+    fig = view.plot_composition_log(with_empty, ["sand", "ash", "no_such_column", "silt"])
+    assert [trace.name for trace in fig.data] == ["sand", "silt"]
+
+
 def test_composition_log_clamps_negatives_but_keeps_raw_in_hover():
     fig = view.plot_composition_log(COMPOSITION_ROWS, ["sand", "silt", "clay"])
     sand = fig.data[0]
