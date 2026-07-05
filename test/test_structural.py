@@ -402,6 +402,16 @@ def test_plot_point_log_assigns_slot_colour_and_symbol_per_category():
     assert fig.layout.yaxis.autorange == "reversed"
 
 
+def test_plot_point_log_empty_and_missing_columns():
+    """Missing depth/label columns return an empty figure like the sibling
+    helpers rather than raising KeyError."""
+    assert list(plot_point_log(pd.DataFrame()).data) == []
+    populated_without_label = pd.DataFrame({"depth": [5.0]})
+    assert list(plot_point_log(populated_without_label, depth_col="depth", label_col="defect").data) == []
+    populated_without_depth = pd.DataFrame({"defect": ["fr"]})
+    assert list(plot_point_log(populated_without_depth, depth_col="depth", label_col="defect").data) == []
+
+
 # ---------------------------------------------------------------------------
 # 3D disc payload
 # ---------------------------------------------------------------------------

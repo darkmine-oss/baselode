@@ -1740,7 +1740,7 @@ def plot_point_log(df,
     -------
     plotly.graph_objects.Figure
     """
-    if df.empty:
+    if df.empty or depth_col not in df.columns or label_col not in df.columns:
         return go.Figure()
 
     palette = palette or _DEFAULT_POINT_LOG_PALETTE
