@@ -516,10 +516,10 @@ describe('buildCommentsConfig — redesigned comments track', () => {
   it('budgets inline text to the interval share and inherits the theme font', () => {
     const { data } = buildCommentsConfig(intervals);
     const textTrace = data[1];
-    // The 2 m sliver fits one of the track's 36 lines — its long comment is
-    // ellipsised to that single line; the 58 m interval shows full text.
+    // The 2 m sliver fits two of the track's 60 lines — its long comment is
+    // ellipsised at the second line; the 58 m interval shows full text.
     expect(textTrace.text).toHaveLength(2);
-    expect(textTrace.text[0].includes('<br>')).toBe(false);
+    expect(textTrace.text[0].split('<br>')).toHaveLength(2);
     expect(textTrace.text[0].endsWith('…')).toBe(true);
     expect(textTrace.text[1]).toContain('Strongly foliated');
     expect(textTrace.textfont.color).toBeUndefined();

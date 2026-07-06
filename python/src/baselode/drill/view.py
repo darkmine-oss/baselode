@@ -1407,7 +1407,7 @@ def _wrap_comment(text, chars_per_line=18):
 # A comments track renders roughly this many 10px text lines top to bottom;
 # an interval covering a fraction of the depth span fits that fraction of
 # lines. Mirrored by the JS buildCommentsConfig.
-_COMMENT_TEXT_LINES_PER_TRACK = 36
+_COMMENT_TEXT_LINES_PER_TRACK = 60
 
 
 def plot_comments_log(df,
@@ -1537,7 +1537,9 @@ def plot_comments_log(df,
     fig = go.Figure(data=data)
     fig.update_layout(
         xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
-        yaxis=dict(title="Depth (m)", autorange="reversed"),
+        # No hover spike: the horizontal line would strike through the inline
+        # comment text; the unified tooltip already marks the hovered depth.
+        yaxis=dict(title="Depth (m)", autorange="reversed", showspikes=False),
         shapes=shapes,
         showlegend=False,
         bargap=0,

@@ -355,8 +355,8 @@ def test_plot_comments_log_truncates_text_to_the_interval_line_budget():
     })
     fig = plot_comments_log(df, chars_per_line=20)
     hover_bar, text_trace = fig.data
-    # 2 m of a 60 m track fits one of the 36 track lines → one ellipsised line.
-    assert "<br>" not in text_trace.text[0]
+    # 2 m of a 60 m track fits two of the 60 track lines → ellipsised at two.
+    assert len(text_trace.text[0].split("<br>")) == 2
     assert text_trace.text[0].endswith("…")
     assert text_trace.text[1] == "Strongly foliated"
     # The hover bar always carries the full comment.

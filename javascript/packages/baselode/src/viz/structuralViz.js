@@ -375,7 +375,7 @@ export function buildCommentsConfig(intervals, {
   // covering a fraction of the depth span fits that fraction of lines.
   // Comments that don't fit are truncated with an ellipsis — the hover bar
   // always carries the full text.
-  const TEXT_LINES_PER_TRACK = 36;
+  const TEXT_LINES_PER_TRACK = 60;
   const totalSpan = records[records.length - 1].to - records[0].from;
 
   const shapes = [];
@@ -445,7 +445,9 @@ export function buildCommentsConfig(intervals, {
     height: 400,
     bargap: 0,
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
-    yaxis: { title: 'Depth (m)', autorange: 'reversed' },
+    // No hover spike: the horizontal line would strike through the inline
+    // comment text; the unified tooltip already marks the hovered depth.
+    yaxis: { title: 'Depth (m)', autorange: 'reversed', showspikes: false },
     showlegend: false,
     template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
