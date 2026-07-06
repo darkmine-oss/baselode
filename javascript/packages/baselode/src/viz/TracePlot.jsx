@@ -229,6 +229,30 @@ function TracePlot({
   const [renderError, setRenderError] = useState('');
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
 
+  // Secondary display options (chart type, colour-by, log/patterns toggles)
+  // collapse behind a per-track settings popover so the always-visible
+  // controls stay light: hole + property only.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef(null);
+  useEffect(() => {
+    if (!settingsOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target)) {
+        setSettingsOpen(false);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setSettingsOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [settingsOpen]);
+
+
   // Multi-assay charts draw from `multiSeries`, not the primary `points`, so
   // gate the body on the first series when in a multi chart type.
   const bodyPoints = isMultiChart && multiSeries?.length ? multiSeries[0].points : points;
@@ -251,6 +275,16 @@ function TracePlot({
     showChartTypeSelect,
   });
   const propertySelectEnabled = propertyOptions.length > 0;
+
+  // What the settings popover has to offer for the current track.
+  const showColorBy = visibility.property && !isMultiChart
+    && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0
+    && !['filled-line', 'step-line', 'heat-strip'].includes(effectiveChartType);
+  const showLogToggle = visibility.property && displayType === DISPLAY_NUMERIC
+    && LOG_SCALE_CHART_TYPES.has(effectiveChartType);
+  const showPatternsToggle = visibility.property
+    && displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'categorical';
+  const hasSettings = visibility.chartType || showColorBy || showLogToggle || showPatternsToggle;
 
   useEffect(() => {
     const body = bodyRef.current;
@@ -444,7 +478,7 @@ function TracePlot({
             chart types the property slot becomes a scrollable
             multi-select bound to the assays plotted in the track, so
             the primary picker always matches the graph. */}
-        {(visibility.property || visibility.chartType) && (
+        {(visibility.property || hasSettings) && (
           <div className={`plot-card__row plot-card__row--split${isMultiChart ? ' plot-card__row--split-multi' : ''}`}>
             {visibility.property && isMultiChart && (
               <select
@@ -482,74 +516,81 @@ function TracePlot({
                 ))}
               </select>
             )}
-            {visibility.chartType && (
-              <select
-                className="plot-select plot-select--chart-type"
-                value={effectiveChartType}
-                onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
-                aria-label="Chart type"
-              >
-                {chartOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+            {/* Secondary display options (chart type, colour-by, log /
+                patterns) collapse behind a settings popover so the
+                always-visible controls stay light. Anchored here so the
+                popover opens under the gear. */}
+            {hasSettings && (
+              <div className="plot-card__settings" ref={settingsRef}>
+                <button
+                  type="button"
+                  className={`plot-settings-button${settingsOpen ? ' open' : ''}`}
+                  onClick={() => setSettingsOpen((open) => !open)}
+                  aria-label="Track settings"
+                  aria-expanded={settingsOpen}
+                  title="Track settings"
+                >
+                  ⚙
+                </button>
+                {settingsOpen && (
+                  <div className="plot-settings-popover" role="menu">
+                    {visibility.chartType && (
+                      <label className="plot-settings-field">
+                        <span>Chart</span>
+                        <select
+                          className="plot-select plot-select--chart-type"
+                          value={effectiveChartType}
+                          onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
+                          aria-label="Chart type"
+                        >
+                          {chartOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {showColorBy && (
+                      <label className="plot-settings-field">
+                        <span>Colour</span>
+                        <select
+                          className="plot-select plot-select--colorby"
+                          value={selectedColorBy}
+                          onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
+                          aria-label="Colour by"
+                        >
+                          <option value="">By value</option>
+                          {colorByOptions.map((c) => (
+                            <option key={c} value={c}>{formatPropertyLabel(c, propertyMeta?.[c])}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {showLogToggle && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.logScale === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ logScale: e.target.checked })}
+                        />
+                        <span>Log scale</span>
+                      </label>
+                    )}
+                    {showPatternsToggle && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.usePatterns === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ usePatterns: e.target.checked })}
+                        />
+                        <span>Hatch patterns</span>
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
-        {/* Row 4a: track display options — the colour-by select (numeric,
-            non-multi chart types with categorical columns available;
-            filled-line / step-line / heat-strip don't compose with colour-by
-            since their geometry or colour already encodes the value) plus the
-            log-scale / hatch-pattern toggles. Toggles live here, not in a
-            per-panel footer, so every card in a grid keeps the same height
-            and the tracks stay depth-aligned. */}
-        {(() => {
-          const showColorBy = visibility.property && !isMultiChart
-            && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0
-            && !['filled-line', 'step-line', 'heat-strip'].includes(effectiveChartType);
-          const showLogToggle = visibility.property && displayType === DISPLAY_NUMERIC
-            && LOG_SCALE_CHART_TYPES.has(effectiveChartType);
-          const showPatternsToggle = visibility.property
-            && displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'categorical';
-          if (!showColorBy && !showLogToggle && !showPatternsToggle) return null;
-          return (
-            <div className="plot-card__row plot-card__row--colorby">
-              {showColorBy && (
-                <select
-                  className="plot-select plot-select--colorby"
-                  value={selectedColorBy}
-                  onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
-                  aria-label="Colour by"
-                >
-                  <option value="">Colour: by value</option>
-                  {colorByOptions.map((c) => (
-                    <option key={c} value={c}>{`Colour: ${formatPropertyLabel(c, propertyMeta?.[c])}`}</option>
-                  ))}
-                </select>
-              )}
-              {showLogToggle && (
-                <label className="plot-toggle">
-                  <input
-                    type="checkbox"
-                    checked={config?.logScale === true}
-                    onChange={(e) => onConfigChange && onConfigChange({ logScale: e.target.checked })}
-                  />
-                  <span>Log</span>
-                </label>
-              )}
-              {showPatternsToggle && (
-                <label className="plot-toggle">
-                  <input
-                    type="checkbox"
-                    checked={config?.usePatterns === true}
-                    onChange={(e) => onConfigChange && onConfigChange({ usePatterns: e.target.checked })}
-                  />
-                  <span>Patterns</span>
-                </label>
-              )}
-            </div>
-          );
-        })()}
       </header>
       <div className="plot-card__body" ref={bodyRef}>
         {bodyState.kind === 'chart'
