@@ -12,6 +12,7 @@ import {
   BASELODE_DARK_TEMPLATE,
   CHART_OPTIONS,
   DISPLAY_NUMERIC,
+  isMultiPropertyChartType,
   classifyColumns,
   buildIntervalPoints,
   buildPlotConfig,
@@ -186,7 +187,7 @@ function StripLogGallery() {
       .map((column) => ({ property: column, points: buildIntervalPoints(assayHole, column, false) }))
       .filter((entry) => entry.points.length);
     return CHART_OPTIONS[DISPLAY_NUMERIC].map((option) => {
-      const isMulti = option.value === 'multi-line' || option.value === 'multi-stacked';
+      const isMulti = isMultiPropertyChartType(option.value);
       return {
         option,
         config: buildPlotConfig({
