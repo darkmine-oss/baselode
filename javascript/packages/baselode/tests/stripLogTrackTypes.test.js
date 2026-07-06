@@ -558,16 +558,21 @@ describe('tool-ui track schema — new fields', () => {
     expect(parsed.success).toBe(true);
     const newChartTypes = [
       'filled-line', 'step-line', 'heat-strip',
-      'two-curve', 'composition', 'point-log', 'annotations', 'dip-azimuth',
+      'two-curve', 'composition', 'point-log',
     ];
     for (const chartType of newChartTypes) {
       expect(SerializableBaselodeStripLogTrackSchema.safeParse({
         property: 'au_ppm', chartType,
       }).success, chartType).toBe(true);
     }
-    expect(SerializableBaselodeStripLogTrackSchema.safeParse({
-      property: 'au_ppm', chartType: 'not-a-chart',
-    }).success).toBe(false);
+    // Renderable-only contract: comment/tadpole chart types are rejected until
+    // the tool UI supports those display types (accepting them would silently
+    // coerce to a default chart).
+    for (const chartType of ['annotations', 'dip-azimuth', 'not-a-chart']) {
+      expect(SerializableBaselodeStripLogTrackSchema.safeParse({
+        property: 'au_ppm', chartType,
+      }).success, chartType).toBe(false);
+    }
     expect(SerializableBaselodeStripLogTrackSchema.safeParse({
       property: 'au_ppm', logScale: 'yes',
     }).success).toBe(false);

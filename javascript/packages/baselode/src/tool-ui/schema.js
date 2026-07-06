@@ -19,11 +19,15 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
   property: z.string().min(1),
   label: z.string().optional(),
   displayType: z.enum(['numeric', 'categorical']).default('numeric'),
+  // Only the chart types the tool UI can render for its numeric/categorical
+  // display types. 'annotations' and 'dip-azimuth' belong to the comment /
+  // tadpole display types, which the serializable tool-UI config does not
+  // support yet — accepting them here would silently coerce to a default.
   chartType: z.enum([
     'bar', 'markers', 'line', 'markers+line', 'categorical',
     'colored-line', 'multi-line', 'multi-stacked',
     'filled-line', 'step-line', 'heat-strip',
-    'two-curve', 'composition', 'point-log', 'annotations', 'dip-azimuth',
+    'two-curve', 'composition', 'point-log',
   ]).optional(),
   colourMap: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
   // Colour a single numeric track by a separate categorical column (joined per
