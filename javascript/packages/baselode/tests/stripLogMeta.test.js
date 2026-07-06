@@ -45,8 +45,10 @@ describe('buildPlotConfig with property metadata', () => {
       meta: { unit: 'ppm', sourceAttribute: 'Au_ppb' },
     });
     expect(layout.xaxis.title.text).toBe('Au (ppm, source: Au_ppb)');
+    // Bars floor below-detection negatives, so hover reads the raw value
+    // from customdata[2] rather than the plotted x.
     expect(data[0].hovertemplate).toBe(
-      'Au: %{x} ppm<br>Source: Au_ppb<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>'
+      'Au: %{customdata[2]} ppm<br>Source: Au_ppb<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>'
     );
   });
 

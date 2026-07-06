@@ -179,6 +179,17 @@ def test_filled_line_shades_back_to_zero_without_error_bars():
     assert trace.error_y.array is None
 
 
+def test_bar_floors_below_detection_with_raw_in_hover():
+    """Bars never extend left of zero for below-detection sentinels; the raw
+    value stays in the hover customdata."""
+    fig = view.plot_numeric_trace(_points("Bi_ppm"), "Bi_ppm", chart_type="bar")
+    bar = fig.data[0]
+    assert min(bar.x) == 0
+    raw_values = [row[2] for row in bar.customdata]
+    assert -2 in raw_values
+    assert "%{customdata[2]}" in bar.hovertemplate
+
+
 def test_filled_line_floors_below_detection_with_raw_in_hover():
     """Negative below-detection sentinels floor at 0 so the fill never paints
     a phantom band across zero; the raw value stays in the hover customdata."""
@@ -219,6 +230,30 @@ def test_heat_strip_fills_track_width_and_colours_by_value():
     assert fig.layout.xaxis.showticklabels is False
     assert not fig.layout.xaxis.title.text
     assert "Au_ppm: %{customdata[0]}" in bar.hovertemplate
+
+
+def test_heat_strip_floors_below_detection_in_the_colour_ramp():
+    """Sentinels colour as zero grade instead of dragging cmin below zero;
+    the raw value stays in the hover customdata."""
+    fig = view.plot_numeric_trace(_points("Bi_ppm"), "Bi_ppm", chart_type="heat-strip")
+    bar = fig.data[0]
+    assert min(bar.marker.color) == 0
+    assert bar.marker.cmin == 0
+    raw_values = [row[0] for row in bar.customdata]
+    assert -2 in raw_values
+
+
+def test_two_curve_fill_floors_below_detection_before_interpolation():
+    """Sentinels are floored before interpolation so they cannot fabricate
+    slopes, crossings, or fill below zero."""
+    rows = pd.DataFrame([
+        {"from": 0, "to": 4, "density": -1.0, "neutron": 2.0},
+        {"from": 4, "to": 8, "density": 5.0, "neutron": 2.0},
+        {"from": 8, "to": 12, "density": -1.0, "neutron": 2.0},
+    ])
+    fig = view.plot_two_curve_fill(rows, "density", "neutron")
+    for trace in fig.data:
+        assert min(trace.x) >= 0
 
 
 # ---------------------------------------------------------------------------

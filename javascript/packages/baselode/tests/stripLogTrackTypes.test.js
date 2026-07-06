@@ -67,6 +67,23 @@ describe('buildPlotConfig — filled-line chart type', () => {
   });
 
   it('floors below-detection negatives at 0 and keeps the raw value in hover', () => {
+    const belowDetectionPoints = [
+      { z: 5, val: 12, from: 0, to: 10 },
+      { z: 15, val: -1, from: 10, to: 20 },
+    ];
+    // Applies to both area-style geometries: fills and bars.
+    for (const chartType of ['filled-line', 'bar']) {
+      const { data } = buildPlotConfig({
+        points: belowDetectionPoints, isCategorical: false, property: 'value', chartType,
+      });
+      const [trace] = data;
+      expect(trace.x).toEqual([12, 0]);
+      expect(trace.customdata[1][2]).toBe(-1);
+      expect(trace.hovertemplate).toContain('%{customdata[2]}');
+    }
+  });
+
+  it('floors sentinels in the heat-strip colour ramp with raw in hover', () => {
     const { data } = buildPlotConfig({
       points: [
         { z: 5, val: 12, from: 0, to: 10 },
@@ -74,13 +91,27 @@ describe('buildPlotConfig — filled-line chart type', () => {
       ],
       isCategorical: false,
       property: 'value',
-      chartType: 'filled-line',
+      chartType: 'heat-strip',
     });
     const [trace] = data;
-    // The fill must never paint a phantom band across zero.
-    expect(trace.x).toEqual([12, 0]);
+    expect(Math.min(...trace.marker.color)).toBe(0);
+    expect(trace.marker.cmin).toBe(0);
     expect(trace.customdata[1][2]).toBe(-1);
-    expect(trace.hovertemplate).toContain('%{customdata[2]}');
+  });
+
+  it('floors sentinels in the two-curve fill before interpolation', () => {
+    const hole = {
+      id: 'H1',
+      points: [
+        { from: 0, to: 4, density: -1, neutron: 2 },
+        { from: 4, to: 8, density: 5, neutron: 2 },
+        { from: 8, to: 12, density: -1, neutron: 2 },
+      ],
+    };
+    const { data } = buildTwoCurveFillConfig({ hole, propertyA: 'density', propertyB: 'neutron' });
+    for (const trace of data) {
+      expect(Math.min(...trace.x)).toBeGreaterThanOrEqual(0);
+    }
   });
 });
 

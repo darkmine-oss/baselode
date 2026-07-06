@@ -296,6 +296,10 @@ def _build_heat_strip(interval_df, value_col, template):
     assay value on the magma ramp, with a slim colour bar. The x axis is a
     dummy [0, 1] span — hover reports the value and interval instead."""
     vals = interval_df["val"].astype(float)
+    # Floor below-detection sentinels (negative) at 0 for the colour ramp so
+    # they read as zero grade instead of dragging cmin below zero and skewing
+    # the whole scale; hover keeps the raw value via customdata.
+    floored = vals.clip(lower=0)
     trace = go.Bar(
         orientation="h",
         x=[1.0] * len(interval_df),
@@ -303,10 +307,10 @@ def _build_heat_strip(interval_df, value_col, template):
         y=interval_df["z"],
         width=(interval_df["to_val"] - interval_df["from_val"]).abs().clip(lower=0.01),
         marker=dict(
-            color=vals,
+            color=floored,
             colorscale=build_plotly_colorscale(ASSAY_COLOR_PALETTE_10),
-            cmin=float(vals.min()),
-            cmax=float(vals.max()),
+            cmin=float(floored.min()),
+            cmax=float(floored.max()),
             showscale=True,
             colorbar=dict(thickness=8, len=0.92, x=1.02, xanchor="left", tickfont=dict(size=9)),
             line=dict(width=0),
@@ -509,10 +513,10 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
         color="#6b7280",
     ) if intervals else None
 
-    if is_filled_line:
-        # Floor below-detection sentinels (negative) at 0 so the fill never
-        # paints a phantom band across zero; hover keeps the raw value (same
-        # convention as the multi-assay tracks).
+    if is_filled_line or is_bar:
+        # Floor below-detection sentinels (negative) at 0 — a fill band across
+        # zero or a leftward bar reads as negative grade; hover keeps the raw
+        # value (same convention as the multi-assay tracks).
         trace_common = dict(
             x=interval_df["val"].clip(lower=0),
             y=interval_df["z"],
@@ -766,6 +770,12 @@ def plot_two_curve_fill(df, value_col_a, value_col_b, from_cols=None, to_cols=No
     points_b = compute_interval_points(df, value_col_b, **interval_kwargs)
     if points_a.empty or points_b.empty:
         return go.Figure()
+
+    # Floor below-detection sentinels (negative) at 0 before interpolating —
+    # interpolating through a sentinel fabricates slopes, crossings and fill
+    # below zero (same convention as the multi-assay tracks).
+    points_a = points_a.assign(val=points_a["val"].astype(float).clip(lower=0))
+    points_b = points_b.assign(val=points_b["val"].astype(float).clip(lower=0))
 
     # Union of both series' mid-depths, each curve linearly interpolated onto
     # it (end-clamped) — matching the JS implementation.

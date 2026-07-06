@@ -506,8 +506,12 @@ function buildStepLineConfig(points, property, color, template, meta, logScale) 
  */
 function buildHeatStripConfig(points, property, template, meta) {
   const vals = points.map((p) => p.val);
-  const cmin = Math.min(...vals);
-  const cmax = Math.max(...vals);
+  // Floor below-detection sentinels (negative) at 0 for the colour ramp so
+  // they read as zero grade instead of dragging cmin below zero and skewing
+  // the whole scale; hover keeps the raw value via customdata.
+  const flooredVals = vals.map((value) => Math.max(value, 0));
+  const cmin = Math.min(...flooredVals);
+  const cmax = Math.max(...flooredVals);
   const hover = buildHoverParts(property, meta);
 
   const trace = {
@@ -518,7 +522,7 @@ function buildHeatStripConfig(points, property, template, meta) {
     y: points.map((p) => p.z),
     width: points.map((p) => Math.max(Math.abs(p.to - p.from), 0.01)),
     marker: {
-      color: vals,
+      color: flooredVals,
       colorscale: buildPlotlyColorscale(ASSAY_COLOR_PALETTE_10),
       cmin,
       cmax,
@@ -752,6 +756,12 @@ function buildNumericConfig(points, property, chartType, color, template, meta, 
         ...baseTrace,
         type: 'bar',
         orientation: 'h',
+        // Floor below-detection sentinels (negative) at 0 — a leftward bar
+        // reads as negative grade; hover keeps the raw value (same convention
+        // as the multi-assay and filled-line tracks).
+        x: points.map((p) => Math.max(p.val, 0)),
+        customdata: points.map((p) => [Math.min(p.from, p.to), Math.max(p.from, p.to), p.val]),
+        hovertemplate: `${hover.label}: %{customdata[2]}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
         // Each bar spans its own down-hole interval (thickness = to − from),
         // so the interval extent is shown by the bar itself — no error bars.
         width: points.map((p) => Math.max(Math.abs(p.to - p.from), 0.01)),
@@ -1048,12 +1058,18 @@ export function buildTwoCurveFillConfig({
   const curveColourA = colorA || seriesColour(propertyA, 0);
   const curveColourB = colorB || seriesColour(propertyB, 1);
 
+  // Floor below-detection sentinels (negative) at 0 before interpolating —
+  // interpolating through a sentinel fabricates slopes, crossings and fill
+  // below zero (same convention as the multi-assay tracks).
+  const flooredA = pointsA.map((point) => ({ ...point, val: Math.max(point.val, 0) }));
+  const flooredB = pointsB.map((point) => ({ ...point, val: Math.max(point.val, 0) }));
+
   // Union depth grid (ascending) with both curves interpolated onto it.
-  const depths = [...new Set([...pointsA, ...pointsB].map((point) => point.z))].sort(
+  const depths = [...new Set([...flooredA, ...flooredB].map((point) => point.z))].sort(
     (first, second) => first - second
   );
-  const valsA = interpolateSeriesAtDepths(pointsA, depths);
-  const valsB = interpolateSeriesAtDepths(pointsB, depths);
+  const valsA = interpolateSeriesAtDepths(flooredA, depths);
+  const valsB = interpolateSeriesAtDepths(flooredB, depths);
 
   // Augment the sampled polylines with the exact crossing points so the fill
   // colour flips precisely where the curves intersect.
