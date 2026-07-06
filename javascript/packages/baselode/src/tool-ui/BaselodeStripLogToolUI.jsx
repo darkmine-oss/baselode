@@ -9,6 +9,7 @@ import {
   classifyColumns,
   defaultChartType,
   getChartOptions,
+  isMultiPropertyChartType,
 } from '../data/columnMeta.js';
 import {
   BASELODE_TEMPLATE,
@@ -20,6 +21,7 @@ import {
   buildIntervalPoints,
   buildPlotConfig,
 } from '../viz/drillholeViz.js';
+import { buildPointLogConfig } from '../viz/structuralViz.js';
 import {
   DEFAULT_ATTRIBUTE_COLUMN,
   DEFAULT_UNIT_COLUMN,
@@ -154,7 +156,12 @@ function StripLogTrack({
 }) {
   const ref = useRef(null);
   const chartType = track.chartType || (track.displayType === DISPLAY_CATEGORICAL ? 'categorical' : 'markers+line');
-  const isMulti = chartType === 'multi-line' || chartType === 'multi-stacked';
+  // Multi-property chart types (multi-line / multi-stacked / two-curve /
+  // composition) draw from a series list instead of the single track property.
+  const isMulti = isMultiPropertyChartType(chartType);
+  // Stacked-assay traces carry customdata as [value, from, to]; the other
+  // multi types have their own layouts (see the click handler).
+  const isStackedAssay = chartType === 'multi-line' || chartType === 'multi-stacked';
   const isCategorical = track.displayType === DISPLAY_CATEGORICAL || chartType === 'categorical';
   const meta = propertyMeta?.[track.property];
   const trackLabel = formatPropertyLabel(track.label || track.property, meta);
@@ -190,21 +197,30 @@ function StripLogTrack({
   }, [hole, isMulti, isCategorical, categoricalCols, track.colorBy]);
 
   const plotConfig = useMemo(() => {
-    const nextConfig = buildPlotConfig({
-      points,
-      isCategorical,
-      property: track.label || track.property,
-      chartType,
-      colourMap: track.colourMap,
-      template: resolveTemplate(template),
-      meta,
-      colorBy,
-      series,
-      metaByProperty: propertyMeta,
-      logScale: track.logScale === true,
-      // Hatch categorical bands with the built-in lithology patterns on opt-in.
-      patternMap: isCategorical && track.usePatterns === true ? 'lithology' : undefined,
-    });
+    // Point log renders the categorical interval points (category in `val`,
+    // mid-depth in `z`) via the structural builder instead of bands.
+    const nextConfig = chartType === 'point-log' && isCategorical
+      ? buildPointLogConfig({
+          rows: points,
+          depthKey: 'z',
+          categoryKey: 'val',
+          template: resolveTemplate(template),
+        })
+      : buildPlotConfig({
+          points,
+          isCategorical,
+          property: track.label || track.property,
+          chartType,
+          colourMap: track.colourMap,
+          template: resolveTemplate(template),
+          meta,
+          colorBy,
+          series,
+          metaByProperty: propertyMeta,
+          logScale: track.logScale === true,
+          // Hatch categorical bands with the built-in lithology patterns on opt-in.
+          patternMap: isCategorical && track.usePatterns === true ? 'lithology' : undefined,
+        });
     return {
       data: nextConfig.data,
       layout: applyDepthRange(nextConfig.layout, depthRange),
@@ -232,15 +248,29 @@ function StripLogTrack({
       const point = event?.points?.[0];
       if (!point || !onIntervalClick) return;
       const cd = Array.isArray(point.customdata) ? point.customdata : [];
-      // Multi-assay traces store customdata as [trueValue, from, to] (one series
-      // per assay); every other track stores [from, to, ...]. Read from/to and
-      // the reported value accordingly, and report the clicked assay's property.
-      const from = isMulti ? cd[1] : cd[0];
-      const to = isMulti ? cd[2] : cd[1];
-      const value = isMulti ? cd[0] : (isCategorical ? point.data?.name : point.x);
+      // customdata layouts: stacked-assay traces store [trueValue, from, to]
+      // (one series per assay); composition stores [rawValue, pct, from, to];
+      // every other interval track stores [from, to, ...]. Two-curve and
+      // point-log traces carry no interval customdata — report the clicked
+      // depth as a zero-length interval.
+      let from = cd[0];
+      let to = cd[1];
+      let value = isCategorical ? point.data?.name : point.x;
+      let property = track.property;
+      if (isStackedAssay) {
+        [value, from, to] = cd;
+        property = point.data?.name || track.property;
+      } else if (chartType === 'composition') {
+        [value, , from, to] = cd;
+        property = point.data?.name || track.property;
+      } else if (chartType === 'two-curve' || chartType === 'point-log') {
+        from = point.y;
+        to = point.y;
+        if (chartType === 'two-curve') property = point.data?.name || track.property;
+      }
       onIntervalClick({
         trackId: track.id || track.property,
-        property: isMulti ? (point.data?.name || track.property) : track.property,
+        property,
         value,
         from: Number(from),
         to: Number(to),
@@ -297,7 +327,8 @@ function StripLogTrack({
     track.property,
     trackLabel,
     isCategorical,
-    isMulti,
+    isStackedAssay,
+    chartType,
   ]);
 
   return (

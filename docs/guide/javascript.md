@@ -503,13 +503,27 @@ Plotly.newPlot('container', config.data, config.layout);
 
 Numeric tracks support `bar`, `markers`, `markers+line`, `line`,
 `colored-line` (value-graded markers), `multi-line` / `multi-stacked`
-(several assays in one track), plus three petrophysics-style displays:
+(several assays in one track), plus five specialist displays:
 
 | Chart type | Display |
 |---|---|
 | `filled-line` | Line with the area between the curve and x = 0 shaded in the series colour |
 | `step-line` | One vertex pair per interval — blocked/composited assays render their true extents |
 | `heat-strip` | Full-track-width bars coloured by value on the assay ramp, with a slim colour bar |
+| `two-curve` | Two curves with the band between them shaded, flipping colour at each crossover |
+| `composition` | Divided horizontal stacked bars per interval — components as fractions of their sum |
+
+`two-curve` and `composition` are multi-property chart types: like
+`multi-line` / `multi-stacked` they consume the multi-property selection
+(TracePlot's assay multi-select, `multiProps` in the tool-ui schema) and route
+through `buildPlotConfig`'s `series` option. `two-curve` uses the first two
+selected series (extras are ignored; fewer than two renders an empty track);
+`composition` stacks every selection.
+
+The other display types each offer an alternative chart type in the same
+dropdowns: categorical columns add `point-log`, comment columns add
+`annotations`, and structural (tadpole) tracks add `dip-azimuth` — all backed
+by the structural builders below.
 
 Pass `logScale: true` to put the value axis on a log scale (applies to `bar`,
 `markers`, `markers+line`, `line`, `filled-line` and `step-line`; ignored for
@@ -527,8 +541,9 @@ const config = buildPlotConfig({
 
 #### Two-curve fill (cross-plot track)
 
-`buildTwoCurveFillConfig` overlays two numeric curves and shades the region
-between them, flipping colour exactly at each crossover — the classic
+The low-level `buildTwoCurveFillConfig` builder (the `two-curve` chart type
+uses the same implementation) overlays two numeric curves and shades the
+region between them, flipping colour exactly at each crossover — the classic
 neutron–density display:
 
 ```js
@@ -548,8 +563,9 @@ Where A > B the band is colour A at alpha 0.4; where B > A it is colour B.
 
 #### Percent-composition track
 
-`buildCompositionConfig` renders divided horizontal stacked bars per interval
-(e.g. sand/silt/clay fractions):
+`buildCompositionConfig` (the low-level API behind the `composition` chart
+type) renders divided horizontal stacked bars per interval (e.g.
+sand/silt/clay fractions):
 
 ```js
 import { buildCompositionConfig } from 'baselode';
@@ -568,7 +584,10 @@ hover.
 
 #### Structural logs
 
-Beyond the tadpole log, three structural track builders are available:
+Beyond the tadpole log, three structural track builders are available. Each
+also backs a chart type in the strip-log dropdowns: `point-log` (categorical
+columns), `annotations` (comment columns) and `dip-azimuth` (structural
+tracks).
 
 ```js
 import {
@@ -688,9 +707,10 @@ The serializable result is intentionally compact:
 ```
 
 Numeric tracks accept any of the numeric chart types (including `filled-line`,
-`step-line` and `heat-strip`) plus an optional `logScale: true`; categorical
-tracks accept `usePatterns: true` to hatch the bands with the built-in
-lithology pattern map.
+`step-line`, `heat-strip` and the multi-property `two-curve` / `composition`)
+plus an optional `logScale: true`; categorical tracks accept `point-log` as an
+alternative to the bands, and `usePatterns: true` to hatch the bands with the
+built-in lithology pattern map.
 
 #### Per-property unit metadata
 

@@ -168,6 +168,30 @@ def compute_interval_points(df,
     return out.sort_values("z", ascending=False).reset_index(drop=True)
 
 
+def _resolve_point_depth_rows(df, value_col):
+    """Resolve per-row depths for the point-style chart types (point-log,
+    annotations).
+
+    Structural tables already carry a measured DEPTH; desurveyed tables carry
+    MID; interval tables carry from/to pairs which are reduced to mid-depths
+    via :func:`compute_interval_points` (the same resolution the numeric
+    dispatcher path uses).
+
+    Returns a ``(rows, depth_col)`` tuple, or ``(None, None)`` when no depth
+    can be resolved.
+    """
+    if value_col not in df.columns:
+        return None, None
+    if DEPTH in df.columns:
+        return df, DEPTH
+    if MID in df.columns:
+        return df, MID
+    points = compute_interval_points(df, value_col)
+    if points.empty:
+        return None, None
+    return points.rename(columns={"z": DEPTH, "val": value_col}), DEPTH
+
+
 def _numeric_layout(value_col, extra_xaxis=None):
     """Shared numeric strip-log layout (depth axis reversed, value axis titled)."""
     xaxis = dict(title=value_col, zeroline=False)
@@ -1116,7 +1140,8 @@ def plot_drillhole_trace(df,
 
     chart_type: override to one of {"categorical", "bar", "markers", "markers+line",
     "line", "colored-line", "filled-line", "step-line", "heat-strip", "multi-line",
-    "multi-stacked"}. If omitted, we infer categorical if value_col in
+    "multi-stacked", "two-curve", "composition", "point-log", "annotations",
+    "dip-azimuth"}. If omitted, we infer categorical if value_col in
     categorical_props, else numeric_chart.
 
     intervals : bool, optional
@@ -1128,12 +1153,16 @@ def plot_drillhole_trace(df,
         A separate categorical column to colour a numeric track by (joined per
         interval at its mid-depth). Ignored for categorical / multi-assay charts.
     multi_props : iterable of str, optional
-        Extra numeric columns to plot alongside *value_col* for the ``multi-line``
-        / ``multi-stacked`` chart types. Defaults to just *value_col*.
+        Extra numeric columns to plot alongside *value_col* for the multi-property
+        chart types (``multi-line``, ``multi-stacked``, ``two-curve``,
+        ``composition``). ``two-curve`` compares *value_col* against the first
+        extra column and requires at least one; the others default to just
+        *value_col*.
     log_scale : bool, optional
         When True, switch the value axis of a numeric track to a log scale.
         Only applied for the ``bar``, ``markers``, ``markers+line``, ``line``,
-        ``filled-line``, and ``step-line`` chart types; silently ignored elsewhere.
+        ``filled-line``, ``step-line``, and ``two-curve`` chart types; silently
+        ignored elsewhere.
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
     """
@@ -1144,6 +1173,39 @@ def plot_drillhole_trace(df,
     if resolved_chart in ("multi-line", "multi-stacked"):
         cols = list(dict.fromkeys([value_col, *(multi_props or [])]))
         return plot_multi_assay(df, cols, mode=resolved_chart, template=template)
+
+    if resolved_chart == "two-curve":
+        extra_props = [col for col in (multi_props or []) if col != value_col]
+        if not extra_props:
+            return _empty_striplog_figure(template)
+        return plot_two_curve_fill(
+            df, value_col, extra_props[0], log_scale=log_scale, template=template,
+        )
+
+    if resolved_chart == "composition":
+        component_cols = list(dict.fromkeys([value_col, *(multi_props or [])]))
+        return plot_composition_log(df, component_cols, template=template)
+
+    if resolved_chart == "point-log":
+        point_rows, depth_col = _resolve_point_depth_rows(df, value_col)
+        if point_rows is None:
+            return _empty_striplog_figure(template)
+        return plot_point_log(
+            point_rows, depth_col=depth_col, label_col=value_col, template=template,
+        )
+
+    if resolved_chart == "annotations":
+        point_rows, depth_col = _resolve_point_depth_rows(df, value_col)
+        if point_rows is None:
+            return _empty_striplog_figure(template)
+        return plot_depth_annotations(
+            point_rows, depth_col=depth_col, text_col=value_col, template=template,
+        )
+
+    if resolved_chart == "dip-azimuth":
+        # Structural tables carry depth/dip/azimuth; plot_dip_azimuth_log
+        # guards missing columns with an empty templated figure itself.
+        return plot_dip_azimuth_log(df, template=template)
 
     if use_mid:
         if MID not in df.columns:

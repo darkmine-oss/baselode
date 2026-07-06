@@ -597,7 +597,7 @@ view.plot_drillhole_trace(df, "au_ppm", chart_type="heat-strip")
 
 #### Log-scale value axis
 
-Pass `log_scale=True` to switch the value axis to a log scale — useful for assays spanning orders of magnitude. It applies to the `bar`, `markers`, `markers+line`, `line`, `filled-line`, and `step-line` chart types and is silently ignored elsewhere. Values ≤ 0 are dropped from the axis by Plotly but keep their raw value in hover.
+Pass `log_scale=True` to switch the value axis to a log scale — useful for assays spanning orders of magnitude. It applies to the `bar`, `markers`, `markers+line`, `line`, `filled-line`, `step-line`, and `two-curve` chart types and is silently ignored elsewhere. Values ≤ 0 are dropped from the axis by Plotly but keep their raw value in hover.
 
 ```python
 view.plot_drillhole_trace(df, "au_ppm", chart_type="line", log_scale=True)
@@ -641,6 +641,10 @@ view.plot_two_curve_fill(df, "density", "neutron")
 # Colours default to the commodity colour for each column name, falling back
 # to MULTI_SERIES_COLORWAY[0] / [1]; both are overridable, and log_scale works.
 view.plot_two_curve_fill(df, "au_ppm", "cu_ppm", color_a="#8b1e3f", log_scale=True)
+
+# Or through the dispatcher as a multi-property chart type: value_col is
+# curve A and the first multi_props entry is curve B.
+view.plot_drillhole_trace(df, "density", chart_type="two-curve", multi_props=["neutron"])
 ```
 
 #### Percent-composition track
@@ -651,6 +655,12 @@ Divided horizontal stacked bars per interval — one trace per component in `val
 view.plot_composition_log(
     df, ["sand_pct", "silt_pct", "clay_pct"],
     colour_map={"sand_pct": "#F5CBA7", "silt_pct": "#90A4AE", "clay_pct": "#607D8B"},
+)
+
+# Or through the dispatcher: value_col plus multi_props are the components,
+# in stack order.
+view.plot_drillhole_trace(
+    df, "sand_pct", chart_type="composition", multi_props=["silt_pct", "clay_pct"],
 )
 ```
 
@@ -674,6 +684,11 @@ Pin free-text notes at depth: a tick at the track's left edge with the text alon
 
 ```python
 view.plot_depth_annotations(structures, depth_col="depth", text_col="comments")
+
+# Or through the dispatcher as the "annotations" chart type for a comment
+# column. Depth is resolved per row: a measured `depth` (or `mid`) column is
+# used directly, and interval tables fall back to from/to mid-depths.
+view.plot_drillhole_trace(structures, "comments", chart_type="annotations")
 ```
 
 ### Structural tracks
@@ -701,9 +716,17 @@ Plot dip magnitude and dip-direction azimuth as two side-by-side tracks sharing 
 
 ```python
 view.plot_dip_azimuth_log(structures, color_by="defect")
+
+# Or through the dispatcher as the "dip-azimuth" chart type — the frame
+# carries the depth/dip/azimuth columns for structural tables.
+view.plot_drillhole_trace(structures, "dip", chart_type="dip-azimuth")
 ```
 
-Tadpole plots (`view.plot_tadpole_log`) and categorical point logs (`view.plot_point_log`) complete the structural track set.
+Tadpole plots (`view.plot_tadpole_log`) and categorical point logs (`view.plot_point_log`) complete the structural track set. Point logs are also a dispatcher chart type for categorical columns — `chart_type="point-log"` places one marker per row at its measured depth (or interval mid-depth), with a distinct x-position, colour, and symbol per category:
+
+```python
+view.plot_drillhole_trace(structures, "defect", chart_type="point-log")
+```
 
 ### Plotly templates
 

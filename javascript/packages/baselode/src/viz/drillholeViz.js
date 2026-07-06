@@ -925,11 +925,14 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
  *   metadata (unit / source attribute) used for axis titles and hover tooltips.
  * @param {Object} [options.colorBy] - Optional colour-by-category spec for numeric tracks
  *   `{ property, label?, segments: [{from,to,val}], colourMap? }`.
- * @param {Array<Object>} [options.series] - Multi-assay series for `multi-line`/`multi-stacked`
- *   chart types; `[{ property, points, color? }]`. When present, overrides the single-property path.
+ * @param {Array<Object>} [options.series] - Multi-property series for the `multi-line` /
+ *   `multi-stacked` / `two-curve` / `composition` chart types; `[{ property, points, color? }]`.
+ *   When present, overrides the single-property path. `two-curve` uses the first two series
+ *   (extras are ignored); `composition` stacks every series.
  * @param {Object} [options.metaByProperty] - Per-property metadata map for multi-assay legends/hover.
  * @param {boolean} [options.logScale=false] - Log-scale the numeric value axis. Applies to the
- *   bar / markers / markers+line / line / filled-line / step-line chart types; ignored otherwise.
+ *   bar / markers / markers+line / line / filled-line / step-line / two-curve chart types;
+ *   ignored otherwise.
  * @param {Object|string|null} [options.patternMap] - Optional hatch-pattern map for categorical
  *   bands (object or built-in name, e.g. `'lithology'`).
  * @returns {{data: Array, layout: Object}} Complete Plotly configuration
@@ -941,6 +944,32 @@ export function buildPlotConfig({
   // Multi-assay path: render several assays in one track when a series is supplied.
   if ((chartType === 'multi-line' || chartType === 'multi-stacked') && Array.isArray(series) && series.length) {
     return buildMultiAssayConfig({ series, mode: chartType, template, metaByProperty });
+  }
+  // Two-curve fill: the first two series are curve A / curve B; extras are
+  // ignored. Fewer than two usable series → theme-correct empty track.
+  if (chartType === 'two-curve') {
+    const usable = (Array.isArray(series) ? series : [])
+      .filter((entry) => entry?.property && entry.points?.length);
+    if (usable.length < 2) return emptyStripLogConfig(template);
+    const [seriesA, seriesB] = usable;
+    return buildTwoCurveFillFromPoints({
+      propertyA: seriesA.property,
+      propertyB: seriesB.property,
+      pointsA: seriesA.points,
+      pointsB: seriesB.points,
+      colorA: seriesA.color,
+      colorB: seriesB.color,
+      logScale: logScale === true,
+      template,
+    });
+  }
+  // Composition: every series is a stacked component.
+  if (chartType === 'composition') {
+    return buildCompositionFromSeries({
+      series: Array.isArray(series) ? series : [],
+      colourMap,
+      template,
+    });
   }
   if (!points || !points.length || !property) return emptyStripLogConfig(template);
   if (isCategorical || chartType === 'categorical') {
@@ -1060,8 +1089,28 @@ function interpolateSeriesAtDepths(points, depths) {
 export function buildTwoCurveFillConfig({
   hole, propertyA, propertyB, colorA, colorB, logScale = false, title, template,
 } = {}) {
-  const pointsA = buildIntervalPoints(hole, propertyA, false);
-  const pointsB = buildIntervalPoints(hole, propertyB, false);
+  return buildTwoCurveFillFromPoints({
+    propertyA,
+    propertyB,
+    pointsA: buildIntervalPoints(hole, propertyA, false),
+    pointsB: buildIntervalPoints(hole, propertyB, false),
+    colorA,
+    colorB,
+    logScale,
+    title,
+    template,
+  });
+}
+
+/**
+ * Two-curve fill from pre-built interval points — the shared implementation
+ * behind {@link buildTwoCurveFillConfig} (hole + property names) and the
+ * `two-curve` chart type in {@link buildPlotConfig} (multi-assay `series`).
+ * @private
+ */
+function buildTwoCurveFillFromPoints({
+  propertyA, propertyB, pointsA, pointsB, colorA, colorB, logScale = false, title, template,
+} = {}) {
   if (!pointsA.length || !pointsB.length) return emptyStripLogConfig(template);
 
   const curveColourA = colorA || seriesColour(propertyA, 0);
@@ -1215,11 +1264,25 @@ export function buildCompositionConfig({
   const series = usable.map((property) => ({
     property,
     points: buildIntervalPoints(hole, property, false),
-  })).filter((entry) => entry.points.length);
-  if (!series.length) return emptyStripLogConfig(template);
+  }));
+  return buildCompositionFromSeries({ series, colourMap, normalize, title, template });
+}
+
+/**
+ * Composition track from pre-built component series — the shared
+ * implementation behind {@link buildCompositionConfig} (hole + property names)
+ * and the `composition` chart type in {@link buildPlotConfig} (multi-assay
+ * `series`).
+ * @private
+ */
+function buildCompositionFromSeries({
+  series = [], colourMap = null, normalize = true, title, template,
+} = {}) {
+  const usableSeries = series.filter((entry) => entry?.property && entry.points?.length);
+  if (!usableSeries.length) return emptyStripLogConfig(template);
 
   // Shared interval grid across all components (missing cells fill with 0).
-  const aligned = alignSeriesToCommonDepths(series);
+  const aligned = alignSeriesToCommonDepths(usableSeries);
   const grid = aligned[0].points;
 
   // Clamp negatives to 0 for the stack (raw value stays in the hover), then

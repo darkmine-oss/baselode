@@ -42,18 +42,41 @@ export const CHART_OPTIONS = {
     { value: 'filled-line', label: 'Filled line' },
     { value: 'step-line', label: 'Stepped line' },
     { value: 'heat-strip', label: 'Heat strip' },
+    { value: 'two-curve', label: 'Two-curve fill' },
+    { value: 'composition', label: 'Composition' },
   ],
   [DISPLAY_CATEGORICAL]: [
     { value: 'categorical', label: 'Categorical bands' },
+    { value: 'point-log', label: 'Point log' },
   ],
   [DISPLAY_COMMENT]: [
     { value: 'comment', label: 'Comments' },
+    { value: 'annotations', label: 'Annotations' },
   ],
   [DISPLAY_TADPOLE]: [
     { value: 'tadpole', label: 'Tadpole' },
+    { value: 'dip-azimuth', label: 'Dip / azimuth' },
   ],
   [DISPLAY_HIDDEN]: [],
 };
+
+/**
+ * Numeric chart types that plot several properties in one track. These use
+ * the multi-property selection machinery (`multiProps` / `series`) instead of
+ * the single property picker: `two-curve` consumes the first two selections
+ * and `composition` stacks every selection.
+ */
+export const MULTI_PROPERTY_CHART_TYPES = ['multi-line', 'multi-stacked', 'two-curve', 'composition'];
+
+/**
+ * Whether a chart type plots several properties in one track.
+ *
+ * @param {string} chartType
+ * @returns {boolean}
+ */
+export function isMultiPropertyChartType(chartType) {
+  return MULTI_PROPERTY_CHART_TYPES.includes(chartType);
+}
 
 /**
  * Column names (lowercased) that are always hidden from strip log views.

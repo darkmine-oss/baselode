@@ -845,7 +845,33 @@ Plot a single numeric assay column as a Plotly figure.
 | `"step-line"` | Stepped line drawn along each interval's from/to extent |
 | `"heat-strip"` | Full-track-width bars coloured by value on the magma ramp |
 
-`log_scale=True` switches the value axis to a log scale for the `bar`, `markers`, `markers+line`, `line`, `filled-line`, and `step-line` chart types (silently ignored elsewhere). Also accepted by `plot_drillhole_trace`.
+`log_scale=True` switches the value axis to a log scale for the `bar`, `markers`, `markers+line`, `line`, `filled-line`, and `step-line` chart types (silently ignored elsewhere). Also accepted by `plot_drillhole_trace` (where it additionally applies to `two-curve`).
+
+### plot_drillhole_trace
+
+```python
+plot_drillhole_trace(df, value_col, chart_type=None, categorical_props=None,
+                     numeric_chart="markers+line", color=None, use_mid=False,
+                     intervals=True, colour_map=None, color_by=None,
+                     multi_props=None, log_scale=False, template=None)
+```
+
+Chart-type dispatcher: plots one track for a single drillhole, routing to the matching track builder.  When `chart_type` is omitted it is inferred — `"categorical"` if `value_col` is in `categorical_props`, else `numeric_chart`.
+
+**`chart_type` options:** every `plot_numeric_trace` option plus `"categorical"`, `"multi-line"`, `"multi-stacked"`, `"two-curve"`, `"composition"`, `"point-log"`, `"annotations"`, `"dip-azimuth"`
+
+| Chart type | Route |
+|---|---|
+| `"multi-line"` / `"multi-stacked"` | `plot_multi_assay` over `value_col` + `multi_props` |
+| `"two-curve"` | `plot_two_curve_fill` — `value_col` is curve A, the first `multi_props` entry is curve B; without an extra property an empty templated figure is returned |
+| `"composition"` | `plot_composition_log` over `value_col` + `multi_props` (stack order) |
+| `"point-log"` | `plot_point_log` — depth per row from a `depth` (or `mid`) column, else interval from/to mid-depths |
+| `"annotations"` | `plot_depth_annotations` — same per-row depth resolution as `"point-log"` |
+| `"dip-azimuth"` | `plot_dip_azimuth_log` — the frame supplies `depth`/`dip`/`azimuth` columns |
+
+Unresolvable inputs (missing columns, no resolvable depths) return an empty figure that still carries the resolved template.
+
+**Returns:** `plotly.graph_objects.Figure`
 
 ### plot_two_curve_fill
 
@@ -854,7 +880,7 @@ plot_two_curve_fill(df, value_col_a, value_col_b, from_cols=None, to_cols=None,
                     color_a=None, color_b=None, log_scale=False, template=None)
 ```
 
-Two numeric curves with the region between them shaded by dominance, split at every crossing (classic neutron–density display).  Where A > B the fill uses A's colour at alpha 0.4; where B > A it uses B's.  Curve colours default to the commodity colour for each column name, falling back to `MULTI_SERIES_COLORWAY[0]` / `[1]`.
+Two numeric curves with the region between them shaded by dominance, split at every crossing (classic neutron–density display).  Where A > B the fill uses A's colour at alpha 0.4; where B > A it uses B's.  Curve colours default to the commodity colour for each column name, falling back to `MULTI_SERIES_COLORWAY[0]` / `[1]`.  Also reachable through `plot_drillhole_trace` as the `"two-curve"` chart type.
 
 **Returns:** `plotly.graph_objects.Figure`
 
@@ -865,7 +891,7 @@ plot_composition_log(df, value_cols, from_col=FROM, to_col=TO,
                      colour_map=None, normalize=True, template=None)
 ```
 
-Percent-composition track: divided horizontal stacked bars per interval, one trace per component (*value_cols* order = legend + stack order).  With `normalize=True` (default) each interval's components are scaled to fractions of their sum and the axis is fixed to [0, 1] with percent ticks; with `normalize=False` raw values are stacked and the axis autoranges.  All-null/zero intervals are skipped; negative values are clamped to 0 for the bar (raw value in hover).
+Percent-composition track: divided horizontal stacked bars per interval, one trace per component (*value_cols* order = legend + stack order).  With `normalize=True` (default) each interval's components are scaled to fractions of their sum and the axis is fixed to [0, 1] with percent ticks; with `normalize=False` raw values are stacked and the axis autoranges.  All-null/zero intervals are skipped; negative values are clamped to 0 for the bar (raw value in hover).  Also reachable through `plot_drillhole_trace` as the `"composition"` chart type.
 
 **Returns:** `plotly.graph_objects.Figure`
 
@@ -876,7 +902,7 @@ plot_depth_annotations(df, depth_col=DEPTH, text_col=COMMENTS,
                        marker_color=None, template=None)
 ```
 
-Depth-pinned text annotations: a tick at the track's left edge with the note text alongside.  Long notes are word-truncated to ~40 characters for display; the full text stays in hover.  Composes with the other strip-log tracks (reversed depth axis, hidden [0, 1] x-axis).
+Depth-pinned text annotations: a tick at the track's left edge with the note text alongside.  Long notes are word-truncated to ~40 characters for display; the full text stays in hover.  Composes with the other strip-log tracks (reversed depth axis, hidden [0, 1] x-axis).  Also reachable through `plot_drillhole_trace` as the `"annotations"` chart type.
 
 **Returns:** `plotly.graph_objects.Figure`
 
@@ -887,7 +913,7 @@ plot_dip_azimuth_log(df, depth_col=DEPTH, dip_col=DIP, azimuth_col=AZIMUTH,
                      color_by=None, template=None)
 ```
 
-Split dip-magnitude / dip-azimuth tracks sharing one reversed depth axis: dip markers on a fixed [0, 90] axis, azimuth markers on a fixed [0, 360] axis with ticks every 90°.  `color_by` (e.g. defect type) renders one trace per category with a legend shared across both tracks.
+Split dip-magnitude / dip-azimuth tracks sharing one reversed depth axis: dip markers on a fixed [0, 90] axis, azimuth markers on a fixed [0, 360] axis with ticks every 90°.  `color_by` (e.g. defect type) renders one trace per category with a legend shared across both tracks.  Also reachable through `plot_drillhole_trace` as the `"dip-azimuth"` chart type.
 
 **Returns:** `plotly.graph_objects.Figure`
 

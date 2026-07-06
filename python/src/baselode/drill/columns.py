@@ -47,15 +47,20 @@ CHART_OPTIONS = {
         {"value": "filled-line", "label": "Filled line"},
         {"value": "step-line", "label": "Stepped line"},
         {"value": "heat-strip", "label": "Heat strip"},
+        {"value": "two-curve", "label": "Two-curve fill"},
+        {"value": "composition", "label": "Composition"},
     ],
     DISPLAY_CATEGORICAL: [
         {"value": "categorical", "label": "Categorical bands"},
+        {"value": "point-log", "label": "Point log"},
     ],
     DISPLAY_COMMENT: [
         {"value": "comment", "label": "Comments"},
+        {"value": "annotations", "label": "Annotations"},
     ],
     DISPLAY_TADPOLE: [
         {"value": "tadpole", "label": "Tadpole"},
+        {"value": "dip-azimuth", "label": "Dip / azimuth"},
     ],
     DISPLAY_HIDDEN: [],
 }

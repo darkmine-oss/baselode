@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildIntervalPoints,
   buildPlotConfig,
   buildTwoCurveFillConfig,
   buildCompositionConfig,
@@ -20,7 +21,16 @@ import {
   LITHOLOGY_PATTERNS,
   resolvePatternMap,
 } from '../src/viz/colourMap.js';
-import { CHART_OPTIONS, DISPLAY_NUMERIC } from '../src/data/columnMeta.js';
+import {
+  CHART_OPTIONS,
+  MULTI_PROPERTY_CHART_TYPES,
+  isMultiPropertyChartType,
+  DISPLAY_NUMERIC,
+  DISPLAY_CATEGORICAL,
+  DISPLAY_COMMENT,
+  DISPLAY_TADPOLE,
+} from '../src/data/columnMeta.js';
+import { coerceChartTypeForProperty } from '../src/data/traceGridConfig.js';
 import { SerializableBaselodeStripLogTrackSchema } from '../src/tool-ui/schema.js';
 
 // Numeric interval points sorted deep→shallow as buildIntervalPoints emits them.
@@ -31,15 +41,46 @@ const numericPoints = [
 ];
 
 describe('CHART_OPTIONS — new numeric chart types', () => {
-  it('appends filled-line / step-line / heat-strip after the existing entries', () => {
+  it('appends the petrophysics + multi-property entries after the existing ones', () => {
     const values = CHART_OPTIONS[DISPLAY_NUMERIC].map((option) => option.value);
-    expect(values.slice(-3)).toEqual(['filled-line', 'step-line', 'heat-strip']);
+    expect(values.slice(-5)).toEqual([
+      'filled-line', 'step-line', 'heat-strip', 'two-curve', 'composition',
+    ]);
     const byValue = Object.fromEntries(
       CHART_OPTIONS[DISPLAY_NUMERIC].map((option) => [option.value, option.label])
     );
     expect(byValue['filled-line']).toBe('Filled line');
     expect(byValue['step-line']).toBe('Stepped line');
     expect(byValue['heat-strip']).toBe('Heat strip');
+    expect(byValue['two-curve']).toBe('Two-curve fill');
+    expect(byValue['composition']).toBe('Composition');
+  });
+
+  it('appends the alternative chart types for the other display types', () => {
+    expect(CHART_OPTIONS[DISPLAY_CATEGORICAL]).toEqual([
+      { value: 'categorical', label: 'Categorical bands' },
+      { value: 'point-log', label: 'Point log' },
+    ]);
+    expect(CHART_OPTIONS[DISPLAY_COMMENT]).toEqual([
+      { value: 'comment', label: 'Comments' },
+      { value: 'annotations', label: 'Annotations' },
+    ]);
+    expect(CHART_OPTIONS[DISPLAY_TADPOLE]).toEqual([
+      { value: 'tadpole', label: 'Tadpole' },
+      { value: 'dip-azimuth', label: 'Dip / azimuth' },
+    ]);
+  });
+
+  it('classifies exactly the multi-property chart types as multi', () => {
+    expect(MULTI_PROPERTY_CHART_TYPES).toEqual([
+      'multi-line', 'multi-stacked', 'two-curve', 'composition',
+    ]);
+    for (const chartType of MULTI_PROPERTY_CHART_TYPES) {
+      expect(isMultiPropertyChartType(chartType), chartType).toBe(true);
+    }
+    for (const chartType of ['line', 'bar', 'heat-strip', 'point-log', 'annotations', 'dip-azimuth', '']) {
+      expect(isMultiPropertyChartType(chartType), chartType).toBe(false);
+    }
   });
 });
 
@@ -515,10 +556,14 @@ describe('tool-ui track schema — new fields', () => {
       usePatterns: true,
     });
     expect(parsed.success).toBe(true);
-    for (const chartType of ['filled-line', 'step-line', 'heat-strip']) {
+    const newChartTypes = [
+      'filled-line', 'step-line', 'heat-strip',
+      'two-curve', 'composition', 'point-log', 'annotations', 'dip-azimuth',
+    ];
+    for (const chartType of newChartTypes) {
       expect(SerializableBaselodeStripLogTrackSchema.safeParse({
         property: 'au_ppm', chartType,
-      }).success).toBe(true);
+      }).success, chartType).toBe(true);
     }
     expect(SerializableBaselodeStripLogTrackSchema.safeParse({
       property: 'au_ppm', chartType: 'not-a-chart',
@@ -526,5 +571,138 @@ describe('tool-ui track schema — new fields', () => {
     expect(SerializableBaselodeStripLogTrackSchema.safeParse({
       property: 'au_ppm', logScale: 'yes',
     }).success).toBe(false);
+  });
+});
+
+describe('buildPlotConfig — two-curve chart type via series', () => {
+  const hole = {
+    id: 'H1',
+    points: [
+      { from: 0, to: 10, density: 1, neutron: 3, gamma: 7 },
+      { from: 10, to: 20, density: 3, neutron: 1, gamma: 7 },
+    ],
+  };
+  const seriesFor = (properties) => properties.map((property) => ({
+    property,
+    points: buildIntervalPoints(hole, property, false),
+  }));
+
+  it('matches the standalone builder for the first two series', () => {
+    const viaDispatch = buildPlotConfig({
+      points: [], isCategorical: false, property: 'density',
+      chartType: 'two-curve', series: seriesFor(['density', 'neutron']),
+    });
+    const standalone = buildTwoCurveFillConfig({
+      hole, propertyA: 'density', propertyB: 'neutron',
+    });
+    expect(viaDispatch).toEqual(standalone);
+  });
+
+  it('ignores extra series beyond the first two', () => {
+    const withExtra = buildPlotConfig({
+      points: [], isCategorical: false, property: 'density',
+      chartType: 'two-curve', series: seriesFor(['density', 'neutron', 'gamma']),
+    });
+    const firstTwo = buildPlotConfig({
+      points: [], isCategorical: false, property: 'density',
+      chartType: 'two-curve', series: seriesFor(['density', 'neutron']),
+    });
+    expect(withExtra).toEqual(firstTwo);
+  });
+
+  it('honours per-series colours and logScale', () => {
+    const [seriesA, seriesB] = seriesFor(['density', 'neutron']);
+    const { data, layout } = buildPlotConfig({
+      points: [], isCategorical: false, property: 'density',
+      chartType: 'two-curve',
+      series: [{ ...seriesA, color: '#ff0000' }, { ...seriesB, color: '#0000ff' }],
+      logScale: true,
+    });
+    const curves = data.filter((trace) => trace.showlegend === true);
+    expect(curves[0].line.color).toBe('#ff0000');
+    expect(curves[1].line.color).toBe('#0000ff');
+    expect(layout.xaxis.type).toBe('log');
+  });
+
+  it('returns a theme-correct empty track with fewer than two usable series', () => {
+    for (const series of [undefined, [], seriesFor(['density']), seriesFor(['density', 'missing'])]) {
+      const empty = buildPlotConfig({
+        points: [], isCategorical: false, property: 'density',
+        chartType: 'two-curve', series,
+      });
+      expect(empty.data).toEqual([]);
+      expect(empty.layout.template).toBeDefined();
+    }
+  });
+});
+
+describe('buildPlotConfig — composition chart type via series', () => {
+  const hole = {
+    id: 'H1',
+    points: [
+      { from: 0, to: 10, sand: 2, silt: 1, clay: 1 },
+      { from: 10, to: 20, sand: 3, silt: 1, clay: 0 },
+    ],
+  };
+  const seriesFor = (properties) => properties.map((property) => ({
+    property,
+    points: buildIntervalPoints(hole, property, false),
+  }));
+
+  it('matches the standalone builder for the same components', () => {
+    const viaDispatch = buildPlotConfig({
+      points: [], isCategorical: false, property: 'sand',
+      chartType: 'composition', series: seriesFor(['sand', 'silt', 'clay']),
+    });
+    const standalone = buildCompositionConfig({
+      hole, properties: ['sand', 'silt', 'clay'],
+    });
+    expect(viaDispatch).toEqual(standalone);
+    expect(viaDispatch.layout.barmode).toBe('stack');
+    expect(viaDispatch.data.map((trace) => trace.name)).toEqual(['sand', 'silt', 'clay']);
+  });
+
+  it('passes the track colourMap through to the components', () => {
+    const { data } = buildPlotConfig({
+      points: [], isCategorical: false, property: 'sand',
+      chartType: 'composition', series: seriesFor(['sand', 'silt']),
+      colourMap: { sand: '#123456' },
+    });
+    expect(data[0].marker.color).toBe('#123456');
+  });
+
+  it('returns a theme-correct empty track without usable series', () => {
+    for (const series of [undefined, [], seriesFor(['missing'])]) {
+      const empty = buildPlotConfig({
+        points: [], isCategorical: false, property: 'sand',
+        chartType: 'composition', series,
+      });
+      expect(empty.data).toEqual([]);
+      expect(empty.layout.template).toBeDefined();
+    }
+  });
+});
+
+describe('coerceChartTypeForProperty — new chart-type alternatives', () => {
+  const lists = { categoricalProps: ['lith'], commentProps: ['comments'] };
+
+  it('keeps the alternative chart types for their display types', () => {
+    expect(coerceChartTypeForProperty({ property: 'lith', chartType: 'point-log', ...lists })).toBe('point-log');
+    expect(coerceChartTypeForProperty({ property: 'comments', chartType: 'annotations', ...lists })).toBe('annotations');
+    expect(coerceChartTypeForProperty({ property: 'dip', chartType: 'dip-azimuth', ...lists })).toBe('dip-azimuth');
+    expect(coerceChartTypeForProperty({ property: 'au_ppm', chartType: 'two-curve', ...lists })).toBe('two-curve');
+    expect(coerceChartTypeForProperty({ property: 'au_ppm', chartType: 'composition', ...lists })).toBe('composition');
+  });
+
+  it('still coerces cross-type selections to each display type default', () => {
+    expect(coerceChartTypeForProperty({ property: 'lith', chartType: 'annotations', ...lists })).toBe('categorical');
+    expect(coerceChartTypeForProperty({ property: 'comments', chartType: 'point-log', ...lists })).toBe('comment');
+    expect(coerceChartTypeForProperty({ property: 'dip', chartType: 'markers+line', ...lists })).toBe('tadpole');
+    for (const chartType of ['point-log', 'annotations', 'dip-azimuth', 'categorical', 'comment', 'tadpole']) {
+      expect(
+        coerceChartTypeForProperty({ property: 'au_ppm', chartType, ...lists }),
+        chartType,
+      ).toBe('markers+line');
+    }
   });
 });

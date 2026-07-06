@@ -6,8 +6,21 @@ import { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { buildPlotConfig } from './drillholeViz.js';
 import { formatPropertyLabel } from '../data/propertyLabels.js';
-import { buildCommentsConfig, buildTadpoleConfig } from './structuralViz.js';
-import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_TADPOLE } from '../data/columnMeta.js';
+import {
+  buildCommentsConfig,
+  buildTadpoleConfig,
+  buildPointLogConfig,
+  buildDepthAnnotationsConfig,
+  buildDipAzimuthConfig,
+} from './structuralViz.js';
+import {
+  getChartOptions,
+  isMultiPropertyChartType,
+  DISPLAY_COMMENT,
+  DISPLAY_CATEGORICAL,
+  DISPLAY_NUMERIC,
+  DISPLAY_TADPOLE,
+} from '../data/columnMeta.js';
 import {
   resolveTracePlotBody,
   resolveTracePlotSelectVisibility,
@@ -202,7 +215,9 @@ function TracePlot({
   const effectiveChartType = resolveChartType(displayType, chartType);
 
   // Colour-by + multi-assay state (supplied by useDrillholeTraceGrid).
-  const isMultiChart = effectiveChartType === 'multi-line' || effectiveChartType === 'multi-stacked';
+  // Multi chart types (multi-line / multi-stacked / two-curve / composition)
+  // swap the property picker for the multi-select and hide colour-by.
+  const isMultiChart = isMultiPropertyChartType(effectiveChartType);
   const colorBy = graph?.colorBy || null;
   const multiSeries = graph?.multiSeries || null;
   const numericOptions = graph?.numericOptions || [];
@@ -274,9 +289,26 @@ function TracePlot({
     let plotData;
     try {
       if (isComment) {
-        plotData = buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to' });
+        // Comment tracks offer two chart types: labelled interval boxes
+        // (default) or depth-pinned annotations at each interval mid.
+        plotData = effectiveChartType === 'annotations'
+          ? buildDepthAnnotationsConfig({
+              rows: points.map((p) => ({ ...p, mid: (p.from + p.to) / 2 })),
+              depthKey: 'mid',
+              textKey: property,
+              template,
+            })
+          : buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to' });
       } else if (isTadpole) {
-        plotData = buildTadpoleConfig(points);
+        // Structural tracks: tadpole (default) or split dip / azimuth log.
+        // Both read the raw structural rows (depth / dip / azimuth keys).
+        plotData = effectiveChartType === 'dip-azimuth'
+          ? buildDipAzimuthConfig({ rows: points, template })
+          : buildTadpoleConfig(points, { template });
+      } else if (displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'point-log') {
+        // Categorical interval points carry the category in `val` and the
+        // interval mid-depth in `z`.
+        plotData = buildPointLogConfig({ rows: points, depthKey: 'z', categoryKey: 'val', template });
       } else {
         plotData = buildPlotConfig({
           points,

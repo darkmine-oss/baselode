@@ -23,6 +23,7 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
     'bar', 'markers', 'line', 'markers+line', 'categorical',
     'colored-line', 'multi-line', 'multi-stacked',
     'filled-line', 'step-line', 'heat-strip',
+    'two-curve', 'composition', 'point-log', 'annotations', 'dip-azimuth',
   ]).optional(),
   colourMap: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
   // Colour a single numeric track by a separate categorical column (joined per
@@ -33,8 +34,9 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
   logScale: z.boolean().optional(),
   // Hatch categorical bands with the built-in lithology pattern map.
   usePatterns: z.boolean().optional(),
-  // Assays plotted together in a `multi-line` / `multi-stacked` track. When
-  // omitted the component seeds from the track property + other numeric columns.
+  // Assays plotted together in a `multi-line` / `multi-stacked` / `two-curve`
+  // / `composition` track. When omitted the component seeds from the track
+  // property + other numeric columns.
   multiProps: z.array(z.string().min(1)).optional(),
   propertyOptions: z.array(z.string().min(1)).optional(),
   allowPropertySelection: z.boolean().optional(),

@@ -5,9 +5,12 @@
 graded (value-coloured) line, colour-by-categorical, multi-assay stacked
 line/bar, interval-width bars, and the depth-unified hover; plus the
 filled/stepped/heat-strip chart types, log scaling, two-curve fill,
-composition, pattern fills, and depth annotations."""
+composition, pattern fills, depth annotations, and the dispatcher routes
+for the two-curve / composition / point-log / annotations / dip-azimuth
+chart types."""
 
 import pandas as pd
+import plotly.io as pio
 import pytest
 
 from baselode.drill import view
@@ -508,3 +511,110 @@ def test_depth_annotations_skip_blank_rows_and_empty_frames():
     fig = view.plot_depth_annotations(df)
     assert list(fig.data[0].y) == [1.0]
     assert list(view.plot_depth_annotations(pd.DataFrame()).data) == []
+
+
+# ---------------------------------------------------------------------------
+# Dispatcher routes for the advanced-track chart types
+# ---------------------------------------------------------------------------
+
+
+STRUCTURAL_ROWS = pd.DataFrame([
+    {"depth": 10.0, "dip": 45.0, "azimuth": 120.0, "defect": "joint"},
+    {"depth": 20.0, "dip": 60.0, "azimuth": 240.0, "defect": "vein"},
+    {"depth": 30.0, "dip": 30.0, "azimuth": 10.0, "defect": "joint"},
+])
+
+
+def _carries_template(fig, template_name):
+    """The figure resolved the explicitly requested Plotly template."""
+    expected = pio.templates[template_name]
+    return fig.layout.template.layout.paper_bgcolor == expected.layout.paper_bgcolor
+
+
+def test_two_curve_dispatch_compares_value_col_against_first_multi_prop():
+    fig = view.plot_drillhole_trace(
+        TWO_CURVE_ROWS, "density", chart_type="two-curve", multi_props=["neutron"],
+    )
+    curves = [t for t in fig.data if t.showlegend]
+    assert [t.name for t in curves] == ["density", "neutron"]
+    assert any(t.fill == "tonextx" for t in fig.data)
+
+
+def test_two_curve_dispatch_threads_log_scale():
+    fig = view.plot_drillhole_trace(
+        TWO_CURVE_ROWS, "density", chart_type="two-curve",
+        multi_props=["neutron"], log_scale=True,
+    )
+    assert fig.layout.xaxis.type == "log"
+
+
+def test_two_curve_dispatch_without_an_extra_property_is_empty_with_template():
+    for multi_props in (None, [], ["density"]):
+        fig = view.plot_drillhole_trace(
+            TWO_CURVE_ROWS, "density", chart_type="two-curve",
+            multi_props=multi_props, template="plotly_dark",
+        )
+        assert list(fig.data) == []
+        assert _carries_template(fig, "plotly_dark")
+
+
+def test_composition_dispatch_stacks_value_col_with_multi_props():
+    fig = view.plot_drillhole_trace(
+        COMPOSITION_ROWS, "sand", chart_type="composition", multi_props=["silt", "clay"],
+    )
+    assert [t.name for t in fig.data] == ["sand", "silt", "clay"]
+    assert fig.layout.barmode == "stack"
+    assert fig.layout.xaxis.tickformat == ".0%"
+
+
+def test_point_log_dispatch_resolves_interval_mid_depths():
+    fig = view.plot_drillhole_trace(LITHOLOGY_ROWS, "lithology", chart_type="point-log")
+    depths = sorted(depth for trace in fig.data for depth in trace.y)
+    assert depths == [2.5, 7.0, 12.0]
+    assert sorted(t.name for t in fig.data) == ["Sandstone", "pegmatite", "shale"]
+
+
+def test_point_log_dispatch_uses_measured_depth_for_structural_tables():
+    fig = view.plot_drillhole_trace(STRUCTURAL_ROWS, "defect", chart_type="point-log")
+    depths = sorted(depth for trace in fig.data for depth in trace.y)
+    assert depths == [10.0, 20.0, 30.0]
+    assert sorted(t.name for t in fig.data) == ["joint", "vein"]
+
+
+def test_annotations_dispatch_resolves_both_depth_shapes():
+    depth_rows = pd.DataFrame({"depth": [12.5, 48.0], "comments": ["Water inflow", "Clay gouge"]})
+    fig = view.plot_drillhole_trace(depth_rows, "comments", chart_type="annotations")
+    assert list(fig.data[0].y) == [12.5, 48.0]
+    assert fig.data[0].mode == "markers+text"
+
+    interval_rows = pd.DataFrame([
+        {"from": 0, "to": 4, "comments": "Fresh rock"},
+        {"from": 4, "to": 8, "comments": "Broken zone"},
+    ])
+    fig = view.plot_drillhole_trace(interval_rows, "comments", chart_type="annotations")
+    assert list(fig.data[0].y) == [2.0, 6.0]
+
+
+def test_point_log_and_annotations_dispatch_guard_unresolvable_depths():
+    no_depth = pd.DataFrame({"comments": ["orphan note"]})
+    for chart_type in ("point-log", "annotations"):
+        fig = view.plot_drillhole_trace(
+            no_depth, "comments", chart_type=chart_type, template="plotly_dark",
+        )
+        assert list(fig.data) == []
+        assert _carries_template(fig, "plotly_dark")
+
+
+def test_dip_azimuth_dispatch_routes_structural_frames():
+    fig = view.plot_drillhole_trace(STRUCTURAL_ROWS, "dip", chart_type="dip-azimuth")
+    assert fig.layout.xaxis.range == (0, 90)
+    assert fig.layout.xaxis2.range == (0, 360)
+    assert fig.layout.yaxis.autorange == "reversed"
+
+
+def test_dip_azimuth_dispatch_guards_missing_columns_with_template():
+    fig = view.plot_drillhole_trace(
+        ROWS, "Au_ppm", chart_type="dip-azimuth", template="plotly_dark",
+    )
+    assert list(fig.data) == []
+    assert _carries_template(fig, "plotly_dark")
