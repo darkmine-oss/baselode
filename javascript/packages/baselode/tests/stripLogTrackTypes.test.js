@@ -407,6 +407,22 @@ describe('buildDipAzimuthConfig', () => {
     { depth: 30, dip: 30, azimuth: 180, defect: 'joint' },
   ];
 
+  it('keeps valid rows with a missing category under an explicit group', () => {
+    const { data } = buildDipAzimuthConfig({
+      rows: [...rows, { depth: 40, dip: 50, azimuth: 45, defect: null }],
+      colorBy: 'defect',
+    });
+    const names = [...new Set(data.map((trace) => trace.name))];
+    expect(names).toContain('(uncategorised)');
+    const uncategorised = data.filter((trace) => trace.name === '(uncategorised)');
+    expect(uncategorised[0].y).toEqual([40]);
+    // All four rows survive across the dip track's traces.
+    const dipTrackDepths = data
+      .filter((trace) => trace.xaxis === 'x')
+      .flatMap((trace) => trace.y);
+    expect(dipTrackDepths.sort((a, b) => a - b)).toEqual([10, 20, 30, 40]);
+  });
+
   it('splits dip and azimuth into two fixed-range tracks over a shared depth axis', () => {
     const { data, layout } = buildDipAzimuthConfig({ rows });
     expect(data).toHaveLength(2);

@@ -20,7 +20,7 @@ import { buildIntervalPoints, holeHasData } from './drillholeViz.js';
  * For holes that appear in both arrays, their points are concatenated.
  * @private
  */
-function mergeHoleSets(primary, extra) {
+export function mergeHoleSets(primary, extra) {
   if (!extra?.length) return primary;
   const byId = new Map(primary.map((h) => [h.id || h.holeId, { ...h }]));
   for (const eh of extra) {
@@ -28,7 +28,16 @@ function mergeHoleSets(primary, extra) {
     if (!id) continue;
     if (byId.has(id)) {
       const existing = byId.get(id);
-      byId.set(id, { ...existing, points: [...(existing.points || []), ...(eh.points || [])] });
+      // Dedupe by row reference: the extra-holes effect re-runs whenever the
+      // caller's array identity changes (e.g. another async source lands),
+      // re-presenting rows already merged — concatenating those again would
+      // double every marker on point-based tracks.
+      const mergedPoints = [...(existing.points || [])];
+      const seenPoints = new Set(mergedPoints);
+      for (const point of eh.points || []) {
+        if (!seenPoints.has(point)) mergedPoints.push(point);
+      }
+      byId.set(id, { ...existing, points: mergedPoints });
     } else {
       byId.set(id, eh);
     }

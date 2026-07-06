@@ -382,6 +382,26 @@ def test_plot_dip_azimuth_log_empty_and_missing_columns():
     assert list(plot_dip_azimuth_log(pd.DataFrame({"depth": [1.0]})).data) == []
 
 
+def test_plot_dip_azimuth_log_keeps_uncategorised_rows():
+    """Valid measurements with a missing colour-by category plot under an
+    explicit "(uncategorised)" group instead of being silently dropped."""
+    df = pd.DataFrame({
+        "depth": [10.0, 20.0, 30.0],
+        "dip": [45.0, 60.0, 50.0],
+        "azimuth": [90.0, 270.0, 45.0],
+        "defect": ["joint", "fault", None],
+    })
+    fig = plot_dip_azimuth_log(df, color_by="defect")
+    names = {trace.name for trace in fig.data}
+    assert "(uncategorised)" in names
+    dip_track_depths = sorted(
+        depth
+        for trace in fig.data if trace.xaxis == "x"
+        for depth in trace.y
+    )
+    assert dip_track_depths == [10.0, 20.0, 30.0]
+
+
 def test_plot_point_log_assigns_slot_colour_and_symbol_per_category():
     """Behaviour contract mirrored by the JS buildPointLogConfig port."""
     df = pd.DataFrame({

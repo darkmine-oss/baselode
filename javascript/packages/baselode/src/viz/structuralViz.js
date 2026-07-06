@@ -33,6 +33,16 @@ const POINT_LOG_SYMBOLS = [
   'cross', 'x', 'star', 'hexagon', 'pentagon', 'bowtie', 'hourglass',
 ];
 
+// Group label for rows whose colour-by category is missing — mirrored by the
+// Python plot_dip_azimuth_log so legends match across languages.
+const UNCATEGORISED_LABEL = '(uncategorised)';
+
+/** Trimmed category text, or '' for blank / NaN / None / null sentinels. @private */
+function normalizeCategoryLabel(value) {
+  const label = `${value ?? ''}`.trim();
+  return /^(nan|null|none)$/i.test(label) ? '' : label;
+}
+
 const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 36 };
 const STRIPLOG_AXIS_TICK_FONT_SIZE = 10;
 const STRIPLOG_AXIS_TITLE_FONT_SIZE = 11;
@@ -582,7 +592,9 @@ export function buildDipAzimuthConfig({
       depth: Number(row?.[depthKey]),
       dip: Number(row?.[dipKey]),
       azimuth: Number(row?.[azimuthKey]),
-      category: colorBy ? `${row?.[colorBy] ?? ''}`.trim() : '',
+      // Rows with valid angles but a missing category still plot, under an
+      // explicit group, instead of being dropped or legend-less.
+      category: colorBy ? (normalizeCategoryLabel(row?.[colorBy]) || UNCATEGORISED_LABEL) : '',
     }))
     .filter((rec) => Number.isFinite(rec.depth) && Number.isFinite(rec.dip) && Number.isFinite(rec.azimuth));
 

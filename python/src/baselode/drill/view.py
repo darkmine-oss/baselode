@@ -1919,8 +1919,18 @@ def plot_dip_azimuth_log(df,
         return go.Figure()
 
     if extra_cols:
-        categories = sorted(safe[color_by].dropna().astype(str).unique())
-        groups = [(cat, safe[safe[color_by].astype(str) == cat]) for cat in categories]
+        # Rows with valid angles but a missing category still plot, under an
+        # explicit "(uncategorised)" group (label mirrored by the JS
+        # buildDipAzimuthConfig), instead of being silently dropped.
+        # fillna before astype: Arrow-backed string columns keep missing
+        # values as float nan through astype(str).
+        category_labels = safe[color_by].fillna("").astype(str).str.strip()
+        category_labels = category_labels.where(
+            ~category_labels.str.lower().isin({"", "nan", "null", "none"}),
+            "(uncategorised)",
+        )
+        categories = sorted(category_labels.unique())
+        groups = [(cat, safe[category_labels == cat]) for cat in categories]
     else:
         groups = [(None, safe)]
 
