@@ -329,12 +329,12 @@ def test_plot_comments_log_text_wrapping():
     })
     fig = plot_comments_log(df, chars_per_line=20)
     assert fig is not None
-    # data[0] is the full-width invisible hover bar covering every interval
-    # (commented or not); data[1] carries the inline text for the one comment.
+    # Uncommented intervals do not render at all; data[0] is the full-width
+    # invisible hover bar over the commented interval, data[1] its inline text.
     hover_bar, text_trace = fig.data
     assert hover_bar.type == "bar"
-    assert len(hover_bar.hovertext) == 2
-    assert "(no comment)" in hover_bar.hovertext[1]
+    assert len(hover_bar.hovertext) == 1
+    assert len(fig.layout.shapes) == 1
     assert len(text_trace.text) == 1
     assert "<br>" in text_trace.text[0]
     # Text inherits the template font colour (theme-legible on light + dark).
@@ -346,17 +346,20 @@ def test_plot_comments_log_truncates_text_to_the_interval_line_budget():
     over its neighbours; the hover bar keeps the full text."""
     df = pd.DataFrame({
         "from": [0.0, 2.0],
-        "to": [2.0, 100.0],
+        "to": [2.0, 60.0],
         "comments": [
-            "A very long comment in a two metre sliver of a hundred metre track "
+            "A very long comment in a two metre sliver of a sixty metre track "
             "that would previously overlap everything below it",
-            "",
+            "Strongly foliated",
         ],
     })
     fig = plot_comments_log(df, chars_per_line=20)
-    hover_bar = fig.data[0]
-    # 2 m of a 100 m track fits zero of the 36 track lines → no inline text.
-    assert len(fig.data) == 1
+    hover_bar, text_trace = fig.data
+    # 2 m of a 60 m track fits one of the 36 track lines → one ellipsised line.
+    assert "<br>" not in text_trace.text[0]
+    assert text_trace.text[0].endswith("…")
+    assert text_trace.text[1] == "Strongly foliated"
+    # The hover bar always carries the full comment.
     assert "very long comment" in hover_bar.hovertext[0]
 
 

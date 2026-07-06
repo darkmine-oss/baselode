@@ -1421,8 +1421,10 @@ def plot_comments_log(df,
     template=None):
     """Render a comments log track — depth intervals with text annotations overlaid.
 
-    Every valid interval draws its border (commented ones with a translucent
-    fill) and carries a full-width hover target reporting the interval and the
+    Only intervals with a non-empty comment render — unified per-hole datasets
+    mix assay / structural / geology rows, and drawing every interval would
+    bury the commented ones under empty overlapping boxes. Each rendered
+    interval carries a full-width hover target reporting the interval and the
     complete comment. Inline text is budgeted to the lines that fit the
     interval's share of the track and truncated with an ellipsis beyond that,
     so long comments in thin intervals never spill over their neighbours.
@@ -1461,6 +1463,8 @@ def plot_comments_log(df,
             continue
         raw_comment = row.get(comment_col, "")
         comment = "" if (raw_comment is None or str(raw_comment).strip() in ("", "nan")) else str(raw_comment).strip()
+        if not comment:
+            continue
         records.append((from_depth, to_depth, comment))
 
     if not records:
@@ -1480,11 +1484,11 @@ def plot_comments_log(df,
             xref="x", yref="y",
             x0=0, x1=1,
             y0=from_depth, y1=to_depth,
-            fillcolor=bg_color if comment else "rgba(0,0,0,0)",
+            fillcolor=bg_color,
             line=dict(color=border_color, width=1),
             layer="below",
         ))
-        if not comment or total_span <= 0:
+        if total_span <= 0:
             continue
         line_budget = int(((to_depth - from_depth) / total_span) * _COMMENT_TEXT_LINES_PER_TRACK)
         if line_budget < 1:
@@ -1507,8 +1511,7 @@ def plot_comments_log(df,
         width=[max(to_depth - from_depth, 0.01) for from_depth, to_depth, _ in records],
         marker=dict(color="rgba(0,0,0,0)"),
         hovertext=[
-            f"{from_depth:.3f}–{to_depth:.3f} m<br>"
-            + (_wrap_comment(comment, 40) if comment else "(no comment)")
+            f"{from_depth:.3f}–{to_depth:.3f} m<br>{_wrap_comment(comment, 40)}"
             for from_depth, to_depth, comment in records
         ],
         hoverinfo="text",

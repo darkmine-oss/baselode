@@ -350,6 +350,10 @@ export function buildCommentsConfig(intervals, {
   charsPerLine = 18,
   template = undefined,
 } = {}) {
+  // Only intervals that actually carry a comment render. Unified per-hole
+  // datasets mix assay / structural / geology rows in one points array, so
+  // drawing every interval would bury the handful of commented ones under
+  // hundreds of empty overlapping boxes from the other sources.
   const records = intervals
     .filter(iv => iv[fromCol] != null && iv[toCol] != null && Number(iv[toCol]) > Number(iv[fromCol]))
     .map(iv => {
@@ -359,6 +363,7 @@ export function buildCommentsConfig(intervals, {
         : '';
       return { from: Number(iv[fromCol]), to: Number(iv[toCol]), comment };
     })
+    .filter((rec) => rec.comment)
     .sort((a, b) => a.from - b.from);
 
   if (!records.length) {
@@ -379,19 +384,17 @@ export function buildCommentsConfig(intervals, {
   const texts = [];
 
   for (const rec of records) {
-    const hasComment = !!rec.comment;
-
     shapes.push({
       type: 'rect',
       xref: 'x', yref: 'y',
       x0: 0, x1: 1,
       y0: rec.from, y1: rec.to,
-      fillcolor: hasComment ? bgColor : 'rgba(0,0,0,0)',
+      fillcolor: bgColor,
       line: { color: borderColor, width: 1 },
       layer: 'below',
     });
 
-    if (!hasComment || totalSpan <= 0) continue;
+    if (totalSpan <= 0) continue;
     const lineBudget = Math.floor(((rec.to - rec.from) / totalSpan) * TEXT_LINES_PER_TRACK);
     if (lineBudget < 1) continue;
     const wrappedLines = wrapComment(rec.comment, charsPerLine).split('<br>');
@@ -416,7 +419,7 @@ export function buildCommentsConfig(intervals, {
     width: records.map((rec) => Math.max(rec.to - rec.from, 0.01)),
     marker: { color: 'rgba(0,0,0,0)' },
     hovertext: records.map((rec) => (
-      `${rec.from.toFixed(3)}–${rec.to.toFixed(3)} m<br>${rec.comment ? wrapComment(rec.comment, 40) : '(no comment)'}`
+      `${rec.from.toFixed(3)}–${rec.to.toFixed(3)} m<br>${wrapComment(rec.comment, 40)}`
     )),
     hoverinfo: 'text',
     showlegend: false,

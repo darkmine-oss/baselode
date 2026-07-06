@@ -501,13 +501,14 @@ describe('buildCommentsConfig — redesigned comments track', () => {
     { from: 60, to: 100, comments: '' },
   ];
 
-  it('hovers anywhere in an interval via a full-width invisible bar', () => {
+  it('hovers anywhere in a commented interval; uncommented ones do not render', () => {
     const { data, layout } = buildCommentsConfig(intervals);
     const [hoverBar] = data;
     expect(hoverBar.type).toBe('bar');
-    expect(hoverBar.hovertext).toHaveLength(3);
+    // The empty third interval contributes no box, bar, or hover.
+    expect(hoverBar.hovertext).toHaveLength(2);
+    expect(layout.shapes).toHaveLength(2);
     expect(hoverBar.hovertext[0]).toContain('very long comment');
-    expect(hoverBar.hovertext[2]).toContain('(no comment)');
     // Depth-oriented hover: horizontal spike, not the template's vertical one.
     expect(layout.hovermode).toBe('y unified');
   });
@@ -515,9 +516,12 @@ describe('buildCommentsConfig — redesigned comments track', () => {
   it('budgets inline text to the interval share and inherits the theme font', () => {
     const { data } = buildCommentsConfig(intervals);
     const textTrace = data[1];
-    // The 2 m sliver fits no lines — only the 58 m interval shows text.
-    expect(textTrace.text).toHaveLength(1);
-    expect(textTrace.text[0]).toContain('Strongly foliated');
+    // The 2 m sliver fits one of the track's 36 lines — its long comment is
+    // ellipsised to that single line; the 58 m interval shows full text.
+    expect(textTrace.text).toHaveLength(2);
+    expect(textTrace.text[0].includes('<br>')).toBe(false);
+    expect(textTrace.text[0].endsWith('…')).toBe(true);
+    expect(textTrace.text[1]).toContain('Strongly foliated');
     expect(textTrace.textfont.color).toBeUndefined();
     expect(textTrace.hoverinfo).toBe('skip');
   });
