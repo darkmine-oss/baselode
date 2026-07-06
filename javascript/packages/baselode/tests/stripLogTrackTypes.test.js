@@ -15,6 +15,7 @@ import {
   buildPointLogConfig,
   buildDepthAnnotationsConfig,
   buildDipAzimuthConfig,
+  buildCommentsConfig,
 } from '../src/viz/structuralViz.js';
 import {
   LITHOLOGY_COLOURS,
@@ -490,6 +491,35 @@ describe('buildDepthAnnotationsConfig', () => {
     expect(data[0].y).toEqual([5]);
     expect(data[0].hovertext).toHaveLength(1);
     expect(data[0].hovertext[0]).toContain('Real note');
+  });
+});
+
+describe('buildCommentsConfig — redesigned comments track', () => {
+  const intervals = [
+    { from: 0, to: 2, comments: 'A very long comment in a two metre sliver of a hundred metre track that would previously overlap everything below it' },
+    { from: 2, to: 60, comments: 'Strongly foliated' },
+    { from: 60, to: 100, comments: '' },
+  ];
+
+  it('hovers anywhere in an interval via a full-width invisible bar', () => {
+    const { data, layout } = buildCommentsConfig(intervals);
+    const [hoverBar] = data;
+    expect(hoverBar.type).toBe('bar');
+    expect(hoverBar.hovertext).toHaveLength(3);
+    expect(hoverBar.hovertext[0]).toContain('very long comment');
+    expect(hoverBar.hovertext[2]).toContain('(no comment)');
+    // Depth-oriented hover: horizontal spike, not the template's vertical one.
+    expect(layout.hovermode).toBe('y unified');
+  });
+
+  it('budgets inline text to the interval share and inherits the theme font', () => {
+    const { data } = buildCommentsConfig(intervals);
+    const textTrace = data[1];
+    // The 2 m sliver fits no lines — only the 58 m interval shows text.
+    expect(textTrace.text).toHaveLength(1);
+    expect(textTrace.text[0]).toContain('Strongly foliated');
+    expect(textTrace.textfont.color).toBeUndefined();
+    expect(textTrace.hoverinfo).toBe('skip');
   });
 });
 

@@ -1404,20 +1404,28 @@ def _wrap_comment(text, chars_per_line=18):
     return "<br>".join(lines)
 
 
+# A comments track renders roughly this many 10px text lines top to bottom;
+# an interval covering a fraction of the depth span fits that fraction of
+# lines. Mirrored by the JS buildCommentsConfig.
+_COMMENT_TEXT_LINES_PER_TRACK = 36
+
+
 def plot_comments_log(df,
     from_col="from",
     to_col="to",
     comment_col="comments",
-    bg_color="#f1f5f9",
-    border_color="#cbd5e1",
-    text_color="#1e293b",
+    bg_color="rgba(148, 163, 184, 0.15)",
+    border_color="rgba(148, 163, 184, 0.4)",
+    text_color=None,
     chars_per_line=18,
     template=None):
     """Render a comments log track — depth intervals with text annotations overlaid.
 
-    Only intervals with a non-empty comment are rendered; rows with blank or null
-    comments are skipped entirely. Non-empty comments are word-wrapped and centered
-    inside a lightly shaded rectangle spanning the interval's from/to depth.
+    Every valid interval draws its border (commented ones with a translucent
+    fill) and carries a full-width hover target reporting the interval and the
+    complete comment. Inline text is budgeted to the lines that fit the
+    interval's share of the track and truncated with an ellipsis beyond that,
+    so long comments in thin intervals never spill over their neighbours.
 
     Parameters
     ----------
@@ -1428,11 +1436,12 @@ def plot_comments_log(df,
     comment_col : str
         Column containing comment text.
     bg_color : str
-        Fill color for intervals that have a comment.
+        Fill color for intervals that have a comment. The translucent default
+        reads on both the light and dark templates.
     border_color : str
         Rectangle border color.
-    text_color : str
-        Comment text color.
+    text_color : str, optional
+        Comment text color. Default None inherits the template font colour.
     chars_per_line : int
         Approximate characters before wrapping to next line.
     template : str or plotly template, optional
@@ -1444,63 +1453,91 @@ def plot_comments_log(df,
     records = []
     for _, row in df.iterrows():
         try:
-            f = float(row[from_col])
-            t = float(row[to_col])
+            from_depth = float(row[from_col])
+            to_depth = float(row[to_col])
         except (TypeError, ValueError, KeyError):
             continue
-        if t <= f:
+        if to_depth <= from_depth:
             continue
         raw_comment = row.get(comment_col, "")
         comment = "" if (raw_comment is None or str(raw_comment).strip() in ("", "nan")) else str(raw_comment).strip()
-        if not comment:
-            continue
-        records.append((f, t, comment))
+        records.append((from_depth, to_depth, comment))
 
     if not records:
         return _empty_striplog_figure(template)
 
-    records = sorted(records, key=lambda r: r[0])
+    records = sorted(records, key=lambda record: record[0])
+    total_span = records[-1][1] - records[0][0]
 
     shapes = []
     text_xs = []
     text_ys = []
     texts = []
-    hover_texts = []
 
-    for f, t, comment in records:
-        mid = 0.5 * (f + t)
+    for from_depth, to_depth, comment in records:
         shapes.append(dict(
             type="rect",
             xref="x", yref="y",
             x0=0, x1=1,
-            y0=f, y1=t,
-            fillcolor=bg_color,
+            y0=from_depth, y1=to_depth,
+            fillcolor=bg_color if comment else "rgba(0,0,0,0)",
             line=dict(color=border_color, width=1),
             layer="below",
         ))
+        if not comment or total_span <= 0:
+            continue
+        line_budget = int(((to_depth - from_depth) / total_span) * _COMMENT_TEXT_LINES_PER_TRACK)
+        if line_budget < 1:
+            continue
+        wrapped_lines = _wrap_comment(comment, chars_per_line).split("<br>")
+        shown_lines = wrapped_lines[:line_budget]
+        if len(wrapped_lines) > line_budget:
+            shown_lines[-1] = f"{shown_lines[-1]}…"
         text_xs.append(0.5)
-        text_ys.append(mid)
-        texts.append(_wrap_comment(comment, chars_per_line))
-        hover_texts.append(f"{f:.3f}–{t:.3f} m<br>{_wrap_comment(comment, 40)}")
+        text_ys.append(0.5 * (from_depth + to_depth))
+        texts.append("<br>".join(shown_lines))
 
-    text_trace = go.Scatter(
-        x=text_xs,
-        y=text_ys,
-        mode="text",
-        text=texts,
-        textposition="middle center",
-        textfont=dict(color=text_color, size=10),
-        hovertext=hover_texts,
+    # Invisible full-width bar per interval: the hover target covers the whole
+    # box (any depth within it), instead of one exact mid-depth text point.
+    hover_bar = go.Bar(
+        orientation="h",
+        x=[1.0] * len(records),
+        base=0,
+        y=[0.5 * (from_depth + to_depth) for from_depth, to_depth, _ in records],
+        width=[max(to_depth - from_depth, 0.01) for from_depth, to_depth, _ in records],
+        marker=dict(color="rgba(0,0,0,0)"),
+        hovertext=[
+            f"{from_depth:.3f}–{to_depth:.3f} m<br>"
+            + (_wrap_comment(comment, 40) if comment else "(no comment)")
+            for from_depth, to_depth, comment in records
+        ],
         hoverinfo="text",
         showlegend=False,
     )
-    fig = go.Figure(data=[text_trace])
 
+    data = [hover_bar]
+    if text_xs:
+        # Without an explicit colour the text inherits the template font, so
+        # it stays legible on both the light and dark themes.
+        textfont = dict(size=10) if text_color is None else dict(size=10, color=text_color)
+        data.append(go.Scatter(
+            x=text_xs,
+            y=text_ys,
+            mode="text",
+            text=texts,
+            textposition="middle center",
+            textfont=textfont,
+            hoverinfo="skip",
+            showlegend=False,
+        ))
+
+    fig = go.Figure(data=data)
     fig.update_layout(
         xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
         yaxis=dict(title="Depth (m)", autorange="reversed"),
         shapes=shapes,
         showlegend=False,
+        bargap=0,
     )
     return _apply_striplog_defaults(fig, template=template)
 

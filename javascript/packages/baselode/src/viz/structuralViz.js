@@ -65,6 +65,10 @@ function applyStriplogLayoutDefaults(layout = {}) {
   return {
     ...layout,
     margin: STRIPLOG_COMPACT_MARGIN,
+    // Strip logs read down-hole: hover along depth with a horizontal spike
+    // and one unified box (mirrors the numeric tracks). Without this the
+    // template's 'x unified' leaks in and draws a vertical spike.
+    hovermode: layout.hovermode || 'y unified',
     autosize: true,
     width: undefined,
     xaxis: {
@@ -338,9 +342,11 @@ export function buildCommentsConfig(intervals, {
   commentCol = 'comments',
   fromCol = FROM,
   toCol = TO,
-  bgColor = '#f1f5f9',
-  borderColor = '#cbd5e1',
-  textColor = '#1e293b',
+  // Translucent neutral fills read on both the light and dark templates;
+  // text colour is inherited from the template font unless overridden.
+  bgColor = 'rgba(148, 163, 184, 0.15)',
+  borderColor = 'rgba(148, 163, 184, 0.4)',
+  textColor = undefined,
   charsPerLine = 18,
   template = undefined,
 } = {}) {
@@ -359,14 +365,20 @@ export function buildCommentsConfig(intervals, {
     return emptyStripLogConfig(template);
   }
 
+  // Inline text is budgeted by each interval's share of the track: a track
+  // renders roughly this many 10px text lines top to bottom, so an interval
+  // covering a fraction of the depth span fits that fraction of lines.
+  // Comments that don't fit are truncated with an ellipsis — the hover bar
+  // always carries the full text.
+  const TEXT_LINES_PER_TRACK = 36;
+  const totalSpan = records[records.length - 1].to - records[0].from;
+
   const shapes = [];
   const textXs = [];
   const textYs = [];
   const texts = [];
-  const hovers = [];
 
   for (const rec of records) {
-    const mid = 0.5 * (rec.from + rec.to);
     const hasComment = !!rec.comment;
 
     shapes.push({
@@ -379,30 +391,56 @@ export function buildCommentsConfig(intervals, {
       layer: 'below',
     });
 
-    if (hasComment) {
-      textXs.push(0.5);
-      textYs.push(mid);
-      texts.push(wrapComment(rec.comment, charsPerLine));
-      hovers.push(`${rec.from.toFixed(3)}–${rec.to.toFixed(3)} m<br>${wrapComment(rec.comment, 40)}`);
+    if (!hasComment || totalSpan <= 0) continue;
+    const lineBudget = Math.floor(((rec.to - rec.from) / totalSpan) * TEXT_LINES_PER_TRACK);
+    if (lineBudget < 1) continue;
+    const wrappedLines = wrapComment(rec.comment, charsPerLine).split('<br>');
+    const shownLines = wrappedLines.slice(0, lineBudget);
+    if (wrappedLines.length > lineBudget) {
+      shownLines[shownLines.length - 1] = `${shownLines[shownLines.length - 1]}…`;
     }
+    textXs.push(0.5);
+    textYs.push(0.5 * (rec.from + rec.to));
+    texts.push(shownLines.join('<br>'));
   }
 
-  const data = textXs.length ? [{
-    type: 'scatter',
-    x: textXs,
-    y: textYs,
-    mode: 'text',
-    text: texts,
-    textposition: 'middle center',
-    textfont: { color: textColor, size: 10 },
-    hovertext: hovers,
+  const data = [];
+  // Invisible full-width bar per interval: the hover target covers the whole
+  // box (any depth within it), instead of one exact mid-depth text point.
+  data.push({
+    type: 'bar',
+    orientation: 'h',
+    x: records.map(() => 1),
+    base: 0,
+    y: records.map((rec) => 0.5 * (rec.from + rec.to)),
+    width: records.map((rec) => Math.max(rec.to - rec.from, 0.01)),
+    marker: { color: 'rgba(0,0,0,0)' },
+    hovertext: records.map((rec) => (
+      `${rec.from.toFixed(3)}–${rec.to.toFixed(3)} m<br>${rec.comment ? wrapComment(rec.comment, 40) : '(no comment)'}`
+    )),
     hoverinfo: 'text',
     showlegend: false,
-  }] : [];
+  });
+  if (textXs.length) {
+    data.push({
+      type: 'scatter',
+      x: textXs,
+      y: textYs,
+      mode: 'text',
+      text: texts,
+      textposition: 'middle center',
+      // Without an explicit colour the text inherits the template font, so it
+      // stays legible on both the light and dark themes.
+      textfont: { size: 10, ...(textColor ? { color: textColor } : {}) },
+      hoverinfo: 'skip',
+      showlegend: false,
+    });
+  }
 
   const layout = {
     shapes,
     height: 400,
+    bargap: 0,
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed' },
     showlegend: false,
