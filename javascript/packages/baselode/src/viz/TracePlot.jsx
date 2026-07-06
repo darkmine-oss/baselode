@@ -16,6 +16,7 @@ import {
 import {
   getChartOptions,
   isMultiPropertyChartType,
+  LOG_SCALE_CHART_TYPES,
   DISPLAY_COMMENT,
   DISPLAY_CATEGORICAL,
   DISPLAY_NUMERIC,
@@ -495,27 +496,60 @@ function TracePlot({
             )}
           </div>
         )}
-        {/* Row 4a: colour a single numeric track by value (default) or by a
-            categorical column (lithology, alteration, …). Only for numeric,
-            non-multi chart types when categorical columns are available.
+        {/* Row 4a: track display options — the colour-by select (numeric,
+            non-multi chart types with categorical columns available;
             filled-line / step-line / heat-strip don't compose with colour-by
-            (their geometry or colour already encodes the value). */}
-        {visibility.property && !isMultiChart && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0
-          && !['filled-line', 'step-line', 'heat-strip'].includes(effectiveChartType) && (
-          <div className="plot-card__row plot-card__row--colorby">
-            <select
-              className="plot-select plot-select--colorby"
-              value={selectedColorBy}
-              onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
-              aria-label="Colour by"
-            >
-              <option value="">Colour: by value</option>
-              {colorByOptions.map((c) => (
-                <option key={c} value={c}>{`Colour: ${formatPropertyLabel(c, propertyMeta?.[c])}`}</option>
-              ))}
-            </select>
-          </div>
-        )}
+            since their geometry or colour already encodes the value) plus the
+            log-scale / hatch-pattern toggles. Toggles live here, not in a
+            per-panel footer, so every card in a grid keeps the same height
+            and the tracks stay depth-aligned. */}
+        {(() => {
+          const showColorBy = visibility.property && !isMultiChart
+            && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0
+            && !['filled-line', 'step-line', 'heat-strip'].includes(effectiveChartType);
+          const showLogToggle = visibility.property && displayType === DISPLAY_NUMERIC
+            && LOG_SCALE_CHART_TYPES.has(effectiveChartType);
+          const showPatternsToggle = visibility.property
+            && displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'categorical';
+          if (!showColorBy && !showLogToggle && !showPatternsToggle) return null;
+          return (
+            <div className="plot-card__row plot-card__row--colorby">
+              {showColorBy && (
+                <select
+                  className="plot-select plot-select--colorby"
+                  value={selectedColorBy}
+                  onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
+                  aria-label="Colour by"
+                >
+                  <option value="">Colour: by value</option>
+                  {colorByOptions.map((c) => (
+                    <option key={c} value={c}>{`Colour: ${formatPropertyLabel(c, propertyMeta?.[c])}`}</option>
+                  ))}
+                </select>
+              )}
+              {showLogToggle && (
+                <label className="plot-toggle">
+                  <input
+                    type="checkbox"
+                    checked={config?.logScale === true}
+                    onChange={(e) => onConfigChange && onConfigChange({ logScale: e.target.checked })}
+                  />
+                  <span>Log</span>
+                </label>
+              )}
+              {showPatternsToggle && (
+                <label className="plot-toggle">
+                  <input
+                    type="checkbox"
+                    checked={config?.usePatterns === true}
+                    onChange={(e) => onConfigChange && onConfigChange({ usePatterns: e.target.checked })}
+                  />
+                  <span>Patterns</span>
+                </label>
+              )}
+            </div>
+          );
+        })()}
       </header>
       <div className="plot-card__body" ref={bodyRef}>
         {bodyState.kind === 'chart'

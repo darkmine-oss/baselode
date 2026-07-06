@@ -69,6 +69,14 @@ export const CHART_OPTIONS = {
 export const MULTI_PROPERTY_CHART_TYPES = ['multi-line', 'multi-stacked', 'two-curve', 'composition'];
 
 /**
+ * Numeric chart types whose value axis supports a log scale — the UI offers
+ * the toggle for these and buildPlotConfig honours `logScale` on them.
+ */
+export const LOG_SCALE_CHART_TYPES = new Set([
+  'bar', 'markers', 'markers+line', 'line', 'filled-line', 'step-line', 'two-curve',
+]);
+
+/**
  * Whether a chart type plots several properties in one track.
  *
  * @param {string} chartType

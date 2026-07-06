@@ -7,7 +7,6 @@ import { useLocation } from 'react-router-dom';
 import {
   TracePlot,
   useDrillholeTraceGrid,
-  LogToggle,
   BASELODE_DARK_TEMPLATE,
   BASELODE_TEMPLATE,
 } from 'baselode';
@@ -20,13 +19,6 @@ import { loadDemoGeophysicsCsvText } from '../data/demoGswaData.js';
 import { parseGeophysicsIntervalHoles } from '../data/geophysicsHoles.js';
 
 const PLOT_COUNT = 4;
-
-// `config.logScale` is honoured by the single-series numeric chart types
-// only (buildPlotConfig ignores it for graded / heat / multi variants), so
-// the toggle is offered exactly where it has an effect.
-const LOG_SCALE_CHART_TYPES = new Set([
-  'bar', 'markers', 'markers+line', 'line', 'filled-line', 'step-line',
-]);
 
 // The demo GSWA assay columns encode the unit as a trailing token, e.g.
 // "Au_PPM". Split that into a clean label + unit so the strip-log axes and
@@ -141,47 +133,32 @@ function Drillhole2D() {
       <div className="baselode-strip-log-grid drillhole2d-grid" style={gridStyle}>
         {Array.from({ length: PLOT_COUNT }).map((_, trackIndex) => {
           const graph = traceGraphs[trackIndex];
-          const chartType = graph?.config?.chartType || '';
-          const logScaleAvailable = graph?.displayType === 'numeric'
-            && LOG_SCALE_CHART_TYPES.has(chartType);
-          const patternsAvailable = graph?.displayType === 'categorical';
           const config = {
             ...(graph?.config || { holeId: '', property: '', chartType: 'markers+line' }),
-            logScale: logScaleAvailable && trackLogScale[trackIndex],
-            usePatterns: patternsAvailable && trackPatterns[trackIndex],
+            logScale: trackLogScale[trackIndex],
+            usePatterns: trackPatterns[trackIndex],
           };
+          const setTrackFlag = (setter, next) => setter((prev) => prev.map(
+            (current, stateIndex) => (stateIndex === trackIndex ? next : current)
+          ));
           return (
-            <div className="drillhole2d-track" key={trackIndex}>
-              <TracePlot
-                config={config}
-                graph={graph}
-                holeOptions={labeledHoleOptions}
-                propertyOptions={graph?.propertyOptions || []}
-                propertyMeta={propertyMeta}
-                onConfigChange={(patch) => handleConfigChange(trackIndex, patch)}
-                template={template}
-              />
-              <div className="drillhole2d-track__footer">
-                {logScaleAvailable && (
-                  <LogToggle
-                    label="Log scale"
-                    value={trackLogScale[trackIndex]}
-                    onChange={(next) => setTrackLogScale((prev) => prev.map(
-                      (current, stateIndex) => (stateIndex === trackIndex ? next : current)
-                    ))}
-                  />
-                )}
-                {patternsAvailable && (
-                  <LogToggle
-                    label="Hatch patterns"
-                    value={trackPatterns[trackIndex]}
-                    onChange={(next) => setTrackPatterns((prev) => prev.map(
-                      (current, stateIndex) => (stateIndex === trackIndex ? next : current)
-                    ))}
-                  />
-                )}
-              </div>
-            </div>
+            <TracePlot
+              key={trackIndex}
+              config={config}
+              graph={graph}
+              holeOptions={labeledHoleOptions}
+              propertyOptions={graph?.propertyOptions || []}
+              propertyMeta={propertyMeta}
+              onConfigChange={(patch) => {
+                // The display toggles render inside TracePlot; they live in
+                // page state, everything else flows to the trace-grid hook.
+                const { logScale, usePatterns, ...gridPatch } = patch;
+                if (logScale !== undefined) setTrackFlag(setTrackLogScale, logScale);
+                if (usePatterns !== undefined) setTrackFlag(setTrackPatterns, usePatterns);
+                if (Object.keys(gridPatch).length) handleConfigChange(trackIndex, gridPatch);
+              }}
+              template={template}
+            />
           );
         })}
       </div>

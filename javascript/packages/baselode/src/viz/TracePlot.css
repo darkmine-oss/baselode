@@ -115,3 +115,25 @@
   white-space: nowrap;
 }
 
+
+/* Inline display-option toggles (log scale, hatch patterns) sharing the
+   colour-by row so panel heights never differ across a grid. */
+.plot-card .plot-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.plot-card .plot-card__row--colorby {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.plot-card .plot-card__row--colorby .plot-select--colorby {
+  flex: 1 1 auto;
+}
