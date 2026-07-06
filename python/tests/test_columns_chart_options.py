@@ -15,16 +15,16 @@ from baselode.drill.columns import (
 
 
 def test_numeric_chart_options_match_js_column_meta():
+    # Geometries only — graded is a colour choice (GRADED_COLOR_BY) and
+    # stepped / fill are line toggles; the legacy chart-type strings still
+    # render but are no longer offered.
     assert CHART_OPTIONS[DISPLAY_NUMERIC] == [
         {"value": "bar", "label": "Bars"},
         {"value": "markers", "label": "Markers"},
         {"value": "markers+line", "label": "Markers + Line"},
         {"value": "line", "label": "Line only"},
-        {"value": "colored-line", "label": "Graded line"},
         {"value": "multi-line", "label": "Multiple: lines"},
         {"value": "multi-stacked", "label": "Multiple: stacked bars"},
-        {"value": "filled-line", "label": "Filled line"},
-        {"value": "step-line", "label": "Stepped line"},
         {"value": "heat-strip", "label": "Heat strip"},
         {"value": "two-curve", "label": "Two-curve fill"},
         {"value": "composition", "label": "Composition"},
@@ -54,8 +54,12 @@ def test_tadpole_chart_options_match_js_column_meta():
 
 def test_new_chart_type_values_are_available():
     types = available_chart_types(DISPLAY_NUMERIC)
-    for value in ("filled-line", "step-line", "heat-strip", "colored-line", "multi-line", "multi-stacked", "two-curve", "composition"):
+    for value in ("heat-strip", "multi-line", "multi-stacked", "two-curve", "composition"):
         assert value in types
+    # Collapsed variants left the dropdown (graded → colour choice,
+    # stepped / fill → line toggles) but the renderers still accept them.
+    for value in ("colored-line", "filled-line", "step-line"):
+        assert value not in types
     assert "point-log" in available_chart_types(DISPLAY_CATEGORICAL)
     assert "annotations" in available_chart_types(DISPLAY_COMMENT)
     assert "dip-azimuth" in available_chart_types(DISPLAY_TADPOLE)

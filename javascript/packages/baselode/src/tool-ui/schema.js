@@ -38,6 +38,10 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
   logScale: z.boolean().optional(),
   // Hatch categorical bands with the built-in lithology pattern map.
   usePatterns: z.boolean().optional(),
+  // Line-geometry variants (line chart type only): stepped honours interval
+  // extents; fillArea shades back to zero.
+  stepped: z.boolean().optional(),
+  fillArea: z.boolean().optional(),
   // Assays plotted together in a `multi-line` / `multi-stacked` / `two-curve`
   // / `composition` track. When omitted the component seeds from the track
   // property + other numeric columns.

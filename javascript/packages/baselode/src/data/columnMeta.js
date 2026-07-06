@@ -31,16 +31,18 @@ export const DISPLAY_TADPOLE = 'tadpole';
  * Used to populate the chart-type dropdown in TracePlot.
  */
 export const CHART_OPTIONS = {
+  // The dropdown lists geometries only. Variations collapse into options:
+  // graded colouring is a Colour choice (GRADED_COLOR_BY), stepped and
+  // area-fill are Line toggles. The legacy 'colored-line' / 'filled-line' /
+  // 'step-line' chart-type strings still render (buildPlotConfig normalises
+  // them) but are no longer offered.
   [DISPLAY_NUMERIC]: [
     { value: 'bar', label: 'Bars' },
     { value: 'markers', label: 'Markers' },
     { value: 'markers+line', label: 'Markers + Line' },
     { value: 'line', label: 'Line only' },
-    { value: 'colored-line', label: 'Graded line' },
     { value: 'multi-line', label: 'Multiple: lines' },
     { value: 'multi-stacked', label: 'Multiple: stacked bars' },
-    { value: 'filled-line', label: 'Filled line' },
-    { value: 'step-line', label: 'Stepped line' },
     { value: 'heat-strip', label: 'Heat strip' },
     { value: 'two-curve', label: 'Two-curve fill' },
     { value: 'composition', label: 'Composition' },
@@ -71,10 +73,18 @@ export const MULTI_PROPERTY_CHART_TYPES = ['multi-line', 'multi-stacked', 'two-c
 /**
  * Numeric chart types whose value axis supports a log scale — the UI offers
  * the toggle for these and buildPlotConfig honours `logScale` on them.
+ * (The legacy filled-line / step-line strings stay for saved configs.)
  */
 export const LOG_SCALE_CHART_TYPES = new Set([
   'bar', 'markers', 'markers+line', 'line', 'filled-line', 'step-line', 'two-curve',
 ]);
+
+/**
+ * Sentinel `colorBy` value selecting the graded (value-coloured) rendering —
+ * "colour by the value itself" rather than by a categorical column. Mirrored
+ * by the Python GRADED_COLOR_BY in drill/columns.py.
+ */
+export const GRADED_COLOR_BY = '__graded__';
 
 /**
  * Whether a chart type plots several properties in one track.

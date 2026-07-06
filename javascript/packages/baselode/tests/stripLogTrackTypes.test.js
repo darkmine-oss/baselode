@@ -42,19 +42,17 @@ const numericPoints = [
 ];
 
 describe('CHART_OPTIONS — new numeric chart types', () => {
-  it('appends the petrophysics + multi-property entries after the existing ones', () => {
+  it('offers geometries only — variants collapse into options', () => {
     const values = CHART_OPTIONS[DISPLAY_NUMERIC].map((option) => option.value);
-    expect(values.slice(-5)).toEqual([
-      'filled-line', 'step-line', 'heat-strip', 'two-curve', 'composition',
+    expect(values).toEqual([
+      'bar', 'markers', 'markers+line', 'line',
+      'multi-line', 'multi-stacked', 'heat-strip', 'two-curve', 'composition',
     ]);
-    const byValue = Object.fromEntries(
-      CHART_OPTIONS[DISPLAY_NUMERIC].map((option) => [option.value, option.label])
-    );
-    expect(byValue['filled-line']).toBe('Filled line');
-    expect(byValue['step-line']).toBe('Stepped line');
-    expect(byValue['heat-strip']).toBe('Heat strip');
-    expect(byValue['two-curve']).toBe('Two-curve fill');
-    expect(byValue['composition']).toBe('Composition');
+    // Graded / filled / stepped are no longer chart types: graded is a
+    // Colour choice, stepped and fill are Line toggles.
+    expect(values).not.toContain('colored-line');
+    expect(values).not.toContain('filled-line');
+    expect(values).not.toContain('step-line');
   });
 
   it('appends the alternative chart types for the other display types', () => {
@@ -154,6 +152,54 @@ describe('buildPlotConfig — filled-line chart type', () => {
     for (const trace of data) {
       expect(Math.min(...trace.x)).toBeGreaterThanOrEqual(0);
     }
+  });
+});
+
+describe('collapsed variants — options render identically to legacy types', () => {
+  it("'line' + stepped / fillArea replaces step-line / filled-line", () => {
+    for (const [legacy, options] of [
+      ['filled-line', { fillArea: true }],
+      ['step-line', { stepped: true }],
+    ]) {
+      const legacyConfig = buildPlotConfig({
+        points: numericPoints, isCategorical: false, property: 'value', chartType: legacy,
+      });
+      const toggledConfig = buildPlotConfig({
+        points: numericPoints, isCategorical: false, property: 'value', chartType: 'line', ...options,
+      });
+      expect(toggledConfig).toEqual(legacyConfig);
+    }
+  });
+
+  it('stepped + fill combine into floored area geometry', () => {
+    const { data } = buildPlotConfig({
+      points: [
+        { z: 5, val: 12, from: 0, to: 10 },
+        { z: 15, val: -1, from: 10, to: 20 },
+      ],
+      isCategorical: false, property: 'value', chartType: 'line', stepped: true, fillArea: true,
+    });
+    const [trace] = data;
+    expect(trace.fill).toBe('tozerox');
+    expect(Math.min(...trace.x)).toBe(0);
+    expect(trace.customdata.some((row) => row[2] === -1)).toBe(true);
+  });
+
+  it('graded is the new spelling of the colored-line chart type', () => {
+    const legacyConfig = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'value', chartType: 'colored-line',
+    });
+    const gradedConfig = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'value',
+      chartType: 'markers+line', graded: true,
+    });
+    expect(gradedConfig).toEqual(legacyConfig);
+    // Markers-only tracks keep their geometry when graded.
+    const markersOnly = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'value',
+      chartType: 'markers', graded: true,
+    });
+    expect(markersOnly.data[0].mode).toBe('markers');
   });
 });
 

@@ -61,12 +61,14 @@ describe('buildPlotConfig with property metadata', () => {
     expect(data[0].hovertemplate).not.toContain('Source:');
   });
 
-  it('applies the formatted label to the categorical title and hover tooltip', () => {
+  it('applies the formatted label to the categorical hover tooltip only', () => {
     const { data, layout } = buildPlotConfig({
       points: categoricalPoints, isCategorical: true, property: 'Au', chartType: 'categorical',
       meta: { unit: 'ppm', sourceAttribute: 'Au_ppb' },
     });
-    expect(layout.title).toBe('Au (ppm, source: Au_ppb)');
+    // No in-plot title: the property is shown by the track's picker, and a
+    // title header pushes the bands out of depth alignment (Python parity).
+    expect(layout.title).toBeUndefined();
     expect(data[0].hovertemplate).toBe(
       'Au: SAP<br>Source: Au_ppb<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>'
     );

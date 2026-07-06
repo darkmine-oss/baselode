@@ -45,6 +45,7 @@ from baselode.colours import (
     series_colour,
     with_alpha,
 )
+from baselode.drill.columns import GRADED_COLOR_BY
 from baselode.template import BASELODE_TEMPLATE_NAME
 
 
@@ -268,14 +269,15 @@ def assign_categories_by_depth(points_df, segments):
     return categories
 
 
-def _build_graded_line(interval_df, value_col, template):
-    """Graded (value-coloured) line: a neutral connecting line with markers
-    coloured by the assay value on the magma ramp, plus a slim colour bar."""
+def _build_graded_line(interval_df, value_col, template, mode="lines+markers"):
+    """Graded (value-coloured) markers: a neutral connecting line (unless
+    *mode* is markers-only) with markers coloured by the assay value on the
+    magma ramp, plus a slim colour bar."""
     vals = interval_df["val"]
     trace = go.Scatter(
         x=vals,
         y=interval_df["z"],
-        mode="lines+markers",
+        mode=mode,
         line=dict(color="rgba(136,136,136,0.45)", width=1),
         marker=dict(
             size=8,
@@ -296,26 +298,32 @@ def _build_graded_line(interval_df, value_col, template):
     return _apply_striplog_defaults(fig, template=template)
 
 
-def _build_step_line(interval_df, value_col, color, template):
+def _build_step_line(interval_df, value_col, color, template, fill_area=False):
     """Stepped line honouring interval extents: two points per interval at
     (val, from) and (val, to), one polyline shallow → deep. Consecutive
     intervals connect with a vertical jump at the shared boundary; gaps are
-    still bridged by the polyline (no nulls inserted)."""
+    still bridged by the polyline (no nulls inserted). With *fill_area* the
+    step becomes area geometry: the area back to zero is shaded and
+    below-detection sentinels are floored at 0 (raw value stays in hover)."""
     ordered = interval_df.sort_values("from_val", ascending=True)
     xs = []
     ys = []
     customdata = []
     for _, point in ordered.iterrows():
-        xs.extend([point["val"], point["val"]])
+        plot_val = max(point["val"], 0) if fill_area else point["val"]
+        xs.extend([plot_val, plot_val])
         ys.extend([point["from_val"], point["to_val"]])
-        customdata.extend([[point["from_val"], point["to_val"]]] * 2)
+        customdata.extend([[point["from_val"], point["to_val"], point["val"]]] * 2)
+    value_ref = "%{customdata[2]}" if fill_area else "%{x}"
     trace = go.Scatter(
         x=xs,
         y=ys,
         mode="lines",
         line=dict(color=color, width=2),
+        fill="tozerox" if fill_area else None,
+        fillcolor=with_alpha(color, 0.35) if fill_area else None,
         customdata=customdata,
-        hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+        hovertemplate=f"{value_col}: {value_ref}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
     )
     fig = go.Figure(data=[trace], layout=_numeric_layout(value_col))
     return _apply_striplog_defaults(fig, template=template)
@@ -475,7 +483,8 @@ def _apply_log_scale(fig, chart_type, log_scale):
 
 
 def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color="#8b1e3f",
-                       intervals=True, template=None, color_by=None, log_scale=False):
+                       intervals=True, template=None, color_by=None, log_scale=False,
+                       stepped=False, fill_area=False, graded=False):
     """Plot numeric assay intervals with mid-depth markers and interval extent.
 
     chart_type options:
@@ -513,25 +522,34 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     if interval_df.empty:
         return _empty_striplog_figure(template)
 
+    # Normalise the legacy variant chart types onto "line" + toggles (and
+    # graded onto the colour choice) so both spellings render identically:
+    # the dropdown now offers geometries only.
+    if chart_type == "filled-line":
+        chart_type, fill_area = "line", True
+    if chart_type == "step-line":
+        chart_type, stepped = "line", True
+    if graded or chart_type == "colored-line":
+        mode = "markers" if chart_type == "markers" else "lines+markers"
+        return _build_graded_line(interval_df, value_col, template, mode=mode)
+
     # Colour-by only composes with the chart types the category-coloured
-    # builder implements; filled-line / step-line keep their geometry and
-    # heat-strip's colour already encodes the value, so those types win.
-    chart_type_overrides_color_by = chart_type in ("filled-line", "step-line", "heat-strip")
+    # builder implements; stepped / filled lines keep their geometry and
+    # heat-strip's colour already encodes the value, so those win.
+    chart_type_overrides_color_by = stepped or fill_area or chart_type == "heat-strip"
     if color_by and not chart_type_overrides_color_by and len(_normalize_segments(color_by.get("segments"))):
         fig = _build_category_coloured_numeric(interval_df, value_col, chart_type, color_by, template)
         return _apply_log_scale(fig, chart_type, log_scale)
-    if chart_type == "colored-line":
-        return _build_graded_line(interval_df, value_col, template)
-    if chart_type == "step-line":
-        fig = _build_step_line(interval_df, value_col, color, template)
-        return _apply_log_scale(fig, chart_type, log_scale)
+    if chart_type == "line" and stepped:
+        fig = _build_step_line(interval_df, value_col, color, template, fill_area=fill_area)
+        return _apply_log_scale(fig, "step-line", log_scale)
     if chart_type == "heat-strip":
         return _build_heat_strip(interval_df, value_col, template)
 
     is_bar = chart_type == "bar"
     is_markers = chart_type == "markers"
     is_line_only = chart_type == "line"
-    is_filled_line = chart_type == "filled-line"
+    is_filled_line = chart_type == "line" and fill_area
 
     error_config = dict(
         type="data",
@@ -1134,6 +1152,8 @@ def plot_drillhole_trace(df,
     color_by=None,
     multi_props=None,
     log_scale=False,
+    stepped=False,
+    fill_area=False,
     template=None):
     """
     Plot a 2D downhole trace or strip log for a single drillhole, for a single variable.
@@ -1225,15 +1245,18 @@ def plot_drillhole_trace(df,
     if is_cat or resolved_chart == "categorical":
         return plot_categorical_trace(interval_df, value_col, colour_map=colour_map, template=template)
     resolved_color = color or commodity_colour_for_property(value_col) or "#8b1e3f"
+    # The graded sentinel is a rendering choice ("colour by the value
+    # itself"), not a categorical column — route it to the graded builder.
+    graded = color_by == GRADED_COLOR_BY
     resolved_color_by = None
-    if color_by and color_by in df.columns:
+    if color_by and not graded and color_by in df.columns:
         segments = compute_interval_points(df, color_by)
         if not segments.empty:
             resolved_color_by = {"property": color_by, "segments": segments, "colour_map": colour_map}
     return plot_numeric_trace(
         interval_df, value_col, chart_type=resolved_chart, color=resolved_color,
         intervals=intervals, template=template, color_by=resolved_color_by,
-        log_scale=log_scale,
+        log_scale=log_scale, stepped=stepped, fill_area=fill_area, graded=graded,
     )
 
 

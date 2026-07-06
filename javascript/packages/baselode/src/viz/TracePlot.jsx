@@ -17,6 +17,7 @@ import {
   getChartOptions,
   isMultiPropertyChartType,
   LOG_SCALE_CHART_TYPES,
+  GRADED_COLOR_BY,
   DISPLAY_COMMENT,
   DISPLAY_CATEGORICAL,
   DISPLAY_NUMERIC,
@@ -277,14 +278,23 @@ function TracePlot({
   const propertySelectEnabled = propertyOptions.length > 0;
 
   // What the settings popover has to offer for the current track.
+  const isSteppedLine = effectiveChartType === 'line' && config?.stepped === true;
+  const isFilledLine = effectiveChartType === 'line' && config?.fillArea === true;
+  const gradedAvailable = ['markers', 'markers+line'].includes(effectiveChartType);
+  // Stepped / filled geometry and heat-strip don't compose with colouring.
   const showColorBy = visibility.property && !isMultiChart
-    && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0
-    && !['filled-line', 'step-line', 'heat-strip'].includes(effectiveChartType);
+    && displayType === DISPLAY_NUMERIC
+    && effectiveChartType !== 'heat-strip'
+    && !isSteppedLine && !isFilledLine
+    && (colorByOptions.length > 0 || gradedAvailable);
   const showLogToggle = visibility.property && displayType === DISPLAY_NUMERIC
     && LOG_SCALE_CHART_TYPES.has(effectiveChartType);
+  const showLineToggles = visibility.property && !isMultiChart
+    && displayType === DISPLAY_NUMERIC && effectiveChartType === 'line';
   const showPatternsToggle = visibility.property
     && displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'categorical';
-  const hasSettings = visibility.chartType || showColorBy || showLogToggle || showPatternsToggle;
+  const hasSettings = visibility.chartType || showColorBy || showLogToggle
+    || showLineToggles || showPatternsToggle;
 
   useEffect(() => {
     const body = bodyRef.current;
@@ -352,10 +362,14 @@ function TracePlot({
           chartType: effectiveChartType,
           template,
           meta,
-          colorBy,
+          // The graded sentinel is a rendering choice, not a category column.
+          colorBy: selectedColorBy === GRADED_COLOR_BY ? null : colorBy,
+          graded: selectedColorBy === GRADED_COLOR_BY,
           series: multiSeries,
           metaByProperty: propertyMeta,
           logScale: config?.logScale === true,
+          stepped: config?.stepped === true,
+          fillArea: config?.fillArea === true,
           patternMap: config?.usePatterns === true ? 'lithology' : config?.patternMap ?? null,
         });
       }
@@ -411,6 +425,9 @@ function TracePlot({
     propertyMeta,
     template,
     config?.logScale,
+    config?.stepped,
+    config?.fillArea,
+    selectedColorBy,
     config?.usePatterns,
     config?.patternMap,
     plotSize.width,
@@ -558,11 +575,34 @@ function TracePlot({
                           onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
                           aria-label="Colour by"
                         >
-                          <option value="">By value</option>
+                          <option value="">Default</option>
+                          {gradedAvailable && (
+                            <option value={GRADED_COLOR_BY}>By value (graded)</option>
+                          )}
                           {colorByOptions.map((c) => (
                             <option key={c} value={c}>{formatPropertyLabel(c, propertyMeta?.[c])}</option>
                           ))}
                         </select>
+                      </label>
+                    )}
+                    {showLineToggles && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.stepped === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ stepped: e.target.checked })}
+                        />
+                        <span>Stepped</span>
+                      </label>
+                    )}
+                    {showLineToggles && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.fillArea === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ fillArea: e.target.checked })}
+                        />
+                        <span>Fill</span>
                       </label>
                     )}
                     {showLogToggle && (

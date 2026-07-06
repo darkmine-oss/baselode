@@ -380,7 +380,9 @@ function buildCategoricalConfig(points, property, colourMap, template, meta, pat
     xaxis: { range: [0, 1], visible: false, fixedrange: true },
     yaxis: { title: 'Depth (m)', autorange: 'reversed', zeroline: false },
     showlegend: false,
-    title: formatPropertyLabel(property, meta) || undefined,
+    // No in-plot title: the property is already shown by the track's picker,
+    // and a title reserves header space that pushes the bands out of depth
+    // alignment with neighbouring tracks.
     template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
@@ -408,7 +410,7 @@ function numericLayout(property, meta, template, extraXaxis) {
  * coloured by the assay value on a sequential ramp, plus a slim colour bar.
  * @private
  */
-function buildGradedLineConfig(points, property, template, meta) {
+function buildGradedLineConfig(points, property, template, meta, mode = 'lines+markers') {
   const vals = points.map((p) => p.val);
   const cmin = Math.min(...vals);
   const cmax = Math.max(...vals);
@@ -420,7 +422,7 @@ function buildGradedLineConfig(points, property, template, meta) {
     customdata: numericCustomdata(points),
     hovertemplate: `${hover.label}: %{x}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
     type: 'scatter',
-    mode: 'lines+markers',
+    mode,
     line: { color: 'rgba(136,136,136,0.45)', width: 1 },
     marker: {
       size: 8,
@@ -476,7 +478,7 @@ function buildFilledLineConfig(points, property, color, template, meta, logScale
  * nulls); the extent is explicit in the step, so no error bars.
  * @private
  */
-function buildStepLineConfig(points, property, color, template, meta, logScale) {
+function buildStepLineConfig(points, property, color, template, meta, logScale, fillArea = false) {
   const lineColor = color || NUMERIC_LINE_COLOR;
   const hover = buildHoverParts(property, meta);
 
@@ -487,18 +489,23 @@ function buildStepLineConfig(points, property, color, template, meta, logScale) 
   ordered.forEach((point) => {
     const fromDepth = Math.min(point.from, point.to);
     const toDepth = Math.max(point.from, point.to);
-    xVals.push(point.val, point.val);
+    // With an area fill the step becomes area geometry: floor below-detection
+    // sentinels at 0 (raw value stays in hover), same as filled-line.
+    const plotVal = fillArea ? Math.max(point.val, 0) : point.val;
+    xVals.push(plotVal, plotVal);
     yVals.push(fromDepth, toDepth);
-    customdata.push([fromDepth, toDepth], [fromDepth, toDepth]);
+    customdata.push([fromDepth, toDepth, point.val], [fromDepth, toDepth, point.val]);
   });
 
+  const valueRef = fillArea ? '%{customdata[2]}' : '%{x}';
   const trace = {
     x: xVals,
     y: yVals,
     customdata,
-    hovertemplate: `${hover.label}: %{x}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
+    hovertemplate: `${hover.label}: ${valueRef}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
     type: 'scatter',
     mode: 'lines',
+    ...(fillArea ? { fill: 'tozerox', fillcolor: withAlpha(lineColor, 0.35) } : {}),
     line: { color: lineColor, width: 2 },
   };
 
@@ -704,16 +711,29 @@ function buildNumericConfig(points, property, chartType, color, template, meta, 
   if (!points.length) return emptyStripLogConfig(template);
 
   const logScale = options.logScale === true;
+  // Normalise the legacy variant chart types onto 'line' + toggles (and
+  // graded onto the colour choice) so both spellings render identically:
+  // the dropdown now offers geometries only.
+  let stepped = options.stepped === true;
+  let fillArea = options.fillArea === true;
+  let resolvedType = chartType;
+  if (chartType === 'filled-line') { resolvedType = 'line'; fillArea = true; }
+  if (chartType === 'step-line') { resolvedType = 'line'; stepped = true; }
+  const graded = options.graded === true || chartType === 'colored-line';
+  if (graded) {
+    return buildGradedLineConfig(
+      points, property, template, meta,
+      resolvedType === 'markers' ? 'markers' : 'lines+markers'
+    );
+  }
 
   // Colour-by only composes with the chart types the category-coloured
-  // builder implements; filled-line / step-line keep their geometry and
-  // heat-strip's colour already encodes the value, so those types win.
-  const chartTypeOverridesColorBy = chartType === 'filled-line'
-    || chartType === 'step-line'
-    || chartType === 'heat-strip';
+  // builder implements; stepped / filled lines keep their geometry and
+  // heat-strip's colour already encodes the value, so those win.
+  const chartTypeOverridesColorBy = stepped || fillArea || resolvedType === 'heat-strip';
   if (colorBy && !chartTypeOverridesColorBy && Array.isArray(colorBy.segments) && colorBy.segments.length) {
-    const colouredConfig = buildCategoryColouredNumericConfig(points, property, chartType, colorBy, template, meta);
-    if (logScale && ['bar', 'markers', 'markers+line', 'line'].includes(chartType)) {
+    const colouredConfig = buildCategoryColouredNumericConfig(points, property, resolvedType, colorBy, template, meta);
+    if (logScale && ['bar', 'markers', 'markers+line', 'line'].includes(resolvedType)) {
       colouredConfig.layout = {
         ...colouredConfig.layout,
         xaxis: { ...colouredConfig.layout?.xaxis, type: 'log' },
@@ -721,22 +741,19 @@ function buildNumericConfig(points, property, chartType, color, template, meta, 
     }
     return colouredConfig;
   }
-  if (chartType === 'colored-line') {
-    return buildGradedLineConfig(points, property, template, meta);
+  if (resolvedType === 'line' && stepped) {
+    return buildStepLineConfig(points, property, color, template, meta, logScale, fillArea);
   }
-  if (chartType === 'filled-line') {
+  if (resolvedType === 'line' && fillArea) {
     return buildFilledLineConfig(points, property, color, template, meta, logScale);
   }
-  if (chartType === 'step-line') {
-    return buildStepLineConfig(points, property, color, template, meta, logScale);
-  }
-  if (chartType === 'heat-strip') {
+  if (resolvedType === 'heat-strip') {
     return buildHeatStripConfig(points, property, template, meta);
   }
 
-  const isBar = chartType === 'bar';
-  const isMarkersOnly = chartType === 'markers';
-  const isLineOnly = chartType === 'line';
+  const isBar = resolvedType === 'bar';
+  const isMarkersOnly = resolvedType === 'markers';
+  const isLineOnly = resolvedType === 'line';
 
   const lineColor = color || NUMERIC_LINE_COLOR;
   const markerColor = color || NUMERIC_MARKER_COLOR;
@@ -939,7 +956,7 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
  */
 export function buildPlotConfig({
   points, isCategorical, property, chartType, colourMap, template, meta, colorBy, series, metaByProperty,
-  logScale, patternMap,
+  logScale, patternMap, fillArea, stepped, graded,
 }) {
   // Multi-assay path: render several assays in one track when a series is supplied.
   if ((chartType === 'multi-line' || chartType === 'multi-stacked') && Array.isArray(series) && series.length) {
@@ -982,7 +999,9 @@ export function buildPlotConfig({
   const resolvedColorBy = colorBy && colorBy.colourMap == null && colourMap != null
     ? { ...colorBy, colourMap }
     : colorBy;
-  return buildNumericConfig(points, property, chartType, colour, template, meta, resolvedColorBy, { logScale });
+  return buildNumericConfig(points, property, chartType, colour, template, meta, resolvedColorBy, {
+    logScale, fillArea, stepped, graded,
+  });
 }
 
 /**

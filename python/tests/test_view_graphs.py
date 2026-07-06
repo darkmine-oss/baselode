@@ -14,6 +14,7 @@ import plotly.io as pio
 import pytest
 
 from baselode.drill import view
+from baselode.drill.columns import GRADED_COLOR_BY
 
 
 # Three 4 m intervals; Bi is below detection (-2) at the top and bottom.
@@ -257,6 +258,37 @@ def test_two_curve_fill_floors_below_detection_before_interpolation():
     fig = view.plot_two_curve_fill(rows, "density", "neutron")
     for trace in fig.data:
         assert min(trace.x) >= 0
+
+
+def test_line_toggles_render_identically_to_the_legacy_variant_types():
+    """'line' + stepped / fill_area replaces step-line / filled-line; the
+    legacy strings still render byte-identically for saved configs."""
+    for legacy, kwargs in (
+        ("filled-line", {"fill_area": True}),
+        ("step-line", {"stepped": True}),
+    ):
+        legacy_fig = view.plot_numeric_trace(_points("Au_ppm"), "Au_ppm", chart_type=legacy)
+        toggled_fig = view.plot_numeric_trace(_points("Au_ppm"), "Au_ppm", chart_type="line", **kwargs)
+        assert toggled_fig.to_plotly_json() == legacy_fig.to_plotly_json()
+
+
+def test_stepped_fill_combination_is_area_geometry():
+    """Stepped + fill combine: tozerox fill, sentinels floored, raw in hover."""
+    fig = view.plot_numeric_trace(_points("Bi_ppm"), "Bi_ppm", chart_type="line", stepped=True, fill_area=True)
+    trace = fig.data[0]
+    assert trace.fill == "tozerox"
+    assert min(trace.x) == 0
+    assert -2 in [row[2] for row in trace.customdata]
+
+
+def test_graded_colour_choice_matches_the_legacy_graded_chart_type():
+    """color_by=GRADED_COLOR_BY is the new spelling of the colored-line type."""
+    legacy = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="colored-line")
+    graded = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="markers+line", color_by=GRADED_COLOR_BY)
+    assert graded.to_plotly_json() == legacy.to_plotly_json()
+    # Markers-only tracks keep their geometry when graded.
+    markers_only = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type="markers", color_by=GRADED_COLOR_BY)
+    assert markers_only.data[0].mode == "markers"
 
 
 # ---------------------------------------------------------------------------

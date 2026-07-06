@@ -121,6 +121,8 @@ function Drillhole2D() {
   // passed to TracePlot.
   const [trackLogScale, setTrackLogScale] = useState(() => Array(PLOT_COUNT).fill(false));
   const [trackPatterns, setTrackPatterns] = useState(() => Array(PLOT_COUNT).fill(false));
+  const [trackStepped, setTrackStepped] = useState(() => Array(PLOT_COUNT).fill(false));
+  const [trackFillArea, setTrackFillArea] = useState(() => Array(PLOT_COUNT).fill(false));
 
   const gridStyle = { gridTemplateColumns: `repeat(${PLOT_COUNT}, minmax(0, 1fr))` };
 
@@ -137,6 +139,8 @@ function Drillhole2D() {
             ...(graph?.config || { holeId: '', property: '', chartType: 'markers+line' }),
             logScale: trackLogScale[trackIndex],
             usePatterns: trackPatterns[trackIndex],
+            stepped: trackStepped[trackIndex],
+            fillArea: trackFillArea[trackIndex],
           };
           const setTrackFlag = (setter, next) => setter((prev) => prev.map(
             (current, stateIndex) => (stateIndex === trackIndex ? next : current)
@@ -152,9 +156,11 @@ function Drillhole2D() {
               onConfigChange={(patch) => {
                 // The display toggles render inside TracePlot; they live in
                 // page state, everything else flows to the trace-grid hook.
-                const { logScale, usePatterns, ...gridPatch } = patch;
+                const { logScale, usePatterns, stepped, fillArea, ...gridPatch } = patch;
                 if (logScale !== undefined) setTrackFlag(setTrackLogScale, logScale);
                 if (usePatterns !== undefined) setTrackFlag(setTrackPatterns, usePatterns);
+                if (stepped !== undefined) setTrackFlag(setTrackStepped, stepped);
+                if (fillArea !== undefined) setTrackFlag(setTrackFillArea, fillArea);
                 if (Object.keys(gridPatch).length) handleConfigChange(trackIndex, gridPatch);
               }}
               template={template}
