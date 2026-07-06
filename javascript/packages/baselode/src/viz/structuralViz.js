@@ -47,6 +47,15 @@ function normalizeCategoryLabel(value) {
   return /^(nan|null|none)$/i.test(label) ? '' : label;
 }
 
+/**
+ * Empty figure config that still carries the resolved template, so an empty
+ * track renders with the correct theme background instead of Plotly's white.
+ * @private
+ */
+function emptyStripLogConfig(template) {
+  return { data: [], layout: { template: template === undefined ? BASELODE_TEMPLATE : template } };
+}
+
 const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 36 };
 const STRIPLOG_AXIS_TICK_FONT_SIZE = 10;
 const STRIPLOG_AXIS_TITLE_FONT_SIZE = 11;
@@ -123,7 +132,7 @@ export function buildTadpoleConfig(points, {
   );
 
   if (!valid.length) {
-    return { data: [], layout: {} };
+    return emptyStripLogConfig(template);
   }
 
   // Build color map for categories
@@ -142,7 +151,9 @@ export function buildTadpoleConfig(points, {
     const dip = Number(p[dipCol]);
     const az = Number(p[azCol]);
     const cat = colorBy ? (p[colorBy] ?? '_default') : '_default';
-    const color = colorBy ? (colorMap[cat] ?? '#0f172a') : '#0f172a';
+    // Uncategorised tadpoles take the shared series colour — a mid-tone that
+    // reads on both templates (never a hardcoded dark slate).
+    const color = colorBy ? (colorMap[cat] ?? MULTI_SERIES_COLORWAY[0]) : MULTI_SERIES_COLORWAY[0];
 
     if (!byCat.has(cat)) {
       byCat.set(cat, { xs: [], ys: [], dips: [], azs: [], color });
@@ -236,7 +247,7 @@ export function buildStructuralStripConfig(intervals, {
     .sort((a, b) => a.from - b.from);
 
   if (!records.length) {
-    return { data: [], layout: {} };
+    return emptyStripLogConfig(template);
   }
 
   const shapes = [];
@@ -345,7 +356,7 @@ export function buildCommentsConfig(intervals, {
     .sort((a, b) => a.from - b.from);
 
   if (!records.length) {
-    return { data: [], layout: {} };
+    return emptyStripLogConfig(template);
   }
 
   const shapes = [];
@@ -441,7 +452,7 @@ export function buildPointLogConfig({
       && !/^(nan|null|none)$/i.test(rec.category));
 
   if (!records.length) {
-    return { data: [], layout: {} };
+    return emptyStripLogConfig(template);
   }
 
   // Stable ordering: sort alphabetically so colours are reproducible.
@@ -536,7 +547,7 @@ export function buildDepthAnnotationsConfig({
     .sort((first, second) => first.depth - second.depth);
 
   if (!records.length) {
-    return { data: [], layout: {} };
+    return emptyStripLogConfig(template);
   }
 
   const data = [{
@@ -605,7 +616,7 @@ export function buildDipAzimuthConfig({
     .filter((rec) => Number.isFinite(rec.depth) && Number.isFinite(rec.dip) && Number.isFinite(rec.azimuth));
 
   if (!valid.length) {
-    return { data: [], layout: {} };
+    return emptyStripLogConfig(template);
   }
 
   // One group per category when colouring; a single anonymous group otherwise.

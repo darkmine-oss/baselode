@@ -98,6 +98,12 @@ def _apply_striplog_defaults(fig, template=None):
     return fig
 
 
+def _empty_striplog_figure(template=None):
+    """Empty figure that still carries the resolved template, so a blank track
+    renders with the correct theme background instead of Plotly's white."""
+    return _apply_striplog_defaults(go.Figure(), template=template)
+
+
 def compute_interval_points(df,
     value_col,
     from_cols=("samp_from", "sample_from", "from", "depth_from", "SampFrom", "FromDepth", "mid"),
@@ -481,7 +487,7 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     Returns a plotly.graph_objects.Figure.
     """
     if interval_df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     # Colour-by only composes with the chart types the category-coloured
     # builder implements; filled-line / step-line keep their geometry and
@@ -619,7 +625,7 @@ def plot_multi_assay_trace(series, mode="multi-line", template=None):
         if s and s.get("property") and isinstance(s.get("points"), pd.DataFrame) and not s["points"].empty
     ]
     if not usable:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     stacked = mode == "multi-stacked"
     aligned = _align_series_to_common_depths(usable)
@@ -769,7 +775,7 @@ def plot_two_curve_fill(df, value_col_a, value_col_b, from_cols=None, to_cols=No
     points_a = compute_interval_points(df, value_col_a, **interval_kwargs)
     points_b = compute_interval_points(df, value_col_b, **interval_kwargs)
     if points_a.empty or points_b.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     # Floor below-detection sentinels (negative) at 0 before interpolating —
     # interpolating through a sentinel fabricates slopes, crossings and fill
@@ -870,7 +876,7 @@ def plot_composition_log(df, value_cols, from_col=FROM, to_col=TO, colour_map=No
         if col in df.columns and pd.to_numeric(df[col], errors="coerce").notna().any()
     ]
     if df.empty or not value_cols:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     resolved_cmap = resolve_colour_map(colour_map)
 
@@ -901,7 +907,7 @@ def plot_composition_log(df, value_cols, from_col=FROM, to_col=TO, colour_map=No
         })
 
     if not intervals:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     intervals.sort(key=lambda cell: cell["from"])
 
     def _component_colour(col, index):
@@ -993,7 +999,7 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
     Returns a plotly.graph_objects.Figure.
     """
     if interval_df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     palette = palette or [
         "#1f77b4",  # blue
@@ -1013,10 +1019,10 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
 
     safe = interval_df.dropna(subset=["from_val", "to_val", "val"]).copy()
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     safe = safe[safe["to_val"] > safe["from_val"]]
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     safe = safe.sort_values(["from_val", "to_val"], ascending=[True, True])
 
     categories = [str(v) for v in safe["val"].tolist()]
@@ -1141,7 +1147,7 @@ def plot_drillhole_trace(df,
 
     if use_mid:
         if MID not in df.columns:
-            return go.Figure()
+            return _empty_striplog_figure(template)
         tmp = df[[MID, value_col]].copy()
         tmp = tmp.dropna(subset=[MID, value_col])
         interval_df = pd.DataFrame({
@@ -1224,7 +1230,7 @@ def plot_drillhole_traces_subplots(df,
     categorical_props = set(categorical_props or [])
     hole_ids = list(hole_ids) if hole_ids is not None else sorted(df[hole_id_col].unique())
     if not hole_ids:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     colors = colors or ["#8b1e3f", "#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#0ea5e9", "#ef4444"]
 
     fig = make_subplots(rows=1, cols=len(hole_ids), shared_yaxes=True, horizontal_spacing=0.02)
@@ -1284,7 +1290,7 @@ def plot_drillhole_traces(df,
 
     subset = df[df[hole_id_col] == hole_id]
     if subset.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     fig = make_subplots(rows=1, cols=len(value_cols), shared_yaxes=True, horizontal_spacing=0.02)
     for idx, col in enumerate(value_cols):
@@ -1371,7 +1377,7 @@ def plot_comments_log(df,
         Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     records = []
     for _, row in df.iterrows():
@@ -1389,7 +1395,7 @@ def plot_comments_log(df,
         records.append((f, t, comment))
 
     if not records:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     records = sorted(records, key=lambda r: r[0])
 
@@ -1471,7 +1477,7 @@ def plot_strip_log(df,
         Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     palette = palette or [
         "#1f77b4",
         "#2ca02c",
@@ -1498,7 +1504,7 @@ def plot_strip_log(df,
             continue
         records.append((f, t, label))
     if not records:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     records = sorted(records, key=lambda r: r[0], reverse=True)
 
     # Build a stable colour map so every occurrence of the same label gets the same colour
@@ -1569,7 +1575,7 @@ def plot_geology_strip_log(df,
         Plotly template to apply. Defaults to the Baselode template.
     """
     if category_col not in df.columns and fallback_category_col not in df.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     resolved_col = category_col if category_col in df.columns else fallback_category_col
     return plot_strip_log(
@@ -1631,12 +1637,12 @@ def plot_tadpole_log(df,
         Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty or md_col not in df.columns or dip_col not in df.columns or az_col not in df.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     extra_cols = [c for c in [size_col, color_by] if c and c in df.columns]
     safe = df[[md_col, dip_col, az_col] + extra_cols].dropna(subset=[md_col, dip_col, az_col])
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     palette = palette or _DEFAULT_TADPOLE_PALETTE
 
@@ -1658,7 +1664,9 @@ def plot_tadpole_log(df,
         size = float(row[size_col]) if size_col and size_col in row.index and not pd.isna(row[size_col]) else 8.0
 
         cat = str(row[color_by]) if color_by and color_by in row.index and not pd.isna(row[color_by]) else "_default"
-        color = color_map.get(cat, "#0f172a")
+        # Uncategorised tadpoles take the shared series colour — a mid-tone
+        # that reads on both templates (never a hardcoded dark slate).
+        color = color_map.get(cat, MULTI_SERIES_COLORWAY[0])
 
         # Head positioned at x=dip (degrees)
         if cat not in traces_by_cat:
@@ -1770,7 +1778,7 @@ def plot_point_log(df,
     plotly.graph_objects.Figure
     """
     if df.empty or depth_col not in df.columns or label_col not in df.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     palette = palette or _DEFAULT_POINT_LOG_PALETTE
     marker_symbols = marker_symbols or _DEFAULT_POINT_LOG_SYMBOLS
@@ -1781,7 +1789,7 @@ def plot_point_log(df,
     df_clean = df_clean[~df_clean[label_col].str.lower().isin({"nan", "null", "none", ""})]
 
     if df_clean.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     # Stable ordering: sort alphabetically so colours are reproducible
     unique_cats = sorted(df_clean[label_col].unique())
@@ -1871,13 +1879,13 @@ def plot_depth_annotations(df,
     plotly.graph_objects.Figure
     """
     if df.empty or depth_col not in df.columns or text_col not in df.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     clean = df[[depth_col, text_col]].dropna(subset=[depth_col, text_col]).copy()
     clean[text_col] = clean[text_col].astype(str).str.strip()
     clean = clean[~clean[text_col].str.lower().isin({"", "nan", "null", "none"})]
     if clean.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     clean = clean.sort_values(depth_col)
 
     colour = marker_color or "#334155"
@@ -1935,12 +1943,12 @@ def plot_dip_azimuth_log(df,
     """
     required = [depth_col, dip_col, azimuth_col]
     if df.empty or any(col not in df.columns for col in required):
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     extra_cols = [color_by] if color_by and color_by in df.columns else []
     safe = df[required + extra_cols].dropna(subset=required)
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     if extra_cols:
         # Rows with valid angles but a missing category still plot, under an
@@ -2009,14 +2017,14 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
         Plotly template to apply. Defaults to the Baselode template.
     """
     if structures.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     if easting_col not in structures.columns or northing_col not in structures.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     safe = structures.dropna(subset=[easting_col, northing_col, dip_col, az_col])
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     symbol_traces = []
     for _, row in safe.iterrows():
@@ -2044,7 +2052,7 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
             x=[x - dx_s, x + dx_s, None],
             y=[y - dy_s, y + dy_s, None],
             mode="lines",
-            line=dict(color="#0f172a", width=2),
+            line=dict(color=MULTI_SERIES_COLORWAY[0], width=2),
             showlegend=False,
             hoverinfo="skip",
         ))
@@ -2053,7 +2061,7 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
             x=[x, x + dx_d, None],
             y=[y, y + dy_d, None],
             mode="lines",
-            line=dict(color="#0f172a", width=2),
+            line=dict(color=MULTI_SERIES_COLORWAY[0], width=2),
             showlegend=False,
             hoverinfo="skip",
         ))
@@ -2166,13 +2174,13 @@ def plot_core_photo_log(df,
         photo_sets = list(dict.fromkeys(df[photo_set_col].tolist()))
 
     if not photo_sets:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     # Determine depth extent.
     all_from = pd.to_numeric(df[from_col], errors="coerce").dropna()
     all_to   = pd.to_numeric(df[to_col],   errors="coerce").dropna()
     if all_from.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     min_depth = float(all_from.min()) if depth_range is None else float(depth_range[0])
     max_depth = float(all_to.max())   if depth_range is None else float(depth_range[1])

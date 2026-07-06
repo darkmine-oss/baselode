@@ -247,8 +247,10 @@ describe('buildTwoCurveFillConfig', () => {
       hole, propertyA: 'density', propertyB: 'neutron', logScale: true,
     });
     expect(layout.xaxis.type).toBe('log');
-    expect(buildTwoCurveFillConfig({ hole, propertyA: 'density', propertyB: 'missing' }))
-      .toEqual({ data: [], layout: {} });
+    const empty = buildTwoCurveFillConfig({ hole, propertyA: 'density', propertyB: 'missing' });
+    expect(empty.data).toEqual([]);
+    // Empty configs still carry the template (theme-correct blank track).
+    expect(empty.layout.template).toBeDefined();
   });
 });
 
@@ -401,8 +403,10 @@ describe('buildPointLogConfig', () => {
   it('accepts a hole object and returns empty for no usable rows', () => {
     const { data } = buildPointLogConfig({ hole: { id: 'H1', points: rows } });
     expect(data).toHaveLength(3);
-    expect(buildPointLogConfig({ rows: [{ depth: 1, defect: 'NaN' }] }))
-      .toEqual({ data: [], layout: {} });
+    const empty = buildPointLogConfig({ rows: [{ depth: 1, defect: 'NaN' }] });
+    expect(empty.data).toEqual([]);
+    // Empty configs still carry the template (theme-correct blank track).
+    expect(empty.layout.template).toBeDefined();
   });
 });
 

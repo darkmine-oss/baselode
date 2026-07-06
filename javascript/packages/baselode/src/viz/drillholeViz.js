@@ -150,6 +150,15 @@ export const STRIPLOG_AXIS_TITLE_FONT_SIZE = 11;
 /** Spacing between the base x-axis tick labels and its title (pixels) */
 export const STRIPLOG_XAXIS_TITLE_STANDOFF = 6;
 
+/**
+ * Empty figure config that still carries the resolved template, so an empty
+ * track renders with the correct theme background instead of Plotly's white.
+ * @private
+ */
+function emptyStripLogConfig(template) {
+  return { data: [], layout: { template: template === undefined ? BASELODE_TEMPLATE : template } };
+}
+
 function normalizeAxisTitle(t) {
   if (!t) return {};
   return typeof t === 'string' ? { text: t } : t;
@@ -287,14 +296,14 @@ export function buildIntervalPoints(hole, property, isCategorical) {
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
 function buildCategoricalConfig(points, property, colourMap, template, meta, patternMap) {
-  if (!points.length) return { data: [], layout: {} };
+  if (!points.length) return emptyStripLogConfig(template);
   const safe = points
     .filter((point) => Number.isFinite(point?.from) && Number.isFinite(point?.to) && point.to > point.from)
     .map((point) => ({ ...point, category: `${point?.val ?? ''}`.trim() }))
     .filter((point) => point.category !== '' && !/^(nan|null|none)$/i.test(point.category))
     .sort((a, b) => a.from - b.from || a.to - b.to);
 
-  if (!safe.length) return { data: [], layout: {} };
+  if (!safe.length) return emptyStripLogConfig(template);
 
   const resolvedCmap = resolveColourMap(colourMap);
   const resolvedPmap = resolvePatternMap(patternMap);
@@ -692,7 +701,7 @@ function buildCategoryColouredNumericConfig(points, property, chartType, colorBy
  * @returns {{data: Array, layout: Object}} Plotly data and layout configuration
  */
 function buildNumericConfig(points, property, chartType, color, template, meta, colorBy, options = {}) {
-  if (!points.length) return { data: [], layout: {} };
+  if (!points.length) return emptyStripLogConfig(template);
 
   const logScale = options.logScale === true;
 
@@ -829,7 +838,7 @@ function alignSeriesToCommonDepths(series) {
  */
 export function buildMultiAssayConfig({ series = [], mode = 'multi-line', template, metaByProperty = {} } = {}) {
   const usable = (series || []).filter((s) => s && s.property && Array.isArray(s.points) && s.points.length);
-  if (!usable.length) return { data: [], layout: {} };
+  if (!usable.length) return emptyStripLogConfig(template);
 
   const stacked = mode === 'multi-stacked';
   // Stack/densify onto a shared depth grid so every hover row has customdata.
@@ -933,7 +942,7 @@ export function buildPlotConfig({
   if ((chartType === 'multi-line' || chartType === 'multi-stacked') && Array.isArray(series) && series.length) {
     return buildMultiAssayConfig({ series, mode: chartType, template, metaByProperty });
   }
-  if (!points || !points.length || !property) return { data: [], layout: {} };
+  if (!points || !points.length || !property) return emptyStripLogConfig(template);
   if (isCategorical || chartType === 'categorical') {
     return buildCategoricalConfig(points, property, colourMap, template, meta, patternMap);
   }
@@ -1053,7 +1062,7 @@ export function buildTwoCurveFillConfig({
 } = {}) {
   const pointsA = buildIntervalPoints(hole, propertyA, false);
   const pointsB = buildIntervalPoints(hole, propertyB, false);
-  if (!pointsA.length || !pointsB.length) return { data: [], layout: {} };
+  if (!pointsA.length || !pointsB.length) return emptyStripLogConfig(template);
 
   const curveColourA = colorA || seriesColour(propertyA, 0);
   const curveColourB = colorB || seriesColour(propertyB, 1);
@@ -1199,7 +1208,7 @@ export function buildCompositionConfig({
   hole, properties = [], colourMap = null, normalize = true, title, template,
 } = {}) {
   const usable = properties.filter((property) => typeof property === 'string' && property);
-  if (!usable.length) return { data: [], layout: {} };
+  if (!usable.length) return emptyStripLogConfig(template);
 
   // Drop components with no readings before aligning — the shared-grid
   // zero-fill would otherwise present an absent component as measured zeros.
@@ -1207,7 +1216,7 @@ export function buildCompositionConfig({
     property,
     points: buildIntervalPoints(hole, property, false),
   })).filter((entry) => entry.points.length);
-  if (!series.length) return { data: [], layout: {} };
+  if (!series.length) return emptyStripLogConfig(template);
 
   // Shared interval grid across all components (missing cells fill with 0).
   const aligned = alignSeriesToCommonDepths(series);
@@ -1220,7 +1229,7 @@ export function buildCompositionConfig({
     (total, componentVals) => total + componentVals[cellIndex], 0
   ));
   const keptCells = grid.map((_, cellIndex) => cellIndex).filter((cellIndex) => sums[cellIndex] > 0);
-  if (!keptCells.length) return { data: [], layout: {} };
+  if (!keptCells.length) return emptyStripLogConfig(template);
 
   const resolvedCmap = resolveColourMap(colourMap);
 

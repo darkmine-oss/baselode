@@ -312,8 +312,11 @@ describe('buildMultiAssayConfig', () => {
   });
 
   it('returns an empty config when no series have points', () => {
-    expect(buildMultiAssayConfig({ series: [{ property: 'Au', points: [] }] }))
-      .toEqual({ data: [], layout: {} });
+    const empty = buildMultiAssayConfig({ series: [{ property: 'Au', points: [] }] });
+    expect(empty.data).toEqual([]);
+    // Empty configs still carry the template so the blank track renders with
+    // the correct theme background instead of Plotly's default white.
+    expect(empty.layout.template).toBeDefined();
   });
 
   it('is reachable through buildPlotConfig via the series option', () => {
