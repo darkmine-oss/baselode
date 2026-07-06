@@ -14,10 +14,14 @@
 
 import { AZIMUTH, COMMENTS, DEPTH, DIP, FROM, TO } from '../data/datamodel.js';
 import { BASELODE_TEMPLATE } from './baselodeTemplate.js';
+import { MULTI_SERIES_COLORWAY } from './drillholeViz.js';
 
+// Mid-tone hues only — these markers render on both the light and dark
+// templates, so near-black slate/navy (invisible on dark) don't belong.
+// Mirrors the Python _DEFAULT_TADPOLE_PALETTE.
 const DEFAULT_PALETTE = [
-  '#0f172a', '#1e3a5f', '#7c3aed', '#dc2626', '#16a34a',
-  '#d97706', '#0ea5e9', '#db2777', '#65a30d', '#9333ea',
+  '#0ea5e9', '#d97706', '#7c3aed', '#dc2626', '#16a34a',
+  '#db2777', '#65a30d', '#9333ea', '#14b8a6', '#f43f5e',
 ];
 
 // Point-log category styling — mirrors the Python _DEFAULT_POINT_LOG_PALETTE /
@@ -583,7 +587,9 @@ export function buildDipAzimuthConfig({
   dipKey = DIP,
   azimuthKey = AZIMUTH,
   colorBy = null,
-  palette = DEFAULT_PALETTE,
+  // Same series colours as the Python plot_dip_azimuth_log, which draws its
+  // groups from MULTI_SERIES_COLORWAY.
+  palette = MULTI_SERIES_COLORWAY,
   title,
   template = undefined,
 } = {}) {
@@ -614,7 +620,7 @@ export function buildDipAzimuthConfig({
       ? valid.filter((rec) => rec.category === groupName)
       : valid;
     if (!groupRecords.length) return;
-    const colour = colorBy ? palette[groupIndex % palette.length] : DEFAULT_PALETTE[0];
+    const colour = colorBy ? palette[groupIndex % palette.length] : MULTI_SERIES_COLORWAY[0];
     const legendName = groupName || undefined;
     const shared = {
       type: 'scatter',

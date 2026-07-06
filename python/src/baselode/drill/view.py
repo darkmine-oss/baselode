@@ -1583,9 +1583,12 @@ def plot_geology_strip_log(df,
     )
 
 
+# Mid-tone hues only — these markers render on both the light and dark
+# templates, so near-black slate/navy (invisible on dark) don't belong.
+# Mirrors the JS structuralViz DEFAULT_PALETTE.
 _DEFAULT_TADPOLE_PALETTE = [
-    "#0f172a", "#1e3a5f", "#7c3aed", "#dc2626", "#16a34a",
-    "#d97706", "#0ea5e9", "#db2777", "#65a30d", "#9333ea",
+    "#0ea5e9", "#d97706", "#7c3aed", "#dc2626", "#16a34a",
+    "#db2777", "#65a30d", "#9333ea", "#14b8a6", "#f43f5e",
 ]
 
 
