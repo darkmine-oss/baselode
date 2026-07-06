@@ -65,6 +65,23 @@ describe('buildPlotConfig — filled-line chart type', () => {
     });
     expect(layout.xaxis.type).toBe('log');
   });
+
+  it('floors below-detection negatives at 0 and keeps the raw value in hover', () => {
+    const { data } = buildPlotConfig({
+      points: [
+        { z: 5, val: 12, from: 0, to: 10 },
+        { z: 15, val: -1, from: 10, to: 20 },
+      ],
+      isCategorical: false,
+      property: 'value',
+      chartType: 'filled-line',
+    });
+    const [trace] = data;
+    // The fill must never paint a phantom band across zero.
+    expect(trace.x).toEqual([12, 0]);
+    expect(trace.customdata[1][2]).toBe(-1);
+    expect(trace.hovertemplate).toContain('%{customdata[2]}');
+  });
 });
 
 describe('buildPlotConfig — step-line chart type', () => {

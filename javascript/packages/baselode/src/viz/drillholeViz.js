@@ -440,10 +440,13 @@ function buildFilledLineConfig(points, property, color, template, meta, logScale
   const hover = buildHoverParts(property, meta);
 
   const trace = {
-    x: points.map((p) => p.val),
+    // Floor below-detection sentinels (negative) at 0 so the fill never
+    // paints a phantom band across zero; hover keeps the raw value (same
+    // convention as the multi-assay tracks).
+    x: points.map((p) => Math.max(p.val, 0)),
     y: points.map((p) => p.z),
-    customdata: numericCustomdata(points),
-    hovertemplate: `${hover.label}: %{x}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
+    customdata: points.map((p) => [Math.min(p.from, p.to), Math.max(p.from, p.to), p.val]),
+    hovertemplate: `${hover.label}: %{customdata[2]}${hover.unitSuffix}<br>${hover.sourceLine}from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>`,
     type: 'scatter',
     mode: 'lines',
     // Value is on x, so fill toward x=0 ("tozerox"), not the y baseline.

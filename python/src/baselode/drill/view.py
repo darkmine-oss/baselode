@@ -509,12 +509,23 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
         color="#6b7280",
     ) if intervals else None
 
-    trace_common = dict(
-        x=interval_df["val"],
-        y=interval_df["z"],
-        customdata=interval_df[["from_val", "to_val"]],
-        hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
-    )
+    if is_filled_line:
+        # Floor below-detection sentinels (negative) at 0 so the fill never
+        # paints a phantom band across zero; hover keeps the raw value (same
+        # convention as the multi-assay tracks).
+        trace_common = dict(
+            x=interval_df["val"].clip(lower=0),
+            y=interval_df["z"],
+            customdata=interval_df[["from_val", "to_val", "val"]],
+            hovertemplate=f"{value_col}: %{{customdata[2]}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+        )
+    else:
+        trace_common = dict(
+            x=interval_df["val"],
+            y=interval_df["z"],
+            customdata=interval_df[["from_val", "to_val"]],
+            hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+        )
 
     if is_bar:
         # Each bar spans its own down-hole interval (thickness = to-from), so the

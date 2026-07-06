@@ -179,6 +179,17 @@ def test_filled_line_shades_back_to_zero_without_error_bars():
     assert trace.error_y.array is None
 
 
+def test_filled_line_floors_below_detection_with_raw_in_hover():
+    """Negative below-detection sentinels floor at 0 so the fill never paints
+    a phantom band across zero; the raw value stays in the hover customdata."""
+    fig = view.plot_numeric_trace(_points("Bi_ppm"), "Bi_ppm", chart_type="filled-line")
+    trace = fig.data[0]
+    assert min(trace.x) == 0
+    raw_values = [row[2] for row in trace.customdata]
+    assert -2 in raw_values
+    assert "%{customdata[2]}" in trace.hovertemplate
+
+
 def test_step_line_builds_two_points_per_interval_shallow_to_deep():
     fig = view.plot_numeric_trace(_points("Au_ppm"), "Au_ppm", chart_type="step-line")
     assert len(fig.data) == 1
