@@ -1414,7 +1414,8 @@ def plot_comments_log(df,
     from_col="from",
     to_col="to",
     comment_col="comments",
-    bg_color="rgba(148, 163, 184, 0.15)",
+    bg_color="rgba(148, 163, 184, 0.2)",
+    bg_color_alt="rgba(148, 163, 184, 0.07)",
     border_color="rgba(148, 163, 184, 0.4)",
     text_color=None,
     chars_per_line=18,
@@ -1440,6 +1441,9 @@ def plot_comments_log(df,
     bg_color : str
         Fill color for intervals that have a comment. The translucent default
         reads on both the light and dark templates.
+    bg_color_alt : str
+        Alternate fill applied to every second rendered interval, so adjacent
+        boxes stay visually distinct.
     border_color : str
         Rectangle border color.
     text_color : str, optional
@@ -1478,13 +1482,13 @@ def plot_comments_log(df,
     text_ys = []
     texts = []
 
-    for from_depth, to_depth, comment in records:
+    for record_index, (from_depth, to_depth, comment) in enumerate(records):
         shapes.append(dict(
             type="rect",
             xref="x", yref="y",
             x0=0, x1=1,
             y0=from_depth, y1=to_depth,
-            fillcolor=bg_color,
+            fillcolor=bg_color if record_index % 2 == 0 else bg_color_alt,
             line=dict(color=border_color, width=1),
             layer="below",
         ))

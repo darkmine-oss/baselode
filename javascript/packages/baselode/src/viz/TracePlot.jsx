@@ -298,7 +298,7 @@ function TracePlot({
               textKey: property,
               template,
             })
-          : buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to' });
+          : buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to', template });
       } else if (isTadpole) {
         // Structural tracks: tadpole (default) or split dip / azimuth log.
         // Both read the raw structural rows (depth / dip / azimuth keys).

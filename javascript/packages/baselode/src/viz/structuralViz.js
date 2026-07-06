@@ -343,8 +343,11 @@ export function buildCommentsConfig(intervals, {
   fromCol = FROM,
   toCol = TO,
   // Translucent neutral fills read on both the light and dark templates;
-  // text colour is inherited from the template font unless overridden.
-  bgColor = 'rgba(148, 163, 184, 0.15)',
+  // adjacent intervals alternate between the two fills so boundaries stay
+  // readable; text colour is inherited from the template font unless
+  // overridden.
+  bgColor = 'rgba(148, 163, 184, 0.2)',
+  bgColorAlt = 'rgba(148, 163, 184, 0.07)',
   borderColor = 'rgba(148, 163, 184, 0.4)',
   textColor = undefined,
   charsPerLine = 18,
@@ -383,20 +386,20 @@ export function buildCommentsConfig(intervals, {
   const textYs = [];
   const texts = [];
 
-  for (const rec of records) {
+  records.forEach((rec, recordIndex) => {
     shapes.push({
       type: 'rect',
       xref: 'x', yref: 'y',
       x0: 0, x1: 1,
       y0: rec.from, y1: rec.to,
-      fillcolor: bgColor,
+      fillcolor: recordIndex % 2 === 0 ? bgColor : bgColorAlt,
       line: { color: borderColor, width: 1 },
       layer: 'below',
     });
 
-    if (totalSpan <= 0) continue;
+    if (totalSpan <= 0) return;
     const lineBudget = Math.floor(((rec.to - rec.from) / totalSpan) * TEXT_LINES_PER_TRACK);
-    if (lineBudget < 1) continue;
+    if (lineBudget < 1) return;
     const wrappedLines = wrapComment(rec.comment, charsPerLine).split('<br>');
     const shownLines = wrappedLines.slice(0, lineBudget);
     if (wrappedLines.length > lineBudget) {
@@ -405,7 +408,7 @@ export function buildCommentsConfig(intervals, {
     textXs.push(0.5);
     textYs.push(0.5 * (rec.from + rec.to));
     texts.push(shownLines.join('<br>'));
-  }
+  });
 
   const data = [];
   // Invisible full-width bar per interval: the hover target covers the whole
