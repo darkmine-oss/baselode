@@ -218,6 +218,9 @@ function StripLogTrack({
           series,
           metaByProperty: propertyMeta,
           logScale: track.logScale === true,
+          stepped: track.stepped === true,
+          fillArea: track.fillArea === true,
+          startFromZero: track.startFromZero === true,
           // Hatch categorical bands with the built-in lithology patterns on opt-in.
           patternMap: isCategorical && track.usePatterns === true ? 'lithology' : undefined,
         });
@@ -225,7 +228,7 @@ function StripLogTrack({
       data: nextConfig.data,
       layout: applyDepthRange(nextConfig.layout, depthRange),
     };
-  }, [chartType, colorBy, depthRange, isCategorical, meta, points, propertyMeta, series, template, track.colourMap, track.label, track.logScale, track.property, track.usePatterns]);
+  }, [chartType, colorBy, depthRange, isCategorical, meta, points, propertyMeta, series, template, track.colourMap, track.label, track.logScale, track.stepped, track.fillArea, track.startFromZero, track.property, track.usePatterns]);
   const legendItems = useMemo(
     () => (track.showLegend && isCategorical ? getLegendItems(plotConfig.data) : []),
     [isCategorical, plotConfig.data, track.showLegend]

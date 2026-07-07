@@ -185,7 +185,12 @@ export default function useDrillholeTraceGrid({
           commentProps,
           numericDefaultChartType: 'markers+line'
         });
-        return { holeId, property, chartType };
+        // Preserve every other config field (colorBy, multiProps, and the
+        // display toggles logScale / stepped / fillArea / usePatterns /
+        // startFromZero) — rebuilding from scratch snapped the TracePlot
+        // checkboxes back on the next hook re-render.
+        const { holeId: _prevHole, property: _prevProperty, chartType: _prevChart, ...preserved } = existing;
+        return { ...preserved, holeId, property, chartType };
       });
       return next;
     });
