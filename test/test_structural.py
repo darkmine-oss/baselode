@@ -388,7 +388,9 @@ def test_plot_dip_azimuth_log_splits_dip_and_azimuth_tracks():
     assert fig.layout.xaxis.range == (0, 90)
     assert fig.layout.xaxis2.range == (0, 360)
     assert fig.layout.xaxis2.dtick == 90
-    assert fig.layout.yaxis.autorange == "reversed"
+    # Pinned depth axis: reversal comes from the descending explicit range.
+    assert fig.layout.yaxis.autorange is False
+    assert fig.layout.yaxis.range[0] > fig.layout.yaxis.range[1]
     assert fig.layout.hovermode == "y unified"
 
 
@@ -448,7 +450,9 @@ def test_plot_point_log_assigns_slot_colour_and_symbol_per_category():
     assert len({t.marker.color for t in fig.data}) == 3
     assert len({t.marker.symbol for t in fig.data}) == 3
     assert fig.layout.xaxis.range == (-0.5, 2.5)
-    assert fig.layout.yaxis.autorange == "reversed"
+    # Pinned depth axis: reversal comes from the descending explicit range.
+    assert fig.layout.yaxis.autorange is False
+    assert fig.layout.yaxis.range[0] > fig.layout.yaxis.range[1]
 
 
 def test_plot_point_log_empty_and_missing_columns():

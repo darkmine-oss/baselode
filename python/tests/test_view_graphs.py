@@ -562,7 +562,9 @@ def test_depth_annotations_pin_text_at_depth_with_truncation():
     # Composes with the other tracks: hidden fixed x, reversed depth axis.
     assert fig.layout.xaxis.range == (0, 1)
     assert fig.layout.xaxis.visible is False
-    assert fig.layout.yaxis.autorange == "reversed"
+    # Pinned depth axis: reversal comes from the descending explicit range.
+    assert fig.layout.yaxis.autorange is False
+    assert fig.layout.yaxis.range[0] > fig.layout.yaxis.range[1]
 
 
 def test_depth_annotations_skip_blank_rows_and_empty_frames():
@@ -668,7 +670,9 @@ def test_dip_azimuth_dispatch_routes_structural_frames():
     fig = view.plot_drillhole_trace(STRUCTURAL_ROWS, "dip", chart_type="dip-azimuth")
     assert fig.layout.xaxis.range == (0, 90)
     assert fig.layout.xaxis2.range == (0, 360)
-    assert fig.layout.yaxis.autorange == "reversed"
+    # Pinned depth axis: reversal comes from the descending explicit range.
+    assert fig.layout.yaxis.autorange is False
+    assert fig.layout.yaxis.range[0] > fig.layout.yaxis.range[1]
 
 
 def test_dip_azimuth_dispatch_guards_missing_columns_with_template():

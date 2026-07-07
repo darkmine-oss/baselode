@@ -1500,6 +1500,7 @@ def plot_comments_log(df,
     border_color="rgba(148, 163, 184, 0.4)",
     text_color=None,
     chars_per_line=18,
+    start_from_zero=False,
     template=None):
     """Render a comments log track — depth intervals with text annotations overlaid.
 
@@ -1629,7 +1630,13 @@ def plot_comments_log(df,
         showlegend=False,
         bargap=0,
     )
-    return _apply_striplog_defaults(fig, template=template)
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    depths = [depth for record in records for depth in record[:2]]
+    return _apply_depth_axis_range(
+        _apply_striplog_defaults(fig, template=template),
+        (min(depths), max(depths)),
+        start_from_zero,
+    )
 
 
 def plot_strip_log(df,
@@ -1795,6 +1802,7 @@ def plot_tadpole_log(df,
     color_by=None,
     palette=None,
     tail_scale=10.0,
+    start_from_zero=False,
     template=None):
     """Plot a tadpole log for structural measurements.
 
@@ -1911,7 +1919,15 @@ def plot_tadpole_log(df,
         yaxis=dict(title="Depth (m)", autorange="reversed"),
         showlegend=show_legend,
     )
-    return fig
+    # Heads plus tail endpoints — tails are layout shapes, which Plotly's
+    # autorange ignores, so pinning also stops tail clipping. Same
+    # explicit-range pinning as the numeric tracks (track alignment).
+    tail_depths = [coord for shape in tail_shapes for coord in (shape["y0"], shape["y1"])]
+    return _apply_depth_axis_range(
+        fig,
+        (min(tail_depths), max(tail_depths)) if tail_depths else None,
+        start_from_zero,
+    )
 
 
 _DEFAULT_POINT_LOG_PALETTE = [
@@ -1932,6 +1948,7 @@ def plot_point_log(df,
     palette=None,
     marker_symbols=None,
     marker_size=8,
+    start_from_zero=False,
     template=None):
     """Plot categorical point data as a strip log with unique x-position, colour, and marker per category.
 
@@ -2022,7 +2039,13 @@ def plot_point_log(df,
         legend=dict(title=label_col, font=dict(size=9)),
         showlegend=True,
     )
-    return _apply_striplog_defaults(fig, template=template)
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    point_depths = df_clean[depth_col].astype(float)
+    return _apply_depth_axis_range(
+        _apply_striplog_defaults(fig, template=template),
+        (float(point_depths.min()), float(point_depths.max())),
+        start_from_zero,
+    )
 
 
 def _truncate_annotation(text, max_chars=40):
@@ -2040,6 +2063,7 @@ def plot_depth_annotations(df,
     depth_col=DEPTH,
     text_col=COMMENTS,
     marker_color=None,
+    start_from_zero=False,
     template=None):
     """Plot depth-pinned text annotations: a tick at the track's left edge with
     the note text alongside.
@@ -2098,7 +2122,13 @@ def plot_depth_annotations(df,
         showlegend=False,
     )
     fig = go.Figure(data=[trace], layout=layout)
-    return _apply_striplog_defaults(fig, template=template)
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    annotation_depths = clean[depth_col].astype(float)
+    return _apply_depth_axis_range(
+        _apply_striplog_defaults(fig, template=template),
+        (float(annotation_depths.min()), float(annotation_depths.max())),
+        start_from_zero,
+    )
 
 
 def plot_dip_azimuth_log(df,
@@ -2106,6 +2136,7 @@ def plot_dip_azimuth_log(df,
     dip_col=DIP,
     azimuth_col=AZIMUTH,
     color_by=None,
+    start_from_zero=False,
     template=None):
     """Plot split dip-magnitude / dip-azimuth tracks sharing one depth axis.
 
@@ -2184,7 +2215,13 @@ def plot_dip_azimuth_log(df,
         legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(size=9)),
         margin=dict(l=40, r=10, t=10, b=40),
     )
-    return fig
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    measurement_depths = safe[depth_col].astype(float)
+    return _apply_depth_axis_range(
+        fig,
+        (float(measurement_depths.min()), float(measurement_depths.max())),
+        start_from_zero,
+    )
 
 
 def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col=EASTING, northing_col=NORTHING, dip_col=DIP, az_col=AZIMUTH, label_col="defect", template=None):

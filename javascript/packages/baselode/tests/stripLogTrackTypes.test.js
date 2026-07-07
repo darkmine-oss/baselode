@@ -518,7 +518,9 @@ describe('buildPointLogConfig', () => {
     expect(layout.xaxis.tickvals).toEqual([0, 1, 2]);
     expect(layout.xaxis.ticktext).toEqual(['fault', 'joint', 'vein']);
     expect(layout.xaxis.range).toEqual([-0.5, 2.5]);
-    expect(layout.yaxis.autorange).toBe('reversed');
+    // Pinned depth axis: reversal comes from the descending explicit range.
+    expect(layout.yaxis.autorange).toBe(false);
+    expect(layout.yaxis.range[0]).toBeGreaterThan(layout.yaxis.range[1]);
   });
 
   it('accepts a hole object and returns empty for no usable rows', () => {
@@ -553,7 +555,9 @@ describe('buildDepthAnnotationsConfig', () => {
     expect(trace.hovertext[1]).toContain('forty character label budget');
     expect(layout.xaxis.range).toEqual([0, 1]);
     expect(layout.xaxis.visible).toBe(false);
-    expect(layout.yaxis.autorange).toBe('reversed');
+    // Pinned depth axis: reversal comes from the descending explicit range.
+    expect(layout.yaxis.autorange).toBe(false);
+    expect(layout.yaxis.range[0]).toBeGreaterThan(layout.yaxis.range[1]);
   });
 
   it('drops missing-value sentinels instead of rendering them as labels', () => {
@@ -642,7 +646,9 @@ describe('buildDipAzimuthConfig', () => {
     expect(layout.xaxis2.dtick).toBe(90);
     // Two non-overlapping domains, shared reversed depth axis, unified hover.
     expect(layout.xaxis.domain[1]).toBeLessThan(layout.xaxis2.domain[0]);
-    expect(layout.yaxis.autorange).toBe('reversed');
+    // Pinned depth axis: reversal comes from the descending explicit range.
+    expect(layout.yaxis.autorange).toBe(false);
+    expect(layout.yaxis.range[0]).toBeGreaterThan(layout.yaxis.range[1]);
     expect(layout.hovermode).toBe('y unified');
     expect(layout.showlegend).toBe(false);
   });

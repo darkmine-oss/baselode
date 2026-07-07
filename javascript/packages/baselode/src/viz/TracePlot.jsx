@@ -294,9 +294,8 @@ function TracePlot({
   const showPatternsToggle = visibility.property
     && displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'categorical';
   // Depth-axis pinning: lets every track of a hole align vertically even when
-  // sampling starts down-hole. Offered wherever buildPlotConfig renders.
-  const showStartFromZero = visibility.property
-    && (displayType === DISPLAY_NUMERIC || displayType === DISPLAY_CATEGORICAL);
+  // sampling starts down-hole. Offered on every chart-bearing display type.
+  const showStartFromZero = visibility.property;
   const hasSettings = visibility.chartType || showColorBy || showLogToggle
     || showLineToggles || showPatternsToggle || showStartFromZero;
 
@@ -342,22 +341,23 @@ function TracePlot({
         // (default) or depth-pinned annotations at each interval mid.
         plotData = effectiveChartType === 'annotations'
           ? buildDepthAnnotationsConfig({
+              startFromZero: config?.startFromZero === true,
               rows: points.map((p) => ({ ...p, mid: (p.from + p.to) / 2 })),
               depthKey: 'mid',
               textKey: property,
               template,
             })
-          : buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to', template });
+          : buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to', startFromZero: config?.startFromZero === true, template });
       } else if (isTadpole) {
         // Structural tracks: tadpole (default) or split dip / azimuth log.
         // Both read the raw structural rows (depth / dip / azimuth keys).
         plotData = effectiveChartType === 'dip-azimuth'
-          ? buildDipAzimuthConfig({ rows: points, template })
-          : buildTadpoleConfig(points, { template });
+          ? buildDipAzimuthConfig({ rows: points, startFromZero: config?.startFromZero === true, template })
+          : buildTadpoleConfig(points, { startFromZero: config?.startFromZero === true, template });
       } else if (displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'point-log') {
         // Categorical interval points carry the category in `val` and the
         // interval mid-depth in `z`.
-        plotData = buildPointLogConfig({ rows: points, depthKey: 'z', categoryKey: 'val', template });
+        plotData = buildPointLogConfig({ rows: points, depthKey: 'z', categoryKey: 'val', startFromZero: config?.startFromZero === true, template });
       } else {
         plotData = buildPlotConfig({
           points,

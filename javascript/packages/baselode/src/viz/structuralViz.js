@@ -56,6 +56,27 @@ function emptyStripLogConfig(template) {
   return { data: [], layout: { template: template === undefined ? BASELODE_TEMPLATE : template } };
 }
 
+/**
+ * Pin the depth axis to an explicit, consistently padded range so structural
+ * tracks share the same vertical scale as the numeric/categorical tracks
+ * (which pin via buildPlotConfig). With `startFromZero` the shallow end pins
+ * to exactly 0. Mirrors the drillholeViz applyDepthAxisRange padding maths.
+ * @private
+ */
+function pinDepthAxis(config, depthValues, startFromZero) {
+  const finite = (depthValues || []).filter((depth) => Number.isFinite(depth));
+  if (!finite.length) return config;
+  const min = Math.min(...finite);
+  const max = Math.max(...finite);
+  const pad = Math.max(max - min, 1e-9) * 0.02;
+  const range = startFromZero === true ? [max + pad, 0] : [max + pad, min - pad];
+  config.layout = {
+    ...config.layout,
+    yaxis: { ...(config.layout?.yaxis || {}), autorange: false, range },
+  };
+  return config;
+}
+
 const STRIPLOG_COMPACT_MARGIN = { l: 42, r: 4, t: 4, b: 36 };
 const STRIPLOG_AXIS_TICK_FONT_SIZE = 10;
 const STRIPLOG_AXIS_TITLE_FONT_SIZE = 11;
@@ -129,6 +150,7 @@ export function buildTadpoleConfig(points, {
   depthCol = DEPTH,
   dipCol = DIP,
   azCol = AZIMUTH,
+  startFromZero = false,
   template = undefined,
 } = {}) {
   const valid = points.filter(p =>
@@ -217,7 +239,10 @@ export function buildTadpoleConfig(points, {
     template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
-  return { data, layout };
+  // Heads plus tail endpoints — the tails are layout shapes, which Plotly's
+  // autorange ignores entirely, so pinning also stops tail clipping.
+  const depthValues = shapes.flatMap((shape) => [shape.y0, shape.y1]);
+  return pinDepthAxis({ data, layout }, depthValues, startFromZero);
 }
 
 /**
@@ -351,6 +376,7 @@ export function buildCommentsConfig(intervals, {
   borderColor = 'rgba(148, 163, 184, 0.4)',
   textColor = undefined,
   charsPerLine = 18,
+  startFromZero = false,
   template = undefined,
 } = {}) {
   // Only intervals that actually carry a comment render. Unified per-hole
@@ -455,7 +481,8 @@ export function buildCommentsConfig(intervals, {
     template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
-  return { data, layout: applyStriplogLayoutDefaults(layout) };
+    // Same explicit-range pinning as the numeric tracks (track alignment).
+  return pinDepthAxis({ data, layout: applyStriplogLayoutDefaults(layout) }, records.flatMap((rec) => [rec.from, rec.to]), startFromZero);
 }
 
 /**
@@ -488,6 +515,7 @@ export function buildPointLogConfig({
   markerSymbols = POINT_LOG_SYMBOLS,
   markerSize = 8,
   title,
+  startFromZero = false,
   template = undefined,
 } = {}) {
   const sourceRows = Array.isArray(rows) ? rows : (hole?.points || []);
@@ -540,7 +568,8 @@ export function buildPointLogConfig({
     template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
-  return { data, layout: applyStriplogLayoutDefaults(layout) };
+    // Same explicit-range pinning as the numeric tracks (track alignment).
+  return pinDepthAxis({ data, layout: applyStriplogLayoutDefaults(layout) }, records.map((rec) => rec.depth), startFromZero);
 }
 
 /**
@@ -583,6 +612,7 @@ export function buildDepthAnnotationsConfig({
   markerColor = '#475569',
   maxChars = 40,
   title,
+  startFromZero = false,
   template = undefined,
 } = {}) {
   const records = rows
@@ -618,7 +648,8 @@ export function buildDepthAnnotationsConfig({
     template: template !== undefined ? template : BASELODE_TEMPLATE,
   };
 
-  return { data, layout: applyStriplogLayoutDefaults(layout) };
+    // Same explicit-range pinning as the numeric tracks (track alignment).
+  return pinDepthAxis({ data, layout: applyStriplogLayoutDefaults(layout) }, records.map((rec) => rec.depth), startFromZero);
 }
 
 /**
@@ -648,6 +679,7 @@ export function buildDipAzimuthConfig({
   // groups from MULTI_SERIES_COLORWAY.
   palette = MULTI_SERIES_COLORWAY,
   title,
+  startFromZero = false,
   template = undefined,
 } = {}) {
   const valid = rows
@@ -733,7 +765,8 @@ export function buildDipAzimuthConfig({
     tickfont: { size: STRIPLOG_AXIS_TICK_FONT_SIZE },
   };
 
-  return { data, layout };
+  // Same explicit-range pinning as the numeric tracks (track alignment).
+  return pinDepthAxis({ data, layout }, valid.map((rec) => rec.depth), startFromZero);
 }
 
 /**
