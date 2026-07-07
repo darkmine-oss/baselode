@@ -581,6 +581,26 @@ view.plot_drillhole_trace(df, "au_ppm", chart_type="bar")
 # Graded line: markers coloured by value on the magma ASSAY_COLOR_PALETTE_10
 # ramp, with a colour bar.
 view.plot_drillhole_trace(df, "au_ppm", chart_type="colored-line")
+
+# Filled line: the area between the curve and zero is shaded with the series
+# colour at alpha 0.35 — quick visual weight for grade runs.
+view.plot_drillhole_trace(df, "au_ppm", chart_type="filled-line")
+
+# Stepped line: honours interval extents (blocked / composited assays) — the
+# value is drawn flat from `from` to `to` with a vertical jump at boundaries.
+view.plot_drillhole_trace(df, "au_ppm", chart_type="step-line")
+
+# Heat strip: value → colour ramp filling the full track width (continuous
+# grade display); hover reports the value and interval.
+view.plot_drillhole_trace(df, "au_ppm", chart_type="heat-strip")
+```
+
+#### Log-scale value axis
+
+Pass `log_scale=True` to switch the value axis to a log scale — useful for assays spanning orders of magnitude. It applies to the `bar`, `markers`, `markers+line`, `line`, `filled-line`, `step-line`, and `two-curve` chart types and is silently ignored elsewhere. Values ≤ 0 are dropped from the axis by Plotly but keep their raw value in hover.
+
+```python
+view.plot_drillhole_trace(df, "au_ppm", chart_type="line", log_scale=True)
 ```
 
 #### Colour a numeric track by a categorical column
@@ -609,6 +629,103 @@ view.plot_multi_assay(df, ["au_ppm", "cu_ppm"], mode="multi-stacked")
 view.plot_drillhole_trace(
     df, "au_ppm", chart_type="multi-stacked", multi_props=["cu_ppm", "as_ppm"],
 )
+```
+
+#### Two-curve fill (cross-plot track)
+
+Compare two numeric curves with the region between them shaded by dominance — the classic neutron–density display. Both columns are aligned onto the union of their depth grids and the shading is split at every crossing: where A > B the fill uses A's colour at alpha 0.4, where B > A it uses B's.
+
+```python
+view.plot_two_curve_fill(df, "density", "neutron")
+
+# Colours default to the commodity colour for each column name, falling back
+# to MULTI_SERIES_COLORWAY[0] / [1]; both are overridable, and log_scale works.
+view.plot_two_curve_fill(df, "au_ppm", "cu_ppm", color_a="#8b1e3f", log_scale=True)
+
+# Or through the dispatcher as a multi-property chart type: value_col is
+# curve A and the first multi_props entry is curve B.
+view.plot_drillhole_trace(df, "density", chart_type="two-curve", multi_props=["neutron"])
+```
+
+#### Percent-composition track
+
+Divided horizontal stacked bars per interval — one trace per component in `value_cols` order. With `normalize=True` (default) each interval's components are scaled to fractions of their sum and the axis is fixed to [0, 1] with percent ticks; pass `normalize=False` to stack raw values. Intervals whose components are all null/zero are skipped and negative values are clamped to 0 for the bar (raw value stays in hover).
+
+```python
+view.plot_composition_log(
+    df, ["sand_pct", "silt_pct", "clay_pct"],
+    colour_map={"sand_pct": "#F5CBA7", "silt_pct": "#90A4AE", "clay_pct": "#607D8B"},
+)
+
+# Or through the dispatcher: value_col plus multi_props are the components,
+# in stack order.
+view.plot_drillhole_trace(
+    df, "sand_pct", chart_type="composition", multi_props=["silt_pct", "clay_pct"],
+)
+```
+
+#### Lithology pattern / hatch fills
+
+Categorical band tracks (`plot_strip_log`, `plot_categorical_trace`) accept a `pattern_map` — category → Plotly pattern shape (`"/"`, `"\\"`, `"x"`, `"-"`, `"|"`, `"+"`, `"."`, or `""` for solid) — rendered as a light white hatch over the band colour. Lookup is case-insensitive like the colour maps, and a built-in `"lithology"` map ships with conventional hatches (sandstone `.`, shale `-`, limestone `+`, basalt `x`, …).
+
+```python
+view.plot_strip_log(
+    geology_df, label_col="lithology",
+    colour_map="lithology", pattern_map="lithology",
+)
+
+# Custom maps work the same way; unmapped categories stay solid.
+view.plot_strip_log(geology_df, label_col="lithology", pattern_map={"BIF": "-"})
+```
+
+#### Depth-pinned annotations
+
+Pin free-text notes at depth: a tick at the track's left edge with the text alongside. Long notes are word-truncated to ~40 characters for display with the full text in hover. The output composes with the other tracks, so an annotations track can sit beside numeric / categorical tracks.
+
+```python
+view.plot_depth_annotations(structures, depth_col="depth", text_col="comments")
+
+# Or through the dispatcher as the "annotations" chart type for a comment
+# column. Depth is resolved per row: a measured `depth` (or `mid`) column is
+# used directly, and interval tables fall back to from/to mid-depths.
+view.plot_drillhole_trace(structures, "comments", chart_type="annotations")
+```
+
+### Structural tracks
+
+#### Alpha/beta to dip and dip direction
+
+Convert core-frame alpha/beta measurements to true dip / dip direction given the hole orientation at the measurement depth. Vectorised with numpy — scalars or arrays.
+
+```python
+from baselode.drill.structural import alpha_beta_to_dip_azimuth
+
+dip, dip_direction = alpha_beta_to_dip_azimuth(
+    hole_dip=-60,      # survey convention: negative = downward
+    hole_azimuth=90,   # degrees clockwise from north
+    alpha=45,          # acute angle between the plane and the core axis
+    beta=120,          # clockwise (looking downhole) from the bottom-of-hole line
+)
+```
+
+For a near-vertical hole the bottom-of-hole reference line is degenerate; the reference falls back to north projected perpendicular to the core axis (beta is then measured clockwise from north).
+
+#### Split dip / azimuth tracks
+
+Plot dip magnitude and dip-direction azimuth as two side-by-side tracks sharing one reversed depth axis: dip on a fixed [0, 90] axis, azimuth on a fixed [0, 360] axis with ticks every 90°. Pass `color_by` (e.g. defect type) for one trace per category with a legend shared across both tracks.
+
+```python
+view.plot_dip_azimuth_log(structures, color_by="defect")
+
+# Or through the dispatcher as the "dip-azimuth" chart type — the frame
+# carries the depth/dip/azimuth columns for structural tables.
+view.plot_drillhole_trace(structures, "dip", chart_type="dip-azimuth")
+```
+
+Tadpole plots (`view.plot_tadpole_log`) and categorical point logs (`view.plot_point_log`) complete the structural track set. Point logs are also a dispatcher chart type for categorical columns — `chart_type="point-log"` places one marker per row at its measured depth (or interval mid-depth), with a distinct x-position, colour, and symbol per category:
+
+```python
+view.plot_drillhole_trace(structures, "defect", chart_type="point-log")
 ```
 
 ### Plotly templates

@@ -115,3 +115,66 @@
   white-space: nowrap;
 }
 
+/* Per-track settings popover: chart type, colour-by and the display
+   toggles collapse behind a gear so the always-visible controls stay
+   light and every card in a grid keeps the same height. Colours come
+   from --baselode-popover-* hooks with neutral fallbacks. */
+.plot-card .plot-card__settings {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+.plot-card .plot-settings-button {
+  border: 1px solid var(--baselode-popover-border, #cbd5e1);
+  background: var(--baselode-popover-bg, #ffffff);
+  color: inherit;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+
+.plot-card .plot-settings-button.open {
+  border-color: var(--baselode-popover-accent, #64748b);
+}
+
+.plot-card .plot-settings-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--baselode-popover-border, #cbd5e1);
+  background: var(--baselode-popover-bg, #ffffff);
+  color: var(--baselode-popover-fg, inherit);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+.plot-card .plot-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.plot-card .plot-settings-field > span {
+  opacity: 0.75;
+}
+
+.plot-card .plot-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}

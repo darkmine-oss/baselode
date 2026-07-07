@@ -499,6 +499,122 @@ const config     = buildPlotConfig(points, 'au_ppm', { chartType });
 Plotly.newPlot('container', config.data, config.layout);
 ```
 
+#### Numeric chart types
+
+Numeric tracks support `bar`, `markers`, `markers+line`, `line`,
+`colored-line` (value-graded markers), `multi-line` / `multi-stacked`
+(several assays in one track), plus five specialist displays:
+
+| Chart type | Display |
+|---|---|
+| `filled-line` | Line with the area between the curve and x = 0 shaded in the series colour |
+| `step-line` | One vertex pair per interval — blocked/composited assays render their true extents |
+| `heat-strip` | Full-track-width bars coloured by value on the assay ramp, with a slim colour bar |
+| `two-curve` | Two curves with the band between them shaded, flipping colour at each crossover |
+| `composition` | Divided horizontal stacked bars per interval — components as fractions of their sum |
+
+`two-curve` and `composition` are multi-property chart types: like
+`multi-line` / `multi-stacked` they consume the multi-property selection
+(TracePlot's assay multi-select, `multiProps` in the tool-ui schema) and route
+through `buildPlotConfig`'s `series` option. `two-curve` uses the first two
+selected series (extras are ignored; fewer than two renders an empty track);
+`composition` stacks every selection.
+
+The other display types each offer an alternative chart type in the same
+dropdowns: categorical columns add `point-log`, comment columns add
+`annotations`, and structural (tadpole) tracks add `dip-azimuth` — all backed
+by the structural builders below.
+
+Pass `logScale: true` to put the value axis on a log scale (applies to `bar`,
+`markers`, `markers+line`, `line`, `filled-line` and `step-line`; ignored for
+other chart types):
+
+```js
+const config = buildPlotConfig({
+  points,
+  isCategorical: false,
+  property: 'au_ppm',
+  chartType: 'step-line',
+  logScale: true,
+});
+```
+
+#### Two-curve fill (cross-plot track)
+
+The low-level `buildTwoCurveFillConfig` builder (the `two-curve` chart type
+uses the same implementation) overlays two numeric curves and shades the
+region between them, flipping colour exactly at each crossover — the classic
+neutron–density display:
+
+```js
+import { buildTwoCurveFillConfig } from 'baselode';
+
+const config = buildTwoCurveFillConfig({
+  hole,                      // { id, points: [...] }
+  propertyA: 'density',
+  propertyB: 'neutron',
+  colorA: '#e15759',         // optional; defaults to commodity colour / colorway
+  colorB: '#4e79a7',
+  logScale: false,
+});
+```
+
+Where A > B the band is colour A at alpha 0.4; where B > A it is colour B.
+
+#### Percent-composition track
+
+`buildCompositionConfig` (the low-level API behind the `composition` chart
+type) renders divided horizontal stacked bars per interval (e.g.
+sand/silt/clay fractions):
+
+```js
+import { buildCompositionConfig } from 'baselode';
+
+const config = buildCompositionConfig({
+  hole,
+  properties: ['sand', 'silt', 'clay'],  // stack + legend order
+  normalize: true,                       // fractions of each interval's sum (default)
+});
+```
+
+With `normalize` the x-axis is fixed to [0, 1], titled "Fraction" and formatted
+as percentages. Intervals whose components are all null/zero are skipped;
+negative values are clamped to 0 for the bar while the raw value stays in the
+hover.
+
+#### Structural logs
+
+Beyond the tadpole log, three structural track builders are available. Each
+also backs a chart type in the strip-log dropdowns: `point-log` (categorical
+columns), `annotations` (comment columns) and `dip-azimuth` (structural
+tracks).
+
+```js
+import {
+  buildPointLogConfig,
+  buildDepthAnnotationsConfig,
+  buildDipAzimuthConfig,
+  alphaBetaToDipAzimuth,
+} from 'baselode';
+
+// Categorical point measurements: one x slot / colour / symbol per category.
+const pointLog = buildPointLogConfig({ rows: structuralRows, categoryKey: 'defect' });
+
+// Depth-pinned free text (truncated to ~40 chars, full text in hover).
+const annotations = buildDepthAnnotationsConfig({ rows: structuralRows, textKey: 'comments' });
+
+// Split dip / azimuth tracks: dip fixed [0, 90], azimuth fixed [0, 360].
+const dipAzimuth = buildDipAzimuthConfig({ rows: structuralRows, colorBy: 'defect' });
+
+// Oriented-core alpha/beta → true dip / dip direction (scalars or arrays).
+const { dip, dipDirection } = alphaBetaToDipAzimuth(-60, 45, 30, 120);
+```
+
+`alphaBetaToDipAzimuth` follows the survey convention (`holeDip` negative =
+downward); `beta` is measured clockwise looking downhole from the bottom-of-hole
+line, or from north for near-vertical holes. The implementation is
+reference-tested against the Python `alpha_beta_to_dip_azimuth`.
+
 ### React component — TracePlot
 
 `TracePlot` renders a complete multi-track Plotly strip log for a single hole.
@@ -589,6 +705,12 @@ The serializable result is intentionally compact:
   ],
 }
 ```
+
+Numeric tracks accept any of the numeric chart types (including `filled-line`,
+`step-line`, `heat-strip` and the multi-property `two-curve` / `composition`)
+plus an optional `logScale: true`; categorical tracks accept `point-log` as an
+alternative to the bands, and `usePatterns: true` to hatch the bands with the
+built-in lithology pattern map.
 
 #### Per-property unit metadata
 
@@ -798,6 +920,32 @@ const config = buildCategoricalStripLogConfig(rows, {
 ```
 
 Lookup is case-insensitive, so `"Potassic"` and `"potassic"` both match.  Categories absent from the map fall back to a built-in rotation palette.
+
+#### Lithology hatch patterns
+
+Categorical bands can additionally carry a Plotly-native hatch fill via a
+pattern map (category → pattern shape: `"/"`, `"\\"`, `"x"`, `"-"`, `"|"`,
+`"+"`, `"."`, or `""` for solid). The built-in `'lithology'` map follows common
+geologic conventions (sandstone dotted, shale/mudstone dashed, limestone
+crossed, …) and its keys are a subset of `LITHOLOGY_COLOURS`:
+
+```js
+import { buildPlotConfig, LITHOLOGY_PATTERNS, resolvePatternMap } from 'baselode';
+
+const config = buildPlotConfig({
+  points,
+  isCategorical: true,
+  property: 'lithology',
+  chartType: 'categorical',
+  colourMap: 'lithology',
+  patternMap: 'lithology',   // or a custom { category: shape } object
+});
+```
+
+The hatch renders as a light white overlay on the existing band colour;
+categories without a mapped shape stay solid. Lookup is case-insensitive, like
+the colour maps. In the strip-log Tool UI, set `usePatterns: true` on a
+categorical track to resolve the built-in lithology patterns.
 
 ### Color scale
 

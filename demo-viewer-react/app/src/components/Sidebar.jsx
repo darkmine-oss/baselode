@@ -17,6 +17,7 @@ function Sidebar() {
     { path: '/', label: 'Map' },
     { path: '/drillhole', label: '3D Scene' },
     { path: '/drillhole-2d', label: 'Strip Log' },
+    { path: '/strip-log-gallery', label: 'Strip Log Gallery' },
     { path: '/block-model', label: 'Block Models' },
     { path: '/polygon-blocks', label: 'Polygon Blocks' },
     { path: '/core-photo', label: 'Core Photos' },

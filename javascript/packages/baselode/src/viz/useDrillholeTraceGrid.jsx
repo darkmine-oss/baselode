@@ -13,6 +13,7 @@ import {
   coerceChartTypeForProperty,
   reorderHoleIds
 } from '../data/traceGridConfig.js';
+import { isMultiPropertyChartType, GRADED_COLOR_BY } from '../data/columnMeta.js';
 import { buildIntervalPoints, holeHasData } from './drillholeViz.js';
 
 /**
@@ -20,7 +21,7 @@ import { buildIntervalPoints, holeHasData } from './drillholeViz.js';
  * For holes that appear in both arrays, their points are concatenated.
  * @private
  */
-function mergeHoleSets(primary, extra) {
+export function mergeHoleSets(primary, extra) {
   if (!extra?.length) return primary;
   const byId = new Map(primary.map((h) => [h.id || h.holeId, { ...h }]));
   for (const eh of extra) {
@@ -28,7 +29,16 @@ function mergeHoleSets(primary, extra) {
     if (!id) continue;
     if (byId.has(id)) {
       const existing = byId.get(id);
-      byId.set(id, { ...existing, points: [...(existing.points || []), ...(eh.points || [])] });
+      // Dedupe by row reference: the extra-holes effect re-runs whenever the
+      // caller's array identity changes (e.g. another async source lands),
+      // re-presenting rows already merged — concatenating those again would
+      // double every marker on point-based tracks.
+      const mergedPoints = [...(existing.points || [])];
+      const seenPoints = new Set(mergedPoints);
+      for (const point of eh.points || []) {
+        if (!seenPoints.has(point)) mergedPoints.push(point);
+      }
+      byId.set(id, { ...existing, points: mergedPoints });
     } else {
       byId.set(id, eh);
     }
@@ -47,9 +57,19 @@ function buildCommentPoints(hole, property) {
   const seen = new Set();
   const out = [];
   for (const p of hole.points || []) {
-    const from = Number(p.from ?? p.samp_from ?? p.depth_from ?? p.from_depth);
-    const to = Number(p.to ?? p.samp_to ?? p.depth_to ?? p.to_depth);
-    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) continue;
+    let from = Number(p.from ?? p.samp_from ?? p.depth_from ?? p.from_depth);
+    let to = Number(p.to ?? p.samp_to ?? p.depth_to ?? p.to_depth);
+    // Point-schema rows (e.g. structural comments) carry only a depth; keep
+    // them as zero-length intervals so the `annotations` chart type can pin
+    // them. The `comment` boxes builder skips zero-length intervals itself.
+    if (!Number.isFinite(from) || !Number.isFinite(to)) {
+      const depth = Number(p.depth ?? p.md);
+      if (Number.isFinite(depth)) {
+        from = depth;
+        to = depth;
+      }
+    }
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) continue;
     const key = `${from}-${to}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -165,7 +185,12 @@ export default function useDrillholeTraceGrid({
           commentProps,
           numericDefaultChartType: 'markers+line'
         });
-        return { holeId, property, chartType };
+        // Preserve every other config field (colorBy, multiProps, and the
+        // display toggles logScale / stepped / fillArea / usePatterns /
+        // startFromZero) — rebuilding from scratch snapped the TracePlot
+        // checkboxes back on the next hook re-render.
+        const { holeId: _prevHole, property: _prevProperty, chartType: _prevChart, ...preserved } = existing;
+        return { ...preserved, holeId, property, chartType };
       });
       return next;
     });
@@ -278,7 +303,9 @@ export default function useDrillholeTraceGrid({
       const isTadpole = !isComment && !isCategorical && property === 'dip';
       const displayType = isComment ? 'comment' : isTadpole ? 'tadpole' : (isCategorical ? 'categorical' : 'numeric');
 
-      const chartType = isTadpole ? 'tadpole' : cfg.chartType || (isComment ? 'comment' : (isCategorical ? 'categorical' : 'markers+line'));
+      const chartType = isTadpole
+        ? (cfg.chartType === 'dip-azimuth' ? 'dip-azimuth' : 'tadpole')
+        : cfg.chartType || (isComment ? 'comment' : (isCategorical ? 'categorical' : 'markers+line'));
       const holeId = cfg.holeId || hole?.id || hole?.holeId || '';
 
       const points = isTadpole
@@ -291,13 +318,18 @@ export default function useDrillholeTraceGrid({
       const numericOptions = holePropertyOptions.filter((p) => numericProps.includes(p));
       const categoricalOptions = holePropertyOptions.filter((p) => categoricalProps.includes(p));
 
-      const isMulti = chartType === 'multi-line' || chartType === 'multi-stacked';
+      const isMulti = isMultiPropertyChartType(chartType);
 
       // Colour-by: join the numeric track to a separate categorical column's
       // intervals. Only meaningful for single-property numeric charts.
       let colorBy = null;
-      const colorByCol = cfg.colorBy && categoricalOptions.includes(cfg.colorBy) ? cfg.colorBy : '';
-      if (!isCategorical && !isComment && !isTadpole && !isMulti && colorByCol && hole) {
+      // The graded sentinel is a rendering choice, not a categorical column —
+      // reflect it back untouched so the "By value (graded)" pick sticks.
+      const colorByCol = cfg.colorBy
+        && (cfg.colorBy === GRADED_COLOR_BY || categoricalOptions.includes(cfg.colorBy))
+        ? cfg.colorBy : '';
+      if (!isCategorical && !isComment && !isTadpole && !isMulti
+        && colorByCol && colorByCol !== GRADED_COLOR_BY && hole) {
         colorBy = { property: colorByCol, segments: buildIntervalPoints(hole, colorByCol, true) };
       }
 

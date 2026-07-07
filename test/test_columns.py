@@ -120,12 +120,12 @@ def test_chart_types_numeric():
 
 def test_chart_types_categorical():
     types = available_chart_types(DISPLAY_CATEGORICAL)
-    assert types == ["categorical"]
+    assert types == ["categorical", "point-log"]
 
 
 def test_chart_types_comment():
     types = available_chart_types(DISPLAY_COMMENT)
-    assert types == ["comment"]
+    assert types == ["comment", "annotations"]
 
 
 def test_chart_types_hidden():

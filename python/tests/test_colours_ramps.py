@@ -4,10 +4,16 @@
 """Tests for the sequential/qualitative ramps and colour helpers used by the
 numeric strip logs. Mirrors the JS `buildPlotlyColorscale` / colour coverage."""
 
+import pytest
+
 from baselode.colours import (
     ASSAY_COLOR_PALETTE_10,
+    LITHOLOGY_COLOURS,
+    LITHOLOGY_PATTERNS,
     MULTI_SERIES_COLORWAY,
     build_plotly_colorscale,
+    get_pattern,
+    resolve_pattern_map,
     series_colour,
     with_alpha,
 )
@@ -40,3 +46,26 @@ def test_with_alpha_converts_hex_to_rgba_and_passes_through_others():
     assert with_alpha("#abc", 1) == "rgba(170, 187, 204, 1)"
     # Non-hex input is returned unchanged.
     assert with_alpha("rebeccapurple", 0.5) == "rebeccapurple"
+
+
+def test_lithology_patterns_keys_are_a_subset_of_lithology_colours():
+    assert set(LITHOLOGY_PATTERNS) <= set(LITHOLOGY_COLOURS)
+    valid_shapes = {"/", "\\", "x", "-", "|", "+", ".", ""}
+    assert set(LITHOLOGY_PATTERNS.values()) <= valid_shapes
+
+
+def test_resolve_pattern_map_builtin_dict_and_errors():
+    assert resolve_pattern_map("lithology") is LITHOLOGY_PATTERNS
+    custom = {"sandstone": "."}
+    assert resolve_pattern_map(custom) is custom
+    assert resolve_pattern_map(None) == {}
+    with pytest.raises(ValueError, match="pattern map"):
+        resolve_pattern_map("nope")
+    with pytest.raises(TypeError):
+        resolve_pattern_map(42)
+
+
+def test_get_pattern_is_case_insensitive_with_solid_fallback():
+    assert get_pattern("Sandstone", LITHOLOGY_PATTERNS) == "."
+    assert get_pattern("SHALE", LITHOLOGY_PATTERNS) == "-"
+    assert get_pattern("kimberlite", LITHOLOGY_PATTERNS) == ""

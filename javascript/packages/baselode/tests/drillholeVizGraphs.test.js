@@ -144,6 +144,42 @@ describe('buildPlotConfig — colour numeric by categorical', () => {
     expect(named[0].hovertemplate).toContain('lithology');
   });
 
+  it('lets filled-line / step-line / heat-strip take precedence over colorBy', () => {
+    // The category-coloured builder can't render these geometries, so the
+    // selected chart type wins and colour-by is ignored.
+    const stepped = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'Au', chartType: 'step-line',
+      colorBy: { property: 'lithology', segments: lithoSegments },
+    });
+    expect(stepped.data).toHaveLength(1);
+    expect(stepped.data[0].mode).toBe('lines');
+
+    const filled = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'Au', chartType: 'filled-line',
+      colorBy: { property: 'lithology', segments: lithoSegments },
+    });
+    expect(filled.data[0].fill).toBe('tozerox');
+
+    const heat = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'Au', chartType: 'heat-strip',
+      colorBy: { property: 'lithology', segments: lithoSegments },
+    });
+    expect(heat.data[0].type).toBe('bar');
+    expect(heat.data[0].marker.showscale).toBe(true);
+  });
+
+  it('applies logScale on the colour-by path for eligible chart types', () => {
+    const { layout } = buildPlotConfig({
+      points: numericPoints,
+      isCategorical: false,
+      property: 'Au',
+      chartType: 'markers',
+      colorBy: { property: 'lithology', segments: lithoSegments },
+      logScale: true,
+    });
+    expect(layout.xaxis.type).toBe('log');
+  });
+
   it('colours categories from the top-level colourMap when colorBy has none', () => {
     const { data } = buildPlotConfig({
       points: numericPoints,
@@ -276,8 +312,11 @@ describe('buildMultiAssayConfig', () => {
   });
 
   it('returns an empty config when no series have points', () => {
-    expect(buildMultiAssayConfig({ series: [{ property: 'Au', points: [] }] }))
-      .toEqual({ data: [], layout: {} });
+    const empty = buildMultiAssayConfig({ series: [{ property: 'Au', points: [] }] });
+    expect(empty.data).toEqual([]);
+    // Empty configs still carry the template so the blank track renders with
+    // the correct theme background instead of Plotly's default white.
+    expect(empty.layout.template).toBeDefined();
   });
 
   it('is reachable through buildPlotConfig via the series option', () => {

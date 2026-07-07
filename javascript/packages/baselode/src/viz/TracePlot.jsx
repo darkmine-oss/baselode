@@ -6,8 +6,23 @@ import { useEffect, useRef, useState } from 'react';
 import Plotly from 'plotly.js-dist-min';
 import { buildPlotConfig } from './drillholeViz.js';
 import { formatPropertyLabel } from '../data/propertyLabels.js';
-import { buildCommentsConfig, buildTadpoleConfig } from './structuralViz.js';
-import { getChartOptions, DISPLAY_COMMENT, DISPLAY_CATEGORICAL, DISPLAY_NUMERIC, DISPLAY_TADPOLE } from '../data/columnMeta.js';
+import {
+  buildCommentsConfig,
+  buildTadpoleConfig,
+  buildPointLogConfig,
+  buildDepthAnnotationsConfig,
+  buildDipAzimuthConfig,
+} from './structuralViz.js';
+import {
+  getChartOptions,
+  isMultiPropertyChartType,
+  LOG_SCALE_CHART_TYPES,
+  GRADED_COLOR_BY,
+  DISPLAY_COMMENT,
+  DISPLAY_CATEGORICAL,
+  DISPLAY_NUMERIC,
+  DISPLAY_TADPOLE,
+} from '../data/columnMeta.js';
 import {
   resolveTracePlotBody,
   resolveTracePlotSelectVisibility,
@@ -202,7 +217,9 @@ function TracePlot({
   const effectiveChartType = resolveChartType(displayType, chartType);
 
   // Colour-by + multi-assay state (supplied by useDrillholeTraceGrid).
-  const isMultiChart = effectiveChartType === 'multi-line' || effectiveChartType === 'multi-stacked';
+  // Multi chart types (multi-line / multi-stacked / two-curve / composition)
+  // swap the property picker for the multi-select and hide colour-by.
+  const isMultiChart = isMultiPropertyChartType(effectiveChartType);
   const colorBy = graph?.colorBy || null;
   const multiSeries = graph?.multiSeries || null;
   const numericOptions = graph?.numericOptions || [];
@@ -212,6 +229,30 @@ function TracePlot({
 
   const [renderError, setRenderError] = useState('');
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
+
+  // Secondary display options (chart type, colour-by, log/patterns toggles)
+  // collapse behind a per-track settings popover so the always-visible
+  // controls stay light: hole + property only.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef(null);
+  useEffect(() => {
+    if (!settingsOpen) return undefined;
+    const onPointerDown = (event) => {
+      if (settingsRef.current && !settingsRef.current.contains(event.target)) {
+        setSettingsOpen(false);
+      }
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setSettingsOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [settingsOpen]);
+
 
   // Multi-assay charts draw from `multiSeries`, not the primary `points`, so
   // gate the body on the first series when in a multi chart type.
@@ -235,6 +276,28 @@ function TracePlot({
     showChartTypeSelect,
   });
   const propertySelectEnabled = propertyOptions.length > 0;
+
+  // What the settings popover has to offer for the current track.
+  const isSteppedLine = effectiveChartType === 'line' && config?.stepped === true;
+  const isFilledLine = effectiveChartType === 'line' && config?.fillArea === true;
+  const gradedAvailable = ['markers', 'markers+line'].includes(effectiveChartType);
+  // Stepped / filled geometry and heat-strip don't compose with colouring.
+  const showColorBy = visibility.property && !isMultiChart
+    && displayType === DISPLAY_NUMERIC
+    && effectiveChartType !== 'heat-strip'
+    && !isSteppedLine && !isFilledLine
+    && (colorByOptions.length > 0 || gradedAvailable);
+  const showLogToggle = visibility.property && displayType === DISPLAY_NUMERIC
+    && LOG_SCALE_CHART_TYPES.has(effectiveChartType);
+  const showLineToggles = visibility.property && !isMultiChart
+    && displayType === DISPLAY_NUMERIC && effectiveChartType === 'line';
+  const showPatternsToggle = visibility.property
+    && displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'categorical';
+  // Depth-axis pinning: lets every track of a hole align vertically even when
+  // sampling starts down-hole. Offered on every chart-bearing display type.
+  const showStartFromZero = visibility.property;
+  const hasSettings = visibility.chartType || showColorBy || showLogToggle
+    || showLineToggles || showPatternsToggle || showStartFromZero;
 
   useEffect(() => {
     const body = bodyRef.current;
@@ -274,9 +337,27 @@ function TracePlot({
     let plotData;
     try {
       if (isComment) {
-        plotData = buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to' });
+        // Comment tracks offer two chart types: labelled interval boxes
+        // (default) or depth-pinned annotations at each interval mid.
+        plotData = effectiveChartType === 'annotations'
+          ? buildDepthAnnotationsConfig({
+              startFromZero: config?.startFromZero === true,
+              rows: points.map((p) => ({ ...p, mid: (p.from + p.to) / 2 })),
+              depthKey: 'mid',
+              textKey: property,
+              template,
+            })
+          : buildCommentsConfig(points, { commentCol: property, fromCol: 'from', toCol: 'to', startFromZero: config?.startFromZero === true, template });
       } else if (isTadpole) {
-        plotData = buildTadpoleConfig(points);
+        // Structural tracks: tadpole (default) or split dip / azimuth log.
+        // Both read the raw structural rows (depth / dip / azimuth keys).
+        plotData = effectiveChartType === 'dip-azimuth'
+          ? buildDipAzimuthConfig({ rows: points, startFromZero: config?.startFromZero === true, template })
+          : buildTadpoleConfig(points, { startFromZero: config?.startFromZero === true, template });
+      } else if (displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'point-log') {
+        // Categorical interval points carry the category in `val` and the
+        // interval mid-depth in `z`.
+        plotData = buildPointLogConfig({ rows: points, depthKey: 'z', categoryKey: 'val', startFromZero: config?.startFromZero === true, template });
       } else {
         plotData = buildPlotConfig({
           points,
@@ -285,9 +366,16 @@ function TracePlot({
           chartType: effectiveChartType,
           template,
           meta,
-          colorBy,
+          // The graded sentinel is a rendering choice, not a category column.
+          colorBy: selectedColorBy === GRADED_COLOR_BY ? null : colorBy,
+          graded: selectedColorBy === GRADED_COLOR_BY,
           series: multiSeries,
           metaByProperty: propertyMeta,
+          logScale: config?.logScale === true,
+          stepped: config?.stepped === true,
+          fillArea: config?.fillArea === true,
+          startFromZero: config?.startFromZero === true,
+          patternMap: config?.usePatterns === true ? 'lithology' : config?.patternMap ?? null,
         });
       }
     } catch (err) {
@@ -341,6 +429,13 @@ function TracePlot({
     multiSeries,
     propertyMeta,
     template,
+    config?.logScale,
+    config?.stepped,
+    config?.fillArea,
+    config?.startFromZero,
+    selectedColorBy,
+    config?.usePatterns,
+    config?.patternMap,
     plotSize.width,
     plotSize.height,
   ]);
@@ -406,7 +501,7 @@ function TracePlot({
             chart types the property slot becomes a scrollable
             multi-select bound to the assays plotted in the track, so
             the primary picker always matches the graph. */}
-        {(visibility.property || visibility.chartType) && (
+        {(visibility.property || hasSettings) && (
           <div className={`plot-card__row plot-card__row--split${isMultiChart ? ' plot-card__row--split-multi' : ''}`}>
             {visibility.property && isMultiChart && (
               <select
@@ -444,36 +539,112 @@ function TracePlot({
                 ))}
               </select>
             )}
-            {visibility.chartType && (
-              <select
-                className="plot-select plot-select--chart-type"
-                value={effectiveChartType}
-                onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
-                aria-label="Chart type"
-              >
-                {chartOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+            {/* Secondary display options (chart type, colour-by, log /
+                patterns) collapse behind a settings popover so the
+                always-visible controls stay light. Anchored here so the
+                popover opens under the gear. */}
+            {hasSettings && (
+              <div className="plot-card__settings" ref={settingsRef}>
+                <button
+                  type="button"
+                  className={`plot-settings-button${settingsOpen ? ' open' : ''}`}
+                  onClick={() => setSettingsOpen((open) => !open)}
+                  aria-label="Track settings"
+                  aria-expanded={settingsOpen}
+                  title="Track settings"
+                >
+                  ⚙
+                </button>
+                {settingsOpen && (
+                  <div className="plot-settings-popover" role="menu">
+                    {visibility.chartType && (
+                      <label className="plot-settings-field">
+                        <span>Chart</span>
+                        <select
+                          className="plot-select plot-select--chart-type"
+                          value={effectiveChartType}
+                          onChange={(e) => onConfigChange && onConfigChange({ chartType: e.target.value })}
+                          aria-label="Chart type"
+                        >
+                          {chartOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {showColorBy && (
+                      <label className="plot-settings-field">
+                        <span>Colour</span>
+                        <select
+                          className="plot-select plot-select--colorby"
+                          value={selectedColorBy}
+                          onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
+                          aria-label="Colour by"
+                        >
+                          <option value="">Default</option>
+                          {gradedAvailable && (
+                            <option value={GRADED_COLOR_BY}>By value (graded)</option>
+                          )}
+                          {colorByOptions.map((c) => (
+                            <option key={c} value={c}>{formatPropertyLabel(c, propertyMeta?.[c])}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {showLineToggles && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.stepped === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ stepped: e.target.checked })}
+                        />
+                        <span>Stepped</span>
+                      </label>
+                    )}
+                    {showLineToggles && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.fillArea === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ fillArea: e.target.checked })}
+                        />
+                        <span>Fill</span>
+                      </label>
+                    )}
+                    {showLogToggle && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.logScale === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ logScale: e.target.checked })}
+                        />
+                        <span>Log scale</span>
+                      </label>
+                    )}
+                    {showPatternsToggle && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.usePatterns === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ usePatterns: e.target.checked })}
+                        />
+                        <span>Hatch patterns</span>
+                      </label>
+                    )}
+                    {showStartFromZero && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.startFromZero === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ startFromZero: e.target.checked })}
+                        />
+                        <span>Start at 0</span>
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
-          </div>
-        )}
-        {/* Row 4a: colour a single numeric track by value (default) or by a
-            categorical column (lithology, alteration, …). Only for numeric,
-            non-multi chart types when categorical columns are available. */}
-        {visibility.property && !isMultiChart && displayType === DISPLAY_NUMERIC && colorByOptions.length > 0 && (
-          <div className="plot-card__row plot-card__row--colorby">
-            <select
-              className="plot-select plot-select--colorby"
-              value={selectedColorBy}
-              onChange={(e) => onConfigChange && onConfigChange({ colorBy: e.target.value })}
-              aria-label="Colour by"
-            >
-              <option value="">Colour: by value</option>
-              {colorByOptions.map((c) => (
-                <option key={c} value={c}>{`Colour: ${formatPropertyLabel(c, propertyMeta?.[c])}`}</option>
-              ))}
-            </select>
           </div>
         )}
       </header>

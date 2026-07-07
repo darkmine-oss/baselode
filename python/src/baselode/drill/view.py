@@ -27,14 +27,17 @@ banded rectangles. All plots keep depth increasing downward.
 
 import math
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from baselode.datamodel import MID, AZIMUTH, DIP, HOLE_ID, DEPTH, COMMENTS, NORTHING, EASTING
+from baselode.datamodel import MID, AZIMUTH, DIP, HOLE_ID, DEPTH, COMMENTS, NORTHING, EASTING, FROM, TO
 from baselode.colours import (
     get_colour,
+    get_pattern,
     resolve_colour_map,
+    resolve_pattern_map,
     commodity_colour_for_property,
     ASSAY_COLOR_PALETTE_10,
     MULTI_SERIES_COLORWAY,
@@ -42,12 +45,17 @@ from baselode.colours import (
     series_colour,
     with_alpha,
 )
+from baselode.drill.columns import GRADED_COLOR_BY
 from baselode.template import BASELODE_TEMPLATE_NAME
 
 
 STRIPLOG_COMPACT_MARGIN = dict(l=4, r=4, t=4, b=4)
 STRIPLOG_AXIS_TICK_FONT_SIZE = 10
 STRIPLOG_AXIS_TITLE_FONT_SIZE = 12
+
+# Chart types whose value axis may meaningfully switch to a log scale.
+# ``log_scale`` is silently ignored for every other chart type.
+LOG_SCALE_CHART_TYPES = {"bar", "markers", "markers+line", "line", "filled-line", "step-line"}
 
 
 def _first_present(row, candidates):
@@ -88,6 +96,42 @@ def _apply_striplog_defaults(fig, template=None):
         tickfont=dict(size=STRIPLOG_AXIS_TICK_FONT_SIZE),
         title_font=dict(size=STRIPLOG_AXIS_TITLE_FONT_SIZE),
     )
+    return fig
+
+
+def _empty_striplog_figure(template=None):
+    """Empty figure that still carries the resolved template, so a blank track
+    renders with the correct theme background instead of Plotly's white."""
+    return _apply_striplog_defaults(go.Figure(), template=template)
+
+
+def _depth_bounds(interval_df):
+    """Depth extent of interval points (from/to preferred, mid fallback)."""
+    candidates = []
+    for column in ("from_val", "to_val", "z"):
+        if column in interval_df.columns:
+            candidates.append(pd.to_numeric(interval_df[column], errors="coerce"))
+    if not candidates:
+        return None
+    stacked = pd.concat(candidates)
+    if stacked.dropna().empty:
+        return None
+    return float(stacked.min()), float(stacked.max())
+
+
+def _apply_depth_axis_range(fig, bounds, start_from_zero):
+    """Pin the depth axis to an explicit, consistently padded range so every
+    chart type over the same data shares the same vertical scale — Plotly's
+    autorange pads filled traces, bars and scatters differently, which knocks
+    adjacent tracks out of depth alignment. With *start_from_zero* the shallow
+    end pins to exactly 0 so every track of a hole can align regardless of
+    where its sampling starts. Mirrors the JS applyDepthAxisRange."""
+    if bounds is None:
+        return fig
+    min_depth, max_depth = bounds
+    pad = max(max_depth - min_depth, 1e-9) * 0.02
+    shallow = 0 if start_from_zero else min_depth - pad
+    fig.update_yaxes(autorange=False, range=[max_depth + pad, shallow])
     return fig
 
 
@@ -153,6 +197,30 @@ def compute_interval_points(df,
 
     out = pd.DataFrame.from_records(records)
     return out.sort_values("z", ascending=False).reset_index(drop=True)
+
+
+def _resolve_point_depth_rows(df, value_col):
+    """Resolve per-row depths for the point-style chart types (point-log,
+    annotations).
+
+    Structural tables already carry a measured DEPTH; desurveyed tables carry
+    MID; interval tables carry from/to pairs which are reduced to mid-depths
+    via :func:`compute_interval_points` (the same resolution the numeric
+    dispatcher path uses).
+
+    Returns a ``(rows, depth_col)`` tuple, or ``(None, None)`` when no depth
+    can be resolved.
+    """
+    if value_col not in df.columns:
+        return None, None
+    if DEPTH in df.columns:
+        return df, DEPTH
+    if MID in df.columns:
+        return df, MID
+    points = compute_interval_points(df, value_col)
+    if points.empty:
+        return None, None
+    return points.rename(columns={"z": DEPTH, "val": value_col}), DEPTH
 
 
 def _numeric_layout(value_col, extra_xaxis=None):
@@ -231,14 +299,15 @@ def assign_categories_by_depth(points_df, segments):
     return categories
 
 
-def _build_graded_line(interval_df, value_col, template):
-    """Graded (value-coloured) line: a neutral connecting line with markers
-    coloured by the assay value on the magma ramp, plus a slim colour bar."""
+def _build_graded_line(interval_df, value_col, template, mode="lines+markers"):
+    """Graded (value-coloured) markers: a neutral connecting line (unless
+    *mode* is markers-only) with markers coloured by the assay value on the
+    magma ramp, plus a slim colour bar."""
     vals = interval_df["val"]
     trace = go.Scatter(
         x=vals,
         y=interval_df["z"],
-        mode="lines+markers",
+        mode=mode,
         line=dict(color="rgba(136,136,136,0.45)", width=1),
         marker=dict(
             size=8,
@@ -253,6 +322,77 @@ def _build_graded_line(interval_df, value_col, template):
         hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
     )
     layout = _numeric_layout(value_col)
+    # Widen the right gutter so the colour bar sits outside the plot area.
+    layout.margin = dict(l=4, r=30, t=4, b=4)
+    fig = go.Figure(data=[trace], layout=layout)
+    return _apply_striplog_defaults(fig, template=template)
+
+
+def _build_step_line(interval_df, value_col, color, template, fill_area=False):
+    """Stepped line honouring interval extents: two points per interval at
+    (val, from) and (val, to), one polyline shallow → deep. Consecutive
+    intervals connect with a vertical jump at the shared boundary; gaps are
+    still bridged by the polyline (no nulls inserted). With *fill_area* the
+    step becomes area geometry: the area back to zero is shaded and
+    below-detection sentinels are floored at 0 (raw value stays in hover)."""
+    ordered = interval_df.sort_values("from_val", ascending=True)
+    xs = []
+    ys = []
+    customdata = []
+    for _, point in ordered.iterrows():
+        plot_val = max(point["val"], 0) if fill_area else point["val"]
+        xs.extend([plot_val, plot_val])
+        ys.extend([point["from_val"], point["to_val"]])
+        customdata.extend([[point["from_val"], point["to_val"], point["val"]]] * 2)
+    value_ref = "%{customdata[2]}" if fill_area else "%{x}"
+    trace = go.Scatter(
+        x=xs,
+        y=ys,
+        mode="lines",
+        line=dict(color=color, width=2),
+        fill="tozerox" if fill_area else None,
+        fillcolor=with_alpha(color, 0.35) if fill_area else None,
+        customdata=customdata,
+        hovertemplate=f"{value_col}: {value_ref}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+    )
+    fig = go.Figure(data=[trace], layout=_numeric_layout(value_col))
+    return _apply_striplog_defaults(fig, template=template)
+
+
+def _build_heat_strip(interval_df, value_col, template):
+    """Heat strip: one full-width horizontal bar per interval, coloured by the
+    assay value on the magma ramp, with a slim colour bar. The x axis is a
+    dummy [0, 1] span — hover reports the value and interval instead."""
+    vals = interval_df["val"].astype(float)
+    # Floor below-detection sentinels (negative) at 0 for the colour ramp so
+    # they read as zero grade instead of dragging cmin below zero and skewing
+    # the whole scale; hover keeps the raw value via customdata.
+    floored = vals.clip(lower=0)
+    trace = go.Bar(
+        orientation="h",
+        x=[1.0] * len(interval_df),
+        base=0,
+        y=interval_df["z"],
+        width=(interval_df["to_val"] - interval_df["from_val"]).abs().clip(lower=0.01),
+        marker=dict(
+            color=floored,
+            colorscale=build_plotly_colorscale(ASSAY_COLOR_PALETTE_10),
+            cmin=float(floored.min()),
+            cmax=float(floored.max()),
+            showscale=True,
+            colorbar=dict(thickness=8, len=0.92, x=1.02, xanchor="left", tickfont=dict(size=9)),
+            line=dict(width=0),
+        ),
+        customdata=interval_df[["val", "from_val", "to_val"]],
+        hovertemplate=(
+            f"{value_col}: %{{customdata[0]}}<br>"
+            f"from: %{{customdata[1]:.3f}} to: %{{customdata[2]:.3f}}<extra></extra>"
+        ),
+    )
+    layout = _numeric_layout(
+        value_col,
+        extra_xaxis=dict(title=None, range=[0, 1], showticklabels=False, fixedrange=True),
+    )
     # Widen the right gutter so the colour bar sits outside the plot area.
     layout.margin = dict(l=4, r=30, t=4, b=4)
     fig = go.Figure(data=[trace], layout=layout)
@@ -361,8 +501,20 @@ def _build_category_coloured_numeric(interval_df, value_col, chart_type, color_b
     return _apply_striplog_defaults(fig, template=template)
 
 
+def _apply_log_scale(fig, chart_type, log_scale):
+    """Switch the value axis to log when requested and valid for the chart type.
+
+    Values <= 0 are left to Plotly (it drops them from a log axis); the raw
+    value still appears in hover.
+    """
+    if log_scale and chart_type in LOG_SCALE_CHART_TYPES:
+        fig.update_xaxes(type="log")
+    return fig
+
+
 def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color="#8b1e3f",
-                       intervals=True, template=None, color_by=None):
+                       intervals=True, template=None, color_by=None, log_scale=False,
+                       stepped=False, fill_area=False, graded=False):
     """Plot numeric assay intervals with mid-depth markers and interval extent.
 
     chart_type options:
@@ -371,11 +523,16 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     - "markers+line": markers + line with error bars (default)
     - "line": line only (no error bars)
     - "colored-line": graded line coloured by value on the magma ramp + colour bar
+    - "filled-line": line with the area back to zero shaded (no error bars)
+    - "step-line": stepped line drawn along each interval's from/to extent
+    - "heat-strip": full-track-width bars coloured by value on the magma ramp
 
     color_by : dict, optional
         Colour the track by a separate categorical column instead of by value.
         ``{"property"/"label": str, "segments": DataFrame|list, "colour_map": ...}``
-        where *segments* are categorical interval rows (from/to/val).
+        where *segments* are categorical interval rows (from/to/val). Ignored
+        for the ``filled-line``, ``step-line`` and ``heat-strip`` chart types,
+        whose geometry or colour already encodes the value.
 
     intervals : bool, optional
         When True (default) draw error-bar markers showing each interval's depth
@@ -385,19 +542,44 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
 
+    log_scale : bool, optional
+        When True, switch the value axis to a log scale. Only applied for the
+        ``bar``, ``markers``, ``markers+line``, ``line``, ``filled-line``, and
+        ``step-line`` chart types; silently ignored elsewhere.
+
     Returns a plotly.graph_objects.Figure.
     """
     if interval_df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
-    if color_by and len(_normalize_segments(color_by.get("segments"))):
-        return _build_category_coloured_numeric(interval_df, value_col, chart_type, color_by, template)
-    if chart_type == "colored-line":
-        return _build_graded_line(interval_df, value_col, template)
+    # Normalise the legacy variant chart types onto "line" + toggles (and
+    # graded onto the colour choice) so both spellings render identically:
+    # the dropdown now offers geometries only.
+    if chart_type == "filled-line":
+        chart_type, fill_area = "line", True
+    if chart_type == "step-line":
+        chart_type, stepped = "line", True
+    if graded or chart_type == "colored-line":
+        mode = "markers" if chart_type == "markers" else "lines+markers"
+        return _build_graded_line(interval_df, value_col, template, mode=mode)
+
+    # Colour-by only composes with the chart types the category-coloured
+    # builder implements; stepped / filled lines keep their geometry and
+    # heat-strip's colour already encodes the value, so those win.
+    chart_type_overrides_color_by = stepped or fill_area or chart_type == "heat-strip"
+    if color_by and not chart_type_overrides_color_by and len(_normalize_segments(color_by.get("segments"))):
+        fig = _build_category_coloured_numeric(interval_df, value_col, chart_type, color_by, template)
+        return _apply_log_scale(fig, chart_type, log_scale)
+    if chart_type == "line" and stepped:
+        fig = _build_step_line(interval_df, value_col, color, template, fill_area=fill_area)
+        return _apply_log_scale(fig, "step-line", log_scale)
+    if chart_type == "heat-strip":
+        return _build_heat_strip(interval_df, value_col, template)
 
     is_bar = chart_type == "bar"
     is_markers = chart_type == "markers"
     is_line_only = chart_type == "line"
+    is_filled_line = chart_type == "line" and fill_area
 
     error_config = dict(
         type="data",
@@ -409,12 +591,23 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
         color="#6b7280",
     ) if intervals else None
 
-    trace_common = dict(
-        x=interval_df["val"],
-        y=interval_df["z"],
-        customdata=interval_df[["from_val", "to_val"]],
-        hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
-    )
+    if is_filled_line or is_bar:
+        # Floor below-detection sentinels (negative) at 0 — a fill band across
+        # zero or a leftward bar reads as negative grade; hover keeps the raw
+        # value (same convention as the multi-assay tracks).
+        trace_common = dict(
+            x=interval_df["val"].clip(lower=0),
+            y=interval_df["z"],
+            customdata=interval_df[["from_val", "to_val", "val"]],
+            hovertemplate=f"{value_col}: %{{customdata[2]}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+        )
+    else:
+        trace_common = dict(
+            x=interval_df["val"],
+            y=interval_df["z"],
+            customdata=interval_df[["from_val", "to_val"]],
+            hovertemplate=f"{value_col}: %{{x}}<br>from: %{{customdata[0]:.3f}} to: %{{customdata[1]:.3f}}<extra></extra>",
+        )
 
     if is_bar:
         # Each bar spans its own down-hole interval (thickness = to-from), so the
@@ -426,17 +619,22 @@ def plot_numeric_trace(interval_df, value_col, chart_type="markers+line", color=
             **trace_common,
         )
     else:
-        scatter_mode = "lines" if is_line_only else ("markers" if is_markers else "lines+markers")
+        scatter_mode = "lines" if (is_line_only or is_filled_line) else ("markers" if is_markers else "lines+markers")
         trace = go.Scatter(
             mode=scatter_mode,
             line=dict(color=color, width=2),
             marker=dict(size=7, color="#a8324f"),
-            error_y=None if is_line_only else error_config,
+            # Filled line: shade back to zero (value is on x). Extent is implied
+            # by the fill, so no error bars, matching "line".
+            fill="tozerox" if is_filled_line else None,
+            fillcolor=with_alpha(color, 0.35) if is_filled_line else None,
+            error_y=None if (is_line_only or is_filled_line) else error_config,
             **trace_common,
         )
 
     fig = go.Figure(data=[trace], layout=_numeric_layout(value_col))
-    return _apply_striplog_defaults(fig, template=template)
+    fig = _apply_striplog_defaults(fig, template=template)
+    return _apply_log_scale(fig, chart_type, log_scale)
 
 
 def _align_series_to_common_depths(series):
@@ -499,7 +697,7 @@ def plot_multi_assay_trace(series, mode="multi-line", template=None):
         if s and s.get("property") and isinstance(s.get("points"), pd.DataFrame) and not s["points"].empty
     ]
     if not usable:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     stacked = mode == "multi-stacked"
     aligned = _align_series_to_common_depths(usable)
@@ -553,7 +751,296 @@ def plot_multi_assay_trace(series, mode="multi-line", template=None):
     return _apply_striplog_defaults(fig, template=template)
 
 
-def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None, template=None):
+def _interpolate_series_at_depths(points_df, depths):
+    """Sample a series at the given depths by linear interpolation.
+
+    End-clamped: depths outside the series' span take the first/last value.
+    Mirrors the JS ``interpolateSeriesAtDepths`` helper — unlike
+    :func:`_align_series_to_common_depths`, missing cells are never
+    zero-filled (zero-fill is only correct for stacked multi-assay plots).
+    """
+    ordered = points_df.sort_values("z")
+    return np.interp(
+        depths, ordered["z"].astype(float), ordered["val"].astype(float)
+    ).tolist()
+
+
+def _split_fill_runs(depths, vals_a, vals_b):
+    """Split two aligned curves into runs of constant A-vs-B dominance.
+
+    Crossing depths are found by linear interpolation and inserted as shared
+    boundary points so the shaded region flips exactly at the crossover.
+    Returns a list of ``(sign, points)`` tuples where *sign* is +1 (A > B) or
+    -1 (B > A) and *points* are ``(depth, val_a, val_b)`` triples.
+    """
+    points = []
+    for index in range(len(depths)):
+        points.append((depths[index], vals_a[index], vals_b[index]))
+        if index + 1 < len(depths):
+            diff_here = vals_a[index] - vals_b[index]
+            diff_next = vals_a[index + 1] - vals_b[index + 1]
+            if diff_here * diff_next < 0:
+                frac = diff_here / (diff_here - diff_next)
+                depth_cross = depths[index] + frac * (depths[index + 1] - depths[index])
+                val_cross = vals_a[index] + frac * (vals_a[index + 1] - vals_a[index])
+                points.append((depth_cross, val_cross, val_cross))
+
+    runs = []
+    run_points = []
+    run_sign = 0
+    for point in points:
+        diff = point[1] - point[2]
+        sign = 1 if diff > 0 else (-1 if diff < 0 else 0)
+        if not run_points:
+            run_points = [point]
+            run_sign = sign
+            continue
+        if sign == 0 or run_sign == 0 or sign == run_sign:
+            run_points.append(point)
+            if run_sign == 0:
+                run_sign = sign
+        else:
+            runs.append((run_sign, run_points))
+            # The new run starts at the shared boundary (crossing) point.
+            run_points = [run_points[-1], point]
+            run_sign = sign
+    if run_points:
+        runs.append((run_sign, run_points))
+    return runs
+
+
+def plot_two_curve_fill(df, value_col_a, value_col_b, from_cols=None, to_cols=None,
+                        color_a=None, color_b=None, log_scale=False, template=None):
+    """Plot two numeric curves with the region between them shaded by dominance.
+
+    The classic neutron–density cross-plot track: both columns are converted to
+    interval mid-points, aligned onto the union of their depth grids, and drawn
+    as lines. The area between them is shaded, split at every crossing:
+
+    - where A > B the fill uses A's colour at alpha 0.4
+    - where B > A the fill uses B's colour at alpha 0.4
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Assay rows for a single hole containing both value columns.
+    value_col_a, value_col_b : str
+        The two numeric columns to compare.
+    from_cols, to_cols : iterable of str, optional
+        Interval column candidates passed to :func:`compute_interval_points`.
+        Defaults to that function's standard candidates.
+    color_a, color_b : str, optional
+        Curve colours. Default to the commodity colour for the column name,
+        falling back to ``MULTI_SERIES_COLORWAY[0]`` / ``[1]``.
+    log_scale : bool, optional
+        When True, switch the value axis to a log scale.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
+
+    Returns a plotly.graph_objects.Figure.
+    """
+    interval_kwargs = {}
+    if from_cols is not None:
+        interval_kwargs["from_cols"] = from_cols
+    if to_cols is not None:
+        interval_kwargs["to_cols"] = to_cols
+    points_a = compute_interval_points(df, value_col_a, **interval_kwargs)
+    points_b = compute_interval_points(df, value_col_b, **interval_kwargs)
+    if points_a.empty or points_b.empty:
+        return _empty_striplog_figure(template)
+
+    # Floor below-detection sentinels (negative) at 0 before interpolating —
+    # interpolating through a sentinel fabricates slopes, crossings and fill
+    # below zero (same convention as the multi-assay tracks).
+    points_a = points_a.assign(val=points_a["val"].astype(float).clip(lower=0))
+    points_b = points_b.assign(val=points_b["val"].astype(float).clip(lower=0))
+
+    # Union of both series' mid-depths, each curve linearly interpolated onto
+    # it (end-clamped) — matching the JS implementation.
+    depths = sorted(
+        set(points_a["z"].astype(float)) | set(points_b["z"].astype(float))
+    )
+    vals_a = _interpolate_series_at_depths(points_a, depths)
+    vals_b = _interpolate_series_at_depths(points_b, depths)
+
+    colour_a = color_a or commodity_colour_for_property(value_col_a) or MULTI_SERIES_COLORWAY[0]
+    colour_b = color_b or commodity_colour_for_property(value_col_b) or MULTI_SERIES_COLORWAY[1]
+
+    # Shaded runs first (under the curves): per run an invisible anchor trace
+    # on curve B, then curve A filled back to it. Hover lives on the curves.
+    data = []
+    for sign, run_points in _split_fill_runs(depths, vals_a, vals_b):
+        if sign == 0 or len(run_points) < 2:
+            continue
+        run_depths = [point[0] for point in run_points]
+        fill_colour = with_alpha(colour_a if sign > 0 else colour_b, 0.4)
+        data.append(go.Scatter(
+            x=[point[2] for point in run_points], y=run_depths,
+            mode="lines", line=dict(width=0),
+            showlegend=False, hoverinfo="skip",
+        ))
+        data.append(go.Scatter(
+            x=[point[1] for point in run_points], y=run_depths,
+            mode="lines", line=dict(width=0),
+            fill="tonextx", fillcolor=fill_colour,
+            showlegend=False, hoverinfo="skip",
+        ))
+
+    # The two visible curves carry the hover and the legend, drawn on the
+    # shared interpolated grid so they meet the fills exactly.
+    for name, vals, colour in ((value_col_a, vals_a, colour_a), (value_col_b, vals_b, colour_b)):
+        data.append(go.Scatter(
+            x=vals, y=depths,
+            mode="lines", line=dict(color=colour, width=2),
+            name=name, showlegend=True,
+            hovertemplate=f"{name}: %{{x}}<br>depth: %{{y:.3f}}<extra></extra>",
+        ))
+
+    layout = go.Layout(
+        xaxis=dict(title=f"{value_col_a} / {value_col_b}", zeroline=False),
+        yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
+        showlegend=True,
+        legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(size=9)),
+    )
+    fig = go.Figure(data=data, layout=layout)
+    fig = _apply_striplog_defaults(fig, template=template)
+    if log_scale:
+        fig.update_xaxes(type="log")
+    return fig
+
+
+def plot_composition_log(df, value_cols, from_col=FROM, to_col=TO, colour_map=None,
+                         normalize=True, template=None):
+    """Plot a percent-composition track: divided horizontal stacked bars per interval.
+
+    One trace per component (*value_cols* order = legend + stack order), each
+    interval a full-width stacked bar. With ``normalize=True`` (default) every
+    interval's components are scaled to fractions of their sum and the value
+    axis is fixed to [0, 1]; otherwise raw values are stacked and the axis
+    autoranges.
+
+    Intervals whose components are all null/zero are skipped. Negative values
+    are clamped to 0 for the bar while the raw value stays in hover (the same
+    convention as the multi-assay below-detection handling).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Interval rows with *from_col*, *to_col*, and the component columns.
+    value_cols : iterable of str
+        Component columns, in legend / stack order.
+    from_col, to_col : str
+        Depth interval columns.
+    colour_map : dict or str or None, optional
+        Semantic colour map for components; values not found fall back to
+        ``MULTI_SERIES_COLORWAY`` cycling.
+    normalize : bool, optional
+        Scale each interval's components to fractions of their sum (default True).
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
+
+    Returns a plotly.graph_objects.Figure.
+    """
+    # Keep only components that actually have readings — a present-but-empty
+    # column would otherwise render as a legend entry of measured zeros.
+    value_cols = [
+        col for col in (value_cols or [])
+        if col in df.columns and pd.to_numeric(df[col], errors="coerce").notna().any()
+    ]
+    if df.empty or not value_cols:
+        return _empty_striplog_figure(template)
+
+    resolved_cmap = resolve_colour_map(colour_map)
+
+    intervals = []
+    for _, row in df.iterrows():
+        try:
+            from_depth = float(row[from_col])
+            to_depth = float(row[to_col])
+        except (TypeError, ValueError, KeyError):
+            continue
+        if to_depth <= from_depth:
+            continue
+        raw_values = []
+        clamped = []
+        for col in value_cols:
+            try:
+                raw = float(row[col])
+            except (TypeError, ValueError):
+                raw = float("nan")
+            raw_values.append(raw)
+            clamped.append(0.0 if (math.isnan(raw) or raw < 0) else raw)
+        total = sum(clamped)
+        if total <= 0:
+            continue
+        intervals.append({
+            "from": from_depth, "to": to_depth, "mid": 0.5 * (from_depth + to_depth),
+            "raw": raw_values, "clamped": clamped, "total": total,
+        })
+
+    if not intervals:
+        return _empty_striplog_figure(template)
+    intervals.sort(key=lambda cell: cell["from"])
+
+    def _component_colour(col, index):
+        if resolved_cmap:
+            mapped = get_colour(col, resolved_cmap, fallback=None)
+            if mapped is not None:
+                return mapped
+        return MULTI_SERIES_COLORWAY[index % len(MULTI_SERIES_COLORWAY)]
+
+    data = []
+    for comp_index, col in enumerate(value_cols):
+        fractions = [cell["clamped"][comp_index] / cell["total"] for cell in intervals]
+        # [rawValue, fraction, from, to] — hover reports the true reported value.
+        customdata = [
+            [cell["raw"][comp_index], fractions[cell_index], cell["from"], cell["to"]]
+            for cell_index, cell in enumerate(intervals)
+        ]
+        data.append(go.Bar(
+            orientation="h",
+            x=fractions if normalize else [cell["clamped"][comp_index] for cell in intervals],
+            y=[cell["mid"] for cell in intervals],
+            width=[cell["to"] - cell["from"] for cell in intervals],
+            marker=dict(color=_component_colour(col, comp_index), line=dict(width=0)),
+            name=col, showlegend=True,
+            customdata=customdata,
+            hovertemplate=(
+                f"{col}: %{{customdata[0]}} (%{{customdata[1]:.1%}})<br>"
+                f"from: %{{customdata[2]:.3f}} to: %{{customdata[3]:.3f}}<extra></extra>"
+            ),
+        ))
+
+    if normalize:
+        xaxis = dict(title="Fraction", range=[0, 1], fixedrange=True, tickformat=".0%", zeroline=False)
+    else:
+        xaxis = dict(title="Value", zeroline=False)
+    layout = go.Layout(
+        xaxis=xaxis,
+        yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
+        barmode="stack",
+        bargap=0,
+        showlegend=True,
+        legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(size=9)),
+    )
+    fig = go.Figure(data=data, layout=layout)
+    return _apply_striplog_defaults(fig, template=template)
+
+
+def _band_marker(colour, shape):
+    """Marker dict for a categorical band, with an optional light hatch overlay.
+
+    A non-empty *shape* emits a Plotly ``marker.pattern`` reading as a white
+    overlay on the category's colour fill; an empty shape leaves the marker
+    identical to the pattern-free output.
+    """
+    marker = dict(color=colour, line=dict(width=0))
+    if shape:
+        marker["pattern"] = dict(shape=shape, solidity=0.3, fgcolor="#ffffff", bgcolor=colour, size=6)
+    return marker
+
+
+def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None, pattern_map=None, template=None):
     """Plot categorical assay intervals as colored bands with labels.
 
     Parameters
@@ -573,13 +1060,18 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
         * A built-in map name (``"commodity"`` or ``"lithology"``).
 
         Values not found in the map fall back to *palette* cycling.
+    pattern_map : dict or str or None, optional
+        Semantic hatch-pattern map (category → Plotly ``marker.pattern`` shape),
+        looked up case-insensitively like *colour_map*. May be a ``dict`` or the
+        built-in name ``"lithology"``. Categories absent from the map render
+        solid (no pattern).
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
 
     Returns a plotly.graph_objects.Figure.
     """
     if interval_df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     palette = palette or [
         "#1f77b4",  # blue
@@ -595,13 +1087,14 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
     ]
 
     resolved_cmap = resolve_colour_map(colour_map)
+    resolved_pmap = resolve_pattern_map(pattern_map)
 
     safe = interval_df.dropna(subset=["from_val", "to_val", "val"]).copy()
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     safe = safe[safe["to_val"] > safe["from_val"]]
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     safe = safe.sort_values(["from_val", "to_val"], ascending=[True, True])
 
     categories = [str(v) for v in safe["val"].tolist()]
@@ -629,7 +1122,7 @@ def plot_categorical_trace(interval_df, value_col, palette=None, colour_map=None
                 y=[t - f for f, t in zip(froms, tos)],
                 base=froms,
                 width=1,
-                marker=dict(color=color_map[cat], line=dict(width=0)),
+                marker=_band_marker(color_map[cat], get_pattern(cat, resolved_pmap)),
                 name=cat,
                 showlegend=False,
                 customdata=list(zip(froms, tos)),
@@ -688,13 +1181,19 @@ def plot_drillhole_trace(df,
     colour_map=None,
     color_by=None,
     multi_props=None,
+    log_scale=False,
+    stepped=False,
+    fill_area=False,
+    start_from_zero=False,
     template=None):
     """
     Plot a 2D downhole trace or strip log for a single drillhole, for a single variable.
 
     chart_type: override to one of {"categorical", "bar", "markers", "markers+line",
-    "line", "colored-line", "multi-line", "multi-stacked"}. If omitted, we infer
-    categorical if value_col in categorical_props, else numeric_chart.
+    "line", "colored-line", "filled-line", "step-line", "heat-strip", "multi-line",
+    "multi-stacked", "two-curve", "composition", "point-log", "annotations",
+    "dip-azimuth"}. If omitted, we infer categorical if value_col in
+    categorical_props, else numeric_chart.
 
     intervals : bool, optional
         When True (default) draw error-bar style markers showing the depth extent of each
@@ -705,8 +1204,16 @@ def plot_drillhole_trace(df,
         A separate categorical column to colour a numeric track by (joined per
         interval at its mid-depth). Ignored for categorical / multi-assay charts.
     multi_props : iterable of str, optional
-        Extra numeric columns to plot alongside *value_col* for the ``multi-line``
-        / ``multi-stacked`` chart types. Defaults to just *value_col*.
+        Extra numeric columns to plot alongside *value_col* for the multi-property
+        chart types (``multi-line``, ``multi-stacked``, ``two-curve``,
+        ``composition``). ``two-curve`` compares *value_col* against the first
+        extra column and requires at least one; the others default to just
+        *value_col*.
+    log_scale : bool, optional
+        When True, switch the value axis of a numeric track to a log scale.
+        Only applied for the ``bar``, ``markers``, ``markers+line``, ``line``,
+        ``filled-line``, ``step-line``, and ``two-curve`` chart types; silently
+        ignored elsewhere.
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
     """
@@ -714,13 +1221,67 @@ def plot_drillhole_trace(df,
     is_cat = value_col in categorical_props
     resolved_chart = chart_type or ("categorical" if is_cat else numeric_chart)
 
+    # Pin every chart type over the same data to one explicitly padded depth
+    # range so adjacent tracks stay vertically aligned (see
+    # _apply_depth_axis_range). Bounds come from the resolved from/to columns.
+    def _pinned(fig, points_df):
+        return _apply_depth_axis_range(fig, _depth_bounds(points_df), start_from_zero)
+
     if resolved_chart in ("multi-line", "multi-stacked"):
         cols = list(dict.fromkeys([value_col, *(multi_props or [])]))
-        return plot_multi_assay(df, cols, mode=resolved_chart, template=template)
+        bounds_frames = [compute_interval_points(df, col) for col in cols if col in df.columns]
+        bounds_df = pd.concat(bounds_frames) if bounds_frames else pd.DataFrame()
+        return _pinned(plot_multi_assay(df, cols, mode=resolved_chart, template=template), bounds_df)
+
+    if resolved_chart == "two-curve":
+        extra_props = [col for col in (multi_props or []) if col != value_col]
+        if not extra_props:
+            return _empty_striplog_figure(template)
+        pair_frames = [
+            compute_interval_points(df, col)
+            for col in (value_col, extra_props[0]) if col in df.columns
+        ]
+        return _pinned(
+            plot_two_curve_fill(
+                df, value_col, extra_props[0], log_scale=log_scale, template=template,
+            ),
+            pd.concat(pair_frames) if pair_frames else pd.DataFrame(),
+        )
+
+    if resolved_chart == "composition":
+        component_cols = list(dict.fromkeys([value_col, *(multi_props or [])]))
+        component_frames = [
+            compute_interval_points(df, col) for col in component_cols if col in df.columns
+        ]
+        return _pinned(
+            plot_composition_log(df, component_cols, template=template),
+            pd.concat(component_frames) if component_frames else pd.DataFrame(),
+        )
+
+    if resolved_chart == "point-log":
+        point_rows, depth_col = _resolve_point_depth_rows(df, value_col)
+        if point_rows is None:
+            return _empty_striplog_figure(template)
+        return plot_point_log(
+            point_rows, depth_col=depth_col, label_col=value_col, template=template,
+        )
+
+    if resolved_chart == "annotations":
+        point_rows, depth_col = _resolve_point_depth_rows(df, value_col)
+        if point_rows is None:
+            return _empty_striplog_figure(template)
+        return plot_depth_annotations(
+            point_rows, depth_col=depth_col, text_col=value_col, template=template,
+        )
+
+    if resolved_chart == "dip-azimuth":
+        # Structural tables carry depth/dip/azimuth; plot_dip_azimuth_log
+        # guards missing columns with an empty templated figure itself.
+        return plot_dip_azimuth_log(df, template=template)
 
     if use_mid:
         if MID not in df.columns:
-            return go.Figure()
+            return _empty_striplog_figure(template)
         tmp = df[[MID, value_col]].copy()
         tmp = tmp.dropna(subset=[MID, value_col])
         interval_df = pd.DataFrame({
@@ -734,16 +1295,26 @@ def plot_drillhole_trace(df,
     else:
         interval_df = compute_interval_points(df, value_col)
     if is_cat or resolved_chart == "categorical":
-        return plot_categorical_trace(interval_df, value_col, colour_map=colour_map, template=template)
+        return _pinned(
+            plot_categorical_trace(interval_df, value_col, colour_map=colour_map, template=template),
+            interval_df,
+        )
     resolved_color = color or commodity_colour_for_property(value_col) or "#8b1e3f"
+    # The graded sentinel is a rendering choice ("colour by the value
+    # itself"), not a categorical column — route it to the graded builder.
+    graded = color_by == GRADED_COLOR_BY
     resolved_color_by = None
-    if color_by and color_by in df.columns:
+    if color_by and not graded and color_by in df.columns:
         segments = compute_interval_points(df, color_by)
         if not segments.empty:
             resolved_color_by = {"property": color_by, "segments": segments, "colour_map": colour_map}
-    return plot_numeric_trace(
-        interval_df, value_col, chart_type=resolved_chart, color=resolved_color,
-        intervals=intervals, template=template, color_by=resolved_color_by,
+    return _pinned(
+        plot_numeric_trace(
+            interval_df, value_col, chart_type=resolved_chart, color=resolved_color,
+            intervals=intervals, template=template, color_by=resolved_color_by,
+            log_scale=log_scale, stepped=stepped, fill_area=fill_area, graded=graded,
+        ),
+        interval_df,
     )
 
 
@@ -802,7 +1373,7 @@ def plot_drillhole_traces_subplots(df,
     categorical_props = set(categorical_props or [])
     hole_ids = list(hole_ids) if hole_ids is not None else sorted(df[hole_id_col].unique())
     if not hole_ids:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     colors = colors or ["#8b1e3f", "#2563eb", "#16a34a", "#f59e0b", "#7c3aed", "#0ea5e9", "#ef4444"]
 
     fig = make_subplots(rows=1, cols=len(hole_ids), shared_yaxes=True, horizontal_spacing=0.02)
@@ -862,7 +1433,7 @@ def plot_drillhole_traces(df,
 
     subset = df[df[hole_id_col] == hole_id]
     if subset.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     fig = make_subplots(rows=1, cols=len(value_cols), shared_yaxes=True, horizontal_spacing=0.02)
     for idx, col in enumerate(value_cols):
@@ -914,20 +1485,32 @@ def _wrap_comment(text, chars_per_line=18):
     return "<br>".join(lines)
 
 
+# A comments track renders roughly this many 10px text lines top to bottom;
+# an interval covering a fraction of the depth span fits that fraction of
+# lines. Mirrored by the JS buildCommentsConfig.
+_COMMENT_TEXT_LINES_PER_TRACK = 60
+
+
 def plot_comments_log(df,
     from_col="from",
     to_col="to",
     comment_col="comments",
-    bg_color="#f1f5f9",
-    border_color="#cbd5e1",
-    text_color="#1e293b",
+    bg_color="rgba(148, 163, 184, 0.2)",
+    bg_color_alt="rgba(148, 163, 184, 0.07)",
+    border_color="rgba(148, 163, 184, 0.4)",
+    text_color=None,
     chars_per_line=18,
+    start_from_zero=False,
     template=None):
     """Render a comments log track — depth intervals with text annotations overlaid.
 
-    Only intervals with a non-empty comment are rendered; rows with blank or null
-    comments are skipped entirely. Non-empty comments are word-wrapped and centered
-    inside a lightly shaded rectangle spanning the interval's from/to depth.
+    Only intervals with a non-empty comment render — unified per-hole datasets
+    mix assay / structural / geology rows, and drawing every interval would
+    bury the commented ones under empty overlapping boxes. Each rendered
+    interval carries a full-width hover target reporting the interval and the
+    complete comment. Inline text is budgeted to the lines that fit the
+    interval's share of the track and truncated with an ellipsis beyond that,
+    so long comments in thin intervals never spill over their neighbours.
 
     Parameters
     ----------
@@ -938,81 +1521,122 @@ def plot_comments_log(df,
     comment_col : str
         Column containing comment text.
     bg_color : str
-        Fill color for intervals that have a comment.
+        Fill color for intervals that have a comment. The translucent default
+        reads on both the light and dark templates.
+    bg_color_alt : str
+        Alternate fill applied to every second rendered interval, so adjacent
+        boxes stay visually distinct.
     border_color : str
         Rectangle border color.
-    text_color : str
-        Comment text color.
+    text_color : str, optional
+        Comment text color. Default None inherits the template font colour.
     chars_per_line : int
         Approximate characters before wrapping to next line.
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     records = []
     for _, row in df.iterrows():
         try:
-            f = float(row[from_col])
-            t = float(row[to_col])
+            from_depth = float(row[from_col])
+            to_depth = float(row[to_col])
         except (TypeError, ValueError, KeyError):
             continue
-        if t <= f:
+        if to_depth <= from_depth:
             continue
         raw_comment = row.get(comment_col, "")
         comment = "" if (raw_comment is None or str(raw_comment).strip() in ("", "nan")) else str(raw_comment).strip()
         if not comment:
             continue
-        records.append((f, t, comment))
+        records.append((from_depth, to_depth, comment))
 
     if not records:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
-    records = sorted(records, key=lambda r: r[0])
+    records = sorted(records, key=lambda record: record[0])
+    total_span = records[-1][1] - records[0][0]
 
     shapes = []
     text_xs = []
     text_ys = []
     texts = []
-    hover_texts = []
 
-    for f, t, comment in records:
-        mid = 0.5 * (f + t)
+    for record_index, (from_depth, to_depth, comment) in enumerate(records):
         shapes.append(dict(
             type="rect",
             xref="x", yref="y",
             x0=0, x1=1,
-            y0=f, y1=t,
-            fillcolor=bg_color,
+            y0=from_depth, y1=to_depth,
+            fillcolor=bg_color if record_index % 2 == 0 else bg_color_alt,
             line=dict(color=border_color, width=1),
             layer="below",
         ))
+        if total_span <= 0:
+            continue
+        line_budget = int(((to_depth - from_depth) / total_span) * _COMMENT_TEXT_LINES_PER_TRACK)
+        if line_budget < 1:
+            continue
+        wrapped_lines = _wrap_comment(comment, chars_per_line).split("<br>")
+        shown_lines = wrapped_lines[:line_budget]
+        if len(wrapped_lines) > line_budget:
+            shown_lines[-1] = f"{shown_lines[-1]}…"
         text_xs.append(0.5)
-        text_ys.append(mid)
-        texts.append(_wrap_comment(comment, chars_per_line))
-        hover_texts.append(f"{f:.3f}–{t:.3f} m<br>{_wrap_comment(comment, 40)}")
+        text_ys.append(0.5 * (from_depth + to_depth))
+        texts.append("<br>".join(shown_lines))
 
-    text_trace = go.Scatter(
-        x=text_xs,
-        y=text_ys,
-        mode="text",
-        text=texts,
-        textposition="middle center",
-        textfont=dict(color=text_color, size=10),
-        hovertext=hover_texts,
+    # Invisible full-width bar per interval: the hover target covers the whole
+    # box (any depth within it), instead of one exact mid-depth text point.
+    hover_bar = go.Bar(
+        orientation="h",
+        x=[1.0] * len(records),
+        base=0,
+        y=[0.5 * (from_depth + to_depth) for from_depth, to_depth, _ in records],
+        width=[max(to_depth - from_depth, 0.01) for from_depth, to_depth, _ in records],
+        marker=dict(color="rgba(0,0,0,0)"),
+        hovertext=[
+            f"{from_depth:.3f}–{to_depth:.3f} m<br>{_wrap_comment(comment, 40)}"
+            for from_depth, to_depth, comment in records
+        ],
         hoverinfo="text",
         showlegend=False,
     )
-    fig = go.Figure(data=[text_trace])
 
+    data = [hover_bar]
+    if text_xs:
+        # Without an explicit colour the text inherits the template font, so
+        # it stays legible on both the light and dark themes.
+        textfont = dict(size=10) if text_color is None else dict(size=10, color=text_color)
+        data.append(go.Scatter(
+            x=text_xs,
+            y=text_ys,
+            mode="text",
+            text=texts,
+            textposition="middle center",
+            textfont=textfont,
+            hoverinfo="skip",
+            showlegend=False,
+        ))
+
+    fig = go.Figure(data=data)
     fig.update_layout(
         xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
-        yaxis=dict(title="Depth (m)", autorange="reversed"),
+        # No hover spike: the horizontal line would strike through the inline
+        # comment text; the unified tooltip already marks the hovered depth.
+        yaxis=dict(title="Depth (m)", autorange="reversed", showspikes=False),
         shapes=shapes,
         showlegend=False,
+        bargap=0,
     )
-    return _apply_striplog_defaults(fig, template=template)
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    depths = [depth for record in records for depth in record[:2]]
+    return _apply_depth_axis_range(
+        _apply_striplog_defaults(fig, template=template),
+        (min(depths), max(depths)),
+        start_from_zero,
+    )
 
 
 def plot_strip_log(df,
@@ -1021,6 +1645,7 @@ def plot_strip_log(df,
     label_col="lithology",
     palette=None,
     colour_map=None,
+    pattern_map=None,
     template=None):
     """Render a simple strip log (categorical intervals) as colored bands.
 
@@ -1039,11 +1664,16 @@ def plot_strip_log(df,
         Semantic colour map. May be ``None``, a ``dict``, or a built-in
         map name (``"commodity"`` or ``"lithology"``). Values not found
         in the map fall back to *palette* cycling.
+    pattern_map : dict or str or None, optional
+        Semantic hatch-pattern map (category → Plotly ``marker.pattern``
+        shape), looked up case-insensitively like *colour_map*. May be a
+        ``dict`` or the built-in name ``"lithology"``. Categories absent
+        from the map render solid (no pattern).
     template : str or plotly template, optional
         Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     palette = palette or [
         "#1f77b4",
         "#2ca02c",
@@ -1055,6 +1685,7 @@ def plot_strip_log(df,
         "#bcbd22",
     ]
     resolved_cmap = resolve_colour_map(colour_map)
+    resolved_pmap = resolve_pattern_map(pattern_map)
     records = []
     for _, row in df.iterrows():
         try:
@@ -1069,7 +1700,7 @@ def plot_strip_log(df,
             continue
         records.append((f, t, label))
     if not records:
-        return go.Figure()
+        return _empty_striplog_figure(template)
     records = sorted(records, key=lambda r: r[0], reverse=True)
 
     # Build a stable colour map so every occurrence of the same label gets the same colour
@@ -1096,7 +1727,7 @@ def plot_strip_log(df,
             y=[t - f for f, t in zip(froms, tos)],
             base=froms,
             width=1,
-            marker=dict(color=color_map[label], line=dict(width=0)),
+            marker=_band_marker(color_map[label], get_pattern(label, resolved_pmap)),
             name=label,
             text=[label] * len(froms),
             textposition="inside",
@@ -1140,7 +1771,7 @@ def plot_geology_strip_log(df,
         Plotly template to apply. Defaults to the Baselode template.
     """
     if category_col not in df.columns and fallback_category_col not in df.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     resolved_col = category_col if category_col in df.columns else fallback_category_col
     return plot_strip_log(
@@ -1154,9 +1785,12 @@ def plot_geology_strip_log(df,
     )
 
 
+# Mid-tone hues only — these markers render on both the light and dark
+# templates, so near-black slate/navy (invisible on dark) don't belong.
+# Mirrors the JS structuralViz DEFAULT_PALETTE.
 _DEFAULT_TADPOLE_PALETTE = [
-    "#0f172a", "#1e3a5f", "#7c3aed", "#dc2626", "#16a34a",
-    "#d97706", "#0ea5e9", "#db2777", "#65a30d", "#9333ea",
+    "#0ea5e9", "#d97706", "#7c3aed", "#dc2626", "#16a34a",
+    "#db2777", "#65a30d", "#9333ea", "#14b8a6", "#f43f5e",
 ]
 
 
@@ -1168,6 +1802,7 @@ def plot_tadpole_log(df,
     color_by=None,
     palette=None,
     tail_scale=10.0,
+    start_from_zero=False,
     template=None):
     """Plot a tadpole log for structural measurements.
 
@@ -1199,12 +1834,12 @@ def plot_tadpole_log(df,
         Plotly template to apply. Defaults to the Baselode template.
     """
     if df.empty or md_col not in df.columns or dip_col not in df.columns or az_col not in df.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     extra_cols = [c for c in [size_col, color_by] if c and c in df.columns]
     safe = df[[md_col, dip_col, az_col] + extra_cols].dropna(subset=[md_col, dip_col, az_col])
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     palette = palette or _DEFAULT_TADPOLE_PALETTE
 
@@ -1226,7 +1861,9 @@ def plot_tadpole_log(df,
         size = float(row[size_col]) if size_col and size_col in row.index and not pd.isna(row[size_col]) else 8.0
 
         cat = str(row[color_by]) if color_by and color_by in row.index and not pd.isna(row[color_by]) else "_default"
-        color = color_map.get(cat, "#0f172a")
+        # Uncategorised tadpoles take the shared series colour — a mid-tone
+        # that reads on both templates (never a hardcoded dark slate).
+        color = color_map.get(cat, MULTI_SERIES_COLORWAY[0])
 
         # Head positioned at x=dip (degrees)
         if cat not in traces_by_cat:
@@ -1282,7 +1919,15 @@ def plot_tadpole_log(df,
         yaxis=dict(title="Depth (m)", autorange="reversed"),
         showlegend=show_legend,
     )
-    return fig
+    # Heads plus tail endpoints — tails are layout shapes, which Plotly's
+    # autorange ignores, so pinning also stops tail clipping. Same
+    # explicit-range pinning as the numeric tracks (track alignment).
+    tail_depths = [coord for shape in tail_shapes for coord in (shape["y0"], shape["y1"])]
+    return _apply_depth_axis_range(
+        fig,
+        (min(tail_depths), max(tail_depths)) if tail_depths else None,
+        start_from_zero,
+    )
 
 
 _DEFAULT_POINT_LOG_PALETTE = [
@@ -1303,6 +1948,7 @@ def plot_point_log(df,
     palette=None,
     marker_symbols=None,
     marker_size=8,
+    start_from_zero=False,
     template=None):
     """Plot categorical point data as a strip log with unique x-position, colour, and marker per category.
 
@@ -1337,8 +1983,8 @@ def plot_point_log(df,
     -------
     plotly.graph_objects.Figure
     """
-    if df.empty:
-        return go.Figure()
+    if df.empty or depth_col not in df.columns or label_col not in df.columns:
+        return _empty_striplog_figure(template)
 
     palette = palette or _DEFAULT_POINT_LOG_PALETTE
     marker_symbols = marker_symbols or _DEFAULT_POINT_LOG_SYMBOLS
@@ -1349,7 +1995,7 @@ def plot_point_log(df,
     df_clean = df_clean[~df_clean[label_col].str.lower().isin({"nan", "null", "none", ""})]
 
     if df_clean.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     # Stable ordering: sort alphabetically so colours are reproducible
     unique_cats = sorted(df_clean[label_col].unique())
@@ -1393,7 +2039,189 @@ def plot_point_log(df,
         legend=dict(title=label_col, font=dict(size=9)),
         showlegend=True,
     )
-    return _apply_striplog_defaults(fig, template=template)
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    point_depths = df_clean[depth_col].astype(float)
+    return _apply_depth_axis_range(
+        _apply_striplog_defaults(fig, template=template),
+        (float(point_depths.min()), float(point_depths.max())),
+        start_from_zero,
+    )
+
+
+def _truncate_annotation(text, max_chars=40):
+    """Truncate *text* at a word boundary to roughly *max_chars*, adding an ellipsis."""
+    full = " ".join(str(text).split())
+    if len(full) <= max_chars:
+        return full
+    truncated = full[:max_chars]
+    if " " in truncated:
+        truncated = truncated.rsplit(" ", 1)[0]
+    return truncated + "…"
+
+
+def plot_depth_annotations(df,
+    depth_col=DEPTH,
+    text_col=COMMENTS,
+    marker_color=None,
+    start_from_zero=False,
+    template=None):
+    """Plot depth-pinned text annotations: a tick at the track's left edge with
+    the note text alongside.
+
+    Long notes are word-truncated to ~40 characters for display; the full text
+    stays available in hover. The output composes with the other strip-log
+    tracks (reversed depth axis, hidden [0, 1] x-axis), so an annotations track
+    can sit beside numeric / categorical tracks.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Point rows with *depth_col* and *text_col*.
+    depth_col : str
+        Column holding the measured depth of each note.
+    text_col : str
+        Column holding the note text.
+    marker_color : str, optional
+        Colour for the left-edge tick markers (and text). Defaults to a
+        neutral slate.
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+    """
+    if df.empty or depth_col not in df.columns or text_col not in df.columns:
+        return _empty_striplog_figure(template)
+
+    clean = df[[depth_col, text_col]].dropna(subset=[depth_col, text_col]).copy()
+    clean[text_col] = clean[text_col].astype(str).str.strip()
+    clean = clean[~clean[text_col].str.lower().isin({"", "nan", "null", "none"})]
+    if clean.empty:
+        return _empty_striplog_figure(template)
+    clean = clean.sort_values(depth_col)
+
+    colour = marker_color or "#334155"
+    depths = clean[depth_col].astype(float).tolist()
+    full_texts = [" ".join(text.split()) for text in clean[text_col]]
+    trace = go.Scatter(
+        x=[0] * len(depths),
+        y=depths,
+        mode="markers+text",
+        marker=dict(symbol="line-ew-open", size=9, color=colour),
+        text=[_truncate_annotation(text) for text in full_texts],
+        textposition="middle right",
+        textfont=dict(size=10, color=colour),
+        hovertext=[f"{depth:.1f} m<br>{text}" for depth, text in zip(depths, full_texts)],
+        hoverinfo="text",
+        showlegend=False,
+    )
+    layout = go.Layout(
+        xaxis=dict(range=[0, 1], visible=False, fixedrange=True),
+        yaxis=dict(title="Depth (m)", autorange="reversed", zeroline=False),
+        showlegend=False,
+    )
+    fig = go.Figure(data=[trace], layout=layout)
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    annotation_depths = clean[depth_col].astype(float)
+    return _apply_depth_axis_range(
+        _apply_striplog_defaults(fig, template=template),
+        (float(annotation_depths.min()), float(annotation_depths.max())),
+        start_from_zero,
+    )
+
+
+def plot_dip_azimuth_log(df,
+    depth_col=DEPTH,
+    dip_col=DIP,
+    azimuth_col=AZIMUTH,
+    color_by=None,
+    start_from_zero=False,
+    template=None):
+    """Plot split dip-magnitude / dip-azimuth tracks sharing one depth axis.
+
+    Two side-by-side subplots: the left track shows dip markers on a fixed
+    [0, 90] axis, the right shows dip-direction azimuth markers on a fixed
+    [0, 360] axis with ticks every 90°. Depth is shared and reversed, with
+    y-unified hover.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Structural measurements with *depth_col*, *dip_col*, *azimuth_col*.
+    depth_col, dip_col, azimuth_col : str
+        Column names (baselode datamodel defaults).
+    color_by : str, optional
+        Categorical column (e.g. defect type) — one trace per category with a
+        shared legend across both tracks (``legendgroup``).
+    template : str or plotly template, optional
+        Plotly template to apply. Defaults to the Baselode template.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+    """
+    required = [depth_col, dip_col, azimuth_col]
+    if df.empty or any(col not in df.columns for col in required):
+        return _empty_striplog_figure(template)
+
+    extra_cols = [color_by] if color_by and color_by in df.columns else []
+    safe = df[required + extra_cols].dropna(subset=required)
+    if safe.empty:
+        return _empty_striplog_figure(template)
+
+    if extra_cols:
+        # Rows with valid angles but a missing category still plot, under an
+        # explicit "(uncategorised)" group (label mirrored by the JS
+        # buildDipAzimuthConfig), instead of being silently dropped.
+        # fillna before astype: Arrow-backed string columns keep missing
+        # values as float nan through astype(str).
+        category_labels = safe[color_by].fillna("").astype(str).str.strip()
+        category_labels = category_labels.where(
+            ~category_labels.str.lower().isin({"", "nan", "null", "none"}),
+            "(uncategorised)",
+        )
+        categories = sorted(category_labels.unique())
+        groups = [(cat, safe[category_labels == cat]) for cat in categories]
+    else:
+        groups = [(None, safe)]
+
+    fig = make_subplots(rows=1, cols=2, shared_yaxes=True, horizontal_spacing=0.04)
+    for group_index, (cat, rows) in enumerate(groups):
+        colour = MULTI_SERIES_COLORWAY[group_index % len(MULTI_SERIES_COLORWAY)]
+        legend_group = cat if cat is not None else "measurements"
+        marker = dict(size=7, color=colour)
+        fig.add_trace(go.Scatter(
+            x=rows[dip_col], y=rows[depth_col], mode="markers", marker=marker,
+            name=cat, legendgroup=legend_group, showlegend=cat is not None,
+            hovertemplate="Dip: %{x:.1f}°<extra></extra>",
+        ), row=1, col=1)
+        fig.add_trace(go.Scatter(
+            x=rows[azimuth_col], y=rows[depth_col], mode="markers", marker=marker,
+            name=cat, legendgroup=legend_group, showlegend=False,
+            hovertemplate="Azimuth: %{x:.1f}°<extra></extra>",
+        ), row=1, col=2)
+
+    fig.update_xaxes(title_text="Dip (°)", range=[0, 90], fixedrange=True,
+                     tick0=0, dtick=30, zeroline=False, row=1, col=1)
+    fig.update_xaxes(title_text="Azimuth (°)", range=[0, 360], fixedrange=True,
+                     tick0=0, dtick=90, zeroline=False, row=1, col=2)
+    fig.update_yaxes(title_text="Depth (m)", autorange="reversed", zeroline=False, row=1, col=1)
+    fig.update_yaxes(autorange="reversed", zeroline=False, row=1, col=2)
+    fig.update_layout(
+        template=template if template is not None else BASELODE_TEMPLATE_NAME,
+        hovermode="y unified",
+        showlegend=bool(extra_cols),
+        legend=dict(orientation="h", y=1.02, yanchor="bottom", x=0, font=dict(size=9)),
+        margin=dict(l=40, r=10, t=10, b=40),
+    )
+    # Same explicit-range pinning as the numeric tracks (track alignment).
+    measurement_depths = safe[depth_col].astype(float)
+    return _apply_depth_axis_range(
+        fig,
+        (float(measurement_depths.min()), float(measurement_depths.max())),
+        start_from_zero,
+    )
 
 
 def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col=EASTING, northing_col=NORTHING, dip_col=DIP, az_col=AZIMUTH, label_col="defect", template=None):
@@ -1415,14 +2243,14 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
         Plotly template to apply. Defaults to the Baselode template.
     """
     if structures.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     if easting_col not in structures.columns or northing_col not in structures.columns:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     safe = structures.dropna(subset=[easting_col, northing_col, dip_col, az_col])
     if safe.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     symbol_traces = []
     for _, row in safe.iterrows():
@@ -1450,7 +2278,7 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
             x=[x - dx_s, x + dx_s, None],
             y=[y - dy_s, y + dy_s, None],
             mode="lines",
-            line=dict(color="#0f172a", width=2),
+            line=dict(color=MULTI_SERIES_COLORWAY[0], width=2),
             showlegend=False,
             hoverinfo="skip",
         ))
@@ -1459,7 +2287,7 @@ def plot_strike_dip_map(structures, collar_gdf=None, symbol_size=10, easting_col
             x=[x, x + dx_d, None],
             y=[y, y + dy_d, None],
             mode="lines",
-            line=dict(color="#0f172a", width=2),
+            line=dict(color=MULTI_SERIES_COLORWAY[0], width=2),
             showlegend=False,
             hoverinfo="skip",
         ))
@@ -1572,13 +2400,13 @@ def plot_core_photo_log(df,
         photo_sets = list(dict.fromkeys(df[photo_set_col].tolist()))
 
     if not photo_sets:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     # Determine depth extent.
     all_from = pd.to_numeric(df[from_col], errors="coerce").dropna()
     all_to   = pd.to_numeric(df[to_col],   errors="coerce").dropna()
     if all_from.empty:
-        return go.Figure()
+        return _empty_striplog_figure(template)
 
     min_depth = float(all_from.min()) if depth_range is None else float(depth_range[0])
     max_depth = float(all_to.max())   if depth_range is None else float(depth_range[1])

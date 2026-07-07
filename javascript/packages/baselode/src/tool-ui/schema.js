@@ -19,16 +19,35 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
   property: z.string().min(1),
   label: z.string().optional(),
   displayType: z.enum(['numeric', 'categorical']).default('numeric'),
+  // Only the chart types the tool UI can render for its numeric/categorical
+  // display types. 'annotations' and 'dip-azimuth' belong to the comment /
+  // tadpole display types, which the serializable tool-UI config does not
+  // support yet — accepting them here would silently coerce to a default.
   chartType: z.enum([
     'bar', 'markers', 'line', 'markers+line', 'categorical',
     'colored-line', 'multi-line', 'multi-stacked',
+    'filled-line', 'step-line', 'heat-strip',
+    'two-curve', 'composition', 'point-log',
   ]).optional(),
   colourMap: z.union([z.string(), z.record(z.string(), z.string())]).optional(),
   // Colour a single numeric track by a separate categorical column (joined per
   // interval at its mid-depth). Ignored for multi-assay / categorical tracks.
   colorBy: z.string().min(1).optional(),
-  // Assays plotted together in a `multi-line` / `multi-stacked` track. When
-  // omitted the component seeds from the track property + other numeric columns.
+  // Log-scale the numeric value axis (bar / markers / markers+line / line /
+  // filled-line / step-line chart types; ignored otherwise).
+  logScale: z.boolean().optional(),
+  // Hatch categorical bands with the built-in lithology pattern map.
+  usePatterns: z.boolean().optional(),
+  // Line-geometry variants (line chart type only): stepped honours interval
+  // extents; fillArea shades back to zero.
+  stepped: z.boolean().optional(),
+  fillArea: z.boolean().optional(),
+  // Pin the depth axis shallow end to 0 so tracks of one hole align even
+  // when sampling starts down-hole.
+  startFromZero: z.boolean().optional(),
+  // Assays plotted together in a `multi-line` / `multi-stacked` / `two-curve`
+  // / `composition` track. When omitted the component seeds from the track
+  // property + other numeric columns.
   multiProps: z.array(z.string().min(1)).optional(),
   propertyOptions: z.array(z.string().min(1)).optional(),
   allowPropertySelection: z.boolean().optional(),

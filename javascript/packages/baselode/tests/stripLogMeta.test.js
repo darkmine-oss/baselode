@@ -45,8 +45,10 @@ describe('buildPlotConfig with property metadata', () => {
       meta: { unit: 'ppm', sourceAttribute: 'Au_ppb' },
     });
     expect(layout.xaxis.title.text).toBe('Au (ppm, source: Au_ppb)');
+    // Bars floor below-detection negatives, so hover reads the raw value
+    // from customdata[2] rather than the plotted x.
     expect(data[0].hovertemplate).toBe(
-      'Au: %{x} ppm<br>Source: Au_ppb<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>'
+      'Au: %{customdata[2]} ppm<br>Source: Au_ppb<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>'
     );
   });
 
@@ -59,12 +61,14 @@ describe('buildPlotConfig with property metadata', () => {
     expect(data[0].hovertemplate).not.toContain('Source:');
   });
 
-  it('applies the formatted label to the categorical title and hover tooltip', () => {
+  it('applies the formatted label to the categorical hover tooltip only', () => {
     const { data, layout } = buildPlotConfig({
       points: categoricalPoints, isCategorical: true, property: 'Au', chartType: 'categorical',
       meta: { unit: 'ppm', sourceAttribute: 'Au_ppb' },
     });
-    expect(layout.title).toBe('Au (ppm, source: Au_ppb)');
+    // No in-plot title: the property is shown by the track's picker, and a
+    // title header pushes the bands out of depth alignment (Python parity).
+    expect(layout.title).toBeUndefined();
     expect(data[0].hovertemplate).toBe(
       'Au: SAP<br>Source: Au_ppb<br>from: %{customdata[0]:.3f} to: %{customdata[1]:.3f}<extra></extra>'
     );

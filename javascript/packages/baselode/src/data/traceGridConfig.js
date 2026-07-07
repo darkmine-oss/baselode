@@ -22,9 +22,21 @@ export function reorderHoleIds(ids = [], focusId = '') {
   return [selected, ...rest];
 }
 
+/** Chart types valid for categorical properties. @private */
+const CATEGORICAL_CHART_TYPES = ['categorical', 'point-log'];
+
+/** Chart types valid for comment properties. @private */
+const COMMENT_CHART_TYPES = ['comment', 'annotations'];
+
+/** Chart types valid for structural (tadpole) properties. @private */
+const TADPOLE_CHART_TYPES = ['tadpole', 'dip-azimuth'];
+
 /**
  * Determine appropriate chart type for a property.
- * Comment columns always use 'comment'; categorical → 'categorical'; numeric → requested or default.
+ * Comment columns keep 'comment'/'annotations' (default 'comment'); categorical
+ * columns keep 'categorical'/'point-log' (default 'categorical'); structural
+ * dip keeps 'tadpole'/'dip-azimuth' (default 'tadpole'); numeric properties
+ * keep any numeric chart type or fall back to the numeric default.
  *
  * @param {Object} options - Configuration options
  * @param {string} options.property - Property name
@@ -42,10 +54,19 @@ export function coerceChartTypeForProperty({
   numericDefaultChartType = 'markers+line'
 } = {}) {
   if (!property) return chartType || numericDefaultChartType;
-  if (commentProps.includes(property)) return 'comment';
-  if (categoricalProps.includes(property)) return 'categorical';
-  if (property === 'dip') return 'tadpole';
-  if (!chartType || chartType === 'categorical' || chartType === 'comment' || chartType === 'tadpole') return numericDefaultChartType;
+  if (commentProps.includes(property)) {
+    return COMMENT_CHART_TYPES.includes(chartType) ? chartType : 'comment';
+  }
+  if (categoricalProps.includes(property)) {
+    return CATEGORICAL_CHART_TYPES.includes(chartType) ? chartType : 'categorical';
+  }
+  if (property === 'dip') {
+    return TADPOLE_CHART_TYPES.includes(chartType) ? chartType : 'tadpole';
+  }
+  const isNonNumericChartType = CATEGORICAL_CHART_TYPES.includes(chartType)
+    || COMMENT_CHART_TYPES.includes(chartType)
+    || TADPOLE_CHART_TYPES.includes(chartType);
+  if (!chartType || isNonNumericChartType) return numericDefaultChartType;
   return chartType;
 }
 

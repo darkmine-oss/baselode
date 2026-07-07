@@ -35,21 +35,34 @@ DISPLAY_TADPOLE = "tadpole"
 DISPLAY_HIDDEN = "hidden"
 
 # Chart type options for each display type
+# The dropdown lists geometries only. Variations collapse into options:
+# graded colouring is a colour choice (GRADED_COLOR_BY), stepped and
+# area-fill are line toggles. The legacy "colored-line" / "filled-line" /
+# "step-line" chart-type strings still render (plot_numeric_trace
+# normalises them) but are no longer offered.
 CHART_OPTIONS = {
     DISPLAY_NUMERIC: [
         {"value": "bar", "label": "Bars"},
         {"value": "markers", "label": "Markers"},
         {"value": "markers+line", "label": "Markers + Line"},
         {"value": "line", "label": "Line only"},
+        {"value": "multi-line", "label": "Multiple: lines"},
+        {"value": "multi-stacked", "label": "Multiple: stacked bars"},
+        {"value": "heat-strip", "label": "Heat strip"},
+        {"value": "two-curve", "label": "Two-curve fill"},
+        {"value": "composition", "label": "Composition"},
     ],
     DISPLAY_CATEGORICAL: [
         {"value": "categorical", "label": "Categorical bands"},
+        {"value": "point-log", "label": "Point log"},
     ],
     DISPLAY_COMMENT: [
         {"value": "comment", "label": "Comments"},
+        {"value": "annotations", "label": "Annotations"},
     ],
     DISPLAY_TADPOLE: [
         {"value": "tadpole", "label": "Tadpole"},
+        {"value": "dip-azimuth", "label": "Dip / azimuth"},
     ],
     DISPLAY_HIDDEN: [],
 }
@@ -84,6 +97,11 @@ COMMENT_COLUMN_NAMES = {
     "description", "remarks", "remark",
     "log_description", "struct_comment", "structcomment",
 }
+
+# Sentinel ``color_by`` value selecting the graded (value-coloured)
+# rendering — "colour by the value itself" rather than by a categorical
+# column. Mirrored by the JS GRADED_COLOR_BY in columnMeta.js.
+GRADED_COLOR_BY = "__graded__"
 
 # Column names (lowercased) that map to the tadpole display type.
 # These are structural orientation columns where a tadpole plot is the
