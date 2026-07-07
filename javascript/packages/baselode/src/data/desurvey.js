@@ -75,6 +75,10 @@ function normalizeRow(row, sourceColumnMap = null) {
  * @returns {number|undefined} Finite number or undefined
  */
 const toNumber = (v) => {
+  // Blank / null cells are missing readings, not zeroes — Number(null) and
+  // Number('  ') are both 0, which would fabricate 0°/0° survey stations.
+  if (v == null) return undefined;
+  if (typeof v === 'string' && v.trim() === '') return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
 };

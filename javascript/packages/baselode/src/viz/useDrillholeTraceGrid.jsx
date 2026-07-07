@@ -13,7 +13,7 @@ import {
   coerceChartTypeForProperty,
   reorderHoleIds
 } from '../data/traceGridConfig.js';
-import { isMultiPropertyChartType } from '../data/columnMeta.js';
+import { isMultiPropertyChartType, GRADED_COLOR_BY } from '../data/columnMeta.js';
 import { buildIntervalPoints, holeHasData } from './drillholeViz.js';
 
 /**
@@ -323,8 +323,13 @@ export default function useDrillholeTraceGrid({
       // Colour-by: join the numeric track to a separate categorical column's
       // intervals. Only meaningful for single-property numeric charts.
       let colorBy = null;
-      const colorByCol = cfg.colorBy && categoricalOptions.includes(cfg.colorBy) ? cfg.colorBy : '';
-      if (!isCategorical && !isComment && !isTadpole && !isMulti && colorByCol && hole) {
+      // The graded sentinel is a rendering choice, not a categorical column —
+      // reflect it back untouched so the "By value (graded)" pick sticks.
+      const colorByCol = cfg.colorBy
+        && (cfg.colorBy === GRADED_COLOR_BY || categoricalOptions.includes(cfg.colorBy))
+        ? cfg.colorBy : '';
+      if (!isCategorical && !isComment && !isTadpole && !isMulti
+        && colorByCol && colorByCol !== GRADED_COLOR_BY && hole) {
         colorBy = { property: colorByCol, segments: buildIntervalPoints(hole, colorByCol, true) };
       }
 
