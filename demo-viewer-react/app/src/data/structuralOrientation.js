@@ -11,7 +11,10 @@ import { alphaBetaToDipAzimuth, HOLE_ID, DEPTH, DIP, AZIMUTH, ALPHA, BETA } from
  * @private
  */
 function finiteOrNull(value) {
-  if (value == null || value === '') return null;
+  if (value == null) return null;
+  // Trim before the blank check: Number('   ') is 0, which would let a
+  // whitespace-padded empty cell masquerade as a real zero-degree reading.
+  if (typeof value === 'string' && value.trim() === '') return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 }
