@@ -293,8 +293,12 @@ function TracePlot({
     && displayType === DISPLAY_NUMERIC && effectiveChartType === 'line';
   const showPatternsToggle = visibility.property
     && displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'categorical';
+  // Depth-axis pinning: lets every track of a hole align vertically even when
+  // sampling starts down-hole. Offered wherever buildPlotConfig renders.
+  const showStartFromZero = visibility.property
+    && (displayType === DISPLAY_NUMERIC || displayType === DISPLAY_CATEGORICAL);
   const hasSettings = visibility.chartType || showColorBy || showLogToggle
-    || showLineToggles || showPatternsToggle;
+    || showLineToggles || showPatternsToggle || showStartFromZero;
 
   useEffect(() => {
     const body = bodyRef.current;
@@ -370,6 +374,7 @@ function TracePlot({
           logScale: config?.logScale === true,
           stepped: config?.stepped === true,
           fillArea: config?.fillArea === true,
+          startFromZero: config?.startFromZero === true,
           patternMap: config?.usePatterns === true ? 'lithology' : config?.patternMap ?? null,
         });
       }
@@ -427,6 +432,7 @@ function TracePlot({
     config?.logScale,
     config?.stepped,
     config?.fillArea,
+    config?.startFromZero,
     selectedColorBy,
     config?.usePatterns,
     config?.patternMap,
@@ -623,6 +629,16 @@ function TracePlot({
                           onChange={(e) => onConfigChange && onConfigChange({ usePatterns: e.target.checked })}
                         />
                         <span>Hatch patterns</span>
+                      </label>
+                    )}
+                    {showStartFromZero && (
+                      <label className="plot-toggle">
+                        <input
+                          type="checkbox"
+                          checked={config?.startFromZero === true}
+                          onChange={(e) => onConfigChange && onConfigChange({ startFromZero: e.target.checked })}
+                        />
+                        <span>Start at 0</span>
                       </label>
                     )}
                   </div>

@@ -105,6 +105,36 @@ def _empty_striplog_figure(template=None):
     return _apply_striplog_defaults(go.Figure(), template=template)
 
 
+def _depth_bounds(interval_df):
+    """Depth extent of interval points (from/to preferred, mid fallback)."""
+    candidates = []
+    for column in ("from_val", "to_val", "z"):
+        if column in interval_df.columns:
+            candidates.append(pd.to_numeric(interval_df[column], errors="coerce"))
+    if not candidates:
+        return None
+    stacked = pd.concat(candidates)
+    if stacked.dropna().empty:
+        return None
+    return float(stacked.min()), float(stacked.max())
+
+
+def _apply_depth_axis_range(fig, bounds, start_from_zero):
+    """Pin the depth axis to an explicit, consistently padded range so every
+    chart type over the same data shares the same vertical scale — Plotly's
+    autorange pads filled traces, bars and scatters differently, which knocks
+    adjacent tracks out of depth alignment. With *start_from_zero* the shallow
+    end pins to exactly 0 so every track of a hole can align regardless of
+    where its sampling starts. Mirrors the JS applyDepthAxisRange."""
+    if bounds is None:
+        return fig
+    min_depth, max_depth = bounds
+    pad = max(max_depth - min_depth, 1e-9) * 0.02
+    shallow = 0 if start_from_zero else min_depth - pad
+    fig.update_yaxes(autorange=False, range=[max_depth + pad, shallow])
+    return fig
+
+
 def compute_interval_points(df,
     value_col,
     from_cols=("samp_from", "sample_from", "from", "depth_from", "SampFrom", "FromDepth", "mid"),
@@ -1154,6 +1184,7 @@ def plot_drillhole_trace(df,
     log_scale=False,
     stepped=False,
     fill_area=False,
+    start_from_zero=False,
     template=None):
     """
     Plot a 2D downhole trace or strip log for a single drillhole, for a single variable.
@@ -1190,21 +1221,42 @@ def plot_drillhole_trace(df,
     is_cat = value_col in categorical_props
     resolved_chart = chart_type or ("categorical" if is_cat else numeric_chart)
 
+    # Pin every chart type over the same data to one explicitly padded depth
+    # range so adjacent tracks stay vertically aligned (see
+    # _apply_depth_axis_range). Bounds come from the resolved from/to columns.
+    def _pinned(fig, points_df):
+        return _apply_depth_axis_range(fig, _depth_bounds(points_df), start_from_zero)
+
     if resolved_chart in ("multi-line", "multi-stacked"):
         cols = list(dict.fromkeys([value_col, *(multi_props or [])]))
-        return plot_multi_assay(df, cols, mode=resolved_chart, template=template)
+        bounds_frames = [compute_interval_points(df, col) for col in cols if col in df.columns]
+        bounds_df = pd.concat(bounds_frames) if bounds_frames else pd.DataFrame()
+        return _pinned(plot_multi_assay(df, cols, mode=resolved_chart, template=template), bounds_df)
 
     if resolved_chart == "two-curve":
         extra_props = [col for col in (multi_props or []) if col != value_col]
         if not extra_props:
             return _empty_striplog_figure(template)
-        return plot_two_curve_fill(
-            df, value_col, extra_props[0], log_scale=log_scale, template=template,
+        pair_frames = [
+            compute_interval_points(df, col)
+            for col in (value_col, extra_props[0]) if col in df.columns
+        ]
+        return _pinned(
+            plot_two_curve_fill(
+                df, value_col, extra_props[0], log_scale=log_scale, template=template,
+            ),
+            pd.concat(pair_frames) if pair_frames else pd.DataFrame(),
         )
 
     if resolved_chart == "composition":
         component_cols = list(dict.fromkeys([value_col, *(multi_props or [])]))
-        return plot_composition_log(df, component_cols, template=template)
+        component_frames = [
+            compute_interval_points(df, col) for col in component_cols if col in df.columns
+        ]
+        return _pinned(
+            plot_composition_log(df, component_cols, template=template),
+            pd.concat(component_frames) if component_frames else pd.DataFrame(),
+        )
 
     if resolved_chart == "point-log":
         point_rows, depth_col = _resolve_point_depth_rows(df, value_col)
@@ -1243,7 +1295,10 @@ def plot_drillhole_trace(df,
     else:
         interval_df = compute_interval_points(df, value_col)
     if is_cat or resolved_chart == "categorical":
-        return plot_categorical_trace(interval_df, value_col, colour_map=colour_map, template=template)
+        return _pinned(
+            plot_categorical_trace(interval_df, value_col, colour_map=colour_map, template=template),
+            interval_df,
+        )
     resolved_color = color or commodity_colour_for_property(value_col) or "#8b1e3f"
     # The graded sentinel is a rendering choice ("colour by the value
     # itself"), not a categorical column — route it to the graded builder.
@@ -1253,10 +1308,13 @@ def plot_drillhole_trace(df,
         segments = compute_interval_points(df, color_by)
         if not segments.empty:
             resolved_color_by = {"property": color_by, "segments": segments, "colour_map": colour_map}
-    return plot_numeric_trace(
-        interval_df, value_col, chart_type=resolved_chart, color=resolved_color,
-        intervals=intervals, template=template, color_by=resolved_color_by,
-        log_scale=log_scale, stepped=stepped, fill_area=fill_area, graded=graded,
+    return _pinned(
+        plot_numeric_trace(
+            interval_df, value_col, chart_type=resolved_chart, color=resolved_color,
+            intervals=intervals, template=template, color_by=resolved_color_by,
+            log_scale=log_scale, stepped=stepped, fill_area=fill_area, graded=graded,
+        ),
+        interval_df,
     )
 
 

@@ -260,6 +260,33 @@ def test_two_curve_fill_floors_below_detection_before_interpolation():
         assert min(trace.x) >= 0
 
 
+def test_depth_axis_pinned_identically_across_chart_types():
+    """Every chart type over the same data shares one explicit depth range,
+    fill included — Plotly's autorange pads geometries differently."""
+    ranges = []
+    for chart_type, kwargs in (
+        ("line", {}),
+        ("line", {"fill_area": True}),
+        ("line", {"stepped": True}),
+        ("bar", {}),
+        ("heat-strip", {}),
+    ):
+        fig = view.plot_drillhole_trace(ROWS, "Au_ppm", chart_type=chart_type, **kwargs)
+        ranges.append(tuple(fig.layout.yaxis.range))
+    assert len(set(ranges)) == 1
+    categorical = view.plot_drillhole_trace(ROWS, "lithology", chart_type="categorical")
+    assert tuple(categorical.layout.yaxis.range) == ranges[0]
+
+
+def test_start_from_zero_pins_the_shallow_end():
+    offset_rows = ROWS.assign(**{"from": ROWS["from"] + 50, "to": ROWS["to"] + 50})
+    fig = view.plot_drillhole_trace(offset_rows, "Au_ppm", chart_type="line", start_from_zero=True)
+    deep, shallow = fig.layout.yaxis.range
+    assert shallow == 0
+    assert deep > 62
+    assert fig.layout.yaxis.autorange is False
+
+
 def test_line_toggles_render_identically_to_the_legacy_variant_types():
     """'line' + stepped / fill_area replaces step-line / filled-line; the
     legacy strings still render byte-identically for saved configs."""

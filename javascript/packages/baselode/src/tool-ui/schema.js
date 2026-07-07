@@ -42,6 +42,9 @@ export const SerializableBaselodeStripLogTrackSchema = z.object({
   // extents; fillArea shades back to zero.
   stepped: z.boolean().optional(),
   fillArea: z.boolean().optional(),
+  // Pin the depth axis shallow end to 0 so tracks of one hole align even
+  // when sampling starts down-hole.
+  startFromZero: z.boolean().optional(),
   // Assays plotted together in a `multi-line` / `multi-stacked` / `two-curve`
   // / `composition` track. When omitted the component seeds from the track
   // property + other numeric columns.

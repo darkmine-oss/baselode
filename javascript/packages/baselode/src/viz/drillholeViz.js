@@ -159,6 +159,49 @@ function emptyStripLogConfig(template) {
   return { data: [], layout: { template: template === undefined ? BASELODE_TEMPLATE : template } };
 }
 
+/**
+ * Depth extent of a set of interval/point rows (from/to preferred, mid as
+ * fallback). Returns null when nothing is finite.
+ * @private
+ */
+function depthBoundsFromPoints(points) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const point of points || []) {
+    for (const candidate of [point?.from, point?.to, point?.z]) {
+      const depth = Number(candidate);
+      if (!Number.isFinite(depth)) continue;
+      if (depth < min) min = depth;
+      if (depth > max) max = depth;
+    }
+  }
+  return min <= max ? { min, max } : null;
+}
+
+/**
+ * Pin the depth axis to an explicit, consistently padded range so every chart
+ * type over the same data shares the same vertical scale — Plotly's autorange
+ * pads filled traces, bars and scatters differently, which knocked adjacent
+ * tracks out of depth alignment. With `startFromZero` the shallow end pins to
+ * exactly 0 so every track of a hole can align regardless of where its
+ * sampling starts.
+ * @private
+ */
+function applyDepthAxisRange(config, points, startFromZero) {
+  const bounds = depthBoundsFromPoints(points);
+  if (!bounds) return config;
+  const span = Math.max(bounds.max - bounds.min, 1e-9);
+  const pad = span * 0.02;
+  const range = startFromZero === true
+    ? [bounds.max + pad, 0]
+    : [bounds.max + pad, bounds.min - pad];
+  config.layout = {
+    ...config.layout,
+    yaxis: { ...(config.layout?.yaxis || {}), autorange: false, range },
+  };
+  return config;
+}
+
 function normalizeAxisTitle(t) {
   if (!t) return {};
   return typeof t === 'string' ? { text: t } : t;
@@ -956,11 +999,16 @@ export function buildMultiAssayConfig({ series = [], mode = 'multi-line', templa
  */
 export function buildPlotConfig({
   points, isCategorical, property, chartType, colourMap, template, meta, colorBy, series, metaByProperty,
-  logScale, patternMap, fillArea, stepped, graded,
+  logScale, patternMap, fillArea, stepped, graded, startFromZero,
 }) {
+  const seriesPoints = (entries) => entries.flatMap((entry) => entry?.points || []);
   // Multi-assay path: render several assays in one track when a series is supplied.
   if ((chartType === 'multi-line' || chartType === 'multi-stacked') && Array.isArray(series) && series.length) {
-    return buildMultiAssayConfig({ series, mode: chartType, template, metaByProperty });
+    return applyDepthAxisRange(
+      buildMultiAssayConfig({ series, mode: chartType, template, metaByProperty }),
+      seriesPoints(series),
+      startFromZero
+    );
   }
   // Two-curve fill: the first two series are curve A / curve B; extras are
   // ignored. Fewer than two usable series → theme-correct empty track.
@@ -969,7 +1017,7 @@ export function buildPlotConfig({
       .filter((entry) => entry?.property && entry.points?.length);
     if (usable.length < 2) return emptyStripLogConfig(template);
     const [seriesA, seriesB] = usable;
-    return buildTwoCurveFillFromPoints({
+    return applyDepthAxisRange(buildTwoCurveFillFromPoints({
       propertyA: seriesA.property,
       propertyB: seriesB.property,
       pointsA: seriesA.points,
@@ -978,19 +1026,24 @@ export function buildPlotConfig({
       colorB: seriesB.color,
       logScale: logScale === true,
       template,
-    });
+    }), seriesPoints([seriesA, seriesB]), startFromZero);
   }
   // Composition: every series is a stacked component.
   if (chartType === 'composition') {
-    return buildCompositionFromSeries({
-      series: Array.isArray(series) ? series : [],
+    const componentSeries = Array.isArray(series) ? series : [];
+    return applyDepthAxisRange(buildCompositionFromSeries({
+      series: componentSeries,
       colourMap,
       template,
-    });
+    }), seriesPoints(componentSeries), startFromZero);
   }
   if (!points || !points.length || !property) return emptyStripLogConfig(template);
   if (isCategorical || chartType === 'categorical') {
-    return buildCategoricalConfig(points, property, colourMap, template, meta, patternMap);
+    return applyDepthAxisRange(
+      buildCategoricalConfig(points, property, colourMap, template, meta, patternMap),
+      points,
+      startFromZero
+    );
   }
   const colour = commodityColourForProperty(property);
   // Fall back to the track's `colourMap` for the colour-by categories so a
@@ -999,9 +1052,13 @@ export function buildPlotConfig({
   const resolvedColorBy = colorBy && colorBy.colourMap == null && colourMap != null
     ? { ...colorBy, colourMap }
     : colorBy;
-  return buildNumericConfig(points, property, chartType, colour, template, meta, resolvedColorBy, {
-    logScale, fillArea, stepped, graded,
-  });
+  return applyDepthAxisRange(
+    buildNumericConfig(points, property, chartType, colour, template, meta, resolvedColorBy, {
+      logScale, fillArea, stepped, graded,
+    }),
+    points,
+    startFromZero
+  );
 }
 
 /**

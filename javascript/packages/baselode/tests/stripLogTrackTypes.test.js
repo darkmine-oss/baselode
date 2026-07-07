@@ -155,6 +155,39 @@ describe('buildPlotConfig — filled-line chart type', () => {
   });
 });
 
+describe('depth-axis pinning', () => {
+  it('keeps the depth range identical across chart types, fill included', () => {
+    const ranges = [
+      ['line', {}],
+      ['line', { fillArea: true }],
+      ['line', { stepped: true }],
+      ['bar', {}],
+      ['heat-strip', {}],
+    ].map(([chartType, options]) => buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'value', chartType, ...options,
+    }).layout.yaxis.range);
+    for (const range of ranges.slice(1)) {
+      expect(range).toEqual(ranges[0]);
+    }
+    // Categorical bands over the same intervals share the exact same range.
+    const categorical = buildPlotConfig({
+      points: numericPoints.map((point) => ({ ...point, val: 'SAP' })),
+      isCategorical: true, property: 'lith', chartType: 'categorical',
+    });
+    expect(categorical.layout.yaxis.range).toEqual(ranges[0]);
+  });
+
+  it('start-at-zero pins the shallow end to exactly 0', () => {
+    const { layout } = buildPlotConfig({
+      points: numericPoints, isCategorical: false, property: 'value',
+      chartType: 'line', startFromZero: true,
+    });
+    expect(layout.yaxis.range[1]).toBe(0);
+    expect(layout.yaxis.range[0]).toBeGreaterThan(30);
+    expect(layout.yaxis.autorange).toBe(false);
+  });
+});
+
 describe('collapsed variants — options render identically to legacy types', () => {
   it("'line' + stepped / fillArea replaces step-line / filled-line", () => {
     for (const [legacy, options] of [
@@ -680,7 +713,14 @@ describe('buildPlotConfig — two-curve chart type via series', () => {
     const standalone = buildTwoCurveFillConfig({
       hole, propertyA: 'density', propertyB: 'neutron',
     });
-    expect(viaDispatch).toEqual(standalone);
+    expect(viaDispatch.data).toEqual(standalone.data);
+    // The dispatcher additionally pins the depth axis (track alignment);
+    // everything else in the layout matches the standalone builder.
+    const { yaxis: dispatchYaxis, ...dispatchLayout } = viaDispatch.layout;
+    const { yaxis: standaloneYaxis, ...standaloneLayout } = standalone.layout;
+    expect(dispatchLayout).toEqual(standaloneLayout);
+    expect(dispatchYaxis.autorange).toBe(false);
+    expect(Array.isArray(dispatchYaxis.range)).toBe(true);
   });
 
   it('ignores extra series beyond the first two', () => {
@@ -742,7 +782,12 @@ describe('buildPlotConfig — composition chart type via series', () => {
     const standalone = buildCompositionConfig({
       hole, properties: ['sand', 'silt', 'clay'],
     });
-    expect(viaDispatch).toEqual(standalone);
+    expect(viaDispatch.data).toEqual(standalone.data);
+    // The dispatcher additionally pins the depth axis (track alignment).
+    const { yaxis: dispatchYaxis, ...dispatchLayout } = viaDispatch.layout;
+    const { yaxis: standaloneYaxis, ...standaloneLayout } = standalone.layout;
+    expect(dispatchLayout).toEqual(standaloneLayout);
+    expect(dispatchYaxis.autorange).toBe(false);
     expect(viaDispatch.layout.barmode).toBe('stack');
     expect(viaDispatch.data.map((trace) => trace.name)).toEqual(['sand', 'silt', 'clay']);
   });
