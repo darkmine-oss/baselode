@@ -98,6 +98,15 @@
   min-width: 0;
 }
 
+.striplog-gallery__snapshot {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.striplog-gallery__snapshot .baselode-plot-panel {
+  margin-bottom: 0;
+}
+
 .striplog-gallery__grid--wide .striplog-gallery__section {
   margin-bottom: 0;
 }
@@ -120,4 +129,75 @@
 .striplog-gallery--dark .striplog-gallery__header p,
 .striplog-gallery--dark .striplog-gallery__section > p {
   color: #94a3b8;
+}
+
+/* The snapshot route removes app chrome and interactive controls so each
+   baseline contains only the stable, reviewable panel. */
+:root.striplog-snapshot-mode *,
+:root.striplog-snapshot-mode *::before,
+:root.striplog-snapshot-mode *::after {
+  animation-duration: 0s !important;
+  caret-color: transparent !important;
+  transition-duration: 0s !important;
+}
+
+:root.striplog-snapshot-mode body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+:root.striplog-snapshot-mode .sidebar {
+  display: none;
+}
+
+.striplog-gallery--capture {
+  width: 100%;
+  max-width: none;
+  padding: 24px;
+}
+
+.striplog-gallery__capture-matrix {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.striplog-gallery--capture .striplog-gallery__snapshot {
+  background: #fff;
+}
+
+.striplog-gallery--capture .plot-card {
+  height: 560px;
+  padding: 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+}
+
+.striplog-gallery--capture .striplog-gallery__header,
+.striplog-gallery--capture .striplog-gallery__controls,
+.striplog-gallery--capture .striplog-gallery__section > h2,
+.striplog-gallery--capture .striplog-gallery__section > p {
+  display: none;
+}
+
+.striplog-gallery--capture .modebar-container {
+  display: none !important;
+}
+
+.striplog-gallery--capture .striplog-gallery__section,
+.striplog-gallery--capture .striplog-gallery__grid--wide {
+  margin-bottom: 18px;
+}
+
+@media (max-width: 640px) {
+  .striplog-gallery--capture {
+    padding: 12px;
+  }
+
+  .striplog-gallery--capture .striplog-gallery__grid,
+  .striplog-gallery--capture .striplog-gallery__grid--wide,
+  .striplog-gallery--capture .striplog-gallery__capture-matrix {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
 }

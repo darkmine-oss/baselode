@@ -7,13 +7,14 @@
 __pycache__
 
 docs/node_modules/
-docs/.vitepress/
 
 demo-viewer-dash/assets/baselode-module.js
 
 demo-viewer-react/app/dist/
 demo-viewer-react/app/node_modules/
 demo-viewer-react/app/public/data/
+demo-viewer-react/app/playwright-report/
+demo-viewer-react/app/test-results/
 
 docs/.vitepress/cache/
 docs/.vitepress/dist/

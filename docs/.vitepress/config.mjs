@@ -24,7 +24,13 @@ export default defineConfig({
           { text: 'Core Photo Viewer', link: '/guide/core-photo-viewer' }
         ]
       },
-      { text: 'Demos', link: '/demos' },
+      {
+        text: 'Demos',
+        items: [
+          { text: 'Demo applications', link: '/demos' },
+          { text: 'Strip-log gallery', link: '/strip-log-gallery' }
+        ]
+      },
       { text: 'Release Notes', link: '/release-notes' },
       {
         text: 'API Reference',
@@ -47,7 +53,8 @@ export default defineConfig({
             { text: 'Overview', link: '/getting-started' },
             { text: 'Python Guide', link: '/guide/python' },
             { text: 'JavaScript Guide', link: '/guide/javascript' },
-            { text: 'Demos', link: '/demos' }
+            { text: 'Demos', link: '/demos' },
+            { text: 'Strip-log gallery', link: '/strip-log-gallery' }
           ]
         }
       ],

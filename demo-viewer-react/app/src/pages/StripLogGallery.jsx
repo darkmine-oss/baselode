@@ -6,12 +6,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   PlotPanel,
+  TracePlot,
   PropertySelect,
   LogToggle,
   BASELODE_TEMPLATE,
   BASELODE_DARK_TEMPLATE,
   CHART_OPTIONS,
   DISPLAY_NUMERIC,
+  DISPLAY_CATEGORICAL,
+  DISPLAY_COMMENT,
+  DISPLAY_TADPOLE,
+  GRADED_COLOR_BY,
   isMultiPropertyChartType,
   classifyColumns,
   buildIntervalPoints,
@@ -31,12 +36,15 @@ import {
   GEOLOGY_DESCRIPTION,
 } from 'baselode';
 import 'baselode/style.css';
+import { BaselodeStripLogToolUI } from 'baselode/tool-ui';
+import 'baselode/tool-ui/style.css';
 import './StripLogGallery.css';
 import { useDemoData } from '../context/DemoDataContext.jsx';
 import { useTheme } from '../context/ThemeContext.jsx';
 import { loadDemoGeophysicsCsvText, loadDemoSurveyCsvText } from '../data/demoGswaData.js';
 import { parseGeophysicsIntervalHoles } from '../data/geophysicsHoles.js';
 import { buildSurveyStationIndex, resolveDipAzimuthRows } from '../data/structuralOrientation.js';
+import snapshotManifest from '../../visual-baselines/strip-log-manifest.json';
 
 // Preferred demo defaults — holes / columns picked for dense coverage in the
 // GSWA sample extract, with fallbacks when a preference is absent.
@@ -58,6 +66,7 @@ const MAX_HOLE_OPTIONS = 30;
 
 const VARIANT_PANEL_HEIGHT = 420;
 const SECTION_PANEL_HEIGHT = 480;
+const CAPTURE_DEPTH_RANGE = [260, 300];
 
 // GSWA WAROX-style Lith1 codes ("Gqzfdbi", "Utrch", …) are condensed to a
 // coarse lithology family by their leading group letter, purely so the demo
@@ -102,6 +111,67 @@ function denseHoleOptions(holes, pointFilter, minPoints) {
 
 const EMPTY_CONFIG = { data: [], layout: {} };
 
+function snapshotKeyForNumericChart(chartType) {
+  return `numeric-${chartType.replaceAll('+', '-')}`;
+}
+
+function SnapshotPanel({ snapshotKey, children }) {
+  return (
+    <div className="striplog-gallery__snapshot" data-snapshot-key={snapshotKey}>
+      {children}
+    </div>
+  );
+}
+
+function cropHoleToDepthRange(hole, depthRange) {
+  if (!hole) return null;
+  const [start, end] = depthRange;
+  const points = (hole.points || []).filter((point) => {
+    const from = Number(point[FROM] ?? point.from ?? point.depth);
+    const to = Number(point[TO] ?? point.to ?? point.depth);
+    return Number.isFinite(from) && Number.isFinite(to) && to >= start && from <= end;
+  });
+  return {
+    ...hole,
+    id: hole.id || hole.holeId,
+    holeId: hole.holeId || hole.id,
+    points,
+  };
+}
+
+function StandardStripLogSnapshot({ entry, template }) {
+  return (
+    <SnapshotPanel snapshotKey={entry.id}>
+      <TracePlot
+        config={entry.config}
+        graph={entry.graph}
+        holeOptions={[{ holeId: entry.config.holeId, label: entry.config.holeId }]}
+        propertyOptions={entry.propertyOptions}
+        onConfigChange={() => {}}
+        template={template}
+      />
+    </SnapshotPanel>
+  );
+}
+
+function ToolUiStripLogSnapshot({ entry }) {
+  return (
+    <SnapshotPanel snapshotKey={entry.id}>
+      <BaselodeStripLogToolUI
+        id={entry.id}
+        title={entry.title}
+        subtitle="TRK-241 GSWA fixture"
+        hole={entry.hole}
+        tracks={[entry.track]}
+        height={420}
+        propertyOptions={entry.propertyOptions}
+        allowPropertySelection
+        allowChartTypeSelection
+      />
+    </SnapshotPanel>
+  );
+}
+
 /**
  * One panel per strip-log variant shipped by the `baselode` package.
  *
@@ -116,6 +186,13 @@ function StripLogGallery() {
   const { theme } = useTheme();
   const useDarkTemplate = theme === 'dark';
   const template = useDarkTemplate ? BASELODE_DARK_TEMPLATE : BASELODE_TEMPLATE;
+  const captureMode = typeof window !== 'undefined'
+    && new URLSearchParams(window.location.search).get('capture') === '1';
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('striplog-snapshot-mode', captureMode);
+    return () => document.documentElement.classList.remove('striplog-snapshot-mode');
+  }, [captureMode]);
 
   // Survey + geophysics load lazily here (matching the 3D page's idiom for
   // survey data) — the shared context only eager-loads what every page needs.
@@ -201,6 +278,40 @@ function StripLogGallery() {
       };
     });
   }, [assayHole, activeAssayProperty, multiTrackProperties, template]);
+
+  const numericToggleVariants = useMemo(() => {
+    if (!assayHole || !activeAssayProperty) return [];
+    const points = buildIntervalPoints(assayHole, activeAssayProperty, false);
+    return [
+      {
+        id: 'variant-graded-line',
+        title: 'Graded line',
+        description: 'line + graded: true',
+        config: buildPlotConfig({
+          points, isCategorical: false, property: activeAssayProperty,
+          chartType: 'line', graded: true, template,
+        }),
+      },
+      {
+        id: 'variant-filled-line',
+        title: 'Filled line',
+        description: 'line + fillArea: true',
+        config: buildPlotConfig({
+          points, isCategorical: false, property: activeAssayProperty,
+          chartType: 'line', fillArea: true, template,
+        }),
+      },
+      {
+        id: 'variant-stepped-line',
+        title: 'Stepped line',
+        description: 'line + stepped: true',
+        config: buildPlotConfig({
+          points, isCategorical: false, property: activeAssayProperty,
+          chartType: 'line', stepped: true, template,
+        }),
+      },
+    ];
+  }, [assayHole, activeAssayProperty, template]);
 
   // --- Log scale (geophysics channels) ------------------------------------
   const [geophysicsHoleId, setGeophysicsHoleId] = useState('');
@@ -351,8 +462,296 @@ function StripLogGallery() {
     ? `${orientation.measuredCount} measured · ${orientation.derivedCount} derived from α/β via alphaBetaToDipAzimuth`
     : 'No orientation data for this hole';
 
+  const standardSnapshotCases = useMemo(() => {
+    const assayCaptureHole = cropHoleToDepthRange(assayHole, CAPTURE_DEPTH_RANGE);
+    if (!assayCaptureHole || !activeAssayProperty) return [];
+
+    const holeId = assayCaptureHole.id;
+    const points = buildIntervalPoints(assayCaptureHole, activeAssayProperty, false);
+    const multiSeries = multiTrackProperties
+      .map((property) => ({ property, points: buildIntervalPoints(assayCaptureHole, property, false) }))
+      .filter((series) => series.points.length);
+    const numericGraph = {
+      hole: assayCaptureHole,
+      points,
+      displayType: DISPLAY_NUMERIC,
+      numericOptions: numericColumns,
+      colorByOptions: [],
+      propertyOptions: numericColumns,
+      multiSeries,
+      label: holeId,
+    };
+    const numericCases = CHART_OPTIONS[DISPLAY_NUMERIC].map((option) => ({
+      id: `standard-${snapshotKeyForNumericChart(option.value)}`,
+      title: option.label,
+      config: {
+        holeId,
+        property: activeAssayProperty,
+        chartType: option.value,
+        multiProps: multiTrackProperties,
+      },
+      graph: numericGraph,
+      propertyOptions: numericColumns,
+    }));
+
+    const geologyCapturePoints = lithologyPoints.map((point) => ({
+      from: point.from,
+      to: point.to,
+      lithology: point.val,
+    }));
+    const geologyCaptureHole = {
+      id: activeGeologyHoleId,
+      holeId: activeGeologyHoleId,
+      points: geologyCapturePoints,
+    };
+    const geologyGraph = {
+      hole: geologyCaptureHole,
+      points: buildIntervalPoints(geologyCaptureHole, 'lithology', true),
+      displayType: DISPLAY_CATEGORICAL,
+      isCategorical: true,
+      propertyOptions: ['lithology'],
+      numericOptions: [],
+      colorByOptions: ['lithology'],
+      label: activeGeologyHoleId,
+    };
+
+    const commentProperty = GEOLOGY_DESCRIPTION;
+    const commentPoints = (geologyHole?.points || [])
+      .map((point) => ({
+        from: Number(point[FROM]),
+        to: Number(point[TO]),
+        [commentProperty]: point[commentProperty] || '',
+      }))
+      .filter((point) => Number.isFinite(point.from) && Number.isFinite(point.to) && point[commentProperty]);
+    const commentGraph = {
+      hole: geologyHole,
+      points: commentPoints,
+      displayType: DISPLAY_COMMENT,
+      isComment: true,
+      propertyOptions: [commentProperty],
+      numericOptions: [],
+      colorByOptions: [],
+      label: activeGeologyHoleId,
+    };
+
+    const structureCaptureHole = {
+      id: activeStructureHoleId,
+      holeId: activeStructureHoleId,
+      points: orientation.rows,
+    };
+    const structuralGraph = {
+      hole: structureCaptureHole,
+      points: orientation.rows,
+      displayType: DISPLAY_TADPOLE,
+      isTadpole: true,
+      propertyOptions: ['dip'],
+      numericOptions: [],
+      colorByOptions: [],
+      label: activeStructureHoleId,
+    };
+
+    const geophysicsId = geophysicsHole?.holeId || geophysicsHole?.id || '';
+    const geophysicsGraph = {
+      hole: geophysicsHole,
+      points: buildIntervalPoints(geophysicsHole, activeGeophysicsChannel, false),
+      displayType: DISPLAY_NUMERIC,
+      propertyOptions: geophysicsChannels,
+      numericOptions: geophysicsChannels,
+      colorByOptions: [],
+      label: geophysicsId,
+    };
+
+    return [
+      ...numericCases,
+      {
+        id: 'standard-variant-graded-line',
+        config: { holeId, property: activeAssayProperty, chartType: 'markers+line', colorBy: GRADED_COLOR_BY },
+        graph: numericGraph,
+        propertyOptions: numericColumns,
+      },
+      {
+        id: 'standard-variant-filled-line',
+        config: { holeId, property: activeAssayProperty, chartType: 'line', fillArea: true },
+        graph: numericGraph,
+        propertyOptions: numericColumns,
+      },
+      {
+        id: 'standard-variant-stepped-line',
+        config: { holeId, property: activeAssayProperty, chartType: 'line', stepped: true },
+        graph: numericGraph,
+        propertyOptions: numericColumns,
+      },
+      {
+        id: 'standard-variant-log-scale',
+        config: { holeId: geophysicsId, property: activeGeophysicsChannel, chartType: 'line', logScale: true },
+        graph: geophysicsGraph,
+        propertyOptions: geophysicsChannels,
+      },
+      {
+        id: 'standard-categorical-patterns',
+        config: { holeId: activeGeologyHoleId, property: 'lithology', chartType: 'categorical', usePatterns: true },
+        graph: geologyGraph,
+        propertyOptions: ['lithology'],
+      },
+      {
+        id: 'standard-point-log',
+        config: { holeId: activeGeologyHoleId, property: 'lithology', chartType: 'point-log' },
+        graph: geologyGraph,
+        propertyOptions: ['lithology'],
+      },
+      {
+        id: 'standard-comments',
+        config: { holeId: activeGeologyHoleId, property: commentProperty, chartType: 'comment' },
+        graph: commentGraph,
+        propertyOptions: [commentProperty],
+      },
+      {
+        id: 'standard-annotations',
+        config: { holeId: activeGeologyHoleId, property: commentProperty, chartType: 'annotations' },
+        graph: commentGraph,
+        propertyOptions: [commentProperty],
+      },
+      {
+        id: 'standard-tadpole',
+        config: { holeId: activeStructureHoleId, property: 'dip', chartType: 'tadpole' },
+        graph: structuralGraph,
+        propertyOptions: ['dip'],
+      },
+      {
+        id: 'standard-dip-azimuth',
+        config: { holeId: activeStructureHoleId, property: 'dip', chartType: 'dip-azimuth' },
+        graph: structuralGraph,
+        propertyOptions: ['dip'],
+      },
+    ];
+  }, [
+    activeAssayProperty,
+    activeGeologyHoleId,
+    activeGeophysicsChannel,
+    activeStructureHoleId,
+    assayHole,
+    geologyHole,
+    geophysicsChannels,
+    geophysicsHole,
+    lithologyPoints,
+    multiTrackProperties,
+    numericColumns,
+    orientation.rows,
+  ]);
+
+  const toolUiSnapshotCases = useMemo(() => {
+    const hole = cropHoleToDepthRange(assayHole, CAPTURE_DEPTH_RANGE);
+    if (!hole || !activeAssayProperty) return [];
+    const numericCases = CHART_OPTIONS[DISPLAY_NUMERIC].map((option) => ({
+      id: `toolui-${snapshotKeyForNumericChart(option.value)}`,
+      title: option.label,
+      hole,
+      propertyOptions: numericColumns,
+      track: {
+        id: option.value,
+        property: activeAssayProperty,
+        displayType: DISPLAY_NUMERIC,
+        chartType: option.value,
+        multiProps: multiTrackProperties,
+      },
+    }));
+    const geologyCaptureHole = {
+      id: activeGeologyHoleId,
+      holeId: activeGeologyHoleId,
+      points: lithologyPoints.map((point) => ({
+        from: point.from,
+        to: point.to,
+        lithology: point.val,
+      })),
+    };
+    return [
+      ...numericCases,
+      {
+        id: 'toolui-variant-filled-line',
+        title: 'Filled line',
+        hole,
+        propertyOptions: numericColumns,
+        track: { id: 'filled-line', property: activeAssayProperty, chartType: 'line', fillArea: true },
+      },
+      {
+        id: 'toolui-variant-stepped-line',
+        title: 'Stepped line',
+        hole,
+        propertyOptions: numericColumns,
+        track: { id: 'stepped-line', property: activeAssayProperty, chartType: 'line', stepped: true },
+      },
+      {
+        id: 'toolui-variant-log-scale',
+        title: 'Log scale',
+        hole,
+        propertyOptions: numericColumns,
+        track: { id: 'log-scale', property: activeAssayProperty, chartType: 'line', logScale: true },
+      },
+      {
+        id: 'toolui-categorical-patterns',
+        title: 'Categorical patterns',
+        hole: geologyCaptureHole,
+        propertyOptions: ['lithology'],
+        track: { id: 'categorical', property: 'lithology', displayType: DISPLAY_CATEGORICAL, chartType: 'categorical', usePatterns: true },
+      },
+      {
+        id: 'toolui-point-log',
+        title: 'Point log',
+        hole: geologyCaptureHole,
+        propertyOptions: ['lithology'],
+        track: { id: 'point-log', property: 'lithology', displayType: DISPLAY_CATEGORICAL, chartType: 'point-log' },
+      },
+    ];
+  }, [activeAssayProperty, activeGeologyHoleId, assayHole, lithologyPoints, multiTrackProperties, numericColumns]);
+
+  const snapshotReady = !loading
+    && numericVariants.length > 0
+    && numericToggleVariants.length > 0
+    && [
+      logScaleConfig,
+      categoricalConfig,
+      twoCurveConfig,
+      compositionConfig,
+      pointLogConfig,
+      depthAnnotationsConfig,
+      dipAzimuthConfig,
+      tadpoleConfig,
+    ].every((config) => config.data?.length > 0);
+
+  if (captureMode) {
+    const renderedSnapshotIds = new Set([
+      ...standardSnapshotCases.map((entry) => entry.id),
+      ...toolUiSnapshotCases.map((entry) => entry.id),
+    ]);
+    const manifestCoverageReady = snapshotManifest.every((entry) => renderedSnapshotIds.has(entry.id));
+    const productionReady = snapshotReady
+      && standardSnapshotCases.length > 0
+      && toolUiSnapshotCases.length > 0;
+    return (
+      <div
+        className="striplog-gallery striplog-gallery--capture"
+        data-snapshot-gallery-ready={productionReady ? 'true' : 'false'}
+        data-snapshot-manifest-covered={manifestCoverageReady ? 'true' : 'false'}
+      >
+        <section className="striplog-gallery__capture-matrix" aria-label="Standard TracePlot snapshots">
+          {standardSnapshotCases.map((entry) => (
+            <StandardStripLogSnapshot key={entry.id} entry={entry} template={template} />
+          ))}
+        </section>
+        <section className="striplog-gallery__capture-matrix" aria-label="Tool UI snapshots">
+          {toolUiSnapshotCases.map((entry) => (
+            <ToolUiStripLogSnapshot key={entry.id} entry={entry} />
+          ))}
+        </section>
+      </div>
+    );
+  }
+
   return (
-    <div className={`striplog-gallery ${useDarkTemplate ? 'striplog-gallery--dark' : ''}`}>
+    <div
+      className={`striplog-gallery ${useDarkTemplate ? 'striplog-gallery--dark' : ''} ${captureMode ? 'striplog-gallery--capture' : ''}`}
+      data-snapshot-gallery-ready={snapshotReady ? 'true' : 'false'}
+    >
       <header className="striplog-gallery__header">
         <div>
           <h1>Strip Log Gallery</h1>
@@ -387,14 +786,26 @@ function StripLogGallery() {
             </div>
             <div className="striplog-gallery__grid">
               {numericVariants.map(({ option, config }) => (
-                <PlotPanel
-                  key={option.value}
-                  title={option.label}
-                  description={`chartType: '${option.value}'`}
-                  data={config.data}
-                  layout={config.layout}
-                  height={VARIANT_PANEL_HEIGHT}
-                />
+                <SnapshotPanel key={option.value} snapshotKey={snapshotKeyForNumericChart(option.value)}>
+                  <PlotPanel
+                    title={option.label}
+                    description={`chartType: '${option.value}'`}
+                    data={config.data}
+                    layout={config.layout}
+                    height={VARIANT_PANEL_HEIGHT}
+                  />
+                </SnapshotPanel>
+              ))}
+              {numericToggleVariants.map((variant) => (
+                <SnapshotPanel key={variant.id} snapshotKey={variant.id}>
+                  <PlotPanel
+                    title={variant.title}
+                    description={variant.description}
+                    data={variant.config.data}
+                    layout={variant.config.layout}
+                    height={VARIANT_PANEL_HEIGHT}
+                  />
+                </SnapshotPanel>
               ))}
             </div>
           </section>
@@ -413,11 +824,15 @@ function StripLogGallery() {
                 <PropertySelect label="channel" value={activeGeophysicsChannel} onChange={setGeophysicsChannel} options={geophysicsChannels} />
                 <LogToggle label="Log scale" value={logScale} onChange={setLogScale} />
               </div>
-              <PlotPanel
-                data={logScaleConfig.data}
-                layout={logScaleConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
+              <SnapshotPanel snapshotKey="variant-log-scale">
+                <PlotPanel
+                  title="Log scale"
+                  description={`${activeGeophysicsChannel} · logarithmic value axis`}
+                  data={logScaleConfig.data}
+                  layout={logScaleConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
             </section>
 
             <section className="striplog-gallery__section">
@@ -432,11 +847,15 @@ function StripLogGallery() {
                 <PropertySelect label="hole" value={activeGeologyHoleId} onChange={setGeologyHoleId} options={geologyHoleOptions} />
                 <LogToggle label="Hatch patterns" value={hatchPatterns} onChange={setHatchPatterns} />
               </div>
-              <PlotPanel
-                data={categoricalConfig.data}
-                layout={categoricalConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
+              <SnapshotPanel snapshotKey="categorical-patterns">
+                <PlotPanel
+                  title="Categorical bands + hatch patterns"
+                  description="GSWA Lith1 condensed to Baselode lithology families"
+                  data={categoricalConfig.data}
+                  layout={categoricalConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
             </section>
 
             <section className="striplog-gallery__section">
@@ -450,11 +869,15 @@ function StripLogGallery() {
                 <PropertySelect label="curve A" value={activeTwoCurveA} onChange={setTwoCurvePropertyA} options={numericColumns} />
                 <PropertySelect label="curve B" value={activeTwoCurveB} onChange={setTwoCurvePropertyB} options={numericColumns.filter((column) => column !== activeTwoCurveA)} />
               </div>
-              <PlotPanel
-                data={twoCurveConfig.data}
-                layout={twoCurveConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
+              <SnapshotPanel snapshotKey="two-curve-fill">
+                <PlotPanel
+                  title="Two-curve fill"
+                  description={`${activeTwoCurveA} / ${activeTwoCurveB}`}
+                  data={twoCurveConfig.data}
+                  layout={twoCurveConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
             </section>
 
             <section className="striplog-gallery__section">
@@ -465,11 +888,15 @@ function StripLogGallery() {
                 fractions of their per-interval sum. The GSWA sample carries no
                 true modal composition data.
               </p>
-              <PlotPanel
-                data={compositionConfig.data}
-                layout={compositionConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
+              <SnapshotPanel snapshotKey="composition-normalized">
+                <PlotPanel
+                  title="Composition"
+                  description={`${compositionProperties.join(' / ')} · normalized`}
+                  data={compositionConfig.data}
+                  layout={compositionConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
             </section>
           </div>
 
@@ -485,34 +912,42 @@ function StripLogGallery() {
               <PropertySelect label="hole" value={activeStructureHoleId} onChange={setStructureHoleId} options={structureHoleOptions} />
             </div>
             <div className="striplog-gallery__grid striplog-gallery__grid--wide">
-              <PlotPanel
-                title="Point log"
-                description="buildPointLogConfig — defect type by depth"
-                data={pointLogConfig.data}
-                layout={pointLogConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
-              <PlotPanel
-                title="Depth annotations"
-                description="buildDepthAnnotationsConfig — logged descriptions pinned to depth"
-                data={depthAnnotationsConfig.data}
-                layout={depthAnnotationsConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
-              <PlotPanel
-                title="Dip / azimuth"
-                description="buildDipAzimuthConfig — split dip + azimuth tracks"
-                data={dipAzimuthConfig.data}
-                layout={dipAzimuthConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
-              <PlotPanel
-                title="Tadpole"
-                description="buildTadpoleConfig — dip head + azimuth tail, coloured by defect"
-                data={tadpoleConfig.data}
-                layout={tadpoleConfig.layout}
-                height={SECTION_PANEL_HEIGHT}
-              />
+              <SnapshotPanel snapshotKey="structural-point-log">
+                <PlotPanel
+                  title="Point log"
+                  description="buildPointLogConfig — defect type by depth"
+                  data={pointLogConfig.data}
+                  layout={pointLogConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
+              <SnapshotPanel snapshotKey="structural-depth-annotations">
+                <PlotPanel
+                  title="Depth annotations"
+                  description="buildDepthAnnotationsConfig — logged descriptions pinned to depth"
+                  data={depthAnnotationsConfig.data}
+                  layout={depthAnnotationsConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
+              <SnapshotPanel snapshotKey="structural-dip-azimuth">
+                <PlotPanel
+                  title="Dip / azimuth"
+                  description="buildDipAzimuthConfig — split dip + azimuth tracks"
+                  data={dipAzimuthConfig.data}
+                  layout={dipAzimuthConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
+              <SnapshotPanel snapshotKey="structural-tadpole">
+                <PlotPanel
+                  title="Tadpole"
+                  description="buildTadpoleConfig — dip head + azimuth tail, coloured by defect"
+                  data={tadpoleConfig.data}
+                  layout={tadpoleConfig.layout}
+                  height={SECTION_PANEL_HEIGHT}
+                />
+              </SnapshotPanel>
             </div>
           </section>
         </>
