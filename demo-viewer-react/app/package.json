@@ -17,6 +17,7 @@
     "three-viewport-gizmo": "^2.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
@@ -28,6 +29,11 @@
     "dev": "vite",
     "dev:local": "concurrently -k -n LIB,APP -c cyan,green \"npm --prefix ../../javascript/packages/baselode run dev\" \"vite\"",
     "generate:precomputed-desurvey": "node scripts/generate_precomputed_desurvey.mjs",
+    "docs:striplogs": "node scripts/generate-strip-log-docs.mjs",
+    "test:visual": "playwright test",
+    "test:visual:smoke": "BASELODE_VISUAL_SMOKE_ONLY=1 playwright test",
+    "update:visual": "playwright test --update-snapshots",
+    "capture:striplogs": "npm run update:visual && npm run docs:striplogs",
     "build": "vite build",
     "preview": "vite preview"
   }

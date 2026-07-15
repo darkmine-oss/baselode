@@ -37,6 +37,7 @@ The React demo is the primary showcase for the `baselode` JavaScript library.
 | `/` | **Map** — MapLibre map of collar locations.  Click a collar to open a strip-log popup with a property selector.  Search bar filters visible collars by hole ID. |
 | `/drillhole` | **3D viewer** — Three.js scene with desurveyed drillhole traces and structural disc markers. |
 | `/drillhole-2d` | **2D strip logs** — Multi-track Plotly strip logs for a selected hole (numeric, categorical, comments, and tadpole tracks). |
+| `/strip-log-gallery` | **Strip-log gallery** — Canonical examples for every supported track type, also used by the [visual baseline catalogue](/strip-log-gallery). |
 | `/block-model` | **Block models** — 3D merged-mesh block model viewer with per-property colour mapping and opacity control. |
 | `/polygon-blocks` | **Polygon Blocks** — 3D viewer for polygonal grade blocks loaded from a JSON grade-block set.  Click a block to see its attributes; selected block edges are highlighted. |
 

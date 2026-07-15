@@ -58,6 +58,40 @@ jobs:
         working-directory: javascript/packages/baselode
         run: npm test
 
+  test-strip-log-gallery:
+    name: Strip-log visual coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      - name: Install demo dependencies
+        working-directory: demo-viewer-react/app
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: demo-viewer-react/app
+        run: npx playwright install --with-deps chromium
+
+      # Pixel baselines are reviewed and updated explicitly on a consistent
+      # workstation. CI verifies manifest coverage, nonblank plots, clipping,
+      # and responsive containment without introducing cross-OS font noise.
+      - name: Verify desktop and mobile gallery coverage
+        working-directory: demo-viewer-react/app
+        run: npm run test:visual:smoke
+
+      - name: Build generated documentation
+        run: |
+          npm ci --prefix docs
+          npm run docs:striplogs --prefix demo-viewer-react/app
+          git diff --exit-code -- docs/strip-log-gallery.md
+          npm run build --prefix docs
+
   build-python:
     name: Build Python package
     needs: test-python
