@@ -7,7 +7,6 @@
 __pycache__
 
 docs/node_modules/
-docs/.vitepress/
 
 demo-viewer-dash/assets/baselode-module.js
 
