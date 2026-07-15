@@ -55,7 +55,7 @@ export default defineConfig({
     ],
     // Ensure only one instance of shared peer deps regardless of where they
     // are hoisted in the nested node_modules tree.
-    dedupe: ['react', 'react-dom', 'three', 'three-viewport-gizmo', 'papaparse', 'plotly.js-dist-min'],
+    dedupe: ['react', 'react-dom', 'three', 'three-viewport-gizmo', 'papaparse', 'plotly.js-dist-min', 'zod'],
   },
   server: {
     watch: {
