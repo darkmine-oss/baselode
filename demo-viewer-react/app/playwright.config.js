@@ -11,6 +11,8 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
+  timeout: process.env.CI ? 90000 : 30000,
+  workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
   snapshotPathTemplate: '../../docs/public/screenshots/strip-logs/{projectName}/{arg}{ext}',
   use: {

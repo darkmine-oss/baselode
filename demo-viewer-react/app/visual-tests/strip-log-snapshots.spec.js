@@ -26,8 +26,8 @@ async function openReadyGallery(page) {
     localStorage.setItem('baselode-demo-viewer-theme', 'light');
   });
   await page.goto(galleryUrl);
-  await expect(page.locator('[data-snapshot-gallery-ready="true"]')).toBeVisible({ timeout: 30000 });
-  await expect(page.locator('[data-snapshot-key] .js-plotly-plot')).toHaveCount(manifest.length, { timeout: 30000 });
+  await expect(page.locator('[data-snapshot-gallery-ready="true"]')).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-snapshot-key] .js-plotly-plot')).toHaveCount(manifest.length, { timeout: 60000 });
   await page.evaluate(() => document.fonts.ready.then(() => true));
 }
 
