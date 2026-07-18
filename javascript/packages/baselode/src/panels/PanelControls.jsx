@@ -5,6 +5,10 @@
 
 import { useEffect, useRef } from 'react';
 import Plotly from 'plotly.js-dist-min';
+import {
+  createPlotlyDrawLifecycle,
+  observePlotlyResize,
+} from '../viz/plotlyDrawLifecycle.js';
 
 import './panels.css';
 
@@ -32,22 +36,38 @@ export function PlotPanel({
   title, description, controls, data, layout, height = 380, className = '',
 }) {
   const containerRef = useRef(null);
+  const plotLifecycleRef = useRef(null);
+  if (!plotLifecycleRef.current) {
+    plotLifecycleRef.current = createPlotlyDrawLifecycle();
+  }
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
-    Plotly.react(container, data || [], { autosize: true, ...layout, height }, {
-      responsive: true,
-      displayModeBar: 'hover',
-    });
+    const plotEpoch = plotLifecycleRef.current.begin();
+    try {
+      plotLifecycleRef.current.track(Plotly.react(
+        container,
+        data || [],
+        { autosize: true, ...layout, height },
+        {
+          responsive: false,
+          displayModeBar: 'hover',
+        }
+      ));
+    } catch (error) {
+      console.warn('Plot render error', error);
+    }
     return () => {
-      try {
-        Plotly.purge(container);
-      } catch (_) {
-        /* container already detached */
-      }
+      plotLifecycleRef.current.purgeWhenIdle(container, Plotly, plotEpoch);
     };
   }, [data, layout, height]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return undefined;
+    return observePlotlyResize(container, Plotly, plotLifecycleRef.current);
+  }, []);
 
   return (
     <section className={`baselode-plot-panel ${className}`.trim()}>

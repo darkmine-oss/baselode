@@ -44,3 +44,38 @@ export function createPlotlyDrawLifecycle() {
     },
   };
 }
+
+/**
+ * Keep a Plotly figure sized to its container without Plotly's untracked
+ * responsive window listener.
+ *
+ * @param {HTMLElement} target - Plotly graph div to observe.
+ * @param {Object} plotly - Plotly module with `relayout`.
+ * @param {Object} lifecycle - Lifecycle returned by `createPlotlyDrawLifecycle`.
+ * @returns {Function} Disconnects the resize observer.
+ */
+export function observePlotlyResize(target, plotly, lifecycle) {
+  if (typeof ResizeObserver === 'undefined') return () => {};
+
+  let previousWidth = 0;
+  let previousHeight = 0;
+  const observer = new ResizeObserver(() => {
+    if (!target.data) return;
+
+    const width = Math.max(0, Math.floor(target.clientWidth));
+    const height = Math.max(0, Math.floor(target.clientHeight));
+    if (width <= 0 || height <= 0) return;
+    if (width === previousWidth && height === previousHeight) return;
+
+    previousWidth = width;
+    previousHeight = height;
+    try {
+      lifecycle.track(plotly.relayout(target, { width, height, autosize: false }));
+    } catch (error) {
+      console.warn('Plot resize error', error);
+    }
+  });
+
+  observer.observe(target);
+  return () => observer.disconnect();
+}
