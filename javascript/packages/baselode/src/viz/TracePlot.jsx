@@ -30,6 +30,7 @@ import {
   groupValuesFromHoles,
   filterHolesByGroup,
 } from './tracePlotState.js';
+import { createPlotlyDrawLifecycle } from './plotlyDrawLifecycle.js';
 import './TracePlot.css';
 
 export {
@@ -202,6 +203,10 @@ function TracePlot({
 }) {
   const bodyRef = useRef(null);
   const containerRef = useRef(null);
+  const plotLifecycleRef = useRef(null);
+  if (!plotLifecycleRef.current) {
+    plotLifecycleRef.current = createPlotlyDrawLifecycle();
+  }
   const hole = graph?.hole;
   const points = graph?.points || [];
   const property = config?.property || '';
@@ -229,6 +234,7 @@ function TracePlot({
 
   const [renderError, setRenderError] = useState('');
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
+  const hasPlotSize = plotSize.width > 0 && plotSize.height > 0;
 
   // Secondary display options (chart type, colour-by, log/patterns toggles)
   // collapse behind a per-track settings popover so the always-visible
@@ -329,7 +335,7 @@ function TracePlot({
     if (bodyState.kind !== 'chart') return;
     const target = containerRef.current;
     if (!target) return;
-    if (plotSize.width <= 0 || plotSize.height <= 0) return;
+    if (!hasPlotSize) return;
 
     const isComment = displayType === DISPLAY_COMMENT;
     const isTadpole = displayType === DISPLAY_TADPOLE;
@@ -399,23 +405,18 @@ function TracePlot({
       width: plotSize.width,
       height: plotSize.height,
     };
+    const plotEpoch = plotLifecycleRef.current.begin();
 
     try {
       setRenderError('');
-      Plotly.react(target, plotData.data, layout, plotConfig);
+      plotLifecycleRef.current.track(Plotly.react(target, plotData.data, layout, plotConfig));
     } catch (err) {
       console.error('Plot render error', err);
       setRenderError(err?.message || 'Plot render error');
     }
 
     return () => {
-      if (target) {
-        try {
-          Plotly.purge(target);
-        } catch (err) {
-          console.warn('Plot purge error', err);
-        }
-      }
+      plotLifecycleRef.current.purgeWhenIdle(target, Plotly, plotEpoch);
     };
   }, [
     bodyState.kind,
@@ -436,8 +437,7 @@ function TracePlot({
     selectedColorBy,
     config?.usePatterns,
     config?.patternMap,
-    plotSize.width,
-    plotSize.height,
+    hasPlotSize,
   ]);
 
   useEffect(() => {
@@ -449,7 +449,9 @@ function TracePlot({
           const width = Math.max(0, Math.floor(target.clientWidth));
           const height = Math.max(0, Math.floor(target.clientHeight));
           if (width > 0 && height > 0) {
-            Plotly.relayout(target, { width, height, autosize: false });
+            plotLifecycleRef.current.track(
+              Plotly.relayout(target, { width, height, autosize: false })
+            );
           }
         }
       } catch (err) {
