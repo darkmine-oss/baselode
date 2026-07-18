@@ -28,6 +28,10 @@ import {
   derivePropertyMeta,
   formatPropertyLabel,
 } from '../data/propertyLabels.js';
+import {
+  createPlotlyDrawLifecycle,
+  observePlotlyResize,
+} from '../viz/plotlyDrawLifecycle.js';
 import { getToolUiThemeName, getToolUiThemeStyle } from './theme.js';
 
 function resolveTemplate(template) {
@@ -155,6 +159,10 @@ function StripLogTrack({
   onDepthRangeChange,
 }) {
   const ref = useRef(null);
+  const plotLifecycleRef = useRef(null);
+  if (!plotLifecycleRef.current) {
+    plotLifecycleRef.current = createPlotlyDrawLifecycle();
+  }
   const chartType = track.chartType || (track.displayType === DISPLAY_CATEGORICAL ? 'categorical' : 'markers+line');
   // Multi-property chart types (multi-line / multi-stacked / two-curve /
   // composition) draw from a series list instead of the single track property.
@@ -293,21 +301,26 @@ function StripLogTrack({
 
     target.removeAllListeners?.('plotly_click');
     target.removeAllListeners?.('plotly_relayout');
+    const plotEpoch = plotLifecycleRef.current.begin();
 
-    Plotly.react(
-      target,
-      plotConfig.data,
-      {
-        ...plotConfig.layout,
-        height,
-        title: undefined,
-        margin: { ...plotConfig.layout.margin, t: 12 },
-      },
-      {
-        displayModeBar: showModeBar,
-        responsive: true,
-      }
-    );
+    try {
+      plotLifecycleRef.current.track(Plotly.react(
+        target,
+        plotConfig.data,
+        {
+          ...plotConfig.layout,
+          height,
+          title: undefined,
+          margin: { ...plotConfig.layout.margin, t: 12 },
+        },
+        {
+          displayModeBar: showModeBar,
+          responsive: false,
+        }
+      ));
+    } catch (error) {
+      console.warn('Plot render error', error);
+    }
 
     if (onIntervalClick) {
       target.on?.('plotly_click', handleClick);
@@ -317,7 +330,9 @@ function StripLogTrack({
     }
 
     return () => {
-      Plotly.purge(target);
+      target.removeAllListeners?.('plotly_click');
+      target.removeAllListeners?.('plotly_relayout');
+      plotLifecycleRef.current.purgeWhenIdle(target, Plotly, plotEpoch);
     };
   }, [
     height,
@@ -333,6 +348,12 @@ function StripLogTrack({
     isStackedAssay,
     chartType,
   ]);
+
+  useEffect(() => {
+    const target = ref.current;
+    if (!target) return undefined;
+    return observePlotlyResize(target, Plotly, plotLifecycleRef.current);
+  }, []);
 
   return (
     <section className="baselode-tool-strip-log__track" aria-label={trackLabel}>

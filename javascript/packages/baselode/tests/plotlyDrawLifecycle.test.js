@@ -4,7 +4,10 @@
  */
 
 import { describe, expect, it, vi } from 'vitest';
-import { createPlotlyDrawLifecycle } from '../src/viz/plotlyDrawLifecycle.js';
+import {
+  createPlotlyDrawLifecycle,
+  observePlotlyResize,
+} from '../src/viz/plotlyDrawLifecycle.js';
 
 function deferred() {
   let resolve;
@@ -59,5 +62,44 @@ describe('createPlotlyDrawLifecycle', () => {
 
     expect(plotly.purge).toHaveBeenCalledTimes(1);
     warn.mockRestore();
+  });
+
+  it('tracks ResizeObserver relayouts before purging', async () => {
+    const originalResizeObserver = globalThis.ResizeObserver;
+    let notify;
+    globalThis.ResizeObserver = class {
+      constructor(callback) {
+        notify = callback;
+      }
+
+      observe() {}
+
+      disconnect() {}
+    };
+
+    try {
+      const lifecycle = createPlotlyDrawLifecycle();
+      const relayout = deferred();
+      const target = { data: [{}], clientWidth: 320, clientHeight: 240 };
+      const plotly = { relayout: vi.fn(() => relayout.promise), purge: vi.fn() };
+      const epoch = lifecycle.begin();
+      const disconnect = observePlotlyResize(target, plotly, lifecycle);
+
+      notify();
+      expect(plotly.relayout).toHaveBeenCalledWith(target, {
+        width: 320,
+        height: 240,
+        autosize: false,
+      });
+
+      const purge = lifecycle.purgeWhenIdle(target, plotly, epoch);
+      relayout.resolve();
+      await purge;
+
+      expect(plotly.purge).toHaveBeenCalledWith(target);
+      disconnect();
+    } finally {
+      globalThis.ResizeObserver = originalResizeObserver;
+    }
   });
 });
