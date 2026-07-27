@@ -78,6 +78,7 @@ export function normalizeDrillholeRenderOptions(options = {}) {
     assayIntervalsByHole: options.assayIntervalsByHole || null,
     selectedAssayVariable: options.selectedAssayVariable || '',
     isCategoricalVariable: Boolean(options.isCategoricalVariable),
+    categoryColorMap: options.categoryColorMap || null,
   };
 }
 
@@ -173,7 +174,7 @@ function resolveAssayIntervalsForHole(hole, assayIntervalsByHole) {
   return [];
 }
 
-function getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, holeId, segmentIndex, p1, p2, isCategorical }) {
+function getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, holeId, segmentIndex, p1, p2, isCategorical, categoryColorMap }) {
   if (!selectedAssayVariable) {
     return randomSegmentColor(holeId, segmentIndex);
   }
@@ -196,7 +197,7 @@ function getSegmentColor({ selectedAssayVariable, assayIntervals, assayScale, ho
   if (!depthRange) return new THREE.Color(LOW_ASSAY_GREY);
   if (isCategorical) {
     const cat = getDominantCategory(assayIntervals, depthRange.segStart, depthRange.segEnd);
-    return new THREE.Color(getCategoryHexColor(cat));
+    return new THREE.Color(categoryColorMap?.[cat] || getCategoryHexColor(cat));
   }
   const value = getWeightedIntervalValue(assayIntervals, depthRange.segStart, depthRange.segEnd);
   return getAssaySegmentColor(value, assayScale);
@@ -219,7 +220,7 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
   clearDrillholes(sceneCtx);
   if (!holes || holes.length === 0) return;
 
-  const { preserveView, assayIntervalsByHole, selectedAssayVariable, isCategoricalVariable } = normalizeDrillholeRenderOptions(options);
+  const { preserveView, assayIntervalsByHole, selectedAssayVariable, isCategoricalVariable, categoryColorMap } = normalizeDrillholeRenderOptions(options);
   const allAssayValues = isCategoricalVariable ? [] : collectAssayValues(assayIntervalsByHole, selectedAssayVariable);
   const assayScale = buildEqualRangeColorScale(allAssayValues);
 
@@ -287,6 +288,7 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
         p1,
         p2,
         isCategorical: isCategoricalVariable,
+        categoryColorMap,
       });
       const cylinderMat = new THREE.MeshLambertMaterial({
         color: segmentColor,
