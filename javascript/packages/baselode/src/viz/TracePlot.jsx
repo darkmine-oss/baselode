@@ -196,6 +196,7 @@ function TracePlot({
   propertyMeta,
   onConfigChange,
   template,
+  colourMap,
   showHoleSelect = true,
   showPropertySelect = true,
   showChartTypeSelect = true,
@@ -363,10 +364,11 @@ function TracePlot({
       } else if (displayType === DISPLAY_CATEGORICAL && effectiveChartType === 'point-log') {
         // Categorical interval points carry the category in `val` and the
         // interval mid-depth in `z`.
-        plotData = buildPointLogConfig({ rows: points, depthKey: 'z', categoryKey: 'val', startFromZero: config?.startFromZero === true, template });
+        plotData = buildPointLogConfig({ rows: points, depthKey: 'z', categoryKey: 'val', startFromZero: config?.startFromZero === true, template, colourMap });
       } else {
         plotData = buildPlotConfig({
           points,
+          colourMap,
           isCategorical: displayType === DISPLAY_CATEGORICAL,
           property,
           chartType: effectiveChartType,

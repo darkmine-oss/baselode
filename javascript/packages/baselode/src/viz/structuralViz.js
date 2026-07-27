@@ -517,6 +517,7 @@ export function buildPointLogConfig({
   title,
   startFromZero = false,
   template = undefined,
+  colourMap = null,
 } = {}) {
   const sourceRows = Array.isArray(rows) ? rows : (hole?.points || []);
   const records = sourceRows
@@ -542,7 +543,7 @@ export function buildPointLogConfig({
       name: cat,
       marker: {
         symbol: markerSymbols[catIndex % markerSymbols.length],
-        color: palette[catIndex % palette.length],
+        color: colourMap?.[cat] || palette[catIndex % palette.length],
         size: markerSize,
         line: { width: 0.5, color: 'rgba(0,0,0,0.3)' },
       },
