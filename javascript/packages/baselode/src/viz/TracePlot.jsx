@@ -43,6 +43,23 @@ export {
 
 const DEFAULT_NUMERIC_CHART_TYPE = 'markers+line';
 
+function normaliseDepthRange(value) {
+  if (!Array.isArray(value) || value.length !== 2) return null;
+  const [from, to] = value.map(Number);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from < 0 || to <= from) return null;
+  return [from, to];
+}
+
+function applyDepthRange(layout, value) {
+  const range = normaliseDepthRange(value);
+  if (!range) return layout;
+  // Plotly y-axis depth is inverted: deepest value first, shallowest last.
+  return {
+    ...layout,
+    yaxis: { ...(layout?.yaxis || {}), autorange: false, range: [range[1], range[0]] },
+  };
+}
+
 /**
  * Resolve chart type from available options.
  * @private
@@ -165,6 +182,9 @@ function resolveGroupOptions(selector, holeOptions) {
  *
  * @param {Object} props
  * @param {Object} props.config - Plot configuration {holeId, property, chartType}
+ * @param {[number, number]} [props.config.depthRange] - Optional shared measured-depth
+ *   range `[from, to]`; when valid, it pins the inverted depth axis for every
+ *   TracePlot display type.
  * @param {Object} props.graph - Graph data {hole, points, displayType, isCategorical, isComment, loading}
  * @param {Array} props.holeOptions - Available holes for dropdown
  * @param {Array} props.propertyOptions - Available properties for dropdown
@@ -401,12 +421,12 @@ function TracePlot({
       responsive: false,
       modeBarButtonsToRemove: ['select2d', 'lasso2d', 'autoScale2d']
     };
-    const layout = {
+    const layout = applyDepthRange({
       ...plotData.layout,
       autosize: false,
       width: plotSize.width,
       height: plotSize.height,
-    };
+    }, config?.depthRange);
     const plotEpoch = plotLifecycleRef.current.begin();
 
     try {
@@ -436,6 +456,7 @@ function TracePlot({
     config?.stepped,
     config?.fillArea,
     config?.startFromZero,
+    config?.depthRange,
     selectedColorBy,
     config?.usePatterns,
     config?.patternMap,
