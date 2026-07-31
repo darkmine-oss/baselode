@@ -174,8 +174,11 @@ export function desurveyTraces(collars, surveys) {
 
       const rf = beta > 1e-6 ? (2 / beta) * Math.tan(beta / 2) : 1;
 
-      const dx = 0.5 * deltaMD * (Math.sin(inc1) * Math.cos(az1) + Math.sin(inc2) * Math.cos(az2)) * rf;
-      const dy = 0.5 * deltaMD * (Math.sin(inc1) * Math.sin(az1) + Math.sin(inc2) * Math.sin(az2)) * rf;
+      // Azimuth is a compass bearing clockwise from north, so east is the
+      // sine component and north the cosine — matching directionCosines() in
+      // desurveyMethods.js and _direction_cosines() in the Python package.
+      const dx = 0.5 * deltaMD * (Math.sin(inc1) * Math.sin(az1) + Math.sin(inc2) * Math.sin(az2)) * rf; // east
+      const dy = 0.5 * deltaMD * (Math.sin(inc1) * Math.cos(az1) + Math.sin(inc2) * Math.cos(az2)) * rf; // north
       const dzDown = 0.5 * deltaMD * (Math.cos(inc1) + Math.cos(inc2)) * rf; // down is positive
 
       accX += dx;
