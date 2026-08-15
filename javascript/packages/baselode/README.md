@@ -35,6 +35,24 @@ file.text().then(csvText => {
 });
 ```
 
+## Spatial extents
+
+Use the lightweight `baselode/extent` entry point for CRS-aware bounds and
+GeoJSON study areas:
+
+```javascript
+import { Extent } from 'baselode/extent';
+
+const area = Extent.fromBbox([120, -32, 120.5, -31.5], 'EPSG:4326');
+const mga = area.toCrs('EPSG:28351');
+const feature = mga.toFeature({ id: 'study-area' });
+```
+
+The class accepts EPSG numbers/strings and proj4-compatible proj/WKT
+definitions. WGS84, Web Mercator, GDA94, and MGA zones 49–58 work out of the
+box. See the [JavaScript guide](../../../docs/guide/javascript.md#spatial-extents)
+for the full API.
+
 ## Tool UI for assistant-ui
 
 Baselode publishes schemas, React renderers, and a ready-made assistant-ui

@@ -22,6 +22,10 @@
     ".": {
       "import": "./dist/baselode.js"
     },
+    "./extent": {
+      "types": "./types/extent.d.ts",
+      "import": "./dist/extent.js"
+    },
     "./style.css": "./dist/style.css",
     "./tool-ui": {
       "types": "./types/tool-ui.d.ts",
@@ -46,6 +50,9 @@
   "sideEffects": [
     "**/*.css"
   ],
+  "dependencies": {
+    "proj4": "^2.21.0"
+  },
   "scripts": {
     "version:from-tag": "node ./scripts/set-version-from-tag.mjs",
     "build": "vite build",

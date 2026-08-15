@@ -13,6 +13,7 @@ The two implementations should remain aligned for:
 3. 1D strip/trace plotting helpers
 4. 2D plan/section mapping helpers
 5. 3D drillhole payload/scene helpers
+6. Spatial extent bounds, CRS normalisation, reprojection, and center helpers
 
 ## Runtime differences (intentional)
 
@@ -20,6 +21,10 @@ The two implementations should remain aligned for:
 - Python favors DataFrame-centric workflows and figure/dataframe utilities.
 - JS `loadTable` supports CSV/array sources in-browser; SQL/Parquet are out of runtime scope and should fail clearly.
 - 3D parity target is payload-level parity in both languages; interactive renderer remains JS-first.
+- JavaScript `Extent` adds GeoJSON Polygon/Feature helpers; Python callers can
+  use the existing Shapely `bbox` geometry for equivalent geometry workflows.
+- CRS engines are runtime-native (`proj4` in JavaScript, `pyproj` in Python),
+  with shared EPSG behavior and tolerance-based numeric parity checks.
 
 ### Python-first (no JS counterpart yet)
 
@@ -29,10 +34,6 @@ These belong in JS eventually but aren't there today. Listed here so the gap is 
   converters for the GSWA raw schema. Python-only. JS callers wanting GSWA
   data should hit the HTTP API directly through their own client and feed
   the results to JS loaders manually until a JS adaptor exists.
-- **`baselode.extent.Extent`** — axis-aligned bbox + CRS class with
-  `set_crs` / `to_crs` reprojection (via `pyproj`). JS has no equivalent
-  spatial primitive yet; the JS spatial helpers operate on raw bounds
-  arrays.
 - **`baselode.drill.data.bundle_extras`** — folds non-canonical columns
   into a per-row `extra` dict matching the canonical
   `BASELODE_DATA_MODEL_*` schemas. JS publishes the matching `EXTRA`

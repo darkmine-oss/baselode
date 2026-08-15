@@ -140,8 +140,12 @@ class Extent():
                 pyproj.CRS.from_user_input(target),
                 always_xy=True,
             )
+            # Transform every corner before taking the envelope. For projected
+            # CRSs the extrema are not guaranteed to be the two diagonal
+            # corners, so transforming only those can clip the result.
             xs, ys = transformer.transform(
-                [self.xmin, self.xmax], [self.ymin, self.ymax],
+                [self.xmin, self.xmax, self.xmax, self.xmin],
+                [self.ymin, self.ymin, self.ymax, self.ymax],
             )
         except Exception as exc:
             raise ValueError(

@@ -9,6 +9,7 @@ export default defineConfig({
     lib: {
       entry: {
         baselode: resolve(__dirname, 'src/index.js'),
+        extent: resolve(__dirname, 'src/extent/Extent.js'),
         'tool-ui': resolve(__dirname, 'src/tool-ui/index.js'),
         'tool-ui-contracts': resolve(__dirname, 'src/tool-ui/contracts-entry.js'),
         'assistant-ui': resolve(__dirname, 'src/assistant-ui/index.jsx'),
@@ -22,6 +23,7 @@ export default defineConfig({
         'react-dom',
         'react/jsx-runtime',
         '@assistant-ui/react',
+        'proj4',
         'three',
         /^three\//,
         'three-viewport-gizmo',

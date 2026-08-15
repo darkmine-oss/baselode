@@ -24,6 +24,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Node.js for cross-language parity
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -32,6 +37,10 @@ jobs:
           # Install optional extras so tests covering them actually run
           # in CI instead of skipping silently.
           pip install "omf>=1.0,<2.0" "lasio>=0.31"
+
+      - name: Install JavaScript projection dependency for parity tests
+        working-directory: javascript/packages/baselode
+        run: npm ci
 
       - name: Run tests
         run: python -m pytest test -q
