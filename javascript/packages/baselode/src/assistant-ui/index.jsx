@@ -4,7 +4,7 @@
  */
 
 import { defineToolkit } from '@assistant-ui/react';
-import { Component } from 'react';
+import { Component, useMemo } from 'react';
 import {
   BASELODE_TOOL_UI_CONTRACTS,
   BASELODE_TOOL_UI_KINDS,
@@ -12,6 +12,7 @@ import {
   getBaselodeToolUiContract,
   isBaselodeToolUiResultEmpty,
   parseBaselodeToolUiResult,
+  resolveBaselodeToolUiToolNames,
 } from '../tool-ui/contracts.js';
 
 const CALLBACK_EVENT_TYPES = Object.freeze({
@@ -103,7 +104,7 @@ function resolveStateRenderer(options) {
     : renderDefaultState;
 }
 
-function eventProps(kind, contract, part, options) {
+function eventProps(kind, contract, toolIdentity, options) {
   const configured = options.callbacks?.[kind] || {};
   const props = {};
   for (const callbackName of contract.callbacks) {
@@ -114,8 +115,8 @@ function eventProps(kind, contract, part, options) {
       options.onEvent?.({
         type: CALLBACK_EVENT_TYPES[callbackName] || callbackName,
         kind,
-        toolName: part.toolName,
-        toolCallId: part.toolCallId,
+        toolName: toolIdentity.toolName,
+        toolCallId: toolIdentity.toolCallId,
         payload,
       });
     };
@@ -144,6 +145,23 @@ export function createBaselodeAssistantToolRenderer(kind, options = {}) {
 
   function BaselodeAssistantToolRenderer(part) {
     const status = part.status || { type: part.result === undefined ? 'running' : 'complete' };
+    const payload = payloadSource === 'args' ? part.args : part.result;
+    const shouldParse = status.type === 'complete'
+      && !part.isError
+      && payload !== undefined
+      && payload !== null;
+    const parsed = useMemo(
+      () => (shouldParse ? parseBaselodeToolUiResult(kind, payload) : null),
+      [payload, shouldParse],
+    );
+    const componentEventProps = useMemo(
+      () => eventProps(kind, contract, {
+        toolName: part.toolName,
+        toolCallId: part.toolCallId,
+      }, options),
+      [part.toolName, part.toolCallId],
+    );
+
     if (status.type === 'running') {
       return renderState({ state: 'running', issues: [], part });
     }
@@ -160,12 +178,10 @@ export function createBaselodeAssistantToolRenderer(kind, options = {}) {
       });
     }
 
-    const payload = payloadSource === 'args' ? part.args : part.result;
     if (payload === undefined || payload === null) {
       return renderState({ state: 'empty', issues: [], part });
     }
 
-    const parsed = parseBaselodeToolUiResult(kind, payload);
     if (!parsed.success) {
       return renderState({
         state: 'invalid',
@@ -181,7 +197,7 @@ export function createBaselodeAssistantToolRenderer(kind, options = {}) {
     const component = (
       <contract.Component
         {...parsed.data}
-        {...eventProps(kind, contract, part, options)}
+        {...componentEventProps}
       />
     );
     return (
@@ -200,14 +216,7 @@ export function createBaselodeAssistantToolRenderer(kind, options = {}) {
 }
 
 export function createBaselodeAssistantUiToolkit(options = {}) {
-  const toolNames = { ...BASELODE_TOOL_UI_TOOL_NAMES, ...(options.toolNames || {}) };
-  const names = Object.values(toolNames);
-  if (names.some((name) => typeof name !== 'string' || !name.trim())) {
-    throw new TypeError('Every Baselode assistant-ui tool name must be a non-empty string.');
-  }
-  if (new Set(names).size !== names.length) {
-    throw new TypeError('Baselode assistant-ui tool names must be unique.');
-  }
+  const toolNames = resolveBaselodeToolUiToolNames(options.toolNames);
 
   const toolkit = {};
   for (const kind of Object.keys(BASELODE_TOOL_UI_CONTRACTS)) {

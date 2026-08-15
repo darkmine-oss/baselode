@@ -5,6 +5,7 @@
 
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { act, create as createTestRenderer } from 'react-test-renderer';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('plotly.js-dist-min', () => ({
@@ -20,6 +21,9 @@ import {
   createBaselodeAssistantToolRenderer,
   createBaselodeAssistantUiToolkit,
 } from '../src/assistant-ui/index.jsx';
+import { BaselodeStripLogToolUI } from '../src/tool-ui/BaselodeStripLogToolUI.jsx';
+
+globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 function part(overrides = {}) {
   return {
@@ -67,6 +71,9 @@ describe('assistant-ui Tool UI adapter', () => {
     expect(() => createBaselodeAssistantUiToolkit({
       toolNames: { 'scatter-plot': '  ' },
     })).toThrow('non-empty string');
+    expect(() => createBaselodeAssistantUiToolkit({
+      toolNames: { scatterplot: 'plot_assays' },
+    })).toThrow('Unknown Baselode Tool UI kind');
   });
 
   it('renders explicit running, incomplete, empty, and invalid states', () => {
@@ -103,19 +110,27 @@ describe('assistant-ui Tool UI adapter', () => {
     expect(argsMarkup).not.toContain('data-baselode-tool-state');
   });
 
-  it('normalises component callbacks into one assistant event stream', () => {
+  it('keeps parsed props and callbacks stable while normalising events', async () => {
     const onEvent = vi.fn();
     const Renderer = createBaselodeAssistantToolRenderer('strip-log', { onEvent });
-    const element = Renderer(part({
+    const result = {
+      id: 'strip-1',
+      hole: { id: 'BLDD001', points: [{ from: 0, to: 1, au: 1 }] },
+      tracks: [{ id: 'au', property: 'au' }],
+    };
+    const initialPart = part({
       toolName: 'show_strip_log',
-      result: {
-        id: 'strip-1',
-        hole: { id: 'BLDD001', points: [{ from: 0, to: 1, au: 1 }] },
-        tracks: [{ id: 'au', property: 'au' }],
-      },
-    }));
+      result,
+    });
+    let rendered;
+    await act(async () => {
+      rendered = createTestRenderer(createElement(Renderer, initialPart));
+    });
+    const initialComponent = rendered.root.findByType(BaselodeStripLogToolUI);
+    const initialHole = initialComponent.props.hole;
+    const initialCallback = initialComponent.props.onPropertyChange;
 
-    element.props.children.props.onPropertyChange({
+    initialCallback({
       trackId: 'au',
       property: 'cu',
       displayType: 'numeric',
@@ -127,6 +142,19 @@ describe('assistant-ui Tool UI adapter', () => {
       toolName: 'show_strip_log',
       toolCallId: 'call-1',
     }));
+
+    await act(async () => {
+      rendered.update(createElement(Renderer, part({
+        toolName: 'show_strip_log',
+        result,
+        artifact: { refreshed: true },
+      })));
+    });
+    const updatedComponent = rendered.root.findByType(BaselodeStripLogToolUI);
+    expect(updatedComponent.props.hole).toBe(initialHole);
+    expect(updatedComponent.props.onPropertyChange).toBe(initialCallback);
+
+    await act(async () => rendered.unmount());
   });
 
   it('allows applications to replace status rendering', () => {

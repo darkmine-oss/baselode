@@ -60,6 +60,7 @@ export {
   getBaselodeToolUiContractByToolName,
   isBaselodeToolUiResultEmpty,
   parseBaselodeToolUiResult,
+  resolveBaselodeToolUiToolNames,
 } from './contracts.js';
 
 export {

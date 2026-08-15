@@ -17,6 +17,7 @@ import {
   getBaselodeToolUiSchemaContractByToolName,
   isBaselodeToolUiResultEmpty,
   parseBaselodeToolUiResult,
+  resolveBaselodeToolUiToolNames,
 } from './contractCore.js';
 
 function contract(kind, Component) {
@@ -71,4 +72,5 @@ export {
   BASELODE_TOOL_UI_TOOL_NAMES,
   isBaselodeToolUiResultEmpty,
   parseBaselodeToolUiResult,
+  resolveBaselodeToolUiToolNames,
 };

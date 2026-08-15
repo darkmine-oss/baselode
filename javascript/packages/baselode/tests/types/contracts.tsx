@@ -10,6 +10,7 @@ import {
   BASELODE_TOOL_UI_SCHEMA_CONTRACTS,
   getBaselodeToolUiSchemaContractByToolName,
   parseBaselodeToolUiResult,
+  resolveBaselodeToolUiToolNames,
 } from 'baselode/tool-ui/contracts';
 import {
   type BaselodeAssistantToolEvent,
@@ -34,6 +35,7 @@ if (parsed.success) {
 
 BASELODE_TOOL_UI_SCHEMA_CONTRACTS['scatter-plot'].schema.parse(result);
 getBaselodeToolUiSchemaContractByToolName('baselode_scatter_plot');
+resolveBaselodeToolUiToolNames({ 'scatter-plot': 'plot_assays' });
 
 const toolkit: Toolkit = createBaselodeAssistantUiToolkit({
   toolNames: { 'scatter-plot': 'plot_assays' },

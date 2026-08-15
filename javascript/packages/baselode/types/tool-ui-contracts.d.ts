@@ -15,10 +15,13 @@ export type {
   BaselodeStripLogTrack,
   BaselodeTernaryPlotResult,
   BaselodeToolUiKind,
+  BaselodeToolUiParseResult,
   BaselodeToolUiResultMap,
   BaselodeToolUiSchemaContract,
+  BaselodeToolUiValidationError,
+  BaselodeToolUiValidationIssue,
   BaselodeViolinPlotResult,
-} from './tool-ui';
+} from './tool-ui.js';
 
 export {
   BASELODE_TOOL_UI_KINDS,
@@ -36,6 +39,7 @@ export {
   getBaselodeToolUiSchemaContractByToolName,
   isBaselodeToolUiResultEmpty,
   parseBaselodeToolUiResult,
+  resolveBaselodeToolUiToolNames,
   safeParseSerializableBaselode3DScene,
   safeParseSerializableBaselodeBoxPlot,
   safeParseSerializableBaselodeHistogramPlot,
@@ -43,4 +47,4 @@ export {
   safeParseSerializableBaselodeStripLog,
   safeParseSerializableBaselodeTernaryPlot,
   safeParseSerializableBaselodeViolinPlot,
-} from './tool-ui';
+} from './tool-ui.js';

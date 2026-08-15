@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { SafeParseReturnType, ZodType } from 'zod';
+import type { ZodType } from 'zod';
 
 export type BaselodeJsonObject = Record<string, unknown>;
 export type BaselodeToolUiKind =
@@ -217,6 +217,21 @@ export interface BaselodeToolUiPropsMap extends BaselodeToolUiResultMap {
   'strip-log': BaselodeStripLogToolUiProps;
 }
 
+export interface BaselodeToolUiValidationIssue {
+  readonly path: ReadonlyArray<PropertyKey>;
+  readonly message: string;
+  readonly code?: string;
+}
+
+export interface BaselodeToolUiValidationError {
+  readonly issues: ReadonlyArray<BaselodeToolUiValidationIssue>;
+  readonly message: string;
+}
+
+export type BaselodeToolUiParseResult<T> =
+  | { readonly success: true; readonly data: T }
+  | { readonly success: false; readonly error: BaselodeToolUiValidationError };
+
 export interface BaselodeToolUiContract<K extends BaselodeToolUiKind = BaselodeToolUiKind> {
   readonly kind: K;
   readonly toolName: string;
@@ -279,10 +294,13 @@ export function getBaselodeToolUiSchemaContractByToolName(
   toolName: string,
   toolNames?: Partial<Record<BaselodeToolUiKind, string>>,
 ): BaselodeToolUiSchemaContract | null;
+export function resolveBaselodeToolUiToolNames(
+  toolNames?: Partial<Record<BaselodeToolUiKind, string>>,
+): Readonly<Record<BaselodeToolUiKind, string>>;
 export function parseBaselodeToolUiResult<K extends BaselodeToolUiKind>(
   kind: K,
   value: unknown,
-): SafeParseReturnType<unknown, BaselodeToolUiResultMap[K]>;
+): BaselodeToolUiParseResult<BaselodeToolUiResultMap[K]>;
 export function isBaselodeToolUiResultEmpty<K extends BaselodeToolUiKind>(
   kind: K,
   value: BaselodeToolUiResultMap[K],

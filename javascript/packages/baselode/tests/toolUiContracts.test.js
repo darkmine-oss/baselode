@@ -12,6 +12,7 @@ import {
   getBaselodeToolUiSchemaContractByToolName,
   isBaselodeToolUiResultEmpty,
   parseBaselodeToolUiResult,
+  resolveBaselodeToolUiToolNames,
 } from '../src/tool-ui/contracts-entry.js';
 
 const KINDS = Object.values(BASELODE_TOOL_UI_KINDS);
@@ -38,6 +39,12 @@ describe('published Tool UI schema contracts', () => {
       'strip-log': 'show_assay_chart',
     })?.kind).toBe('strip-log');
     expect(getBaselodeToolUiSchemaContractByToolName('missing')).toBeNull();
+    expect(() => getBaselodeToolUiSchemaContractByToolName('shared_name', {
+      'strip-log': 'shared_name',
+      'scatter-plot': 'shared_name',
+    })).toThrow('must be unique');
+    expect(() => resolveBaselodeToolUiToolNames({ scatterplot: 'plot_assays' }))
+      .toThrow('Unknown Baselode Tool UI kind');
   });
 
   it('returns the detailed Zod validation result instead of discarding issues', () => {

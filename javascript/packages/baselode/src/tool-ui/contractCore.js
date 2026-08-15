@@ -96,8 +96,28 @@ export function getBaselodeToolUiSchemaContract(kind) {
   return BASELODE_TOOL_UI_SCHEMA_CONTRACTS[kind] || null;
 }
 
-export function getBaselodeToolUiSchemaContractByToolName(toolName, toolNames = {}) {
+export function resolveBaselodeToolUiToolNames(toolNames = {}) {
+  if (!toolNames || typeof toolNames !== 'object' || Array.isArray(toolNames)) {
+    throw new TypeError('Baselode Tool UI tool names must be an object.');
+  }
+  const kinds = Object.keys(BASELODE_TOOL_UI_SCHEMA_CONTRACTS);
+  const unknownKinds = Object.keys(toolNames).filter((kind) => !kinds.includes(kind));
+  if (unknownKinds.length) {
+    throw new TypeError(`Unknown Baselode Tool UI kind in toolNames: ${unknownKinds.join(', ')}`);
+  }
+
   const names = { ...BASELODE_TOOL_UI_TOOL_NAMES, ...toolNames };
+  if (Object.values(names).some((name) => typeof name !== 'string' || !name.trim())) {
+    throw new TypeError('Every Baselode Tool UI tool name must be a non-empty string.');
+  }
+  if (new Set(Object.values(names)).size !== kinds.length) {
+    throw new TypeError('Baselode Tool UI tool names must be unique.');
+  }
+  return Object.freeze(names);
+}
+
+export function getBaselodeToolUiSchemaContractByToolName(toolName, toolNames = {}) {
+  const names = resolveBaselodeToolUiToolNames(toolNames);
   const kind = Object.keys(names).find((candidate) => names[candidate] === toolName);
   return kind ? BASELODE_TOOL_UI_SCHEMA_CONTRACTS[kind] || null : null;
 }

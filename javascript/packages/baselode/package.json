@@ -58,6 +58,7 @@
     "test": "vitest run",
     "test:types": "tsc --project tests/types/tsconfig.json",
     "test:package": "node scripts/check-package-contracts.mjs",
+    "verify": "npm test && npm run build && npm run test:types && npm run test:package",
     "test:watch": "vitest"
   },
   "peerDependencies": {
@@ -79,10 +80,14 @@
     "@assistant-ui/react": "^0.15.14",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/react-test-renderer": "^19.1.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "react-test-renderer": "^19.2.4",
     "typescript": "^5.9.3",
     "vite": "^5.0.8",
     "vitest": "^2.1.8",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   }
 }
