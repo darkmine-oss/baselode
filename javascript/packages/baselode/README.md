@@ -53,6 +53,24 @@ definitions. WGS84, Web Mercator, GDA94, and MGA zones 49–58 work out of the
 box. See the [JavaScript guide](../../../docs/guide/javascript.md#spatial-extents)
 for the full API.
 
+## Parsed row inputs
+
+Specialized data loaders publish synchronous `*FromRows` entry points for
+Parquet, Arrow, database, and other decoders that already produce row objects:
+
+```javascript
+import { parseUnifiedDatasetFromRows } from 'baselode';
+
+const dataset = parseUnifiedDatasetFromRows({
+  assayRows,
+  structuralRows,
+  geologyRows,
+});
+```
+
+This preserves typed values and avoids serializing rows to CSV only to parse
+them again. Existing CSV APIs remain backward compatible.
+
 ## Tool UI for assistant-ui
 
 Baselode publishes schemas, React renderers, and a ready-made assistant-ui

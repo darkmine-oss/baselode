@@ -20,6 +20,9 @@ The two implementations should remain aligned for:
 - JavaScript favors browser/runtime-native structures (arrays/objects, interactive scene APIs).
 - Python favors DataFrame-centric workflows and figure/dataframe utilities.
 - JS `loadTable` supports CSV/array sources in-browser; SQL/Parquet are out of runtime scope and should fail clearly.
+- JavaScript specialized loaders expose synchronous `*FromRows` cores so
+  external format decoders can supply structured rows without a CSV round
+  trip; CSV functions remain adapters over the same domain transformations.
 - 3D parity target is payload-level parity in both languages; interactive renderer remains JS-first.
 - JavaScript `Extent` adds GeoJSON Polygon/Feature helpers; Python callers can
   use the existing Shapely `bbox` geometry for equivalent geometry workflows.

@@ -49,12 +49,12 @@ function extractStructuralPoint(row) {
   if (depth === null) return null;
 
   return {
+    ...row,
     [HOLE_ID]: holeId,
     [DEPTH]: depth,
     [DIP]: toNumber(row[DIP]),
     [AZIMUTH]: toNumber(row[AZIMUTH]),
     comments: row.comments != null ? `${row.comments}` : null,
-    ...row,
   };
 }
 
@@ -71,6 +71,7 @@ function extractStructuralInterval(row) {
 
   const mid = 0.5 * (from + to);
   return {
+    ...row,
     [HOLE_ID]: holeId,
     [FROM]: from,
     [TO]: to,
@@ -79,7 +80,6 @@ function extractStructuralInterval(row) {
     [AZIMUTH]: toNumber(row[AZIMUTH]),
     classification: row.classification != null ? `${row.classification}` : null,
     comments: row.comments != null ? `${row.comments}` : null,
-    ...row,
   };
 }
 
@@ -116,6 +116,67 @@ export function validateStructuralPoints(rows) {
 }
 
 /**
+ * Parse structural point measurements from already-decoded rows.
+ *
+ * @param {Array<Object>} rows - Parsed structural row objects
+ * @param {Object|null} sourceColumnMap - Optional column name overrides
+ * @returns {Array<Object>} Structural point objects
+ */
+export function parseStructuralPointsFromRows(rows, sourceColumnMap = null) {
+  const parsed = [];
+  for (const rawRow of rows || []) {
+    const point = extractStructuralPoint(normalizeRow(rawRow, sourceColumnMap));
+    if (point) parsed.push(point);
+  }
+  return parsed;
+}
+
+/**
+ * Parse structural interval measurements from already-decoded rows.
+ *
+ * @param {Array<Object>} rows - Parsed structural row objects
+ * @param {Object|null} sourceColumnMap - Optional column name overrides
+ * @returns {Array<Object>} Structural interval objects
+ */
+export function parseStructuralIntervalsFromRows(rows, sourceColumnMap = null) {
+  const parsed = [];
+  for (const rawRow of rows || []) {
+    const interval = extractStructuralInterval(normalizeRow(rawRow, sourceColumnMap));
+    if (interval) parsed.push(interval);
+  }
+  return parsed;
+}
+
+/**
+ * Auto-detect and parse structural measurements from already-decoded rows.
+ *
+ * @param {Array<Object>} rows - Parsed structural row objects
+ * @param {Object|null} sourceColumnMap - Optional column name overrides
+ * @returns {{schema: 'point'|'interval', rows: Array<Object>}}
+ */
+export function parseStructuralFromRows(rows, sourceColumnMap = null) {
+  const sourceRows = rows || [];
+  const first = sourceRows.length ? normalizeRow(sourceRows[0], sourceColumnMap) : null;
+  const schema = detectSchema(first ? [first] : []);
+  if (!schema) {
+    throw withDataErrorContext(
+      'parseStructuralFromRows',
+      new Error("Structural rows require either 'depth' (point) or 'from'/'to' (interval) columns"),
+    );
+  }
+
+  const parsed = [];
+  for (let index = 0; index < sourceRows.length; index += 1) {
+    const row = index === 0 ? first : normalizeRow(sourceRows[index], sourceColumnMap);
+    const value = schema === 'interval'
+      ? extractStructuralInterval(row)
+      : extractStructuralPoint(row);
+    if (value) parsed.push(value);
+  }
+  return { schema, rows: parsed };
+}
+
+/**
  * Parse a structural points CSV (point schema: hole_id, depth, dip, azimuth, ...).
  *
  * @param {File|Blob|string} source - CSV file or text
@@ -128,15 +189,7 @@ export function parseStructuralPointsCSV(source, sourceColumnMap = null) {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const rows = [];
-        for (const rawRow of results.data) {
-          const row = normalizeRow(rawRow, sourceColumnMap);
-          const point = extractStructuralPoint(row);
-          if (point) rows.push(point);
-        }
-        resolve(rows);
-      },
+      complete: (results) => resolve(parseStructuralPointsFromRows(results.data, sourceColumnMap)),
       error: (error) => reject(withDataErrorContext('parseStructuralPointsCSV', error)),
     };
 
@@ -161,15 +214,7 @@ export function parseStructuralIntervalsCSV(source, sourceColumnMap = null) {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const rows = [];
-        for (const rawRow of results.data) {
-          const row = normalizeRow(rawRow, sourceColumnMap);
-          const interval = extractStructuralInterval(row);
-          if (interval) rows.push(interval);
-        }
-        resolve(rows);
-      },
+      complete: (results) => resolve(parseStructuralIntervalsFromRows(results.data, sourceColumnMap)),
       error: (error) => reject(withDataErrorContext('parseStructuralIntervalsCSV', error)),
     });
   });
@@ -210,23 +255,11 @@ export function parseStructuralCSV(source, sourceColumnMap = null) {
       dynamicTyping: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const normalized = results.data.map(r => normalizeRow(r, sourceColumnMap));
-        const schema = detectSchema(normalized);
-
-        if (!schema) {
-          reject(withDataErrorContext('parseStructuralCSV',
-            new Error("Structural CSV requires either 'depth' (point) or 'from'/'to' (interval) columns")));
-          return;
+        try {
+          resolve(parseStructuralFromRows(results.data, sourceColumnMap));
+        } catch (error) {
+          reject(withDataErrorContext('parseStructuralCSV', error));
         }
-
-        const rows = [];
-        for (const row of normalized) {
-          const parsed = schema === 'interval'
-            ? extractStructuralInterval(row)
-            : extractStructuralPoint(row);
-          if (parsed) rows.push(parsed);
-        }
-        resolve({ schema, rows });
       },
       error: (error) => reject(withDataErrorContext('parseStructuralCSV', error)),
     });

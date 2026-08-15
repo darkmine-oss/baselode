@@ -120,7 +120,22 @@
         "joinAssaysToTraces",
         "filterByProject",
         "coerceNumeric",
-        "assembleDataset"
+        "assembleDataset",
+        "parseAssayHoleIdsFromRows",
+        "parseAssayHoleIdsWithAssaysFromRows",
+        "parseAssayHoleFromRows",
+        "parseAssaysFromRows",
+        "loadAssayFromRows",
+        "parseSurveyFromRows",
+        "parseDrillholesFromRows",
+        "parseBlockModelFromRows",
+        "parseStructuralPointsFromRows",
+        "parseStructuralIntervalsFromRows",
+        "parseStructuralFromRows",
+        "parseAssayHolesFromRows",
+        "parseGeologyFromRows",
+        "parseUnifiedDatasetFromRows",
+        "parseGeophysicsFromRows"
       ],
       "pythonSymbols": [
         ["baselode.drill.data", "DEFAULT_COLUMN_MAP"],

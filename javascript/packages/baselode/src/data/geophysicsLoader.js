@@ -71,6 +71,54 @@ function detectValueColumns(rows) {
 }
 
 /**
+ * Parse already-decoded geophysics rows into per-hole channel arrays.
+ *
+ * @param {Array<Object>} rawRows - Parsed geophysics row objects
+ * @param {object} [columnMap] - Optional `{ rawName: standardName }` overrides
+ * @returns {Array<{holeId: string, channels: object}>}
+ */
+export function parseGeophysicsFromRows(rawRows, columnMap = null) {
+  if (!rawRows?.length) return [];
+  const rows = rawRows.map((row) => standardizeColumns(row, null, columnMap));
+  const valueCols = detectValueColumns(rows);
+
+  const byHole = new Map();
+  for (const row of rows) {
+    const holeId = row[HOLE_ID] != null ? `${row[HOLE_ID]}`.trim() : '';
+    if (!holeId) continue;
+
+    const depth = resolveDepth(row);
+    if (depth === null || depth < 0) continue;
+
+    if (!byHole.has(holeId)) byHole.set(holeId, []);
+    byHole.get(holeId).push({ depth, row });
+  }
+
+  const holes = [];
+  for (const [holeId, samples] of byHole) {
+    samples.sort((a, b) => a.depth - b.depth);
+
+    const channels = {};
+    for (const col of valueCols) {
+      const depths = [];
+      const values = [];
+      for (const { depth, row } of samples) {
+        const value = Number(row[col]);
+        if (Number.isFinite(value) && value !== GEOPHYSICS_NULL_SENTINEL) {
+          depths.push(depth);
+          values.push(value);
+        }
+      }
+      if (depths.length >= 2) channels[col] = { depths, values };
+    }
+
+    if (Object.keys(channels).length > 0) holes.push({ holeId, channels });
+  }
+
+  return holes;
+}
+
+/**
  * Parse a geophysics point-log CSV into per-hole arrays of depths and values.
  *
  * Unlike assay intervals (from/to), geophysics logs contain one row per sample
@@ -114,54 +162,7 @@ export function parseGeophysicsCSV(csvText, columnMap = null) {
     dynamicTyping: false,
   });
 
-  const rawRows = result.data || [];
-  if (rawRows.length === 0) return [];
-
-  const rows = rawRows.map((r) => standardizeColumns(r, null, columnMap));
-
-  // Discover value columns from the full dataset
-  const valueCols = detectValueColumns(rows);
-
-  // Group rows by hole
-  const byHole = new Map();
-  for (const row of rows) {
-    const holeId = row[HOLE_ID] != null ? `${row[HOLE_ID]}`.trim() : '';
-    if (!holeId) continue;
-
-    const depth = resolveDepth(row);
-    if (depth === null || depth < 0) continue;
-
-    if (!byHole.has(holeId)) byHole.set(holeId, []);
-    byHole.get(holeId).push({ depth, row });
-  }
-
-  const holes = [];
-  for (const [holeId, samples] of byHole) {
-    // Sort by depth (ascending)
-    samples.sort((a, b) => a.depth - b.depth);
-
-    const channels = {};
-    for (const col of valueCols) {
-      const depths = [];
-      const values = [];
-      for (const { depth, row } of samples) {
-        const v = Number(row[col]);
-        if (Number.isFinite(v) && v !== GEOPHYSICS_NULL_SENTINEL) {
-          depths.push(depth);
-          values.push(v);
-        }
-      }
-      if (depths.length >= 2) {
-        channels[col] = { depths, values };
-      }
-    }
-
-    if (Object.keys(channels).length > 0) {
-      holes.push({ holeId, channels });
-    }
-  }
-
-  return holes;
+  return parseGeophysicsFromRows(result.data, columnMap);
 }
 
 /**

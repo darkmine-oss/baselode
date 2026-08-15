@@ -43,11 +43,11 @@ function extractInterval(row, sourceColumnMap = null) {
   if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) return null;
 
   return {
+    ...row,
     holeId,
     project,
     from,
-    to,
-    ...row
+    to
   };
 }
 
@@ -77,6 +77,100 @@ function intervalsToHole(holeId, intervals) {
   return { id: holeId, project: sorted[0]?.project, points };
 }
 
+function addHoleId(holeIds, rawRow, sourceColumnMap) {
+  const row = normalizeRow(rawRow, sourceColumnMap);
+  const holeId = row[HOLE_ID];
+  if (holeId !== undefined && `${holeId}`.trim() !== '') {
+    holeIds.add(`${holeId}`.trim());
+  }
+}
+
+function addHoleWithAssays(byHole, rawRow, sourceColumnMap) {
+  const row = normalizeRow(rawRow, sourceColumnMap);
+  if (!hasAssayValue(row)) return;
+  const { holeId } = extractIdFields(row);
+  if (holeId === undefined || `${holeId}`.trim() === '') return;
+  const key = `${holeId}`.trim();
+  if (!byHole.has(key)) byHole.set(key, { holeId: key });
+}
+
+function addInterval(byHole, rawRow, sourceColumnMap, wantedHoleId = null) {
+  const row = normalizeRow(rawRow, sourceColumnMap);
+  const interval = extractInterval(row, sourceColumnMap);
+  if (!interval || (wantedHoleId !== null && interval.holeId !== wantedHoleId)) return;
+  if (!byHole.has(interval.holeId)) byHole.set(interval.holeId, []);
+  byHole.get(interval.holeId).push(interval);
+}
+
+function holesFromIntervals(byHole) {
+  return Array.from(byHole.entries()).map(
+    ([holeId, intervals]) => intervalsToHole(holeId, intervals),
+  );
+}
+
+/**
+ * Extract unique hole IDs from already-parsed assay rows.
+ *
+ * @param {Array<Object>} rows - Parsed assay row objects
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Array<string>} Unique hole IDs in source order
+ */
+export function parseAssayHoleIdsFromRows(rows, sourceColumnMap = null) {
+  const holeIds = new Set();
+  for (const row of rows || []) addHoleId(holeIds, row, sourceColumnMap);
+  return Array.from(holeIds);
+}
+
+/**
+ * Extract hole IDs with assay values from already-parsed rows.
+ *
+ * @param {Array<Object>} rows - Parsed assay row objects
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Array<{holeId: string}>} Hole IDs with assay data
+ */
+export function parseAssayHoleIdsWithAssaysFromRows(rows, sourceColumnMap = null) {
+  const byHole = new Map();
+  for (const row of rows || []) addHoleWithAssays(byHole, row, sourceColumnMap);
+  return Array.from(byHole.values());
+}
+
+/**
+ * Parse one hole from already-parsed assay rows.
+ *
+ * @param {Array<Object>} rows - Parsed assay row objects
+ * @param {string} holeId - Hole identifier to extract
+ * @param {Object|null} config - Reserved for backwards-compatible call shapes
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Object|null} Hole object or null when no intervals match
+ */
+export function parseAssayHoleFromRows(
+  rows,
+  holeId,
+  config = null,
+  sourceColumnMap = null,
+) {
+  const wanted = `${holeId}`.trim();
+  if (!wanted) throw withDataErrorContext('parseAssayHoleFromRows', new Error('Missing hole id'));
+  const byHole = new Map();
+  for (const row of rows || []) addInterval(byHole, row, sourceColumnMap, wanted);
+  const intervals = byHole.get(wanted);
+  return intervals?.length ? intervalsToHole(wanted, intervals) : null;
+}
+
+/**
+ * Parse all holes from already-parsed assay rows.
+ *
+ * @param {Array<Object>} rows - Parsed assay row objects
+ * @param {Object|null} config - Reserved for backwards-compatible call shapes
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {{holes: Array<Object>}} Parsed assay holes
+ */
+export function parseAssaysFromRows(rows, config = null, sourceColumnMap = null) {
+  const byHole = new Map();
+  for (const row of rows || []) addInterval(byHole, row, sourceColumnMap);
+  return { holes: holesFromIntervals(byHole) };
+}
+
 /**
  * Parse assay CSV to extract unique hole IDs (quick pass, no interval data)
  * @param {File|Blob} file - Assay CSV file
@@ -90,13 +184,7 @@ export function parseAssayHoleIds(file, sourceColumnMap = null) {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      step: (results) => {
-        const row = normalizeRow(results.data, sourceColumnMap);
-        const hid = row[HOLE_ID];
-        if (hid !== undefined && `${hid}`.trim() !== '') {
-          holeIds.add(`${hid}`.trim());
-        }
-      },
+      step: (results) => addHoleId(holeIds, results.data, sourceColumnMap),
       complete: () => resolve(Array.from(holeIds)),
       error: (error) => reject(withDataErrorContext('parseAssayHoleIds', error))
     });
@@ -131,20 +219,7 @@ export function parseAssayHoleIdsWithAssays(file, sourceColumnMap = null) {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      step: (results) => {
-        const row = normalizeRow(results.data, sourceColumnMap);
-        if (!hasAssayValue(row)) return;
-        const ids = extractIdFields(row);
-        const hid = ids.holeId;
-        if (hid !== undefined && `${hid}`.trim() !== '') {
-          const key = `${hid}`.trim();
-          if (!byHole.has(key)) {
-            byHole.set(key, {
-              holeId: key
-            });
-          }
-        }
-      },
+      step: (results) => addHoleWithAssays(byHole, results.data, sourceColumnMap),
       complete: () => resolve(Array.from(byHole.values())),
       error: (error) => reject(withDataErrorContext('parseAssayHoleIdsWithAssays', error))
     });
@@ -166,20 +241,15 @@ export function parseAssayHole(file, holeId, config = null, sourceColumnMap = nu
       reject(withDataErrorContext('parseAssayHole', new Error('Missing hole id')));
       return;
     }
-    const intervals = [];
+    const byHole = new Map();
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      step: (results) => {
-        const row = normalizeRow(results.data, sourceColumnMap);
-        const interval = extractInterval(row, sourceColumnMap);
-        if (!interval) return;
-        if (`${interval.holeId}`.trim() !== wanted) return;
-        intervals.push(interval);
-      },
+      step: (results) => addInterval(byHole, results.data, sourceColumnMap, wanted),
       complete: () => {
-        if (!intervals.length) {
+        const intervals = byHole.get(wanted);
+        if (!intervals?.length) {
           resolve(null);
           return;
         }
@@ -200,23 +270,13 @@ export function parseAssayHole(file, holeId, config = null, sourceColumnMap = nu
  */
 export function parseAssaysCSV(file, config = null, sourceColumnMap = null) {
   return new Promise((resolve, reject) => {
+    const byHole = new Map();
     Papa.parse(file, {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const byHole = new Map();
-        results.data.forEach((rawRow) => {
-          const row = normalizeRow(rawRow, sourceColumnMap);
-          const interval = extractInterval(row, sourceColumnMap);
-          if (!interval) return;
-          if (!byHole.has(interval.holeId)) byHole.set(interval.holeId, []);
-          byHole.get(interval.holeId).push(interval);
-        });
-
-        const holes = Array.from(byHole.entries()).map(([hid, intervals]) => intervalsToHole(hid, intervals));
-        resolve({ holes });
-      },
+      step: (results) => addInterval(byHole, results.data, sourceColumnMap),
+      complete: () => resolve({ holes: holesFromIntervals(byHole) }),
       error: (error) => reject(withDataErrorContext('parseAssaysCSV', error))
     });
   });
