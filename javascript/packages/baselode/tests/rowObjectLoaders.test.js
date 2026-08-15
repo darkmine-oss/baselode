@@ -149,4 +149,13 @@ describe('row-object loader entry points', () => {
     expect(result.holes).toHaveLength(1);
     expect(result.holes[0].holeId).toBe('H1');
   });
+
+  it('preserves structural CSV validation and clean error context', async () => {
+    await expect(parseStructuralCSV('hole_id,depth,dip,azimuth\n')).rejects.toThrow(
+      "parseStructuralCSV: Structural rows require either 'depth' (point) or 'from'/'to' (interval) columns",
+    );
+    await expect(parseUnifiedDataset({
+      structuralCsv: 'hole_id,depth,dip,azimuth\n',
+    })).rejects.toThrow('parseStructuralCSV: Structural rows require');
+  });
 });

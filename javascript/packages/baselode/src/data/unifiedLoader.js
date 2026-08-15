@@ -5,7 +5,11 @@
 import Papa from 'papaparse';
 import { standardizeColumns } from './keying.js';
 import { HOLE_ID, FROM, TO, MID, DEPTH, DIP, AZIMUTH } from './datamodel.js';
-import { parseStructuralFromRows, groupRowsByHole } from './structuralLoader.js';
+import {
+  parseStructuralCSV,
+  parseStructuralFromRows,
+  groupRowsByHole,
+} from './structuralLoader.js';
 
 function parseCsvRows(csvText) {
   return new Promise((resolve) => {
@@ -23,6 +27,32 @@ function holesFromPoints(byHole) {
     holeId,
     points: points.sort((a, b) => a[FROM] - b[FROM]),
   }));
+}
+
+function structuralHolesFromRows(rows) {
+  if (!rows.length) return [];
+  return groupRowsByHole(
+    parseStructuralFromRows(rows).rows.map(
+      (row) => ({ ...row, _source: 'structural' }),
+    ),
+  );
+}
+
+function mergeUnifiedHoles(assayHoles, structuralHoles, geologyHoles) {
+  const byId = new Map(
+    assayHoles.map((hole) => [hole.holeId, { ...hole, points: [...hole.points] }]),
+  );
+  for (const hole of [...structuralHoles, ...geologyHoles]) {
+    const id = hole.holeId;
+    if (!id) continue;
+    if (byId.has(id)) {
+      const existing = byId.get(id);
+      byId.set(id, { ...existing, points: [...existing.points, ...(hole.points || [])] });
+    } else {
+      byId.set(id, hole);
+    }
+  }
+  return { holes: Array.from(byId.values()) };
 }
 
 /**
@@ -133,29 +163,9 @@ export function parseUnifiedDatasetFromRows({
   geologyRows = [],
 } = {}) {
   const assayHoles = parseAssayHolesFromRows(assayRows);
-  const structuralHoles = structuralRows.length
-    ? groupRowsByHole(
-        parseStructuralFromRows(structuralRows).rows.map(
-          (row) => ({ ...row, _source: 'structural' }),
-        ),
-      )
-    : [];
+  const structuralHoles = structuralHolesFromRows(structuralRows);
   const geologyHoles = parseGeologyFromRows(geologyRows).holes;
-
-  const byId = new Map(
-    assayHoles.map((hole) => [hole.holeId, { ...hole, points: [...hole.points] }]),
-  );
-  for (const hole of [...structuralHoles, ...geologyHoles]) {
-    const id = hole.holeId;
-    if (!id) continue;
-    if (byId.has(id)) {
-      const existing = byId.get(id);
-      byId.set(id, { ...existing, points: [...existing.points, ...(hole.points || [])] });
-    } else {
-      byId.set(id, hole);
-    }
-  }
-  return { holes: Array.from(byId.values()) };
+  return mergeUnifiedHoles(assayHoles, structuralHoles, geologyHoles);
 }
 
 /**
@@ -191,20 +201,22 @@ export async function parseUnifiedDataset({
   structuralRows,
   geologyRows,
 } = {}) {
-  const [resolvedAssays, resolvedStructural, resolvedGeology] = await Promise.all([
+  const [assayHoles, structuralHoles, geologyHoles] = await Promise.all([
     assayRows !== undefined
-      ? Promise.resolve(assayRows)
-      : (assayCsv ? parseCsvRows(assayCsv) : Promise.resolve([])),
+      ? Promise.resolve(parseAssayHolesFromRows(assayRows))
+      : (assayCsv ? parseAssayCsvTextToHoles(assayCsv) : Promise.resolve([])),
     structuralRows !== undefined
-      ? Promise.resolve(structuralRows)
-      : (structuralCsv ? parseCsvRows(structuralCsv) : Promise.resolve([])),
+      ? Promise.resolve(structuralHolesFromRows(structuralRows))
+      : (structuralCsv
+          ? parseStructuralCSV(structuralCsv).then(({ rows }) => groupRowsByHole(
+              rows.map((row) => ({ ...row, _source: 'structural' })),
+            ))
+          : Promise.resolve([])),
     geologyRows !== undefined
-      ? Promise.resolve(geologyRows)
-      : (geologyCsv ? parseCsvRows(geologyCsv) : Promise.resolve([])),
+      ? Promise.resolve(parseGeologyFromRows(geologyRows).holes)
+      : (geologyCsv
+          ? parseGeologyCsvText(geologyCsv).then(({ holes }) => holes)
+          : Promise.resolve([])),
   ]);
-  return parseUnifiedDatasetFromRows({
-    assayRows: resolvedAssays,
-    structuralRows: resolvedStructural,
-    geologyRows: resolvedGeology,
-  });
+  return mergeUnifiedHoles(assayHoles, structuralHoles, geologyHoles);
 }

@@ -154,15 +154,12 @@ export function parseStructuralIntervalsFromRows(rows, sourceColumnMap = null) {
  * @param {Object|null} sourceColumnMap - Optional column name overrides
  * @returns {{schema: 'point'|'interval', rows: Array<Object>}}
  */
-export function parseStructuralFromRows(rows, sourceColumnMap = null) {
+function parseStructuralRows(rows, sourceColumnMap = null) {
   const sourceRows = rows || [];
   const first = sourceRows.length ? normalizeRow(sourceRows[0], sourceColumnMap) : null;
   const schema = detectSchema(first ? [first] : []);
   if (!schema) {
-    throw withDataErrorContext(
-      'parseStructuralFromRows',
-      new Error("Structural rows require either 'depth' (point) or 'from'/'to' (interval) columns"),
-    );
+    throw new Error("Structural rows require either 'depth' (point) or 'from'/'to' (interval) columns");
   }
 
   const parsed = [];
@@ -174,6 +171,14 @@ export function parseStructuralFromRows(rows, sourceColumnMap = null) {
     if (value) parsed.push(value);
   }
   return { schema, rows: parsed };
+}
+
+export function parseStructuralFromRows(rows, sourceColumnMap = null) {
+  try {
+    return parseStructuralRows(rows, sourceColumnMap);
+  } catch (error) {
+    throw withDataErrorContext('parseStructuralFromRows', error);
+  }
 }
 
 /**
@@ -256,7 +261,7 @@ export function parseStructuralCSV(source, sourceColumnMap = null) {
       skipEmptyLines: true,
       complete: (results) => {
         try {
-          resolve(parseStructuralFromRows(results.data, sourceColumnMap));
+          resolve(parseStructuralRows(results.data, sourceColumnMap));
         } catch (error) {
           reject(withDataErrorContext('parseStructuralCSV', error));
         }
