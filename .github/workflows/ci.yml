@@ -56,7 +56,7 @@ jobs:
 
       - name: Run tests
         working-directory: javascript/packages/baselode
-        run: npm test
+        run: npm run verify
 
   test-strip-log-gallery:
     name: Strip-log visual coverage

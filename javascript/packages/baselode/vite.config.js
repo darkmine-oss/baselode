@@ -10,6 +10,8 @@ export default defineConfig({
       entry: {
         baselode: resolve(__dirname, 'src/index.js'),
         'tool-ui': resolve(__dirname, 'src/tool-ui/index.js'),
+        'tool-ui-contracts': resolve(__dirname, 'src/tool-ui/contracts-entry.js'),
+        'assistant-ui': resolve(__dirname, 'src/assistant-ui/index.jsx'),
       },
       formats: ['es'],
       fileName: (_format, entryName) => `${entryName}.js`
@@ -19,6 +21,7 @@ export default defineConfig({
         'react',
         'react-dom',
         'react/jsx-runtime',
+        '@assistant-ui/react',
         'three',
         /^three\//,
         'three-viewport-gizmo',
@@ -28,7 +31,10 @@ export default defineConfig({
       ],
       output: {
         preserveModules: false,
-        assetFileNames: 'style[extname]'
+        assetFileNames: 'style[extname]',
+        banner: (chunk) => (
+          ['tool-ui', 'assistant-ui'].includes(chunk.name) ? '"use client";' : ''
+        )
       }
     },
     cssCodeSplit: false,

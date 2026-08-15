@@ -186,3 +186,33 @@
 .baselode-tool-3d-scene__viewport canvas {
   display: block;
 }
+
+.baselode-assistant-tool-state {
+  border: 1px solid var(--baselode-tool-line, #d0d0d0);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--baselode-tool-panel, #f8fafc);
+  color: var(--baselode-tool-ink-soft, #64748b);
+  font: 13px/1.45 Inter, system-ui, sans-serif;
+}
+
+.baselode-assistant-tool-state p {
+  margin: 0;
+}
+
+.baselode-assistant-tool-state details {
+  margin-top: 8px;
+}
+
+.baselode-assistant-tool-state ul {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.baselode-assistant-tool-state--invalid,
+.baselode-assistant-tool-state--incomplete,
+.baselode-assistant-tool-state--error {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}

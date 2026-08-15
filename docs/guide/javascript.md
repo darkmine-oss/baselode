@@ -650,34 +650,57 @@ function MyGrid({ holes, selectedProperty }) {
 
 ### Tool UI
 
-Baselode includes a JavaScript-only Tool UI entrypoint for rendering Baselode
-visualisations as structured tool results.
-
-Install `zod` alongside Baselode when importing `baselode/tool-ui`; it is a
-required peer dependency for the Tool UI schemas and is not bundled.
+Baselode publishes the complete contract needed to render structured
+visualisation results in a new assistant-ui chat. The package owns the schemas,
+React components, canonical tool names, state handling, and assistant-ui
+renderer registration; applications only need to align their backend tool
+names and return the documented JSON result.
 
 ```bash
-npm install baselode zod
+npm install baselode @assistant-ui/react @assistant-ui/react-ai-sdk zod
 ```
 
-The integration follows Tool UI's schema-first rendering pattern:
+`baselode/assistant-ui` and `baselode/tool-ui` are client entries. Import them
+from a client component and import the stylesheet once. Server-only code should
+use the SSR-safe `baselode/tool-ui/contracts` entry.
 
-1. A backend AI SDK tool returns a structured Baselode visualisation JSON payload.
-2. A Zod schema validates the result in the frontend renderer.
-3. The renderer uses Baselode's existing Plotly strip-log and Three.js scene helpers
-   inside the assistant conversation.
+#### Register the renderer toolkit
+
+The adapter uses assistant-ui's current `defineToolkit`/`Tools` contract. It
+creates renderer-only `backend` entries: your chat backend still owns tool
+descriptions, parameters, execution, and the returned result.
 
 ```jsx
-import { AssistantRuntimeProvider } from '@assistant-ui/react';
+'use client';
+
+import {
+  AssistantRuntimeProvider,
+  Tools,
+  useAui,
+} from '@assistant-ui/react';
 import { AssistantChatTransport, useChatRuntime } from '@assistant-ui/react-ai-sdk';
-import { useBaselodeToolUi } from './toolkit.jsx';
+import { createBaselodeAssistantUiToolkit } from 'baselode/assistant-ui';
 import 'baselode/tool-ui/style.css';
+
+const baselodeToolkit = createBaselodeAssistantUiToolkit({
+  // Map primitive kinds to the exact tool names emitted by your backend.
+  // Omit this option if the backend uses Baselode's canonical names.
+  toolNames: {
+    'strip-log': 'show_strip_log',
+    'scatter-plot': 'plot_assays',
+  },
+  onEvent(event) {
+    // Strip-log property, track, interval, and depth-range interactions arrive
+    // here with kind, toolName, toolCallId, type, and payload.
+    console.log(event);
+  },
+});
 
 export default function App() {
   const runtime = useChatRuntime({
     transport: new AssistantChatTransport({ api: '/api/chat' }),
   });
-  const aui = useBaselodeToolUi();
+  const aui = useAui({ tools: Tools({ toolkit: baselodeToolkit }) });
 
   return (
     <AssistantRuntimeProvider runtime={runtime} aui={aui}>
@@ -687,7 +710,22 @@ export default function App() {
 }
 ```
 
-The serializable result is intentionally compact:
+The canonical names are `baselode_strip_log`, `baselode_3d_scene`,
+`baselode_scatter_plot`, `baselode_histogram_plot`, `baselode_box_plot`,
+`baselode_violin_plot`, and `baselode_ternary_plot`. Alias only the primitives
+your backend names differently. Names must be unique.
+
+By default the adapter validates `part.result`. Use `payloadSource: 'args'` only
+when a frontend tool puts the complete visualisation payload in its arguments.
+It renders accessible states for running, approval-required, incomplete,
+backend error, empty, invalid, and component-render failures. A custom
+`renderState` or `onRenderError` can integrate those states with application
+chrome. Invalid payloads retain their Zod issue paths under “Contract details”.
+
+#### Return a schema-valid result
+
+For example, `show_strip_log` should return this compact JSON object as its tool
+result (not nest it under another `data` or `result` property):
 
 ```js
 {
@@ -705,6 +743,29 @@ The serializable result is intentionally compact:
   ],
 }
 ```
+
+Backend code can validate results without evaluating the browser-only React,
+Plotly, and Three.js implementations:
+
+```js
+import {
+  BASELODE_TOOL_UI_SCHEMA_CONTRACTS,
+  BASELODE_TOOL_UI_TOOL_NAMES,
+  getBaselodeToolUiSchemaContractByToolName,
+  parseBaselodeToolUiResult,
+} from 'baselode/tool-ui/contracts';
+
+const parsed = parseBaselodeToolUiResult('strip-log', toolResult);
+if (!parsed.success) {
+  throw parsed.error; // Includes precise property paths and messages.
+}
+```
+
+Each registry record exposes `kind`, `toolName`, `schema`, `callbacks`,
+`styles`, and `peerDependencies`. The browser entry
+`baselode/tool-ui` adds the corresponding `Component` and exports the same
+registry as `BASELODE_TOOL_UI_CONTRACTS`, which is useful when integrating a
+framework other than assistant-ui.
 
 Numeric tracks accept any of the numeric chart types (including `filled-line`,
 `step-line`, `heat-strip` and the multi-property `two-curve` / `composition`)
@@ -754,6 +815,9 @@ import {
   SerializableBaselode3DSceneSchema,
   safeParseSerializableBaselodeStripLog,
   safeParseSerializableBaselode3DScene,
+  BASELODE_TOOL_UI_CONTRACTS,
+  BASELODE_TOOL_UI_TOOL_NAMES,
+  parseBaselodeToolUiResult,
 } from 'baselode/tool-ui';
 ```
 

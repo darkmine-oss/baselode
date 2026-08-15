@@ -35,6 +35,64 @@ file.text().then(csvText => {
 });
 ```
 
+## Tool UI for assistant-ui
+
+Baselode publishes schemas, React renderers, and a ready-made assistant-ui
+toolkit for seven geoscience visualisation results: strip logs, 3D scenes,
+scatter plots, histograms, box plots, violin plots, and ternary plots.
+
+```bash
+npm install baselode @assistant-ui/react zod
+```
+
+Register the renderer toolkit under the same names used by your backend tools:
+
+```jsx
+'use client';
+
+import {
+  AssistantRuntimeProvider,
+  Tools,
+  useAui,
+} from '@assistant-ui/react';
+import { createBaselodeAssistantUiToolkit } from 'baselode/assistant-ui';
+import 'baselode/tool-ui/style.css';
+
+const baselodeToolkit = createBaselodeAssistantUiToolkit({
+  toolNames: {
+    'strip-log': 'show_strip_log',
+    'scatter-plot': 'plot_assays',
+  },
+});
+
+export function BaselodeChat({ runtime, children }) {
+  const aui = useAui({ tools: Tools({ toolkit: baselodeToolkit }) });
+  return (
+    <AssistantRuntimeProvider runtime={runtime} aui={aui}>
+      {children}
+    </AssistantRuntimeProvider>
+  );
+}
+```
+
+The backend returns a JSON result matching the selected primitive's published
+Zod schema. Backend or server-only code can import those contracts without
+loading React, Plotly, or Three.js:
+
+```js
+import {
+  BASELODE_TOOL_UI_SCHEMA_CONTRACTS,
+  parseBaselodeToolUiResult,
+} from 'baselode/tool-ui/contracts';
+
+const result = parseBaselodeToolUiResult('scatter-plot', toolResult);
+if (!result.success) throw result.error;
+```
+
+See the [JavaScript guide](../../../docs/guide/javascript.md#tool-ui) for the
+full result contract, loading/error behaviour, callbacks, and direct component
+integration.
+
 ---
 
 ## Included in 0.1.0
