@@ -10,5 +10,5 @@
     "strict": true,
     "target": "ES2022"
   },
-  "include": ["contracts.tsx"]
+  "include": ["contracts.tsx", "extent.ts"]
 }

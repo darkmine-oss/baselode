@@ -5,6 +5,11 @@
 
 // --- Data model ---
 export {
+  DEFAULT_EXTENT_CRS,
+  Extent,
+} from './extent/Extent.js';
+
+export {
   // Drilling and sampling primitives
   DATASOURCE,
   HOLE_ID,

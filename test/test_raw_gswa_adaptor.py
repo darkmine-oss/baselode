@@ -566,11 +566,12 @@ def test_api_client_fetch_table_rows_reprojects_extent_to_wgs84():
     s = _FakeSession().queue({"columns": [], "rows": []})
     _client(s).fetch_table_rows("dbo_collar", extent=extent)
     params = s.calls[0][1]
-    # Reprojected back to lon/lat — within a tolerance.
-    assert abs(params["min_lon"] - 120.0) < 1e-3
-    assert abs(params["min_lat"] - (-32.0)) < 1e-3
-    assert abs(params["max_lon"] - 120.5) < 1e-3
-    assert abs(params["max_lat"] - (-31.5)) < 1e-3
+    # Reprojecting an axis-aligned projected bbox creates a new envelope.
+    # It must contain the original lon/lat bounds; it need not equal them.
+    assert params["min_lon"] <= 120.0
+    assert params["min_lat"] <= -32.0
+    assert params["max_lon"] >= 120.5
+    assert params["max_lat"] >= -31.5
 
 
 # (removed: ``test_extent_construction_raises_when_pyproj_missing`` —
@@ -674,12 +675,12 @@ def test_to_crs_reprojects_to_target_crs():
     e = baselode.extent.Extent(xmin=120.0, xmax=120.5, ymin=-32.0, ymax=-31.5)
     projected = e.to_crs(28351)
     assert projected.crs == "EPSG:28351"
-    # Reproject back and compare to the original within tolerance.
+    # Reprojecting an axis-aligned envelope back must contain the original.
     roundtrip = projected.to_crs("EPSG:4326")
-    assert abs(roundtrip.xmin - 120.0) < 1e-3
-    assert abs(roundtrip.ymin - (-32.0)) < 1e-3
-    assert abs(roundtrip.xmax - 120.5) < 1e-3
-    assert abs(roundtrip.ymax - (-31.5)) < 1e-3
+    assert roundtrip.xmin <= 120.0
+    assert roundtrip.ymin <= -32.0
+    assert roundtrip.xmax >= 120.5
+    assert roundtrip.ymax >= -31.5
 
 
 def test_to_crs_validates_target_crs():

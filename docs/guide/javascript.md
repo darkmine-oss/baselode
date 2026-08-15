@@ -10,6 +10,50 @@ npm install baselode
 
 ---
 
+## Spatial extents
+
+`Extent` is the shared bounds-and-CRS primitive for map requests, spatial
+filters, and GeoJSON study areas. Import it from the lightweight subpath when
+you do not need the rest of Baselode:
+
+```js
+import { Extent } from 'baselode/extent';
+
+const area = Extent.fromBbox(
+  { west: 120, south: -32, east: 120.5, north: -31.5 },
+  'EPSG:4326',
+  'study area',
+);
+
+const mga = area.toCrs('EPSG:28351');
+const [longitude, latitude] = mga.center({ lonlat: true });
+const feature = mga.toFeature({ purpose: 'drillhole-filter' });
+```
+
+The constructor also accepts named bounds:
+
+```js
+const area = new Extent({
+  xmin: 120,
+  ymin: -32,
+  xmax: 120.5,
+  ymax: -31.5,
+  crs: 4326,
+});
+```
+
+Bounds and `name` are immutable. `setCrs(crs)` changes only the CRS label and
+is chainable; use `toCrs(crs)` when the coordinates must be reprojected. EPSG
+strings/numbers and proj4-compatible proj/WKT definitions are accepted.
+Built-in definitions cover WGS84, Web Mercator, GDA94, and MGA zones 49–58.
+Unknown CRS codes fail with an explicit error.
+
+`toPolygon()`, `toFeature(properties)`, and
+`toFeatureCollection(properties)` emit deterministic GeoJSON using the ring
+order southwest → southeast → northeast → northwest → southwest.
+
+---
+
 ## Peer Dependencies
 
 `baselode` relies on the following peer dependencies, which must be installed in your application:

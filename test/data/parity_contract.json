@@ -380,6 +380,33 @@
       ]
     },
     {
+      "name": "extent",
+      "description": "Axis-aligned bounds with an explicit CRS, four-corner reprojection, centers and Folium-compatible bounds. JavaScript additionally provides GeoJSON Polygon, Feature and FeatureCollection helpers.",
+      "jsExports": [
+        "DEFAULT_EXTENT_CRS",
+        "Extent"
+      ],
+      "jsMethods": [
+        "setCrs",
+        "toCrs",
+        "center",
+        "getFoliumRectangle",
+        "toPolygon",
+        "toFeature",
+        "toFeatureCollection"
+      ],
+      "pythonSymbols": [
+        ["baselode.extent", "DEFAULT_CRS"],
+        ["baselode.extent", "Extent"]
+      ],
+      "pythonMethods": [
+        "set_crs",
+        "to_crs",
+        "center",
+        "get_folium_rectangle"
+      ]
+    },
+    {
       "name": "core_photo_table",
       "jsExports": [
         "DEFAULT_LOD_BREAKPOINTS",

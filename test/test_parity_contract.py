@@ -37,9 +37,40 @@ def test_python_symbols_exist_for_contract():
             assert hasattr(module, symbol_name), f"Missing python symbol {module_name}.{symbol_name}"
 
 
+def test_python_methods_exist_for_contract():
+    contract = _load_contract()
+    for capability in contract["capabilities"]:
+        methods = capability.get("pythonMethods", [])
+        if not methods:
+            continue
+        class_entries = capability.get("pythonSymbols", [])
+        class_objects = []
+        for module_name, symbol_name in class_entries:
+            symbol = getattr(importlib.import_module(module_name), symbol_name)
+            if isinstance(symbol, type):
+                class_objects.append(symbol)
+        assert class_objects, f"No Python class declared for {capability['name']} methods"
+        for method in methods:
+            assert any(hasattr(class_object, method) for class_object in class_objects), (
+                f"Missing Python method for {capability['name']}: {method}"
+            )
+
+
 def test_js_exports_declared_for_contract():
     contract = _load_contract()
     source = JS_INDEX_PATH.read_text(encoding="utf-8")
     for capability in contract["capabilities"]:
         for symbol in capability.get("jsExports", []):
             assert symbol in source, f"Missing JS export symbol in index.js: {symbol}"
+
+
+def test_js_methods_declared_for_contract():
+    contract = _load_contract()
+    source = JS_INDEX_PATH.parent.joinpath("extent", "Extent.js").read_text(
+        encoding="utf-8"
+    )
+    for capability in contract["capabilities"]:
+        for method in capability.get("jsMethods", []):
+            assert f"{method}(" in source, (
+                f"Missing JS method for {capability['name']}: {method}"
+            )
