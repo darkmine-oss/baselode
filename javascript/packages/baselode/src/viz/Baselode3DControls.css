@@ -62,3 +62,24 @@
 
 .baselode-3d-width-label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 .baselode-3d-width-label input { width: 58px; }
+
+.baselode-section-overview {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  width: 150px;
+  padding: 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  font-size: 11px;
+  color: #334155;
+}
+
+.baselode-section-overview-title { font-weight: 600; margin-bottom: 2px; }
+.baselode-section-overview svg { display: block; width: 140px; height: 140px; }
+.baselode-section-overview-bounds { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1; }
+.baselode-section-overview-slab { fill: rgba(37, 99, 235, 0.18); }
+.baselode-section-overview-line { stroke: #dc2626; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.baselode-section-overview-axis { display: block; text-align: center; color: #64748b; }

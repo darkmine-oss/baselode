@@ -4,6 +4,39 @@
  */
 import './Baselode3DControls.css';
 
+function SectionOverview({ bounds, sectionAxis, sectionPosition, sliceAxis, slicePosition, sliceWidth }) {
+  if (!bounds || (!sectionAxis && !sliceAxis)) return null;
+  const width = Number(bounds.maxX) - Number(bounds.minX);
+  const height = Number(bounds.maxY) - Number(bounds.minY);
+  if (!(width > 0) || !(height > 0)) return null;
+  const activeAxis = sectionAxis || sliceAxis;
+  const activePosition = sectionAxis ? sectionPosition : slicePosition;
+  const isSlab = Boolean(sliceAxis);
+  const toX = (value) => 10 + ((value - bounds.minX) / width) * 120;
+  const toY = (value) => 130 - ((value - bounds.minY) / height) * 120;
+  const isX = activeAxis === 'x';
+  const linePosition = isX ? toX(activePosition) : toY(activePosition);
+  const bandSize = isX ? (sliceWidth / width) * 120 : (sliceWidth / height) * 120;
+
+  return (
+    <div className="baselode-section-overview" aria-label="Top-down section overview">
+      <div className="baselode-section-overview-title">Top down</div>
+      <svg viewBox="0 0 140 140" role="img" aria-label={`${activeAxis.toUpperCase()} ${isSlab ? 'slab' : 'section'} position`}>
+        <rect x="10" y="10" width="120" height="120" className="baselode-section-overview-bounds" />
+        {isSlab && (isX
+          ? <rect x={linePosition - bandSize / 2} y="10" width={bandSize} height="120" className="baselode-section-overview-slab" />
+          : <rect x="10" y={linePosition - bandSize / 2} width="120" height={bandSize} className="baselode-section-overview-slab" />
+        )}
+        {isX
+          ? <line x1={linePosition} x2={linePosition} y1="10" y2="130" className="baselode-section-overview-line" />
+          : <line x1="10" x2="130" y1={linePosition} y2={linePosition} className="baselode-section-overview-line" />
+        }
+      </svg>
+      <span className="baselode-section-overview-axis">X → &nbsp; Y ↑</span>
+    </div>
+  );
+}
+
 /**
  * 3D scene control buttons component
  * Provides UI controls for camera manipulation in the 3D drillhole viewer
@@ -36,9 +69,18 @@ function Baselode3DControls({
   onSetSliceAxis = () => {},
   onSetSlicePosition = () => {},
   onSetSliceWidth = () => {},
+  overviewBounds = null,
 }) {
   return (
     <div className="baselode-3d-controls">
+      <SectionOverview
+        bounds={overviewBounds}
+        sectionAxis={sectionAxis}
+        sectionPosition={sectionPosition}
+        sliceAxis={sliceAxis}
+        slicePosition={slicePosition}
+        sliceWidth={sliceWidth}
+      />
       <button type="button" className="ghost-button" onClick={onRecenter}>
         Recenter to (0,0,0)
       </button>

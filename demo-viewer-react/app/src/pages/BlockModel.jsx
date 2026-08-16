@@ -150,6 +150,7 @@ function BlockModel() {
           onFit={() => sceneRef.current?.focusOnLastBounds(1.2)}
           sectionAxis={sectionAxis} sectionPosition={sectionPosition} sectionRange={rangeFor(sectionAxis)} onToggleSection={toggleSection} onSetSectionPosition={updateSection}
           sliceAxis={sliceAxis} slicePosition={slicePosition} sliceWidth={sliceWidth} sliceRange={rangeFor(sliceAxis)} onToggleSlice={toggleSlice} onSetSliceAxis={updateSliceAxis} onSetSlicePosition={updateSlice} onSetSliceWidth={updateSliceWidth}
+          overviewBounds={sceneRef.current?.lastBounds || null}
         />
 
         {blockData && (
