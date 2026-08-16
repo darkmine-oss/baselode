@@ -21,7 +21,7 @@ function SectionOverview({ bounds, sectionAxis, sectionPosition, sliceAxis, slic
   return (
     <div className="baselode-section-overview" aria-label="Top-down section overview">
       <div className="baselode-section-overview-title">Top down</div>
-      <svg viewBox="0 0 140 140" role="img" aria-label={`${activeAxis.toUpperCase()} ${isSlab ? 'slab' : 'section'} position`}>
+      <svg viewBox="0 0 140 140" role="img" aria-label={`${activeAxis.toUpperCase()} ${isSlab ? 'slice' : 'section'} position`}>
         <rect x="10" y="10" width="120" height="120" className="baselode-section-overview-bounds" />
         {isSlab && (isX
           ? <rect x={linePosition - bandSize / 2} y="10" width={bandSize} height="120" className="baselode-section-overview-slab" />
@@ -118,7 +118,7 @@ function Baselode3DControls({
         )}
       </div>
       <div className="baselode-3d-controls-group">
-        <button type="button" className={`ghost-button${sliceAxis ? ' active' : ''}`} onClick={() => onToggleSlice(sliceAxis || 'x')}>Slab</button>
+        <button type="button" className={`ghost-button${sliceAxis ? ' active' : ''}`} onClick={() => onToggleSlice(sliceAxis || 'x')}>Slice</button>
         {sliceAxis && <>
           <button type="button" className={`ghost-button${sliceAxis === 'x' ? ' active' : ''}`} onClick={() => onSetSliceAxis('x')}>X</button>
           <button type="button" className={`ghost-button${sliceAxis === 'y' ? ' active' : ''}`} onClick={() => onSetSliceAxis('y')}>Y</button>
