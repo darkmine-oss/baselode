@@ -34,7 +34,7 @@ describe('section and slab helpers', () => {
     helper.setPosition(30);
     expect(helper.plane.constant).toBe(30);
     expect(ctx.controls.target.x).toBe(30);
-    expect(ctx.camera.position.x).toBeGreaterThan(30);
+    expect(ctx.camera.position.x).toBeLessThan(30);
 
     helper.disable();
     expect(ctx.camera.isPerspectiveCamera).toBe(true);

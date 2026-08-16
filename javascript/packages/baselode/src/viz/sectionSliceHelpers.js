@@ -48,7 +48,9 @@ export class SectionHelper {
     this.ctx._baselodeViewingHelper = this;
     this.savedLocalClippingEnabled = this.ctx.renderer?.localClippingEnabled || false;
     this._saveAndUseOrthographicCamera();
-    this.plane = new THREE.Plane(axisNormal(this.axis).negate(), this.position);
+    // View from the lower-coordinate side toward +X / +Y.  This places a Y
+    // section camera at the bottom of a conventional north-up locator map.
+    this.plane = new THREE.Plane(axisNormal(this.axis), -this.position);
     this._setSectionViewPosition();
     this._addPlanes([this.plane]);
     this.active = true;
@@ -112,7 +114,7 @@ export class SectionHelper {
     this.sectionTarget = target.clone();
     this.sectionCameraDistance = Math.max(distance, 1);
     ortho.up.set(0, 0, 1);
-    ortho.position.copy(target).addScaledVector(direction, this.sectionCameraDistance);
+    ortho.position.copy(target).addScaledVector(direction, -this.sectionCameraDistance);
     ortho.lookAt(target);
     ortho.updateProjectionMatrix();
     replaceCamera(this.ctx, ortho);
@@ -129,7 +131,7 @@ export class SectionHelper {
     this.sectionTarget[this.axis] = this.position;
     const direction = axisNormal(this.axis);
     controls.target.copy(this.sectionTarget);
-    camera.position.copy(this.sectionTarget).addScaledVector(direction, this.sectionCameraDistance);
+    camera.position.copy(this.sectionTarget).addScaledVector(direction, -this.sectionCameraDistance);
     camera.lookAt(this.sectionTarget);
     controls.update();
   }

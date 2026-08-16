@@ -42,8 +42,12 @@ function SectionOverview({ bounds, sectionAxis, sectionPosition, sliceAxis, slic
           ? <line x1={linePosition} x2={linePosition} y1="10" y2="130" className="baselode-section-overview-line" />
           : <line x1="10" x2="130" y1={linePosition} y2={linePosition} className="baselode-section-overview-line" />
         }
+        {isX
+          ? <path d={`M 10 ${70} l 8 -5 v 10 z`} className="baselode-section-overview-camera" />
+          : <path d={`M ${70} 130 l -5 -8 h 10 z`} className="baselode-section-overview-camera" />
+        }
       </svg>
-      <span className="baselode-section-overview-axis">X → &nbsp; Y ↑</span>
+      <span className="baselode-section-overview-axis">X → &nbsp; Y ↑ · camera ●</span>
     </div>
   );
 }
