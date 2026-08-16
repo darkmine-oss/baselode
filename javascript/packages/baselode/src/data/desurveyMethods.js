@@ -20,6 +20,12 @@ function normalizeHoleIdValue(value) {
   return `${value}`.trim();
 }
 
+function normalizeHoleIdKey(value) {
+  // Hole identifiers are join keys across source tables. Match the legacy
+  // visualisation path and Python loaders by treating case as insignificant.
+  return normalizeHoleIdValue(value).toLowerCase();
+}
+
 /**
  * Canonicalize hole ID column across rows with varying column names
  * @private
@@ -35,7 +41,8 @@ function canonicalizeHoleIdRows(rows = [], holeIdCol = null) {
     aliasCol: resolved,
     rows: rows.map((row) => ({
       ...row,
-      hole_id: normalizeHoleIdValue(row?.[resolved])
+      hole_id: normalizeHoleIdKey(row?.[resolved]),
+      __hole_id_original: normalizeHoleIdValue(row?.[resolved])
     }))
   };
 }
@@ -57,7 +64,9 @@ function directionCosines(azimuth, dip) {
   const dipRad = degToRad(dip);
   const ca = Math.cos(dipRad) * Math.sin(azRad);
   const cb = Math.cos(dipRad) * Math.cos(azRad);
-  const cc = Math.sin(dipRad) * -1;
+  // Baselode coordinates use +Z up, so a negative (downward) dip reduces
+  // elevation. This matches baselode.drill.desurvey in Python.
+  const cc = Math.sin(dipRad);
   return { ca, cb, cc };
 }
 
@@ -119,7 +128,9 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
     method = 'minimum_curvature'
   } = options;
 
-  const safeStep = Number.isFinite(Number(step)) && Number(step) > 0 ? Number(step) : 1;
+  // A null step emits survey-station vertices only. Consumers such as the
+  // demo use it to avoid generating unnecessary intermediate scene points.
+  const safeStep = Number.isFinite(Number(step)) && Number(step) > 0 ? Number(step) : null;
 
   const collarsCanonical = canonicalizeHoleIdRows(rowsCollars, holeIdCol);
   const surveysCanonical = canonicalizeHoleIdRows(rowsSurveys, holeIdCol || collarsCanonical.aliasCol);
@@ -147,7 +158,9 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
     const sorted = [...stations]
       .map((row) => ({
         ...row,
-        from: toNumber(row.from),
+        // `depth` is the Baselode survey field. Keep `from` as a temporary
+        // input alias for existing callers of this early-stage API.
+        from: toNumber(row.depth ?? row.from),
         azimuth: toNumber(row.azimuth),
         dip: toNumber(row.dip)
       }))
@@ -156,19 +169,24 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
 
     if (!sorted.length) return;
 
-    let x = toNumber(collar.x, 0);
-    let y = toNumber(collar.y, 0);
-    let z = toNumber(collar.z, 0);
+    // Accept Baselode's canonical projected collar fields. x/y/z remain
+    // supported aliases because the emitted trace uses those scene names.
+    let x = toNumber(collar.easting ?? collar.x, 0);
+    let y = toNumber(collar.northing ?? collar.y, 0);
+    let z = toNumber(collar.elevation ?? collar.z, 0);
     let mdCursor = sorted[0].from;
     const azPrev = sorted[0].azimuth;
     const dipPrev = sorted[0].dip;
 
     const firstRecord = {
-      hole_id: holeId,
+      hole_id: collar.__hole_id_original || holeId,
       md: mdCursor,
       x,
       y,
       z,
+      easting: x,
+      northing: y,
+      elevation: z,
       azimuth: azPrev,
       dip: dipPrev
     };
@@ -186,7 +204,7 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
       const deltaMd = md1 - md0;
       if (deltaMd <= 0) continue;
 
-      const segmentSteps = Math.max(1, Math.ceil(deltaMd / safeStep));
+      const segmentSteps = safeStep ? Math.max(1, Math.ceil(deltaMd / safeStep)) : 1;
       const mdIncrement = deltaMd / segmentSteps;
 
       for (let stepIdx = 0; stepIdx < segmentSteps; stepIdx += 1) {
@@ -201,11 +219,14 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
         z += disp.dz;
 
         const record = {
-          hole_id: holeId,
+          hole_id: collar.__hole_id_original || holeId,
           md: mdCursor,
           x,
           y,
           z,
+          easting: x,
+          northing: y,
+          elevation: z,
           azimuth: method === 'minimum_curvature' ? azInterp : disp.azimuth,
           dip: method === 'minimum_curvature' ? dipInterp : disp.dip
         };
@@ -223,10 +244,13 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
 
 /**
  * Desurvey drillholes using minimum curvature method
- * @param {Array<Object>} collars - Collar data with hole_id, lat, lng
- * @param {Array<Object>} surveys - Survey data with hole_id, depth, azimuth, dip
+ * @param {Array<Object>} collars - Collar data with `hole_id`, `easting`,
+ *   `northing`, and optional `elevation` (metres, +Z up).
+ * @param {Array<Object>} surveys - Survey data with `hole_id`, `depth`,
+ *   `azimuth`, and negative-downward `dip`.
  * @param {Object} options - Desurvey options
- * @returns {Array<Object>} Desurveyed trace points with x, y, z, md coordinates
+ * @returns {Array<Object>} Desurveyed trace points with `x`, `y`, `z` scene
+ *   aliases and canonical `easting`, `northing`, `elevation` coordinates.
  */
 export function minimumCurvatureDesurvey(collars, surveys, options = {}) {
   return desurvey(collars, surveys, { ...options, method: 'minimum_curvature' });

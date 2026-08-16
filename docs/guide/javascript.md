@@ -240,14 +240,21 @@ const unified = parseUnifiedDataset(assaysCsvText, structuralCsvText);
 
 ## Desurveying
 
-### parseSurveyCSV and desurveyTraces
+### Canonical minimum-curvature desurvey
 
 ```js
-import { parseSurveyCSV, desurveyTraces } from 'baselode';
+import { minimumCurvatureDesurvey } from 'baselode';
 
-const surveyTable = parseSurveyCSV(surveyCsvText);
-const traces      = desurveyTraces(collarsCsvText, surveyTable);
-// traces: Map<holeId, TracePoint[]> where each point has { x, y, z, md, azimuth, dip }
+const traces = minimumCurvatureDesurvey(
+  [{ hole_id: 'DH001', easting: 500000, northing: 6900000, elevation: 300 }],
+  [
+    { hole_id: 'DH001', depth: 0, azimuth: 90, dip: -60 },
+    { hole_id: 'DH001', depth: 100, azimuth: 90, dip: -60 }
+  ],
+  { step: 1 }
+);
+// Flat trace rows with x/y/z scene aliases plus easting/northing/elevation.
+// X is east, Y is north, and elevation is +Z up.
 ```
 
 ### Low-level desurvey methods
@@ -261,7 +268,7 @@ import {
 } from 'baselode';
 
 // minimumCurvatureDesurvey is the industry standard (default)
-const trace = minimumCurvatureDesurvey(collar, surveyRows, { step: 1.0 });
+const trace = minimumCurvatureDesurvey(collarRows, surveyRows, { step: 1.0 });
 ```
 
 ### Attaching assay positions to 3D traces

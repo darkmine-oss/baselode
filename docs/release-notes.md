@@ -3,6 +3,15 @@
 ---
 
 ## Unreleased
+**JavaScript desurvey API consolidation (breaking)**
+
+- Removed `desurveyTraces`. Use `minimumCurvatureDesurvey` with canonical
+  projected collar fields (`easting`, `northing`, `elevation`) and survey
+  `depth` rows. The canonical API emits east/north coordinates and
+  elevation-positive-up Z, matching the Python desurvey contract.
+- The React demo and committed GSWA precomputed trace fixture now use that
+  canonical path, removing the old visualization-only trajectory maths.
+
 **Drillhole QA: auto-fix interval overlaps + numeric-negative BDL handling**
 
 - New `baselode.drill.validate.fix_overlaps` resolves three classes of interval overlap automatically — touching (snap `A.to` down to `B.from` within `touching_tol`), exact duplicate (drop), resampled superset (drop the coarser interval when finer rows fully cover it and their length-weighted mean ≈ the coarse value within `merge_tol`) — and leaves genuine value-conflicts in a `conflicts` frame for human review.  Pass `return_diagnostics=True` to also get a per-row audit log of every snap / drop / kept-conflict.  Overlaps are the load-bearing failure mode for compositing, intercepts, and IDW — auto-resolving the safe cases shrinks the surgical-review list to true conflicts only.

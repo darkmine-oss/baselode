@@ -8,7 +8,7 @@ import {
   Baselode3DControls,
   parseDrillholesCSV,
   parseSurveyCSV,
-  desurveyTraces,
+  minimumCurvatureDesurvey,
   classifyColumns,
   getCategoryHexColor,
   COMMODITY_COLOURS,
@@ -280,27 +280,35 @@ function Drillhole() {
       return;
     }
     const start = performance.now();
-    const desurveyed = desurveyTraces(collars, surveyRows);
+    const projectedCollars = collars.map((c) => ({
+      id: c.holeId || c.hole_id || c.id,
+      project: c.project || '',
+      lat: c.lat,
+      lng: c.lng,
+      zone50: projectTo28350(c.lat, c.lng)
+    }));
+    const canonicalCollars = projectedCollars
+      .filter((c) => c.id && Number.isFinite(c.zone50.x) && Number.isFinite(c.zone50.y))
+      .map((c) => ({
+        hole_id: c.id,
+        easting: c.zone50.x,
+        northing: c.zone50.y,
+        elevation: 0
+      }));
+    const desurveyed = minimumCurvatureDesurvey(canonicalCollars, surveyRows, { step: null });
     const elapsedMs = performance.now() - start;
     setDesurveyMs(elapsedMs);
     console.info('Desurvey profiling', {
       elapsedMs,
       collarCount: collars.length,
       surveyRowCount: surveyRows.length,
-      desurveyedHoleCount: desurveyed.length
+      desurveyedPointCount: desurveyed.length
     });
 
     if (!desurveyed.length) {
       setError('No matching holes found between survey and cached collars.');
       return;
     }
-
-    const projectedCollars = collars.map((c) => ({
-      id: c.holeId || c.hole_id || c.id,
-      lat: c.lat,
-      lng: c.lng,
-      zone50: projectTo28350(c.lat, c.lng)
-    }));
 
     const centroid = projectedCollars.reduce(
       (acc, c) => {
@@ -313,31 +321,24 @@ function Drillhole() {
     centroid.x /= projectedCollars.length;
     centroid.y /= projectedCollars.length;
 
-    const linestrings = desurveyed.map((h) => {
-      const pts = h.points
-        .map((p) => {
-          const proj = projectTo28350(p.lat ?? 0, p.lng ?? 0);
-          const offset = { x: proj.x - centroid.x, y: proj.y - centroid.y };
-          if (!Number.isFinite(offset.x) || !Number.isFinite(offset.y) || !Number.isFinite(p.z)) return null;
-          return {
-            ...p,
-            zone50: proj,
-            offset
-          };
-        })
-        .filter(Boolean);
-      return {
-        id: h.id,
-        project: h.project,
-        points: pts
-      };
+    const collarById = new Map(projectedCollars.map((collar) => [normalizeHoleKey(collar.id), collar]));
+    const linestringsByHole = new Map();
+    desurveyed.forEach((point) => {
+      const key = normalizeHoleKey(point.hole_id);
+      const collar = collarById.get(key);
+      if (!collar || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) return;
+      if (!linestringsByHole.has(key)) {
+        linestringsByHole.set(key, { id: collar.id, project: collar.project, points: [] });
+      }
+      linestringsByHole.get(key).points.push({
+        x: point.x - centroid.x,
+        y: point.y - centroid.y,
+        z: point.z,
+        md: point.md
+      });
     });
 
-    const shiftedHoles = linestrings.map((h) => ({
-      id: h.id,
-      project: h.project,
-      points: h.points.map((p) => ({ x: p.offset.x, y: p.offset.y, z: p.z, md: p.md }))
-    }));
+    const shiftedHoles = [...linestringsByHole.values()];
 
     const limitedHoles = shiftedHoles.slice(0, MAX_SCENE_HOLES);
 

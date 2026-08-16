@@ -5,7 +5,7 @@ Complete reference for the `baselode` npm package (v0.1.x).
 All exports are available as named imports from `'baselode'`:
 
 ```js
-import { loadCollars, desurveyTraces, TracePlot } from 'baselode';
+import { loadCollars, minimumCurvatureDesurvey, TracePlot } from 'baselode';
 ```
 
 ---
