@@ -27,6 +27,10 @@ Supports multiple methods that trade simplicity for accuracy:
 All methods output a trace table with x, y, z coordinates at chosen step size,
 plus measured depth and azimuth/dip per vertex. Dependencies are limited to
 pandas and numpy for portability.
+
+Rows missing a hole identifier, usable collar coordinates, or usable survey
+measurements are ignored. Missing collar elevation defaults to zero. This lets
+valid holes be processed even when a canonical table contains incomplete rows.
 """
 
 import math
@@ -35,6 +39,9 @@ import numpy as np
 import pandas as pd
 
 from baselode.datamodel import HOLE_ID, AZIMUTH, DIP, FROM, TO, EASTING, NORTHING, ELEVATION, DEPTH, MID
+
+
+_TRACE_COLUMNS = [HOLE_ID, "md", EASTING, NORTHING, ELEVATION, AZIMUTH, DIP]
 
 
 def _direction_cosines(azimuth, dip):
@@ -86,17 +93,62 @@ def _segment_displacement(delta_md, az0, dip0, az1, dip1, method="minimum_curvat
     return dx, dy, dz, az1, dip1
 
 
+def _prepare_desurvey_inputs(collars, surveys):
+    """Return usable collar and survey rows without changing caller data."""
+    collar_columns = [HOLE_ID, EASTING, NORTHING]
+    survey_columns = [HOLE_ID, DEPTH, AZIMUTH, DIP]
+    if (
+        collars.empty
+        or surveys.empty
+        or not set(collar_columns).issubset(collars.columns)
+        or not set(survey_columns).issubset(surveys.columns)
+    ):
+        return (
+            pd.DataFrame(columns=[*collar_columns, ELEVATION]),
+            pd.DataFrame(columns=survey_columns),
+        )
+
+    selected_collar_columns = [*collar_columns]
+    if ELEVATION in collars.columns:
+        selected_collar_columns.append(ELEVATION)
+    prepared_collars = collars[selected_collar_columns].copy()
+    if ELEVATION not in prepared_collars.columns:
+        prepared_collars[ELEVATION] = 0.0
+
+    prepared_surveys = surveys[survey_columns].copy()
+    for column in [EASTING, NORTHING, ELEVATION]:
+        prepared_collars[column] = pd.to_numeric(prepared_collars[column], errors="coerce")
+    prepared_collars = prepared_collars.replace([np.inf, -np.inf], np.nan)
+    prepared_collars[ELEVATION] = prepared_collars[ELEVATION].fillna(0.0)
+    for column in [DEPTH, AZIMUTH, DIP]:
+        prepared_surveys[column] = pd.to_numeric(prepared_surveys[column], errors="coerce")
+    prepared_surveys = prepared_surveys.replace([np.inf, -np.inf], np.nan)
+
+    prepared_collars = prepared_collars.dropna(subset=[HOLE_ID, EASTING, NORTHING])
+    prepared_surveys = prepared_surveys.dropna(subset=survey_columns)
+    if prepared_collars.empty or prepared_surveys.empty:
+        return prepared_collars.iloc[0:0], prepared_surveys.iloc[0:0]
+
+    valid_holes = set(prepared_collars[HOLE_ID]).intersection(prepared_surveys[HOLE_ID])
+    prepared_collars = prepared_collars[prepared_collars[HOLE_ID].isin(valid_holes)]
+    prepared_collars = prepared_collars.drop_duplicates(subset=[HOLE_ID], keep="first")
+    prepared_surveys = prepared_surveys[prepared_surveys[HOLE_ID].isin(valid_holes)]
+    return prepared_collars, prepared_surveys
+
+
 def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
+    collars, surveys = _prepare_desurvey_inputs(collars, surveys)
     if collars.empty or surveys.empty:
-        return pd.DataFrame(columns=[HOLE_ID, "md", EASTING, NORTHING, ELEVATION, AZIMUTH, DIP])
+        return pd.DataFrame(columns=_TRACE_COLUMNS)
 
     traces = []
-    for hole_id, collar in collars.groupby(HOLE_ID):
-        collar_row = collar.iloc[0]
-        hole_surveys = surveys[surveys[HOLE_ID] == hole_id].sort_values(DEPTH)
-        if hole_surveys.empty:
-            continue
-        x, y, z = float(collar_row.get(EASTING, 0)), float(collar_row.get(NORTHING, 0)), float(collar_row.get(ELEVATION, 0))
+    collars_by_hole = collars.set_index(HOLE_ID)
+    for hole_id, hole_surveys in surveys.groupby(HOLE_ID, sort=False):
+        collar_row = collars_by_hole.loc[hole_id]
+        hole_surveys = hole_surveys.sort_values(DEPTH)
+        x = float(collar_row[EASTING])
+        y = float(collar_row[NORTHING])
+        z = float(collar_row[ELEVATION])
         md_cursor = float(hole_surveys.iloc[0][DEPTH])
         az_prev = float(hole_surveys.iloc[0][AZIMUTH])
         dip_prev = float(hole_surveys.iloc[0][DIP])
@@ -147,16 +199,17 @@ def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
 
 
 def minimum_curvature_desurvey(collars, surveys, step=1.0):
+    """Build traces with minimum curvature, ignoring incomplete input rows."""
     return _desurvey(collars=collars, surveys=surveys, step=step, method="minimum_curvature")
 
 
 def tangential_desurvey(collars, surveys, step=1.0,):
-    """Simpler desurvey: uses the starting station orientation for each segment."""
+    """Use starting orientations per segment, ignoring incomplete rows."""
     return _desurvey(collars=collars, surveys=surveys, step=step, method="tangential")
 
 
 def balanced_tangential_desurvey(collars, surveys, step=1.0):
-    """Balanced tangential desurvey using the average of start/end orientations per segment."""
+    """Use averaged endpoint orientations, ignoring incomplete input rows."""
     return _desurvey(collars=collars, surveys=surveys, step=step, method="balanced_tangential")
 
 
@@ -331,4 +384,26 @@ def attach_assay_positions(assays, traces):
 
 
 def build_traces(collars, surveys, step=1.0):
+    """Build minimum-curvature traces from usable canonical input rows.
+
+    Collar rows require ``hole_id``, ``easting``, and ``northing``. Survey
+    rows require ``hole_id``, ``depth``, ``azimuth``, and ``dip``. Missing or
+    non-numeric required values are ignored, while absent or null collar
+    elevation defaults to zero. Inputs are not modified.
+
+    Parameters
+    ----------
+    collars : pd.DataFrame
+        Canonical collar records.
+    surveys : pd.DataFrame
+        Canonical downhole survey records.
+    step : float, optional
+        Maximum measured-depth interval between output vertices.
+
+    Returns
+    -------
+    pd.DataFrame
+        Trace vertices with hole identifier, measured depth, coordinates,
+        azimuth, and dip.
+    """
     return minimum_curvature_desurvey(collars=collars, surveys=surveys, step=step)
