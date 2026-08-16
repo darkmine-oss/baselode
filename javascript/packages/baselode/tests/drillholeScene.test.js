@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { splitCategoricalSegment } from '../src/viz/drillholeScene.js';
+import {
+  normalizeDrillholeRenderOptions,
+  splitCategoricalSegment,
+} from '../src/viz/drillholeScene.js';
 
 describe('splitCategoricalSegment', () => {
   it('subdivides a sparse survey segment at every geology boundary', () => {
@@ -41,5 +44,16 @@ describe('splitCategoricalSegment', () => {
       [0, 20, 'CLAY'],
       [20, 30, 'SAND'],
     ]);
+  });
+});
+
+describe('normalizeDrillholeRenderOptions', () => {
+  it('keeps the assay-presence selector out of categorical rendering mode', () => {
+    const options = normalizeDrillholeRenderOptions({
+      selectedAssayVariable: '__HAS_ASSAY__',
+      isCategoricalVariable: true,
+    });
+
+    expect(options.isCategoricalVariable).toBe(false);
   });
 });

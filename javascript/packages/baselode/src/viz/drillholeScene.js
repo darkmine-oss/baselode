@@ -128,11 +128,13 @@ export function getCategoryHexColor(category) {
  * Normalize drillhole rendering options with defaults
  */
 export function normalizeDrillholeRenderOptions(options = {}) {
+  const selectedAssayVariable = options.selectedAssayVariable || '';
   return {
     preserveView: Boolean(options.preserveView),
     assayIntervalsByHole: options.assayIntervalsByHole || null,
-    selectedAssayVariable: options.selectedAssayVariable || '',
-    isCategoricalVariable: Boolean(options.isCategoricalVariable),
+    selectedAssayVariable,
+    isCategoricalVariable: Boolean(options.isCategoricalVariable)
+      && selectedAssayVariable !== '__HAS_ASSAY__',
     categoryColorMap: options.categoryColorMap || null,
   };
 }
