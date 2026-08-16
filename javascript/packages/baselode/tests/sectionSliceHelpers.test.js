@@ -33,6 +33,8 @@ describe('section and slab helpers', () => {
     expect(ctx.renderer.clippingPlanes).toHaveLength(2);
     helper.setPosition(30);
     expect(helper.plane.constant).toBe(30);
+    expect(ctx.controls.target.x).toBe(30);
+    expect(ctx.camera.position.x).toBeGreaterThan(30);
 
     helper.disable();
     expect(ctx.camera.isPerspectiveCamera).toBe(true);
