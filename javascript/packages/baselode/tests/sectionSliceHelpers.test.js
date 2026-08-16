@@ -44,7 +44,7 @@ describe('section and slab helpers', () => {
     expect(ctx.camera.isPerspectiveCamera).toBe(true);
     expect(ctx.controls.enableRotate).toBe(true);
     expect(ctx.renderer.clippingPlanes).toEqual([ctx.externalPlane]);
-    expect(ctx.renderer.localClippingEnabled).toBe(true);
+    expect(ctx.renderer.localClippingEnabled).toBe(false);
   });
 
   it('keeps only the finite X/Y slab and mutates its existing planes', () => {

@@ -147,7 +147,7 @@ export class SectionHelper {
     if (!renderer) return;
     const removed = new Set(planes.filter(Boolean));
     renderer.clippingPlanes = (renderer.clippingPlanes || []).filter((plane) => !removed.has(plane));
-    if (!renderer.clippingPlanes.length) renderer.localClippingEnabled = this.savedLocalClippingEnabled;
+    renderer.localClippingEnabled = this.savedLocalClippingEnabled;
   }
 }
 
@@ -211,7 +211,7 @@ export class SliceHelper {
     const removed = new Set(this.planes);
     if (renderer) {
       renderer.clippingPlanes = (renderer.clippingPlanes || []).filter((plane) => !removed.has(plane));
-      if (!renderer.clippingPlanes.length) renderer.localClippingEnabled = this.savedLocalClippingEnabled;
+      renderer.localClippingEnabled = this.savedLocalClippingEnabled;
     }
     if (this.ctx._baselodeViewingHelper === this) this.ctx._baselodeViewingHelper = null;
     this.planes = [];
