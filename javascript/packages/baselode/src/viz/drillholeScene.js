@@ -24,6 +24,61 @@ export function getMeasuredDepthRange(p1, p2) {
 }
 
 /**
+ * Split a physical trace segment at categorical interval boundaries.
+ *
+ * Survey traces are often sparse (for example, a vertical hole may have only
+ * collar and end-of-hole stations) while geology is sampled at much finer
+ * intervals. Rendering one cylinder per survey segment would otherwise paint
+ * the whole trace with its dominant category. Each returned slice has the
+ * interpolated physical endpoints and its measured-depth range.
+ */
+export function splitCategoricalSegment(p1, p2, intervals) {
+  const range = getMeasuredDepthRange(p1, p2);
+  if (!range || !Array.isArray(intervals) || intervals.length === 0) return [];
+
+  const boundaries = new Set([range.segStart, range.segEnd]);
+  for (const interval of intervals) {
+    const from = Number(interval?.from);
+    const to = Number(interval?.to);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) continue;
+    if (from > range.segStart && from < range.segEnd) boundaries.add(from);
+    if (to > range.segStart && to < range.segEnd) boundaries.add(to);
+  }
+
+  const mdDelta = Number(p2.md) - Number(p1.md);
+  if (!Number.isFinite(mdDelta) || mdDelta === 0) return [];
+  const ordered = [...boundaries].sort((a, b) => a - b);
+  if (mdDelta < 0) ordered.reverse();
+  const pointAtDepth = (depth) => {
+    const fraction = (depth - Number(p1.md)) / mdDelta;
+    const point = p1.clone().lerp(p2, fraction);
+    point.md = depth;
+    return point;
+  };
+
+  const slices = [];
+  for (let index = 0; index < ordered.length - 1; index += 1) {
+    const segmentStart = ordered[index];
+    const segmentEnd = ordered[index + 1];
+    if (segmentEnd === segmentStart) continue;
+    const segStart = Math.min(segmentStart, segmentEnd);
+    const segEnd = Math.max(segmentStart, segmentEnd);
+    const category = getDominantCategory(intervals, segStart, segEnd);
+    const previous = slices[slices.length - 1];
+    if (previous && previous.category === category) {
+      previous.p2 = pointAtDepth(segmentEnd);
+      continue;
+    }
+    slices.push({
+      p1: pointAtDepth(segmentStart),
+      p2: pointAtDepth(segmentEnd),
+      category,
+    });
+  }
+  return slices;
+}
+
+/**
  * Calculate weighted average assay value for a segment overlapping with assay intervals
  */
 export function getWeightedIntervalValue(assayIntervals, segStart, segEnd) {
@@ -73,11 +128,13 @@ export function getCategoryHexColor(category) {
  * Normalize drillhole rendering options with defaults
  */
 export function normalizeDrillholeRenderOptions(options = {}) {
+  const selectedAssayVariable = options.selectedAssayVariable || '';
   return {
     preserveView: Boolean(options.preserveView),
     assayIntervalsByHole: options.assayIntervalsByHole || null,
-    selectedAssayVariable: options.selectedAssayVariable || '',
-    isCategoricalVariable: Boolean(options.isCategoricalVariable),
+    selectedAssayVariable,
+    isCategoricalVariable: Boolean(options.isCategoricalVariable)
+      && selectedAssayVariable !== '__HAS_ASSAY__',
     categoryColorMap: options.categoryColorMap || null,
   };
 }
@@ -274,34 +331,42 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
     for (let i = 0; i < points.length - 1; i += 1) {
       const p1 = points[i];
       const p2 = points[i + 1];
-      const dir = tmpVec.subVectors(p2, p1);
-      const len = dir.length();
-      if (len <= 0.001) continue;
-      const radius = 2.2;
-      const cylinderGeom = new THREE.CylinderGeometry(radius, radius, len, 6, 1, true);
-      const segmentColor = getSegmentColor({
-        selectedAssayVariable,
-        assayIntervals,
-        assayScale,
-        holeId: hole.id,
-        segmentIndex: i,
-        p1,
-        p2,
-        isCategorical: isCategoricalVariable,
-        categoryColorMap,
-      });
-      const cylinderMat = new THREE.MeshLambertMaterial({
-        color: segmentColor,
-        flatShading: true,
-        emissive: segmentColor,
-        emissiveIntensity: 0.15
-      });
-      const mesh = new THREE.Mesh(cylinderGeom, cylinderMat);
-      mesh.position.copy(p1.clone().addScaledVector(dir, 0.5));
-      mesh.quaternion.setFromUnitVectors(up, dir.clone().normalize());
-      mesh.userData = buildHoleUserData(hole);
-      group.add(mesh);
-      sceneCtx.drillMeshes.push(mesh);
+      const categoricalSlices = isCategoricalVariable
+        ? splitCategoricalSegment(p1, p2, assayIntervals)
+        : [];
+      const renderSegments = categoricalSlices.length ? categoricalSlices : [{ p1, p2, category: null }];
+      for (const segment of renderSegments) {
+        const dir = tmpVec.subVectors(segment.p2, segment.p1);
+        const len = dir.length();
+        if (len <= 0.001) continue;
+        const radius = 2.2;
+        const cylinderGeom = new THREE.CylinderGeometry(radius, radius, len, 6, 1, true);
+        const segmentColor = isCategoricalVariable && segment.category != null
+          ? new THREE.Color(categoryColorMap?.[segment.category] || getCategoryHexColor(segment.category))
+          : getSegmentColor({
+            selectedAssayVariable,
+            assayIntervals,
+            assayScale,
+            holeId: hole.id,
+            segmentIndex: i,
+            p1: segment.p1,
+            p2: segment.p2,
+            isCategorical: isCategoricalVariable,
+            categoryColorMap,
+          });
+        const cylinderMat = new THREE.MeshLambertMaterial({
+          color: segmentColor,
+          flatShading: true,
+          emissive: segmentColor,
+          emissiveIntensity: 0.15
+        });
+        const mesh = new THREE.Mesh(cylinderGeom, cylinderMat);
+        mesh.position.copy(segment.p1.clone().addScaledVector(dir, 0.5));
+        mesh.quaternion.setFromUnitVectors(up, dir.clone().normalize());
+        mesh.userData = buildHoleUserData(hole);
+        group.add(mesh);
+        sceneCtx.drillMeshes.push(mesh);
+      }
     }
 
     sceneCtx.scene.add(group);
