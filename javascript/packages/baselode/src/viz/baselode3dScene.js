@@ -217,7 +217,14 @@ class Baselode3DScene {
     if (!this.container || !this.camera || !this.renderer) return;
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
-    this.camera.aspect = width / height;
+    if (this.camera.isOrthographicCamera) {
+      const halfHeight = (this.camera.top - this.camera.bottom) / 2;
+      const halfWidth = halfHeight * (width / height);
+      this.camera.left = -halfWidth;
+      this.camera.right = halfWidth;
+    } else {
+      this.camera.aspect = width / height;
+    }
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
     if (this.gizmo) this.gizmo.update();

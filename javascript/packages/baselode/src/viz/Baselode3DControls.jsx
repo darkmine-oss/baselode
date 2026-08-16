@@ -23,6 +23,19 @@ function Baselode3DControls({
   onFit = () => {},
   darkBackground = false,
   onToggleDarkBackground = () => {},
+  sectionAxis = null,
+  sectionPosition = 0,
+  sectionRange = null,
+  onToggleSection = () => {},
+  onSetSectionPosition = () => {},
+  sliceAxis = null,
+  slicePosition = 0,
+  sliceWidth = 50,
+  sliceRange = null,
+  onToggleSlice = () => {},
+  onSetSliceAxis = () => {},
+  onSetSlicePosition = () => {},
+  onSetSliceWidth = () => {},
 }) {
   return (
     <div className="baselode-3d-controls">
@@ -46,6 +59,31 @@ function Baselode3DControls({
         />
         Dark background
       </label>
+      <div className="baselode-3d-controls-group">
+        <button type="button" className={`ghost-button${sectionAxis === 'x' ? ' active' : ''}`} onClick={() => onToggleSection('x')}>Section X</button>
+        <button type="button" className={`ghost-button${sectionAxis === 'y' ? ' active' : ''}`} onClick={() => onToggleSection('y')}>Section Y</button>
+        {sectionAxis && sectionRange && (
+          <input
+            aria-label={`${sectionAxis.toUpperCase()} section position`}
+            className="baselode-3d-slider"
+            type="range"
+            min={sectionRange.min}
+            max={sectionRange.max}
+            step="any"
+            value={sectionPosition}
+            onChange={(event) => onSetSectionPosition(Number(event.target.value))}
+          />
+        )}
+      </div>
+      <div className="baselode-3d-controls-group">
+        <button type="button" className={`ghost-button${sliceAxis ? ' active' : ''}`} onClick={() => onToggleSlice(sliceAxis || 'x')}>Slab</button>
+        {sliceAxis && <>
+          <button type="button" className={`ghost-button${sliceAxis === 'x' ? ' active' : ''}`} onClick={() => onSetSliceAxis('x')}>X</button>
+          <button type="button" className={`ghost-button${sliceAxis === 'y' ? ' active' : ''}`} onClick={() => onSetSliceAxis('y')}>Y</button>
+          {sliceRange && <input aria-label={`${sliceAxis.toUpperCase()} slab position`} className="baselode-3d-slider" type="range" min={sliceRange.min} max={sliceRange.max} step="any" value={slicePosition} onChange={(event) => onSetSlicePosition(Number(event.target.value))} />}
+          <label className="baselode-3d-width-label">Width <input aria-label="Slab width" type="number" min="0.001" step="1" value={sliceWidth} onChange={(event) => onSetSliceWidth(Number(event.target.value))} /></label>
+        </>}
+      </div>
     </div>
   );
 }

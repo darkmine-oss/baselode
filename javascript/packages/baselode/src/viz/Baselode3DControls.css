@@ -45,3 +45,20 @@
   user-select: none;
   padding: 0 4px;
 }
+
+.baselode-3d-controls-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.baselode-3d-controls .ghost-button.active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #fff;
+}
+
+.baselode-3d-slider { width: 115px; }
+
+.baselode-3d-width-label { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.baselode-3d-width-label input { width: 58px; }
