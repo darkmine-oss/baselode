@@ -42,6 +42,22 @@ function BlockModel() {
     return calculatePropertyStats(blockData, selectedProperty);
   }, [blockData, selectedProperty]);
 
+  const overviewPoints = useMemo(() => {
+    if (!blockData?.length) return [];
+    const coordinates = blockData.map((row) => ({ x: Number(row.x ?? row.center_x), y: Number(row.y ?? row.center_y) }))
+      .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+    if (!coordinates.length) return [];
+    const minX = Math.min(...coordinates.map((point) => point.x));
+    const maxX = Math.max(...coordinates.map((point) => point.x));
+    const minY = Math.min(...coordinates.map((point) => point.y));
+    const maxY = Math.max(...coordinates.map((point) => point.y));
+    const offsetX = -(minX + maxX) / 2;
+    const offsetY = -(minY + maxY) / 2;
+    const stride = Math.max(1, Math.ceil(coordinates.length / 500));
+    return coordinates.filter((_, index) => index % stride === 0)
+      .map((point) => ({ x: point.x + offsetX, y: point.y + offsetY }));
+  }, [blockData]);
+
   // Load demo block model CSV on mount
   useEffect(() => {
     fetch('/data/blockmodel/demo_blockmodel.csv')
@@ -151,6 +167,7 @@ function BlockModel() {
           sectionAxis={sectionAxis} sectionPosition={sectionPosition} sectionRange={rangeFor(sectionAxis)} onToggleSection={toggleSection} onSetSectionPosition={updateSection}
           sliceAxis={sliceAxis} slicePosition={slicePosition} sliceWidth={sliceWidth} sliceRange={rangeFor(sliceAxis)} onToggleSlice={toggleSlice} onSetSliceAxis={updateSliceAxis} onSetSlicePosition={updateSlice} onSetSliceWidth={updateSliceWidth}
           overviewBounds={sceneRef.current?.lastBounds || null}
+          overviewPoints={overviewPoints}
         />
 
         {blockData && (

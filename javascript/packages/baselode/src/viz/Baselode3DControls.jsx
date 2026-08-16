@@ -4,7 +4,7 @@
  */
 import './Baselode3DControls.css';
 
-function SectionOverview({ bounds, sectionAxis, sectionPosition, sliceAxis, slicePosition, sliceWidth }) {
+function SectionOverview({ bounds, sectionAxis, sectionPosition, sliceAxis, slicePosition, sliceWidth, overviewPoints = [], overviewPaths = [] }) {
   if (!bounds || (!sectionAxis && !sliceAxis)) return null;
   const width = Number(bounds.maxX) - Number(bounds.minX);
   const height = Number(bounds.maxY) - Number(bounds.minY);
@@ -17,12 +17,23 @@ function SectionOverview({ bounds, sectionAxis, sectionPosition, sliceAxis, slic
   const isX = activeAxis === 'x';
   const linePosition = isX ? toX(activePosition) : toY(activePosition);
   const bandSize = isX ? (sliceWidth / width) * 120 : (sliceWidth / height) * 120;
+  const pathPoints = (path) => path
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
+    .map((point) => `${toX(point.x)},${toY(point.y)}`)
+    .join(' ');
 
   return (
     <div className="baselode-section-overview" aria-label="Top-down section overview">
       <div className="baselode-section-overview-title">Top down</div>
       <svg viewBox="0 0 140 140" role="img" aria-label={`${activeAxis.toUpperCase()} ${isSlab ? 'slice' : 'section'} position`}>
         <rect x="10" y="10" width="120" height="120" className="baselode-section-overview-bounds" />
+        {overviewPaths.map((path, index) => {
+          const points = pathPoints(path);
+          return points ? <polyline key={index} points={points} className="baselode-section-overview-trace" /> : null;
+        })}
+        {overviewPoints.map((point, index) => (
+          <circle key={index} cx={toX(point.x)} cy={toY(point.y)} r="1" className="baselode-section-overview-point" />
+        ))}
         {isSlab && (isX
           ? <rect x={linePosition - bandSize / 2} y="10" width={bandSize} height="120" className="baselode-section-overview-slab" />
           : <rect x="10" y={linePosition - bandSize / 2} width="120" height={bandSize} className="baselode-section-overview-slab" />
@@ -70,6 +81,8 @@ function Baselode3DControls({
   onSetSlicePosition = () => {},
   onSetSliceWidth = () => {},
   overviewBounds = null,
+  overviewPoints = [],
+  overviewPaths = [],
 }) {
   return (
     <div className="baselode-3d-controls">
@@ -80,6 +93,8 @@ function Baselode3DControls({
         sliceAxis={sliceAxis}
         slicePosition={slicePosition}
         sliceWidth={sliceWidth}
+        overviewPoints={overviewPoints}
+        overviewPaths={overviewPaths}
       />
       <button type="button" className="ghost-button" onClick={onRecenter}>
         Recenter to (0,0,0)

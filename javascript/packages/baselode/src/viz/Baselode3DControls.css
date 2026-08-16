@@ -80,6 +80,8 @@
 .baselode-section-overview-title { font-weight: 600; margin-bottom: 2px; }
 .baselode-section-overview svg { display: block; width: 140px; height: 140px; }
 .baselode-section-overview-bounds { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1; }
+.baselode-section-overview-point { fill: #64748b; opacity: 0.65; }
+.baselode-section-overview-trace { fill: none; stroke: #64748b; stroke-width: 1; opacity: 0.65; vector-effect: non-scaling-stroke; }
 .baselode-section-overview-slab { fill: rgba(37, 99, 235, 0.18); }
 .baselode-section-overview-line { stroke: #dc2626; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .baselode-section-overview-axis { display: block; text-align: center; color: #64748b; }

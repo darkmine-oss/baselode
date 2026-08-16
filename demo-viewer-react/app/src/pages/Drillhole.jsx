@@ -81,6 +81,12 @@ function Drillhole() {
     return classifyColumns(geologyHoles.flatMap((h) => h.points || [])).categoricalCols;
   }, [geologyHoles]);
 
+  const overviewPaths = useMemo(() => (holes || []).map((hole) => {
+    const points = hole.points || [];
+    const stride = Math.max(1, Math.ceil(points.length / 100));
+    return points.filter((_, index) => index % stride === 0).map((point) => ({ x: Number(point.x), y: Number(point.y) }));
+  }), [holes]);
+
   const isCategorical = useMemo(
     () => geologyCategories.includes(colorByVariable),
     [geologyCategories, colorByVariable]
@@ -540,6 +546,7 @@ function Drillhole() {
           sectionAxis={sectionAxis} sectionPosition={sectionPosition} sectionRange={rangeFor(sectionAxis)} onToggleSection={toggleSection} onSetSectionPosition={updateSection}
           sliceAxis={sliceAxis} slicePosition={slicePosition} sliceWidth={sliceWidth} sliceRange={rangeFor(sliceAxis)} onToggleSlice={toggleSlice} onSetSliceAxis={updateSliceAxis} onSetSlicePosition={updateSlice} onSetSliceWidth={updateSliceWidth}
           overviewBounds={sceneRef.current?.lastBounds || null}
+          overviewPaths={overviewPaths}
         />
         {selectedHole && (
           <div className="selection-popup">
