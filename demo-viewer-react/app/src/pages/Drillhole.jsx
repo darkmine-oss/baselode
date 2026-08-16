@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Baselode3DScene,
   Baselode3DControls,
+  SectionHelper,
+  SliceHelper,
   parseDrillholesCSV,
   parseSurveyCSV,
   minimumCurvatureDesurvey,
@@ -46,6 +48,8 @@ function Drillhole() {
   const renderedHolesRef = useRef(null);
   const restoredCameraRef = useRef(false);
   const zoomSliderPrevRef = useRef(50);
+  const sectionRef = useRef(null);
+  const sliceRef = useRef(null);
 
   const { collars, assayState, structureRows, geologyHoles } = useDemoData();
 
@@ -61,6 +65,11 @@ function Drillhole() {
   const [showStripLogs, setShowStripLogs] = useState(false);
   const [darkBackground, setDarkBackground] = useState(false);
   const [perspectiveLevel, setPerspectiveLevel] = useState(FOV_STEPS.length - 1);
+  const [sectionAxis, setSectionAxis] = useState(null);
+  const [sectionPosition, setSectionPosition] = useState(0);
+  const [sliceAxis, setSliceAxis] = useState(null);
+  const [slicePosition, setSlicePosition] = useState(0);
+  const [sliceWidth, setSliceWidth] = useState(50);
 
   const assayVariables = useMemo(() => {
     const numeric = (assayState?.numericProps || []).filter(Boolean);
@@ -71,6 +80,12 @@ function Drillhole() {
     if (!geologyHoles?.length) return [];
     return classifyColumns(geologyHoles.flatMap((h) => h.points || [])).categoricalCols;
   }, [geologyHoles]);
+
+  const overviewPaths = useMemo(() => (holes || []).map((hole) => {
+    const points = hole.points || [];
+    const stride = Math.max(1, Math.ceil(points.length / 100));
+    return points.filter((_, index) => index % stride === 0).map((point) => ({ x: Number(point.x), y: Number(point.y) }));
+  }), [holes]);
 
   const isCategorical = useMemo(
     () => geologyCategories.includes(colorByVariable),
@@ -225,6 +240,8 @@ function Drillhole() {
     let viewSaveInterval = null;
     scene.init(containerRef.current);
     scene.setDrillholeClickHandler((meta) => setSelectedHole(meta));
+    sectionRef.current = new SectionHelper(scene);
+    sliceRef.current = new SliceHelper(scene);
     scene.setControlMode(controlMode);
     if (typeof scene.setViewChangeHandler === 'function') {
       scene.setViewChangeHandler((viewState) => {
@@ -250,6 +267,8 @@ function Drillhole() {
       const viewState = getSceneViewState(scene);
       if (viewState) saveCachedCameraView(viewState);
       window.removeEventListener('resize', handleResize);
+      sectionRef.current?.dispose();
+      sliceRef.current?.dispose();
       scene.dispose();
     };
   }, []);
@@ -259,6 +278,29 @@ function Drillhole() {
       sceneRef.current.setControlMode(controlMode);
     }
   }, [controlMode]);
+
+  const rangeFor = (axis) => {
+    const bounds = sceneRef.current?.lastBounds;
+    if (!bounds) return null;
+    return axis === 'y' ? { min: bounds.minY, max: bounds.maxY } : { min: bounds.minX, max: bounds.maxX };
+  };
+
+  const toggleSection = (axis) => {
+    if (sectionAxis === axis) { sectionRef.current?.disable(); setSectionAxis(null); return; }
+    sliceRef.current?.disable();
+    const range = rangeFor(axis); const position = range ? (range.min + range.max) / 2 : 0;
+    sectionRef.current?.enable(axis, position); setSectionAxis(axis); setSectionPosition(position); setSliceAxis(null);
+  };
+  const updateSection = (position) => { sectionRef.current?.setPosition(position); setSectionPosition(position); };
+  const toggleSlice = (axis) => {
+    if (sliceAxis) { sliceRef.current?.disable(); setSliceAxis(null); return; }
+    sectionRef.current?.disable();
+    const range = rangeFor(axis); const position = range ? (range.min + range.max) / 2 : 0;
+    sliceRef.current?.enable(axis, position, sliceWidth); setSliceAxis(axis); setSlicePosition(position); setSectionAxis(null);
+  };
+  const updateSliceAxis = (axis) => { const range = rangeFor(axis); const position = range ? (range.min + range.max) / 2 : 0; sliceRef.current?.enable(axis, position, sliceWidth); setSliceAxis(axis); setSlicePosition(position); };
+  const updateSlice = (position) => { sliceRef.current?.setPosition(position); setSlicePosition(position); };
+  const updateSliceWidth = (width) => { if (!Number.isFinite(width) || width <= 0) return; sliceRef.current?.setWidth(width); setSliceWidth(width); };
 
   useEffect(() => {
     if (sceneRef.current && holes && holes.length) {
@@ -501,6 +543,10 @@ function Drillhole() {
           onFit={() => sceneRef.current?.focusOnLastBounds(1.2)}
           darkBackground={darkBackground}
           onToggleDarkBackground={(e) => setDarkBackground(e.target.checked)}
+          sectionAxis={sectionAxis} sectionPosition={sectionPosition} sectionRange={rangeFor(sectionAxis)} onToggleSection={toggleSection} onSetSectionPosition={updateSection}
+          sliceAxis={sliceAxis} slicePosition={slicePosition} sliceWidth={sliceWidth} sliceRange={rangeFor(sliceAxis)} onToggleSlice={toggleSlice} onSetSliceAxis={updateSliceAxis} onSetSlicePosition={updateSlice} onSetSliceWidth={updateSliceWidth}
+          overviewBounds={sceneRef.current?.lastBounds || null}
+          overviewPaths={overviewPaths}
         />
         {selectedHole && (
           <div className="selection-popup">

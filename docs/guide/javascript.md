@@ -62,6 +62,29 @@ order southwest → southeast → northeast → northwest → southwest.
 npm install react react-dom three three-viewport-gizmo plotly.js-dist-min papaparse
 ```
 
+## 3D sections and slabs
+
+`SectionHelper` provides an orthographic vertical cross-section aligned to X
+or Y. `SliceHelper` retains a finite, movable slab around an X or Y plane.
+Both operate on a `Baselode3DScene`, retain clipping planes supplied by the
+host application, and are mutually exclusive.
+
+```js
+import { SectionHelper, SliceHelper } from 'baselode';
+
+const section = new SectionHelper(scene).enable('x', 250);
+section.setPosition(275);
+section.disable();
+
+const slab = new SliceHelper(scene).enable('y', 500, 25);
+slab.setWidth(40);
+slab.step(10);
+slab.disable();
+```
+
+The demo’s Block Model and Drillhole pages include controls for both modes.
+Freehand knife-line slicing is intentionally not part of this API yet.
+
 ---
 
 ## Data Model
