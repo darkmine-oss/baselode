@@ -20,6 +20,12 @@ function normalizeHoleIdValue(value) {
   return `${value}`.trim();
 }
 
+function normalizeHoleIdKey(value) {
+  // Hole identifiers are join keys across source tables. Match the legacy
+  // visualisation path and Python loaders by treating case as insignificant.
+  return normalizeHoleIdValue(value).toLowerCase();
+}
+
 /**
  * Canonicalize hole ID column across rows with varying column names
  * @private
@@ -35,7 +41,8 @@ function canonicalizeHoleIdRows(rows = [], holeIdCol = null) {
     aliasCol: resolved,
     rows: rows.map((row) => ({
       ...row,
-      hole_id: normalizeHoleIdValue(row?.[resolved])
+      hole_id: normalizeHoleIdKey(row?.[resolved]),
+      __hole_id_original: normalizeHoleIdValue(row?.[resolved])
     }))
   };
 }
@@ -172,7 +179,7 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
     const dipPrev = sorted[0].dip;
 
     const firstRecord = {
-      hole_id: holeId,
+      hole_id: collar.__hole_id_original || holeId,
       md: mdCursor,
       x,
       y,
@@ -212,7 +219,7 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
         z += disp.dz;
 
         const record = {
-          hole_id: holeId,
+          hole_id: collar.__hole_id_original || holeId,
           md: mdCursor,
           x,
           y,

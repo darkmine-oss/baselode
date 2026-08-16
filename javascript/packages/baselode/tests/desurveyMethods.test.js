@@ -77,6 +77,20 @@ describe('desurveyMethods parity helpers', () => {
     expect(toe.z).toBe(toe.elevation);
   });
 
+  it('joins collar and survey hole IDs case-insensitively', () => {
+    const traces = minimumCurvatureDesurvey(
+      [{ hole_id: 'DH001', easting: 0, northing: 0, elevation: 0 }],
+      [
+        { hole_id: 'dh001', depth: 0, azimuth: 0, dip: -90 },
+        { hole_id: 'dh001', depth: 10, azimuth: 0, dip: -90 }
+      ],
+      { step: null }
+    );
+    expect(traces).toHaveLength(2);
+    expect(traces.at(-1).hole_id).toBe('DH001');
+    expect(traces.at(-1).elevation).toBeCloseTo(-10, 6);
+  });
+
   it('matches the wellpathpy minimum-curvature fixture at survey stations', () => {
     const tolerance = fixture.tolerance_position_m;
     fixture.trajectories.forEach((trajectory) => {
