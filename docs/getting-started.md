@@ -83,13 +83,14 @@ traces = desurvey.desurvey_holes(collars, surveys)
 ### JavaScript — load CSV and desurvey
 
 ```js
-import { loadAssayFile, parseSurveyCSV, desurveyTraces } from 'baselode';
+import { loadAssayFile, minimumCurvatureDesurvey } from 'baselode';
 
-const collarsText = await fetch('/data/collars.csv').then(r => r.text());
-const surveysText = await fetch('/data/surveys.csv').then(r => r.text());
-
-const surveyTable = parseSurveyCSV(surveysText);
-const traces      = desurveyTraces(collarsText, surveyTable);
+const collars = [{ hole_id: 'DH001', easting: 500000, northing: 6900000, elevation: 300 }];
+const surveys = [
+  { hole_id: 'DH001', depth: 0, azimuth: 90, dip: -60 },
+  { hole_id: 'DH001', depth: 100, azimuth: 90, dip: -60 }
+];
+const traces = minimumCurvatureDesurvey(collars, surveys, { step: 1 });
 ```
 
 ---

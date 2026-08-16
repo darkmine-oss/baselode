@@ -112,8 +112,7 @@ export {
 
 export {
   parseSurveyCSV,
-  parseSurveyFromRows,
-  desurveyTraces
+  parseSurveyFromRows
 } from './data/desurvey.js';
 
 export {

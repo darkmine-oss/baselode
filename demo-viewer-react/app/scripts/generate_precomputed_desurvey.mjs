@@ -1,16 +1,23 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Papa from 'papaparse';
 import proj4 from 'proj4';
-import { desurveyTraces } from '../../../javascript/packages/baselode/src/data/desurvey.js';
+import { minimumCurvatureDesurvey } from '../../../javascript/packages/baselode/src/data/desurveyMethods.js';
 import { standardizeColumns } from '../../../javascript/packages/baselode/src/data/keying.js';
 import { HOLE_ID, LATITUDE, LONGITUDE, DEPTH, AZIMUTH, DIP, PROJECT_ID, ELEVATION } from '../../../javascript/packages/baselode/src/data/datamodel.js';
 
-const appRoot = path.resolve(process.cwd(), 'demo-viewer-react/app');
+const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = path.resolve(appRoot, '../..');
 const collarsPath = path.join(repoRoot, 'test/data/gswa/gswa_sample_collars.csv');
 const surveyPath = path.join(repoRoot, 'test/data/gswa/gswa_sample_survey.csv');
 const outPath = path.join(repoRoot, 'test/data/gswa/demo_gswa_precomputed_desurveyed.csv');
+
+proj4.defs('EPSG:28350', '+proj=utm +zone=50 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
+const projectTo28350 = (lat, lon) => {
+  const [x, y] = proj4('EPSG:4326', 'EPSG:28350', [lon, lat]);
+  return { x, y };
+};
 
 const collarsCsv = await fs.readFile(collarsPath, 'utf8');
 const surveyCsv = await fs.readFile(surveyPath, 'utf8');
@@ -31,7 +38,8 @@ const collars = collarRows
     const collarId = companyHoleId || holeId;
     const primaryId = collarId.toLowerCase();
     const elevation = Number(standardized[ELEVATION] ?? standardized.elevation ?? 0);
-    return { lat, lng, elevation, project, holeId, companyHoleId, collarId, primaryId };
+    const { x: easting, y: northing } = projectTo28350(lat, lng);
+    return { lat, lng, easting, northing, elevation, project, holeId, companyHoleId, collarId, primaryId };
   })
   .filter((r) => Number.isFinite(r.lat) && Number.isFinite(r.lng) && r.holeId && r.primaryId);
 
@@ -60,37 +68,49 @@ const surveyRows = surveyRowsRaw
 
 console.log(`Loaded ${collars.length} collars and ${surveyRows.length} survey records`);
 
-const desurveyed = desurveyTraces(collars, surveyRows, { primaryKey: 'collarId', customKey: '' });
+const desurveyed = minimumCurvatureDesurvey(
+  collars.map((collar) => ({
+    hole_id: collar.primaryId,
+    easting: collar.easting,
+    northing: collar.northing,
+    elevation: collar.elevation
+  })),
+  surveyRows.map((survey) => ({
+    hole_id: survey.primary_id,
+    depth: survey[DEPTH],
+    azimuth: survey[AZIMUTH],
+    dip: survey[DIP]
+  })),
+  { step: null }
+);
 
-proj4.defs('EPSG:28350', '+proj=utm +zone=50 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs');
-const projectTo28350 = (lat, lon) => {
-  const [x, y] = proj4('EPSG:4326', 'EPSG:28350', [lon, lat]);
-  return { x, y };
-};
+const centroid = collars.reduce((acc, collar) => ({ x: acc.x + collar.easting, y: acc.y + collar.northing }), { x: 0, y: 0 });
+centroid.x /= collars.length;
+centroid.y /= collars.length;
 
-const projectedCollars = collars.map((c) => ({ ...c, zone50: projectTo28350(c.lat, c.lng) }));
-const centroid = projectedCollars.reduce((acc, c) => ({ x: acc.x + c.zone50.x, y: acc.y + c.zone50.y }), { x: 0, y: 0 });
-centroid.x /= projectedCollars.length;
-centroid.y /= projectedCollars.length;
+const collarByPrimaryId = new Map(collars.map((collar) => [collar.primaryId, collar]));
 
 const lines = ['hole_id,company_hole_id,project,order,md,x,y,z'];
 let pointCount = 0;
 let holeCount = 0;
-for (const hole of desurveyed) {
-  const companyHoleId = hole?.collar?.companyHoleId ? `${hole.collar.companyHoleId}`.trim() : '';
-  const exportHoleId = companyHoleId || `${hole.id}`;
-  const pts = (hole.points || [])
-    .map((p) => {
-      const proj = projectTo28350(p.lat ?? 0, p.lng ?? 0);
-      const collarElevation = Number.isFinite(hole.collar?.elevation) ? hole.collar.elevation : 0;
-      return { x: proj.x - centroid.x, y: proj.y - centroid.y, z: p.z + collarElevation, md: p.md };
-    })
-    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
+const pointsByHole = new Map();
+desurveyed.forEach((point) => {
+  if (!pointsByHole.has(point.hole_id)) pointsByHole.set(point.hole_id, []);
+  pointsByHole.get(point.hole_id).push(point);
+});
+for (const [primaryId, trace] of pointsByHole) {
+  const collar = collarByPrimaryId.get(primaryId);
+  if (!collar) continue;
+  const companyHoleId = `${collar.companyHoleId || ''}`.trim();
+  const exportHoleId = companyHoleId || `${collar.holeId}`;
+  const pts = trace
+    .map((point) => ({ x: point.x - centroid.x, y: point.y - centroid.y, z: point.z, md: point.md }))
+    .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z));
   if (pts.length < 2) continue;
   holeCount += 1;
   for (let i = 0; i < pts.length; i += 1) {
     const p = pts[i];
-    lines.push(`${csv(exportHoleId)},${csv(companyHoleId)},${csv(hole.project ?? '')},${i},${num(p.md)},${num(p.x)},${num(p.y)},${num(p.z)}`);
+    lines.push(`${csv(exportHoleId)},${csv(companyHoleId)},${csv(collar.project)},${i},${num(p.md)},${num(p.x)},${num(p.y)},${num(p.z)}`);
     pointCount += 1;
   }
 }
