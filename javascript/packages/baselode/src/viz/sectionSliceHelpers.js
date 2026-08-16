@@ -34,7 +34,7 @@ export class SectionHelper {
     this.plane = null;
     this.saved = null;
     this.savedLocalClippingEnabled = false;
-    this.sectionTarget = null;
+    this.sectionAxisPosition = 0;
     this.sectionCameraDistance = 1;
   }
 
@@ -60,7 +60,7 @@ export class SectionHelper {
   setPosition(position) {
     if (!Number.isFinite(position)) return this;
     this.position = position;
-    if (this.plane) this.plane.constant = position;
+    if (this.plane) this.plane.constant = -position;
     this._setSectionViewPosition();
     return this;
   }
@@ -84,7 +84,6 @@ export class SectionHelper {
     }
     if (this.ctx._baselodeViewingHelper === this) this.ctx._baselodeViewingHelper = null;
     this.plane = null;
-    this.sectionTarget = null;
     this.active = false;
     return this;
   }
@@ -111,7 +110,7 @@ export class SectionHelper {
     const ortho = new THREE.OrthographicCamera(-halfHeight * aspect, halfHeight * aspect, halfHeight, -halfHeight, 0.01, 10_000_000);
     const target = controls.target.clone();
     const direction = axisNormal(this.axis);
-    this.sectionTarget = target.clone();
+    this.sectionAxisPosition = target[this.axis];
     this.sectionCameraDistance = Math.max(distance, 1);
     ortho.up.set(0, 0, 1);
     ortho.position.copy(target).addScaledVector(direction, -this.sectionCameraDistance);
@@ -127,12 +126,12 @@ export class SectionHelper {
 
   _setSectionViewPosition() {
     const { camera, controls } = this.ctx;
-    if (!camera?.isOrthographicCamera || !controls || !this.sectionTarget) return;
-    this.sectionTarget[this.axis] = this.position;
-    const direction = axisNormal(this.axis);
-    controls.target.copy(this.sectionTarget);
-    camera.position.copy(this.sectionTarget).addScaledVector(direction, -this.sectionCameraDistance);
-    camera.lookAt(this.sectionTarget);
+    if (!camera?.isOrthographicCamera || !controls) return;
+    const delta = this.position - this.sectionAxisPosition;
+    controls.target[this.axis] += delta;
+    camera.position[this.axis] += delta;
+    this.sectionAxisPosition = this.position;
+    camera.lookAt(controls.target);
     controls.update();
   }
 

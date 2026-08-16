@@ -31,10 +31,14 @@ describe('section and slab helpers', () => {
     expect(ctx.camera.isOrthographicCamera).toBe(true);
     expect(ctx.controls.enableRotate).toBe(false);
     expect(ctx.renderer.clippingPlanes).toHaveLength(2);
+    ctx.controls.target.y = 17;
+    ctx.camera.position.y = 17;
     helper.setPosition(30);
-    expect(helper.plane.constant).toBe(30);
+    expect(helper.plane.constant).toBe(-30);
     expect(ctx.controls.target.x).toBe(30);
     expect(ctx.camera.position.x).toBeLessThan(30);
+    expect(ctx.controls.target.y).toBe(17);
+    expect(ctx.camera.position.y).toBe(17);
 
     helper.disable();
     expect(ctx.camera.isPerspectiveCamera).toBe(true);
