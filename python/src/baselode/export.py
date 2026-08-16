@@ -101,6 +101,13 @@ def _normalize_identifier_value(value):
     value = _normalize_object_value(value)
     if value is None:
         return None
+    if (
+        isinstance(value, numbers.Real)
+        and not isinstance(value, (bool, np.bool_))
+        and np.isfinite(value)
+        and float(value).is_integer()
+    ):
+        return str(int(value))
     return str(value)
 
 
@@ -129,7 +136,8 @@ def normalize_table(table, identifier_columns=None):
     """Normalize a DataFrame for consistent CSV and Parquet serialization.
 
     Known canonical identifier columns, plus any caller-declared identifier
-    columns, are stored as nullable strings. Dicts, lists, tuples, sets, and
+    columns, are stored as nullable strings. Integer-valued numeric identifiers
+    omit pandas float-upcast suffixes such as ``.0``. Dicts, lists, tuples, sets, and
     arrays in object columns become deterministic JSON strings. Other object
     columns containing incompatible scalar types become nullable strings.
     Numeric columns retain their numeric dtype and null values remain null.

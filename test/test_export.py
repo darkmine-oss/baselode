@@ -72,11 +72,20 @@ def test_write_table_failure_does_not_replace_existing_target(tmp_path, monkeypa
 
 
 def test_normalize_table_stringifies_caller_declared_identifier():
-    source = pd.DataFrame({"external_id": pd.Series([101, 102, None], dtype=object)})
+    source = pd.DataFrame({"external_id": [101, 102, None]})
 
     normalized = baselode.export.normalize_table(source, identifier_columns="external_id")
 
     assert normalized["external_id"].tolist() == ["101", "102", pd.NA]
+
+
+def test_normalize_table_removes_float_upcast_suffix_from_canonical_identifier():
+    source = pd.DataFrame({"hole_id": [101, 102, None]})
+
+    normalized = baselode.export.normalize_table(source)
+
+    assert source["hole_id"].dtype == "float64"
+    assert normalized["hole_id"].tolist() == ["101", "102", pd.NA]
 
 
 def test_write_table_pair_normalizes_only_once(tmp_path, monkeypatch):
