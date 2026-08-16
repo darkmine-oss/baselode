@@ -108,6 +108,43 @@ const assays   = loadAssays(assaysText);
 const dataset = assembleDataset({ collars, surveys, assays });
 ```
 
+### Already-parsed rows
+
+When another decoder has already produced row objects—for example Parquet,
+Arrow, LAS, or a database query—pass those rows directly instead of converting
+them to CSV:
+
+```js
+import {
+  parseAssaysFromRows,
+  parseStructuralFromRows,
+  parseUnifiedDatasetFromRows,
+} from 'baselode';
+
+const assays = parseAssaysFromRows(parquetAssayRows);
+const structural = parseStructuralFromRows(parquetStructuralRows);
+const unified = parseUnifiedDatasetFromRows({
+  assayRows: parquetAssayRows,
+  structuralRows: parquetStructuralRows,
+  geologyRows: parquetGeologyRows,
+});
+```
+
+Row entry points are synchronous and do not mutate their inputs. They avoid a
+rows → CSV → rows round trip and preserve typed extra values. Existing CSV
+functions remain available as adapters. Assay CSV scans continue to use
+PapaParse incrementally for large files.
+
+The specialized row APIs are `parseAssayHoleIdsFromRows`,
+`parseAssayHoleIdsWithAssaysFromRows`, `parseAssayHoleFromRows`,
+`parseAssaysFromRows`, `loadAssayFromRows`, `parseSurveyFromRows`,
+`parseDrillholesFromRows`, `parseBlockModelFromRows`,
+`parseStructuralPointsFromRows`, `parseStructuralIntervalsFromRows`,
+`parseStructuralFromRows`, `parseAssayHolesFromRows`,
+`parseGeologyFromRows`, `parseUnifiedDatasetFromRows`, and
+`parseGeophysicsFromRows`. The higher-level `loadTable`, `loadCollars`,
+`loadSurveys`, `loadAssays`, and `loadGeology` APIs also accept row arrays.
+
 ### Assay-focused loaders
 
 For large assay CSVs with multiple analyte columns:

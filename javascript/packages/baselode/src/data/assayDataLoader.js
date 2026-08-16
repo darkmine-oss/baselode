@@ -2,7 +2,12 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
-import { parseAssayHole, parseAssayHoleIdsWithAssays, parseAssaysCSV } from './assayLoader.js';
+import {
+  parseAssayHole,
+  parseAssayHoleIdsWithAssays,
+  parseAssaysCSV,
+  parseAssaysFromRows,
+} from './assayLoader.js';
 import { buildTraceConfigsForHoleIds, reorderHoleIds } from './traceGridConfig.js';
 import { classifyColumns } from './columnMeta.js';
 
@@ -97,7 +102,23 @@ export function buildAssayState(holes = [], focusedHoleId = '') {
  * @throws {Error} If no valid assay intervals found
  */
 export async function loadAssayFile(file, focusedHoleId = '', sourceColumnMap = null) {
-  const { holes } = await parseAssaysCSV(file, sourceColumnMap);
+  const { holes } = await parseAssaysCSV(file, null, sourceColumnMap);
+  const state = buildAssayState(holes, focusedHoleId);
+  if (!state) throw new Error('No valid assay intervals found.');
+  return state;
+}
+
+/**
+ * Build complete assay state directly from parsed row objects.
+ *
+ * @param {Array<Object>} rows - Parsed assay row objects
+ * @param {string} focusedHoleId - Hole ID to focus on
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Object} Complete assay state
+ * @throws {Error} If no valid assay intervals are found
+ */
+export function loadAssayFromRows(rows, focusedHoleId = '', sourceColumnMap = null) {
+  const { holes } = parseAssaysFromRows(rows, null, sourceColumnMap);
   const state = buildAssayState(holes, focusedHoleId);
   if (!state) throw new Error('No valid assay intervals found.');
   return state;

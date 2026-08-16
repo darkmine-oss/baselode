@@ -8,6 +8,24 @@ import { withDataErrorContext } from './dataErrorUtils.js';
 import { HOLE_ID, LATITUDE, LONGITUDE, AZIMUTH, DIP, DEPTH, PROJECT_ID } from './datamodel.js';
 
 /**
+ * Normalize already-parsed survey rows.
+ *
+ * @param {Array<Object>} rows - Parsed survey row objects
+ * @param {Object|null} sourceColumnMap - Optional column name mappings
+ * @returns {Array<Object>} Valid normalized survey rows
+ */
+export function parseSurveyFromRows(rows, sourceColumnMap = null) {
+  return (rows || [])
+    .map((row) => normalizeRow(row, sourceColumnMap))
+    .filter((row) => (
+      row[HOLE_ID]
+      && Number.isFinite(row[DEPTH])
+      && Number.isFinite(row[DIP])
+      && Number.isFinite(row[AZIMUTH])
+    ));
+}
+
+/**
  * Parse survey CSV file containing downhole survey measurements
  * Expected columns: hole_id, depth, azimuth, dip
  * @param {File|Blob} file - Survey CSV file
@@ -20,12 +38,7 @@ export function parseSurveyCSV(file, sourceColumnMap = null) {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const rows = results.data
-          .map((row) => normalizeRow(row, sourceColumnMap))
-          .filter((row) => row[HOLE_ID] && Number.isFinite(row[DEPTH]) && Number.isFinite(row[DIP]) && Number.isFinite(row[AZIMUTH]));
-        resolve(rows);
-      },
+      complete: (results) => resolve(parseSurveyFromRows(results.data, sourceColumnMap)),
       error: (err) => reject(withDataErrorContext('parseSurveyCSV', err))
     });
   });

@@ -75,9 +75,13 @@ export {
 
 export {
   parseAssayHoleIds,
+  parseAssayHoleIdsFromRows,
   parseAssayHoleIdsWithAssays,
+  parseAssayHoleIdsWithAssaysFromRows,
   parseAssayHole,
-  parseAssaysCSV
+  parseAssayHoleFromRows,
+  parseAssaysCSV,
+  parseAssaysFromRows
 } from './data/assayLoader.js';
 
 export {
@@ -102,11 +106,13 @@ export {
   loadAssayMetadata,
   loadAssayHole,
   buildAssayState,
-  loadAssayFile
+  loadAssayFile,
+  loadAssayFromRows
 } from './data/assayDataLoader.js';
 
 export {
   parseSurveyCSV,
+  parseSurveyFromRows,
   desurveyTraces
 } from './data/desurvey.js';
 
@@ -120,7 +126,8 @@ export {
 } from './data/desurveyMethods.js';
 
 export {
-  parseDrillholesCSV
+  parseDrillholesCSV,
+  parseDrillholesFromRows
 } from './data/drillholeLoader.js';
 
 export {
@@ -137,6 +144,7 @@ export {
 
 export {
   parseBlockModelCSV,
+  parseBlockModelFromRows,
   normalizeBlockRow,
   loadBlockModelMetadata,
   calculatePropertyStats,
@@ -148,16 +156,22 @@ export {
 
 export {
   parseStructuralPointsCSV,
+  parseStructuralPointsFromRows,
   parseStructuralIntervalsCSV,
+  parseStructuralIntervalsFromRows,
   parseStructuralCSV,
+  parseStructuralFromRows,
   validateStructuralPoints,
   groupRowsByHole
 } from './data/structuralLoader.js';
 
 export {
   parseAssayCsvTextToHoles,
+  parseAssayHolesFromRows,
   parseGeologyCsvText,
-  parseUnifiedDataset
+  parseGeologyFromRows,
+  parseUnifiedDataset,
+  parseUnifiedDatasetFromRows
 } from './data/unifiedLoader.js';
 
 export {
@@ -222,6 +236,7 @@ export { DrillholeSet } from './data/drillholeSet.js';
 
 export {
   parseGeophysicsCSV,
+  parseGeophysicsFromRows,
   geophysicsToStripLogs,
 } from './data/geophysicsLoader.js';
 

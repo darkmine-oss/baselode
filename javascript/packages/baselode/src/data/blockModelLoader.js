@@ -48,6 +48,24 @@ export function normalizeBlockRow(row) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Parse already-decoded block model rows.
+ *
+ * @param {Array<Object>} rows - Parsed block model row objects
+ * @returns {{data: Array<Object>, properties: Array<string>}}
+ *   Parsed blocks and property column names
+ */
+export function parseBlockModelFromRows(rows) {
+  const normalized = (rows || []).map(normalizeBlockRow);
+  const data = normalized.filter(
+    (row) => row.x !== null && row.y !== null && row.z !== null,
+  );
+  const properties = Object.keys(data[0] || {}).filter(
+    (key) => !GEOMETRY_COLS.includes(key),
+  );
+  return { data, properties };
+}
+
+/**
  * Parse block model CSV data.
  *
  * Accepts columns named ``x/y/z/dx/dy/dz`` (baselode canonical) or the
@@ -64,18 +82,7 @@ export function parseBlockModelCSV(file) {
       header: true,
       dynamicTyping: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const normalized = (results.data || []).map(normalizeBlockRow);
-        const data = normalized.filter(
-          (row) => row.x !== null && row.y !== null && row.z !== null
-        );
-
-        const propertyColumns = Object.keys(data[0] || {}).filter(
-          (key) => !GEOMETRY_COLS.includes(key)
-        );
-
-        resolve({ data, properties: propertyColumns });
-      },
+      complete: (results) => resolve(parseBlockModelFromRows(results.data)),
       error: (error) => {
         reject(withDataErrorContext('parseBlockModelCSV', error));
       }
