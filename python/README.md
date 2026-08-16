@@ -24,6 +24,29 @@ import baselode.drill.data
 gdf = baselode.drill.data.load_collars(COLLAR_CSV)
 ```
 
+### Export canonical projects
+
+Use `baselode.export` to normalize serialization-sensitive values once and
+atomically write matching CSV/Parquet tables plus a manifest:
+
+```python
+import baselode.export
+
+manifest = baselode.export.write_project(
+    {
+        "collars": collars,
+        "survey": survey,
+        "assays": assays,
+    },
+    "output/my-project",
+)
+```
+
+Known canonical identifiers such as `hole_id`, `sample_id`, and `project_id`
+are exported as nullable strings. Mixed object columns are string-normalized,
+nested values are JSON-encoded, and nulls remain null. Source-specific joins,
+filtering, and output policy belong in the calling adaptor or workflow.
+
 ---
 
 ## Included in 0.1.0
