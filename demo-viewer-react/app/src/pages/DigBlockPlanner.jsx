@@ -16,7 +16,8 @@ const DEFAULT_CONTROLS = {
   weights: { tonnes: 1, grade: 0.8, shape: 0.65, material: 0.15, hardness: 0.1 },
 };
 
-const BLOCK_COLOURS = ['#8bd3c7', '#f2c14e', '#ef8354', '#83a6ed', '#b8de6f', '#d4a5ff', '#ff9fbd'];
+const ABOVE_CUTOFF_COLOUR = '#dc2626';
+const BELOW_CUTOFF_COLOUR = '#2563eb';
 
 function formatKt(tonnes) {
   return `${(tonnes / 1000).toFixed(tonnes >= 100_000 ? 0 : 1)} kt`;
@@ -144,18 +145,22 @@ function DigBlockPlanner() {
                 </rect>
               ))}
 
-              {solution.blocks.map((block, index) => (
-                <polygon
-                  key={block.id}
-                  points={polygonPoints(block.polygon)}
-                  fill={BLOCK_COLOURS[index % BLOCK_COLOURS.length]}
-                  fillOpacity={selected ? (selected.id === block.id ? 0.55 : 0.08) : 0.18}
-                  className={`dig-result-block${selected?.id === block.id ? ' selected' : ''}`}
-                  onClick={() => setSelectedId((current) => current === block.id ? null : block.id)}
-                >
-                  <title>{block.id}: {formatKt(block.tonnes)} · {block.headGrade.toFixed(1)}% Fe</title>
-                </polygon>
-              ))}
+              {solution.blocks.map((block) => {
+                const aboveCutoff = block.headGrade >= controls.targetGrade;
+                return (
+                  <polygon
+                    key={block.id}
+                    points={polygonPoints(block.polygon)}
+                    fill={aboveCutoff ? ABOVE_CUTOFF_COLOUR : BELOW_CUTOFF_COLOUR}
+                    fillOpacity={selected ? (selected.id === block.id ? 0.88 : 0.12) : 0.68}
+                    className={`dig-result-block ${aboveCutoff ? 'above-cutoff' : 'below-cutoff'}${selected?.id === block.id ? ' selected' : ''}`}
+                    aria-label={`${block.id}, ${aboveCutoff ? 'at or above' : 'below'} grade cut-off`}
+                    onClick={() => setSelectedId((current) => current === block.id ? null : block.id)}
+                  >
+                    <title>{block.id}: {formatKt(block.tonnes)} · {block.headGrade.toFixed(1)}% Fe · {aboveCutoff ? 'at or above' : 'below'} {controls.targetGrade.toFixed(1)}% cut-off</title>
+                  </polygon>
+                );
+              })}
 
               {solution.blocks.map((block) => (
                 <g key={`${block.id}-label`} className="dig-block-label" pointerEvents="none">
@@ -178,9 +183,9 @@ function DigBlockPlanner() {
             </svg>
 
             <div className="dig-legend">
-              <span><i className="grade-low" /> Lower Fe</span>
-              <span><i className="grade-high" /> Higher Fe</span>
-              <span><i className="block-line" /> Dig block</span>
+              <span><i className="block-above" /> ≥ {controls.targetGrade.toFixed(1)}% Fe</span>
+              <span><i className="block-below" /> &lt; {controls.targetGrade.toFixed(1)}% Fe</span>
+              <span><i className="cell-grade-scale" /> Source-cell Fe</span>
             </div>
           </div>
 
@@ -190,6 +195,12 @@ function DigBlockPlanner() {
                 <div><span>Selected</span><strong>{selected.id}</strong></div>
                 <div><span>Tonnes</span><strong>{formatKt(selected.tonnes)}</strong></div>
                 <div><span>Head grade</span><strong>{selected.headGrade.toFixed(1)}% Fe</strong></div>
+                <div>
+                  <span>Cut-off class</span>
+                  <strong className={selected.headGrade >= controls.targetGrade ? 'cutoff-above' : 'cutoff-below'}>
+                    {selected.headGrade >= controls.targetGrade ? 'At / above' : 'Below'} {controls.targetGrade.toFixed(1)}%
+                  </strong>
+                </div>
                 <div><span>Shape</span><strong>{selected.faceWidth.toFixed(0)} × {selected.advanceDepth.toFixed(0)} m</strong></div>
                 <div><span>Material</span><strong>{selected.dominantGeology}</strong></div>
                 <button type="button" onClick={() => setSelectedId(null)}>Clear</button>
@@ -207,7 +218,7 @@ function DigBlockPlanner() {
           <div className="dig-control-group">
             <h3>Production targets</h3>
             <Control label="Target tonnes" value={controls.targetTonnes / 1000} min={6} max={20} step={0.5} unit=" kt" onChange={(value) => update('targetTonnes', value * 1000)} />
-            <Control label="Target head grade" value={controls.targetGrade} min={52} max={62} step={0.1} unit="% Fe" onChange={(value) => update('targetGrade', value)} />
+            <Control label="Target / grade cut-off" value={controls.targetGrade} min={52} max={62} step={0.1} unit="% Fe" onChange={(value) => update('targetGrade', value)} />
           </div>
 
           <div className="dig-control-group">

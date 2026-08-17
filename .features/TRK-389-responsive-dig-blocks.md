@@ -37,6 +37,9 @@ clearly labelled, redistributable synthetic iron-ore bench instead.
   approximately 200 kt convex blast outline.
 - Show grade-coloured source cells, generated dig polygons, dig direction,
   labels, selection details and live outcome cards in an SVG plan.
+- Classify generated blocks from their tonnes-weighted head grade: red at or
+  above the target/cut-off grade and blue below it, with textual legend and
+  selection details so the result does not rely on colour alone.
 - Recompute immediately for target tonnes, target Fe, direction, objective
   weights, face/depth ratio and minimum face width controls.
 

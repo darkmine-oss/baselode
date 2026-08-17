@@ -235,7 +235,9 @@ ring. The first pass expects a convex blast and does not replace production
 scheduling, blast-movement correction, or engineering sign-off.
 
 The demo route `/dig-block-planner` includes a deterministic ~206 kt iron-ore
-bench and recomputes interactively as targets and priorities move.
+bench and recomputes interactively as targets and priorities move. Generated
+dig blocks at or above the target/cut-off grade are red; blocks below it are
+blue. The source cells retain a continuous Fe heatmap beneath the result.
 
 MineLib's [Newman1](https://minelib.org/v1/newman1.xhtml) has compatible
 coordinates, type, grade, and tonnes columns, but its block dimensions and
