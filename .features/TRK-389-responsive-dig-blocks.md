@@ -1,0 +1,58 @@
+# TRK-389 — Responsive dig-block optimisation
+
+## Intent
+
+Add a reusable, deterministic first-pass dig-block partitioner and a 2D demo
+that recomputes while planning controls move. The solve targets tonnes and Fe
+head grade while favouring contiguous, direction-aligned blocks with a wide
+excavator entry face.
+
+## Algorithm
+
+- Intersect every axis-aligned source-cell footprint with the convex blast and
+  generated dig polygons. Prorate tonnes and physicals by exact area fraction;
+  multiply by `dz` for vertical-prism intersection volume. Preserve fractional
+  assignments when one cell crosses multiple dig-block boundaries.
+- Rotate centres into mining coordinates: forward is the bearing clockwise
+  from north; cross is the entry-face direction.
+- Divide the blast into forward bands sized from target tonnes and the desired
+  face-width/depth ratio.
+- Use a bounded-transition shortest-path search inside each band to choose
+  contiguous cross-direction cuts. Score tonnes error, tonnes-weighted Fe
+  error, face geometry, geology mixing and hardness variation. The fixed
+  candidate budget keeps solve cost approximately linear in source-cell count.
+- Intersect every direction-aligned rectangle with the blast polygon and return
+  polygons, cell assignments, block physicals and aggregate score metrics.
+- Keep the solver pure and independent of React/Three.js.
+
+## Source-data decision
+
+MineLib Newman1 was evaluated as the user-suggested example. Its block file has
+`x`, `y`, `z`, type, grade and tonnes, but its own documentation says the block
+size and metal type are unknown. The download is also intended for academic use
+rather than redistribution. Baselode therefore documents the mapping but does
+not bundle or silently invent the missing physical dimensions; the demo uses a
+clearly labelled, redistributable synthetic iron-ore bench instead.
+
+## Demo
+
+- Generate a deterministic synthetic, single-bench iron-ore block model and an
+  approximately 200 kt convex blast outline.
+- Show grade-coloured source cells, generated dig polygons, dig direction,
+  labels, selection details and live outcome cards in an SVG plan.
+- Classify generated blocks from their tonnes-weighted head grade: red at or
+  above the target/cut-off grade and blue below it, with textual legend and
+  selection details so the result does not rely on colour alone.
+- Provide red/blue and outline-only display modes so the source-cell grade
+  heatmap can be inspected without losing dig-block boundaries or selection.
+- Recompute immediately for target tonnes, target Fe, direction, objective
+  weights, face/depth ratio and minimum face width controls.
+
+## Verification
+
+- Unit-test deterministic output, fractional assignment conservation, exact
+  boundary area/volume/tonnes/grade, target physicals, direction response,
+  large shallow benches and invalid input.
+- Run the JavaScript package verification and demo production build.
+- Manually exercise the new route at desktop width and confirm responsive
+  updates and readable selection/summary feedback.

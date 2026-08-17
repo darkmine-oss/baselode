@@ -11,6 +11,7 @@ import Drillhole2D from './pages/Drillhole2D';
 import StripLogGallery from './pages/StripLogGallery';
 import BlockModel from './pages/BlockModel';
 import PolygonBlocks from './pages/PolygonBlocks';
+import DigBlockPlanner from './pages/DigBlockPlanner';
 import Attribution from './pages/Attribution';
 import CorePhoto from './pages/CorePhoto';
 import ChatHelpers from './pages/ChatHelpers';
@@ -31,6 +32,7 @@ function App() {
         <Route path="/strip-log-gallery" element={<StripLogGallery />} />
         <Route path="/block-model" element={<BlockModel />} />
         <Route path="/polygon-blocks" element={<PolygonBlocks />} />
+        <Route path="/dig-block-planner" element={<DigBlockPlanner />} />
         <Route path="/attribution" element={<Attribution />} />
         <Route path="/core-photo" element={<CorePhoto />} />
         <Route path="/chat-helpers" element={<ChatHelpers />} />

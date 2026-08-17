@@ -451,6 +451,12 @@ export {
   addGradeBlocksToScene,
 } from './grade_blocks/gradeBlockLoader.js';
 
+export {
+  optimizeDigBlocks,
+  createSyntheticDigBlockModel,
+  digDirectionAxes,
+} from './grade_blocks/digBlockOptimizer.js';
+
 // --- 3D IDW interpolation ---
 export {
   buildInterpSamplesFromAssays,
