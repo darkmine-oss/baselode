@@ -33,11 +33,16 @@
 .dig-canvas-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 17px; border-bottom: 1px solid var(--dig-border); font-size: 13px; }
 .dig-canvas-toolbar span { color: var(--dig-muted); }
 .dig-canvas-toolbar label { display: flex; align-items: center; gap: 7px; white-space: nowrap; color: var(--dig-muted); }
+.dig-canvas-actions { display: flex; align-items: center; gap: 12px; }
+.dig-display-toggle { display: flex; padding: 2px; border: 1px solid var(--dig-border); border-radius: 8px; background: #f1f5f9; }
+.dig-display-toggle button { border: 0; border-radius: 6px; padding: 5px 8px; background: transparent; color: var(--dig-muted); font: inherit; font-size: 11px; cursor: pointer; }
+.dig-display-toggle button.active { background: #fff; color: var(--dig-ink); box-shadow: 0 1px 3px rgba(15,23,42,.16); }
 .dig-canvas-wrap { position: relative; min-height: 520px; padding: 18px; background: #e6e9ed; }
 .dig-canvas { display: block; width: 100%; height: min(61vh, 690px); min-height: 485px; border-radius: 10px; background: #f8fafc; }
 .dig-blast-fill { fill: #e2e8f0; }
 .dig-source-cell { stroke: rgba(255,255,255,.55); stroke-width: .32; transition: opacity 90ms linear; }
 .dig-result-block { stroke: #172554; stroke-width: 1.25; vector-effect: non-scaling-stroke; cursor: pointer; transition: fill 80ms linear, fill-opacity 80ms linear; }
+.dig-result-block.outline-only { pointer-events: all; }
 .dig-result-block:hover, .dig-result-block.selected { stroke: #fff; stroke-width: 3; filter: url(#selected-glow); }
 .dig-blast-outline { fill: none; stroke: #111827; stroke-width: 2.4; vector-effect: non-scaling-stroke; pointer-events: none; }
 .dig-block-label text { fill: #111827; text-anchor: middle; font-size: 3.3px; font-weight: 800; paint-order: stroke; stroke: rgba(255,255,255,.88); stroke-width: 1.2px; }
@@ -49,6 +54,7 @@
 .dig-legend i { width: 12px; height: 8px; display: inline-block; border-radius: 2px; }
 .block-above { background: #dc2626; }
 .block-below { background: #2563eb; }
+.block-outline { border: 2px solid #172554; background: transparent; }
 .cell-grade-scale { background: linear-gradient(90deg, hsl(18 68% 58%), hsl(123 68% 46%)); }
 .cutoff-above { color: #b91c1c; }
 .cutoff-below { color: #1d4ed8; }
@@ -76,6 +82,8 @@
 :root.dark .dig-canvas-card, :root.dark .dig-controls-card, :root.dark .dig-metrics > div { background: #1c2028; }
 :root.dark .dig-canvas-toolbar, :root.dark .dig-controls-heading { background: #1c2028; }
 :root.dark .dig-selection button, :root.dark .dig-controls-heading button { background: #242a34; color: #d1d5db; }
+:root.dark .dig-display-toggle { background: #111827; }
+:root.dark .dig-display-toggle button.active { background: #374151; }
 :root.dark .dig-method-note { background: #29251f; }
 
 @media (max-width: 1050px) {
@@ -93,6 +101,8 @@
   .dig-workspace { display: block; }
   .dig-canvas-card { margin-bottom: 14px; }
   .dig-canvas-wrap { min-height: 390px; padding: 8px; }
+  .dig-canvas-toolbar { align-items: flex-start; }
+  .dig-canvas-actions { align-items: flex-end; flex-direction: column; }
   .dig-canvas { min-height: 370px; }
   .dig-controls-card { display: block; }
   .dig-selection { overflow-x: auto; }

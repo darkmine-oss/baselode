@@ -53,6 +53,7 @@ function DigBlockPlanner() {
   const [controls, setControls] = useState(DEFAULT_CONTROLS);
   const [selectedId, setSelectedId] = useState(null);
   const [showSource, setShowSource] = useState(true);
+  const [blockDisplayMode, setBlockDisplayMode] = useState('cutoff');
 
   const solution = useMemo(() => {
     const started = performance.now();
@@ -110,7 +111,27 @@ function DigBlockPlanner() {
               <strong>Synthetic iron-ore bench</strong>
               <span> · {source.cells.length} cells · 10 × 10 × 5 m</span>
             </div>
-            <label><input type="checkbox" checked={showSource} onChange={(event) => setShowSource(event.target.checked)} /> Grade cells</label>
+            <div className="dig-canvas-actions">
+              <div className="dig-display-toggle" role="group" aria-label="Dig block display">
+                <button
+                  type="button"
+                  className={blockDisplayMode === 'cutoff' ? 'active' : ''}
+                  aria-pressed={blockDisplayMode === 'cutoff'}
+                  onClick={() => setBlockDisplayMode('cutoff')}
+                >
+                  Red / blue
+                </button>
+                <button
+                  type="button"
+                  className={blockDisplayMode === 'outline' ? 'active' : ''}
+                  aria-pressed={blockDisplayMode === 'outline'}
+                  onClick={() => setBlockDisplayMode('outline')}
+                >
+                  Outline only
+                </button>
+              </div>
+              <label><input type="checkbox" checked={showSource} onChange={(event) => setShowSource(event.target.checked)} /> Grade cells</label>
+            </div>
           </div>
 
           <div className="dig-canvas-wrap">
@@ -152,8 +173,8 @@ function DigBlockPlanner() {
                     key={block.id}
                     points={polygonPoints(block.polygon)}
                     fill={aboveCutoff ? ABOVE_CUTOFF_COLOUR : BELOW_CUTOFF_COLOUR}
-                    fillOpacity={selected ? (selected.id === block.id ? 0.88 : 0.12) : 0.68}
-                    className={`dig-result-block ${aboveCutoff ? 'above-cutoff' : 'below-cutoff'}${selected?.id === block.id ? ' selected' : ''}`}
+                    fillOpacity={blockDisplayMode === 'outline' ? 0 : selected ? (selected.id === block.id ? 0.88 : 0.12) : 0.68}
+                    className={`dig-result-block ${aboveCutoff ? 'above-cutoff' : 'below-cutoff'}${blockDisplayMode === 'outline' ? ' outline-only' : ''}${selected?.id === block.id ? ' selected' : ''}`}
                     aria-label={`${block.id}, ${aboveCutoff ? 'at or above' : 'below'} grade cut-off`}
                     onClick={() => setSelectedId((current) => current === block.id ? null : block.id)}
                   >
@@ -183,8 +204,12 @@ function DigBlockPlanner() {
             </svg>
 
             <div className="dig-legend">
-              <span><i className="block-above" /> ≥ {controls.targetGrade.toFixed(1)}% Fe</span>
-              <span><i className="block-below" /> &lt; {controls.targetGrade.toFixed(1)}% Fe</span>
+              {blockDisplayMode === 'cutoff' ? (
+                <>
+                  <span><i className="block-above" /> ≥ {controls.targetGrade.toFixed(1)}% Fe</span>
+                  <span><i className="block-below" /> &lt; {controls.targetGrade.toFixed(1)}% Fe</span>
+                </>
+              ) : <span><i className="block-outline" /> Dig-block outline</span>}
               <span><i className="cell-grade-scale" /> Source-cell Fe</span>
             </div>
           </div>

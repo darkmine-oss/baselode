@@ -40,6 +40,8 @@ clearly labelled, redistributable synthetic iron-ore bench instead.
 - Classify generated blocks from their tonnes-weighted head grade: red at or
   above the target/cut-off grade and blue below it, with textual legend and
   selection details so the result does not rely on colour alone.
+- Provide red/blue and outline-only display modes so the source-cell grade
+  heatmap can be inspected without losing dig-block boundaries or selection.
 - Recompute immediately for target tonnes, target Fe, direction, objective
   weights, face/depth ratio and minimum face width controls.
 
