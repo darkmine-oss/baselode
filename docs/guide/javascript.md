@@ -205,9 +205,11 @@ const subset = filterBlocks(blocks, { property: 'au_ppm', min: 1.0 });
 
 `optimizeDigBlocks` creates a deterministic first-pass grade-control block-out
 for one bench. It rotates eligible block-model cells into mining coordinates,
-forms advancing bands, and uses dynamic programming to place contiguous cuts
-across the dig face. The score balances target tonnes, tonnes-weighted Fe
-grade, face shape, geology mixing, and hardness variation.
+forms advancing bands, and uses a bounded-transition shortest-path search to
+place contiguous cuts across the dig face. The fixed transition budget keeps
+interactive solve cost approximately linear in source-cell count. The score
+balances target tonnes, tonnes-weighted Fe grade, face shape, geology mixing,
+and hardness variation.
 
 ```js
 import { optimizeDigBlocks } from 'baselode';

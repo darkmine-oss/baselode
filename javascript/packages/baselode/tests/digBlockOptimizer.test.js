@@ -57,6 +57,29 @@ describe('optimizeDigBlocks', () => {
     expect(small.blocks[0].polygon).not.toEqual(large.blocks[0].polygon);
   });
 
+  it('partitions thousands of cells in one shallow face band', () => {
+    const cells = Array.from({ length: 5_000 }, (_, index) => ({
+      id: `PERF-${index}`,
+      x: index + 0.5,
+      y: 0.5,
+      dx: 1,
+      dy: 1,
+      tonnes: 2,
+      fe: 55 + (index % 20) / 10,
+      geology: index % 2 ? 'A' : 'B',
+      hardness: 5,
+    }));
+    const result = optimizeDigBlocks(cells, [[0, 0], [5_000, 0], [5_000, 1], [0, 1]], {
+      targetTonnes: 100,
+      targetGrade: 56,
+      targetFaceToDepthRatio: 50,
+    });
+
+    expect(result.assignments).toHaveLength(5_000);
+    expect(result.blocks.length).toBeGreaterThan(50);
+    expect(result.blocks.length).toBeLessThan(150);
+  });
+
   it('rejects invalid physicals and empty selections', () => {
     expect(() => optimizeDigBlocks([{ x: 0, y: 0, tonnes: 1 }], [[-1, -1], [1, -1], [0, 1]]))
       .toThrow(/requires finite/);

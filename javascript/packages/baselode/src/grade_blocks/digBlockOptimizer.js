@@ -14,6 +14,7 @@ const DEFAULT_OPTIONS = Object.freeze({
 });
 
 const EPSILON = 1e-9;
+const MAX_TRANSITION_CANDIDATES = 64;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -174,38 +175,68 @@ function scoreSegment(cells, prefix, categories, start, end, bandDepth, targetGr
     + options.weights.grade * gradePenalty
     + options.weights.shape * (ratioPenalty + 2 * widthPenalty)
     + options.weights.material * materialPenalty
-    + options.weights.hardness * hardnessPenalty;
+    + options.weights.hardness * hardnessPenalty
+    - 0.1 * options.weights.tonnes;
   return { score, tonnes, grade, hardnessMean, faceWidth, ratio, materialPenalty };
+}
+
+function lowerBound(values, target, end) {
+  let low = 0;
+  let high = end;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    if (values[middle] < target) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+function transitionCandidates(prefixTonnes, end, targetTonnes) {
+  const starts = new Set([0, end - 1]);
+  const total = prefixTonnes[end];
+  const ideal = clamp(lowerBound(prefixTonnes, total - targetTonnes, end), 0, end - 1);
+  for (let offset = -5; offset <= 5; offset += 1) starts.add(clamp(ideal + offset, 0, end - 1));
+
+  const tonnageMin = clamp(lowerBound(prefixTonnes, total - 3 * targetTonnes, end), 0, end - 1);
+  const tonnageMax = clamp(lowerBound(prefixTonnes, total - 0.25 * targetTonnes, end), 0, end - 1);
+  const tonnageSamples = Math.min(24, tonnageMax - tonnageMin + 1);
+  for (let index = 0; index < tonnageSamples; index += 1) {
+    const fraction = tonnageSamples === 1 ? 0 : index / (tonnageSamples - 1);
+    starts.add(Math.round(tonnageMin + fraction * (tonnageMax - tonnageMin)));
+  }
+
+  const globalSamples = Math.min(12, end);
+  for (let index = 0; index < globalSamples; index += 1) {
+    const fraction = globalSamples === 1 ? 0 : index / (globalSamples - 1);
+    starts.add(Math.round(fraction * (end - 1)));
+  }
+  return [...starts].sort((a, b) => a - b).slice(0, MAX_TRANSITION_CANDIDATES);
 }
 
 function partitionBand(cells, band, targetGrade, options, blastBounds, blastDig, axes, idOffset) {
   const sorted = cells.slice().sort((a, b) => a.cross - b.cross || a.id.localeCompare(b.id));
   const categories = [...new Set(sorted.map((cell) => cell.geology))].sort();
   const prefix = makePrefix(sorted, categories);
-  const totalTonnes = range(prefix.tonnes, 0, sorted.length);
-  const segmentCount = clamp(Math.round(totalTonnes / options.targetTonnes), 1, sorted.length);
   const depth = Math.max(band.max - band.min, EPSILON);
-  const dp = Array.from({ length: segmentCount + 1 }, () => Array(sorted.length + 1).fill(Infinity));
-  const previous = Array.from({ length: segmentCount + 1 }, () => Array(sorted.length + 1).fill(-1));
-  dp[0][0] = 0;
-  for (let segment = 1; segment <= segmentCount; segment += 1) {
-    for (let end = segment; end <= sorted.length; end += 1) {
-      for (let start = segment - 1; start < end; start += 1) {
-        if (!Number.isFinite(dp[segment - 1][start])) continue;
-        const candidate = scoreSegment(sorted, prefix, categories, start, end, depth, targetGrade, options);
-        const totalScore = dp[segment - 1][start] + candidate.score;
-        if (totalScore < dp[segment][end]) {
-          dp[segment][end] = totalScore;
-          previous[segment][end] = start;
-        }
+  const bestScore = Array(sorted.length + 1).fill(Infinity);
+  const previous = Array(sorted.length + 1).fill(-1);
+  bestScore[0] = 0;
+  for (let end = 1; end <= sorted.length; end += 1) {
+    for (const start of transitionCandidates(prefix.tonnes, end, options.targetTonnes)) {
+      if (!Number.isFinite(bestScore[start])) continue;
+      const candidate = scoreSegment(sorted, prefix, categories, start, end, depth, targetGrade, options);
+      const totalScore = bestScore[start] + candidate.score;
+      if (totalScore < bestScore[end]) {
+        bestScore[end] = totalScore;
+        previous[end] = start;
       }
     }
   }
 
   const ranges = [];
   let end = sorted.length;
-  for (let segment = segmentCount; segment > 0; segment -= 1) {
-    const start = previous[segment][end];
+  while (end > 0) {
+    const start = previous[end];
     ranges.unshift({ start, end });
     end = start;
   }

@@ -227,7 +227,7 @@ function DigBlockPlanner() {
 
           <div className="dig-method-note">
             <strong>First-pass heuristic</strong>
-            <p>Cells rotate into mining coordinates, split into advancing bands, then use dynamic programming to choose contiguous face cuts with the lowest weighted penalty.</p>
+            <p>Cells rotate into mining coordinates, split into advancing bands, then use a bounded shortest-path search to choose contiguous face cuts with the lowest weighted penalty.</p>
           </div>
         </aside>
       </div>

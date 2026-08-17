@@ -14,9 +14,10 @@ excavator entry face.
   from north; cross is the entry-face direction.
 - Divide the blast into forward bands sized from target tonnes and the desired
   face-width/depth ratio.
-- Use dynamic programming inside each band to choose contiguous cross-direction
-  cuts. Score tonnes error, tonnes-weighted Fe error, face geometry, geology
-  mixing and hardness variation.
+- Use a bounded-transition shortest-path search inside each band to choose
+  contiguous cross-direction cuts. Score tonnes error, tonnes-weighted Fe
+  error, face geometry, geology mixing and hardness variation. The fixed
+  candidate budget keeps solve cost approximately linear in source-cell count.
 - Intersect every direction-aligned rectangle with the blast polygon and return
   polygons, cell assignments, block physicals and aggregate score metrics.
 - Keep the solver pure and independent of React/Three.js.
