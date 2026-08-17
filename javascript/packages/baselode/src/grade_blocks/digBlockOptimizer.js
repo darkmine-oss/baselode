@@ -39,18 +39,6 @@ function normalizePolygon(polygon) {
   return points;
 }
 
-function pointInPolygon(point, polygon) {
-  let inside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
-    const a = polygon[i];
-    const b = polygon[j];
-    const intersects = ((a.y > point.y) !== (b.y > point.y))
-      && point.x < ((b.x - a.x) * (point.y - a.y)) / ((b.y - a.y) || EPSILON) + a.x;
-    if (intersects) inside = !inside;
-  }
-  return inside;
-}
-
 function polygonArea(points) {
   let area = 0;
   for (let index = 0; index < points.length; index += 1) {
@@ -156,28 +144,41 @@ function range(prefix, start, end) {
   return prefix[end] - prefix[start];
 }
 
-function scoreSegment(cells, prefix, categories, start, end, bandDepth, targetGrade, options) {
-  const tonnes = range(prefix.tonnes, start, end);
-  const grade = range(prefix.grade, start, end) / Math.max(tonnes, EPSILON);
-  const hardnessMean = range(prefix.hardness, start, end) / Math.max(tonnes, EPSILON);
-  const hardnessVariance = Math.max(0, range(prefix.hardnessSquared, start, end) / Math.max(tonnes, EPSILON) - hardnessMean ** 2);
-  const faceWidth = Math.max(cells[end - 1].crossMax - cells[start].crossMin, EPSILON);
-  const ratio = faceWidth / Math.max(bandDepth, EPSILON);
-  const tonnesPenalty = ((tonnes - options.targetTonnes) / options.targetTonnes) ** 2;
-  const gradePenalty = ((grade - targetGrade) / options.gradeScale) ** 2;
+function scorePhysicals(stats, targetGrade, options) {
+  const tonnesPenalty = ((stats.tonnes - options.targetTonnes) / options.targetTonnes) ** 2;
+  const gradePenalty = ((stats.grade - targetGrade) / options.gradeScale) ** 2;
+  const ratio = stats.faceWidth / Math.max(stats.bandDepth, EPSILON);
   const ratioPenalty = Math.log(Math.max(ratio, 0.05) / options.targetFaceToDepthRatio) ** 2;
-  const widthPenalty = Math.max(0, (options.minFaceWidth - faceWidth) / options.minFaceWidth) ** 2;
-  let dominantTonnes = 0;
-  for (const category of categories) dominantTonnes = Math.max(dominantTonnes, range(prefix.categories[category], start, end));
-  const materialPenalty = tonnes ? 1 - dominantTonnes / tonnes : 0;
-  const hardnessPenalty = hardnessVariance / Math.max(hardnessMean ** 2, 1);
+  const widthPenalty = Math.max(0, (options.minFaceWidth - stats.faceWidth) / options.minFaceWidth) ** 2;
+  const dominantTonnes = Math.max(0, ...Object.values(stats.geologyTonnes));
+  const materialPenalty = stats.tonnes ? 1 - dominantTonnes / stats.tonnes : 0;
+  const hardnessPenalty = stats.hardnessVariance / Math.max(stats.hardnessMean ** 2, 1);
   const score = options.weights.tonnes * tonnesPenalty
     + options.weights.grade * gradePenalty
     + options.weights.shape * (ratioPenalty + 2 * widthPenalty)
     + options.weights.material * materialPenalty
     + options.weights.hardness * hardnessPenalty
     - 0.1 * options.weights.tonnes;
-  return { score, tonnes, grade, hardnessMean, faceWidth, ratio, materialPenalty };
+  return { score, ratio, materialPenalty };
+}
+
+function scoreSegment(cells, prefix, categories, start, end, bandDepth, targetGrade, options) {
+  const tonnes = range(prefix.tonnes, start, end);
+  const grade = range(prefix.grade, start, end) / Math.max(tonnes, EPSILON);
+  const hardnessMean = range(prefix.hardness, start, end) / Math.max(tonnes, EPSILON);
+  const hardnessVariance = Math.max(0, range(prefix.hardnessSquared, start, end) / Math.max(tonnes, EPSILON) - hardnessMean ** 2);
+  const faceWidth = Math.max(cells[end - 1].crossMax - cells[start].crossMin, EPSILON);
+  const geologyTonnes = Object.fromEntries(categories.map((category) => [category, range(prefix.categories[category], start, end)]));
+  const scored = scorePhysicals({
+    tonnes,
+    grade,
+    hardnessMean,
+    hardnessVariance,
+    faceWidth,
+    bandDepth,
+    geologyTonnes,
+  }, targetGrade, options);
+  return { ...scored, tonnes, grade, hardnessMean, hardnessVariance, faceWidth, geologyTonnes };
 }
 
 function lowerBound(values, target, end) {
@@ -282,6 +283,90 @@ function partitionBand(cells, band, targetGrade, options, blastBounds, blastDig,
   });
 }
 
+function applyExactCellIntersections(blocks, cells, targetGrade, options) {
+  const assignments = [];
+  const exactBlocks = blocks.map((block) => {
+    const polygon = block.polygon.slice(0, -1).map(([x, y]) => ({ x, y }));
+    const blockBounds = {
+      minX: Math.min(...polygon.map((point) => point.x)),
+      maxX: Math.max(...polygon.map((point) => point.x)),
+      minY: Math.min(...polygon.map((point) => point.y)),
+      maxY: Math.max(...polygon.map((point) => point.y)),
+    };
+    let tonnes = 0;
+    let gradeMass = 0;
+    let hardnessMass = 0;
+    let hardnessSquaredMass = 0;
+    let intersectionArea = 0;
+    let volume = 0;
+    let volumeComplete = true;
+    const geologyTonnes = {};
+    const cellIds = [];
+
+    for (const cell of cells) {
+      const minX = cell.x - cell.dx / 2;
+      const maxX = cell.x + cell.dx / 2;
+      const minY = cell.y - cell.dy / 2;
+      const maxY = cell.y + cell.dy / 2;
+      if (maxX <= blockBounds.minX + EPSILON || minX >= blockBounds.maxX - EPSILON
+        || maxY <= blockBounds.minY + EPSILON || minY >= blockBounds.maxY - EPSILON) continue;
+      const intersection = clipPolygonToRect(polygon, minX, maxX, minY, maxY);
+      const area = Math.min(cell.sourceArea, polygonArea(intersection));
+      if (area <= EPSILON) continue;
+      const cellFraction = clamp(area / cell.sourceArea, 0, 1);
+      const contributionTonnes = cell.sourceTonnes * cellFraction;
+      const contributionVolume = cell.dz === null ? null : area * cell.dz;
+      tonnes += contributionTonnes;
+      gradeMass += contributionTonnes * cell.fe;
+      hardnessMass += contributionTonnes * cell.hardness;
+      hardnessSquaredMass += contributionTonnes * cell.hardness * cell.hardness;
+      intersectionArea += area;
+      if (contributionVolume === null) volumeComplete = false;
+      else volume += contributionVolume;
+      geologyTonnes[cell.geology] = (geologyTonnes[cell.geology] || 0) + contributionTonnes;
+      cellIds.push(cell.id);
+      assignments.push({
+        cellId: cell.id,
+        digBlockId: block.id,
+        intersectionArea: area,
+        intersectionVolume: contributionVolume,
+        cellFraction,
+        blastFraction: cell.blastFraction,
+        tonnes: contributionTonnes,
+      });
+    }
+
+    const headGrade = gradeMass / Math.max(tonnes, EPSILON);
+    const averageHardness = hardnessMass / Math.max(tonnes, EPSILON);
+    const hardnessVariance = Math.max(0, hardnessSquaredMass / Math.max(tonnes, EPSILON) - averageHardness ** 2);
+    const dominantGeology = Object.entries(geologyTonnes)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] || null;
+    const scored = scorePhysicals({
+      tonnes,
+      grade: headGrade,
+      hardnessMean: averageHardness,
+      hardnessVariance,
+      faceWidth: block.faceWidth,
+      bandDepth: block.advanceDepth,
+      geologyTonnes,
+    }, targetGrade, options);
+    return {
+      ...block,
+      cellIds,
+      tonnes,
+      headGrade,
+      averageHardness,
+      dominantGeology,
+      geologyTonnes,
+      intersectionArea,
+      volume: volumeComplete ? volume : null,
+      faceToDepthRatio: scored.ratio,
+      score: scored.score,
+    };
+  });
+  return { blocks: exactBlocks, assignments };
+}
+
 function normalizeOptions(options, cells) {
   const targetTonnes = finiteNumber(options.targetTonnes, DEFAULT_OPTIONS.targetTonnes);
   if (!(targetTonnes > 0)) throw new Error('targetTonnes must be greater than zero');
@@ -303,8 +388,9 @@ function normalizeOptions(options, cells) {
 /**
  * Partition a single-bench block model into direction-aligned dig blocks.
  *
- * Cells are selected by centre point. `tonnes` and `fe` are required numeric
- * physicals; `geology` and `hardness` are optional scoring attributes.
+ * Axis-aligned cell footprints are intersected exactly in XY. Tonnage and
+ * grade contributions are prorated by intersection area; when `dz` is
+ * supplied the corresponding vertical-prism intersection volume is returned.
  *
  * @param {Array<object>} inputCells - Block-model cells
  * @param {Array<Array<number>>|object} blastPolygon - XY ring or GeoJSON Polygon
@@ -319,21 +405,32 @@ export function optimizeDigBlocks(inputCells, blastPolygon, inputOptions = {}) {
   const cells = inputCells.map((cell, index) => {
     const x = finiteNumber(cell.x);
     const y = finiteNumber(cell.y);
-    const tonnes = finiteNumber(cell.tonnes);
+    const sourceTonnes = finiteNumber(cell.tonnes);
     const fe = finiteNumber(cell.fe);
-    if (![x, y, tonnes, fe].every(Number.isFinite) || tonnes <= 0) {
-      throw new Error(`cell ${cell.id ?? index} requires finite x, y, positive tonnes and fe`);
-    }
-    const dig = toDigPoint({ x, y }, axes);
     const dx = Math.abs(finiteNumber(cell.dx, 1));
     const dy = Math.abs(finiteNumber(cell.dy, 1));
+    if (![x, y, sourceTonnes, fe, dx, dy].every(Number.isFinite) || sourceTonnes <= 0 || dx <= 0 || dy <= 0) {
+      throw new Error(`cell ${cell.id ?? index} requires finite x, y and fe plus positive tonnes, dx and dy`);
+    }
+    const sourceArea = dx * dy;
+    const blastIntersection = clipPolygonToRect(blast, x - dx / 2, x + dx / 2, y - dy / 2, y + dy / 2);
+    const blastIntersectionArea = Math.min(sourceArea, polygonArea(blastIntersection));
+    if (blastIntersectionArea <= EPSILON) return null;
+    const blastFraction = clamp(blastIntersectionArea / sourceArea, 0, 1);
+    const representative = polygonCentroid(blastIntersection);
+    const dig = toDigPoint(representative, axes);
     const projectedHalfCross = (dx * Math.abs(axes.cross.x) + dy * Math.abs(axes.cross.y)) / 2;
+    const inputDz = finiteNumber(cell.dz);
     return {
       ...cell,
       id: String(cell.id ?? `CELL-${index + 1}`),
       x,
       y,
-      tonnes,
+      dx,
+      dy,
+      dz: inputDz > 0 ? inputDz : null,
+      sourceTonnes,
+      tonnes: sourceTonnes * blastFraction,
       fe,
       hardness: finiteNumber(cell.hardness, 1),
       geology: String(cell.geology ?? 'Unclassified'),
@@ -341,17 +438,20 @@ export function optimizeDigBlocks(inputCells, blastPolygon, inputOptions = {}) {
       forward: dig.y,
       crossMin: dig.x - projectedHalfCross,
       crossMax: dig.x + projectedHalfCross,
-      area: dx * dy,
+      sourceArea,
+      area: blastIntersectionArea,
+      blastIntersectionArea,
+      blastFraction,
     };
-  }).filter((cell) => pointInPolygon(cell, blast));
-  if (!cells.length) throw new Error('blastPolygon does not contain any cell centres');
+  }).filter(Boolean);
+  if (!cells.length) throw new Error('blastPolygon does not intersect any cell footprints');
   const options = normalizeOptions(inputOptions, cells);
   const minCross = Math.min(...blastDig.map((point) => point.x));
   const maxCross = Math.max(...blastDig.map((point) => point.x));
   const minForward = Math.min(...blastDig.map((point) => point.y));
   const maxForward = Math.max(...blastDig.map((point) => point.y));
-  const totalTonnes = cells.reduce((sum, cell) => sum + cell.tonnes, 0);
-  const estimatedBlocks = Math.max(1, Math.round(totalTonnes / options.targetTonnes));
+  const estimatedTotalTonnes = cells.reduce((sum, cell) => sum + cell.tonnes, 0);
+  const estimatedBlocks = Math.max(1, Math.round(estimatedTotalTonnes / options.targetTonnes));
   const targetArea = polygonArea(blastDig) / estimatedBlocks;
   const targetDepth = Math.sqrt(targetArea / options.targetFaceToDepthRatio);
   const bandCount = clamp(Math.round((maxForward - minForward) / Math.max(targetDepth, EPSILON)), 1, estimatedBlocks);
@@ -367,9 +467,9 @@ export function optimizeDigBlocks(inputCells, blastPolygon, inputOptions = {}) {
     };
   }).filter((band) => band.cells.length);
 
-  const blocks = [];
+  const provisionalBlocks = [];
   for (const band of bands) {
-    blocks.push(...partitionBand(
+    provisionalBlocks.push(...partitionBand(
       band.cells,
       band,
       options.targetGrade,
@@ -377,13 +477,21 @@ export function optimizeDigBlocks(inputCells, blastPolygon, inputOptions = {}) {
       { minCross, maxCross },
       blastDig,
       axes,
-      blocks.length,
+      provisionalBlocks.length,
     ));
   }
-  const assignments = blocks.flatMap((block) => block.cellIds.map((cellId) => ({ cellId, digBlockId: block.id })));
+  const exact = applyExactCellIntersections(provisionalBlocks, cells, options.targetGrade, options);
+  const blocks = exact.blocks;
+  const assignments = exact.assignments;
+  const totalTonnes = blocks.reduce((sum, block) => sum + block.tonnes, 0);
   const weightedGrade = blocks.reduce((sum, block) => sum + block.tonnes * block.headGrade, 0) / totalTonnes;
   const meanTonnesError = blocks.reduce((sum, block) => sum + Math.abs(block.tonnes - options.targetTonnes) / options.targetTonnes, 0) / blocks.length;
   const meanGradeError = blocks.reduce((sum, block) => sum + Math.abs(block.headGrade - options.targetGrade), 0) / blocks.length;
+  const assignmentCounts = assignments.reduce((counts, assignment) => {
+    counts.set(assignment.cellId, (counts.get(assignment.cellId) || 0) + 1);
+    return counts;
+  }, new Map());
+  const volumesComplete = blocks.every((block) => block.volume !== null);
   return {
     blocks,
     assignments,
@@ -391,8 +499,11 @@ export function optimizeDigBlocks(inputCells, blastPolygon, inputOptions = {}) {
     options,
     metrics: {
       blockCount: blocks.length,
-      assignedCellCount: assignments.length,
+      assignedCellCount: assignmentCounts.size,
+      intersectionCount: assignments.length,
+      splitCellCount: [...assignmentCounts.values()].filter((count) => count > 1).length,
       totalTonnes,
+      totalVolume: volumesComplete ? blocks.reduce((sum, block) => sum + block.volume, 0) : null,
       weightedGrade,
       meanTonnesError,
       meanGradeError,
@@ -408,11 +519,13 @@ export function optimizeDigBlocks(inputCells, blastPolygon, inputOptions = {}) {
  */
 export function createSyntheticDigBlockModel() {
   const blastPolygon = [[10, 0], [155, 0], [180, 20], [175, 78], [145, 100], [22, 95], [0, 75], [0, 20]];
+  const blast = blastPolygon.map(([x, y]) => ({ x, y }));
   const cells = [];
   let index = 0;
   for (let y = 5; y < 105; y += 10) {
     for (let x = 5; x < 185; x += 10) {
-      if (!pointInPolygon({ x, y }, blastPolygon.map(([px, py]) => ({ x: px, y: py })))) continue;
+      const intersection = clipPolygonToRect(blast, x - 5, x + 5, y - 5, y + 5);
+      if (polygonArea(intersection) <= EPSILON) continue;
       const highGradeLens = 8 * Math.exp(-(((x - 65) / 38) ** 2 + ((y - 52) / 24) ** 2));
       const secondLens = 5 * Math.exp(-(((x - 135) / 28) ** 2 + ((y - 35) / 30) ** 2));
       const fe = 52 + highGradeLens + secondLens + 1.4 * Math.sin(x / 17) - 0.8 * Math.cos(y / 13);

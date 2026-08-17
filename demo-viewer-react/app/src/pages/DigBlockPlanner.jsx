@@ -23,6 +23,10 @@ function formatKt(tonnes) {
   return `${(tonnes / 1000).toFixed(tonnes >= 100_000 ? 0 : 1)} kt`;
 }
 
+function formatVolume(volume) {
+  return `${Math.round(volume).toLocaleString()} m³`;
+}
+
 function gradeColour(grade) {
   const amount = Math.max(0, Math.min(1, (grade - 50) / 12));
   const hue = 18 + amount * 105;
@@ -101,7 +105,7 @@ function DigBlockPlanner() {
         <div><span>Dig blocks</span><strong>{solution.metrics.blockCount}</strong></div>
         <div><span>Average block</span><strong>{formatKt(solution.metrics.totalTonnes / solution.metrics.blockCount)}</strong></div>
         <div><span>Head grade</span><strong>{solution.metrics.weightedGrade.toFixed(1)}% Fe</strong></div>
-        <div><span>Mean grade miss</span><strong>±{solution.metrics.meanGradeError.toFixed(1)}%</strong></div>
+        <div><span>Intersected volume</span><strong>{formatVolume(solution.metrics.totalVolume)}</strong></div>
       </section>
 
       <div className="dig-workspace">
@@ -148,23 +152,30 @@ function DigBlockPlanner() {
                 <filter id="selected-glow" x="-30%" y="-30%" width="160%" height="160%">
                   <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#ffffff" floodOpacity="1" />
                 </filter>
+                <clipPath id="dig-blast-clip">
+                  <polygon points={polygonPoints(source.blastPolygon)} />
+                </clipPath>
               </defs>
 
               <polygon className="dig-blast-fill" points={polygonPoints(source.blastPolygon)} />
-              {showSource && source.cells.map((cell) => (
-                <rect
-                  key={cell.id}
-                  x={cell.x - cell.dx / 2}
-                  y={svgY(cell.y + cell.dy / 2)}
-                  width={cell.dx}
-                  height={cell.dy}
-                  fill={gradeColour(cell.fe)}
-                  opacity={selected && !selectedCells.has(cell.id) ? 0.14 : 0.72}
-                  className="dig-source-cell"
-                >
-                  <title>{cell.id}: {cell.fe.toFixed(1)}% Fe · {formatKt(cell.tonnes)} · {cell.geology}</title>
-                </rect>
-              ))}
+              {showSource && (
+                <g clipPath="url(#dig-blast-clip)">
+                  {source.cells.map((cell) => (
+                    <rect
+                      key={cell.id}
+                      x={cell.x - cell.dx / 2}
+                      y={svgY(cell.y + cell.dy / 2)}
+                      width={cell.dx}
+                      height={cell.dy}
+                      fill={gradeColour(cell.fe)}
+                      opacity={selected && !selectedCells.has(cell.id) ? 0.14 : 0.72}
+                      className="dig-source-cell"
+                    >
+                      <title>{cell.id}: {cell.fe.toFixed(1)}% Fe · {formatKt(cell.tonnes)} · {cell.geology}</title>
+                    </rect>
+                  ))}
+                </g>
+              )}
 
               {solution.blocks.map((block) => {
                 const aboveCutoff = block.headGrade >= controls.targetGrade;
@@ -219,6 +230,7 @@ function DigBlockPlanner() {
               <>
                 <div><span>Selected</span><strong>{selected.id}</strong></div>
                 <div><span>Tonnes</span><strong>{formatKt(selected.tonnes)}</strong></div>
+                {selected.volume !== null && <div><span>Volume</span><strong>{formatVolume(selected.volume)}</strong></div>}
                 <div><span>Head grade</span><strong>{selected.headGrade.toFixed(1)}% Fe</strong></div>
                 <div>
                   <span>Cut-off class</span>

@@ -224,17 +224,22 @@ const result = optimizeDigBlocks(cells, blastPolygon, {
 });
 
 console.log(result.blocks);       // polygons, physicals, cell ids, mining order
-console.log(result.assignments);  // source cell id -> dig block id
+console.log(result.assignments);  // fractional cell/dig-block intersections
 console.log(result.metrics);      // whole-blast and objective summaries
 ```
 
 Each input cell requires `x`, `y`, positive `tonnes`, and `fe`. Supply `dx` and
-`dy` for physical face widths; `geology` and `hardness` activate the optional
-mixing penalties. Cells are selected when their centre is inside the blast
-ring. The first pass expects a convex blast and does not replace production
-scheduling, blast-movement correction, or engineering sign-off.
+`dy` for its axis-aligned footprint and `dz` for volume. The solver intersects
+every footprint exactly with the blast and generated dig polygons. Each
+assignment reports area, volume, cell fraction, and prorated tonnes; one source
+cell can contribute to multiple dig blocks. Tonnage-weighted Fe, hardness, and
+geology physicals are recalculated from those fractional contributions.
+Omitting `dx`/`dy` uses a unit-square footprint; omitting `dz` leaves volumes
+null. The first pass expects a convex, single-bench blast with vertical-prism
+cells and does not replace production scheduling, blast-movement correction,
+or engineering sign-off.
 
-The demo route `/dig-block-planner` includes a deterministic ~206 kt iron-ore
+The demo route `/dig-block-planner` includes a deterministic ~200 kt iron-ore
 bench and recomputes interactively as targets and priorities move. Generated
 dig blocks at or above the target/cut-off grade are red; blocks below it are
 blue. A display toggle switches the result to outline-only polygons when the

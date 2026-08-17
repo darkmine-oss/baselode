@@ -9,7 +9,10 @@ excavator entry face.
 
 ## Algorithm
 
-- Select block-model cells whose centres fall inside one convex blast polygon.
+- Intersect every axis-aligned source-cell footprint with the convex blast and
+  generated dig polygons. Prorate tonnes and physicals by exact area fraction;
+  multiply by `dz` for vertical-prism intersection volume. Preserve fractional
+  assignments when one cell crosses multiple dig-block boundaries.
 - Rotate centres into mining coordinates: forward is the bearing clockwise
   from north; cross is the entry-face direction.
 - Divide the blast into forward bands sized from target tonnes and the desired
@@ -47,8 +50,9 @@ clearly labelled, redistributable synthetic iron-ore bench instead.
 
 ## Verification
 
-- Unit-test deterministic output, assignment coverage/uniqueness, target
-  physicals, polygon containment, direction response and invalid input.
+- Unit-test deterministic output, fractional assignment conservation, exact
+  boundary area/volume/tonnes/grade, target physicals, direction response,
+  large shallow benches and invalid input.
 - Run the JavaScript package verification and demo production build.
 - Manually exercise the new route at desktop width and confirm responsive
   updates and readable selection/summary feedback.
