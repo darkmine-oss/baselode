@@ -201,6 +201,46 @@ const stats  = getBlockStats(blocks, 'au_ppm');
 const subset = filterBlocks(blocks, { property: 'au_ppm', min: 1.0 });
 ```
 
+### Dig-block optimisation
+
+`optimizeDigBlocks` creates a deterministic first-pass grade-control block-out
+for one bench. It rotates eligible block-model cells into mining coordinates,
+forms advancing bands, and uses dynamic programming to place contiguous cuts
+across the dig face. The score balances target tonnes, tonnes-weighted Fe
+grade, face shape, geology mixing, and hardness variation.
+
+```js
+import { optimizeDigBlocks } from 'baselode';
+
+const result = optimizeDigBlocks(cells, blastPolygon, {
+  digDirectionDeg: 20,       // bearing clockwise from north
+  targetTonnes: 10_000,
+  targetGrade: 57,           // Fe percent
+  targetFaceToDepthRatio: 1.8,
+  minFaceWidth: 20,
+  weights: { tonnes: 1, grade: 0.8, shape: 0.65, material: 0.15 },
+});
+
+console.log(result.blocks);       // polygons, physicals, cell ids, mining order
+console.log(result.assignments);  // source cell id -> dig block id
+console.log(result.metrics);      // whole-blast and objective summaries
+```
+
+Each input cell requires `x`, `y`, positive `tonnes`, and `fe`. Supply `dx` and
+`dy` for physical face widths; `geology` and `hardness` activate the optional
+mixing penalties. Cells are selected when their centre is inside the blast
+ring. The first pass expects a convex blast and does not replace production
+scheduling, blast-movement correction, or engineering sign-off.
+
+The demo route `/dig-block-planner` includes a deterministic ~206 kt iron-ore
+bench and recomputes interactively as targets and priorities move.
+
+MineLib's [Newman1](https://minelib.org/v1/newman1.xhtml) has compatible
+coordinates, type, grade, and tonnes columns, but its block dimensions and
+metal type are unspecified. It is therefore suitable only after the caller
+supplies site-specific `dx`, `dy`, and grade semantics; the licensed source data
+is not bundled with Baselode.
+
 ### Polygonal grade blocks
 
 Grade blocks are closed polyhedral meshes — grade shells, geologic domains, or any volumetric solid defined by triangulated vertices.  They are loaded from a structured JSON format:

@@ -20,6 +20,7 @@ function Sidebar() {
     { path: '/strip-log-gallery', label: 'Strip Log Gallery' },
     { path: '/block-model', label: 'Block Models' },
     { path: '/polygon-blocks', label: 'Polygon Blocks' },
+    { path: '/dig-block-planner', label: 'Dig Block Planner' },
     { path: '/core-photo', label: 'Core Photos' },
     { path: '/analytics', label: 'Analytics Plots' },
     { path: '/idw-volume', label: 'IDW Volume' },

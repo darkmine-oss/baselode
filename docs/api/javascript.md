@@ -185,6 +185,50 @@ Get the hex colour for a value from a color scale.
 
 ---
 
+### Dig-block optimisation
+
+#### `digDirectionAxes(bearingDeg)`
+
+Return orthogonal `forward` and `cross` unit vectors for a bearing measured
+clockwise from north (`0` is +Y, `90` is +X).
+
+#### `optimizeDigBlocks(cells, blastPolygon, options?)`
+
+Partition the cells whose centres lie inside a convex XY blast polygon. The
+solver returns:
+
+```js
+{
+  blocks: [{
+    id, polygon, geometry, centroid, cellIds,
+    tonnes, headGrade, averageHardness,
+    dominantGeology, geologyTonnes,
+    faceWidth, advanceDepth, faceToDepthRatio,
+    score, miningOrder,
+  }],
+  assignments: [{ cellId, digBlockId }],
+  blastPolygon,
+  options,
+  metrics: {
+    blockCount, assignedCellCount, totalTonnes, weightedGrade,
+    meanTonnesError, meanGradeError, totalScore,
+  },
+}
+```
+
+Required cell fields are `x`, `y`, positive `tonnes`, and `fe`. Optional fields
+are `id`, `dx`, `dy`, `geology`, and `hardness`. Options include
+`digDirectionDeg`, `targetTonnes`, `targetGrade`, `targetFaceToDepthRatio`,
+`minFaceWidth`, `gradeScale`, and non-negative `weights` for `tonnes`, `grade`,
+`shape`, `material`, and `hardness`.
+
+#### `createSyntheticDigBlockModel()`
+
+Return deterministic `{ cells, blastPolygon }` demo input for an approximately
+206 kt, single-bench iron-ore blast.
+
+---
+
 ### Grade block loaders
 
 #### `loadGradeBlocksFromJson(input)`
