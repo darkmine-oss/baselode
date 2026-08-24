@@ -1,0 +1,70 @@
+/*
+ * Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
+.geophysics-raster-page {
+  min-height: 100%;
+  padding: 16px 24px 32px 224px;
+  background: #f5f5f5;
+}
+
+.geophysics-raster-page__header,
+.geophysics-raster-page__body {
+  max-width: 1500px;
+  margin: 0 auto;
+}
+
+.geophysics-raster-page__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.geophysics-raster-page__header h1,
+.geophysics-raster-page__info h2 { margin: 0 0 6px; }
+.geophysics-raster-page__header p,
+.geophysics-raster-page__info p { margin: 0; color: #475569; line-height: 1.45; }
+
+.geophysics-raster-page__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.geophysics-raster-page__actions button,
+.geophysics-raster-page__upload {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  color: #1e293b;
+  padding: 8px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.geophysics-raster-page__upload input { display: none; }
+
+.geophysics-raster-page__body { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 16px; }
+.geophysics-raster-page__viewer,
+.geophysics-raster-page__info { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff; }
+.geophysics-raster-page__info { padding: 16px; align-self: start; }
+.geophysics-raster-page__info dl { margin: 12px 0; display: grid; gap: 8px; }
+.geophysics-raster-page__info dl div { display: grid; gap: 2px; }
+.geophysics-raster-page__info dt { color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+.geophysics-raster-page__info dd { margin: 0; overflow-wrap: anywhere; }
+.geophysics-raster-page__info code { font-size: 0.85em; }
+.geophysics-raster-page__error { margin-top: 12px !important; color: #b91c1c !important; }
+
+:root.dark .geophysics-raster-page { background: #1b1b1f; }
+:root.dark .geophysics-raster-page__header h1,
+:root.dark .geophysics-raster-page__info h2 { color: #e2e8f0; }
+:root.dark .geophysics-raster-page__header p,
+:root.dark .geophysics-raster-page__info p,
+:root.dark .geophysics-raster-page__info dt { color: #94a3b8; }
+:root.dark .geophysics-raster-page__viewer,
+:root.dark .geophysics-raster-page__info,
+:root.dark .geophysics-raster-page__actions button,
+:root.dark .geophysics-raster-page__upload { background: #24252a; border-color: #34353b; color: #e2e8f0; }
+
+@media (max-width: 850px) {
+  .geophysics-raster-page { padding: 16px; }
+  .geophysics-raster-page__header { display: grid; }
+  .geophysics-raster-page__body { grid-template-columns: 1fr; }
+}

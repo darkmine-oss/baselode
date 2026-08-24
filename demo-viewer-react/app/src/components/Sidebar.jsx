@@ -23,6 +23,7 @@ function Sidebar() {
     { path: '/core-photo', label: 'Core Photos' },
     { path: '/analytics', label: 'Analytics Plots' },
     { path: '/idw-volume', label: 'IDW Volume' },
+    { path: '/geophysics-raster', label: 'Geophysics Raster' },
     { path: '/chat-helpers', label: 'Chat Helpers' },
     // { path: '/raster-demo', label: 'Raster Overlay' },
   ];
