@@ -74,6 +74,15 @@ describe('createTerrainSurface — validation', () => {
     expect(layer.empty).toBe(false);
     expect(layer.mesh).not.toBeNull();
   });
+
+  it('throws on a ragged nested grid instead of silently truncating rows', () => {
+    expect(() =>
+      createTerrainSurface({
+        grid: { elevations: [[1, 2, 3], [4, 5]] },
+        bounds: BOUNDS,
+      })
+    ).toThrow(/ragged/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -99,6 +108,26 @@ describe('createTerrainSurface — geometry', () => {
     const positionCount = layer.mesh.geometry.getAttribute('position').count;
     // decimated grid's longest dimension should be close to the budget, not 1000
     expect(Math.sqrt(positionCount)).toBeLessThan(100);
+  });
+
+  it('decimated grids still span the full declared bounds edge-to-edge', () => {
+    // Non-round dimensions that don't divide evenly into the vertex budget —
+    // a fixed-stride decimation under-runs the far edge here.
+    const width = 37, height = 41;
+    const grid = { width, height, elevations: new Array(width * height).fill(5) };
+    const layer = createTerrainSurface({ grid, bounds: BOUNDS, vertexBudget: 6 });
+    const position = layer.mesh.geometry.getAttribute('position');
+    let minXSeen = Infinity, maxXSeen = -Infinity, minYSeen = Infinity, maxYSeen = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      minXSeen = Math.min(minXSeen, position.getX(i));
+      maxXSeen = Math.max(maxXSeen, position.getX(i));
+      minYSeen = Math.min(minYSeen, position.getY(i));
+      maxYSeen = Math.max(maxYSeen, position.getY(i));
+    }
+    expect(minXSeen).toBeCloseTo(BOUNDS.minX);
+    expect(maxXSeen).toBeCloseTo(BOUNDS.maxX);
+    expect(minYSeen).toBeCloseTo(BOUNDS.minY);
+    expect(maxYSeen).toBeCloseTo(BOUNDS.maxY);
   });
 
   it('applies verticalExaggeration explicitly to Z, and defaults to 1 (no silent exaggeration)', () => {

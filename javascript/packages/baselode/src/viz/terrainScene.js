@@ -35,6 +35,11 @@ function normalizeGrid(grid) {
     source = new Float32Array(width * height);
     for (let row = 0; row < height; row++) {
       const rowValues = grid.elevations[row];
+      if (!Array.isArray(rowValues) || rowValues.length !== width) {
+        throw new Error(
+          `terrain surface: grid.elevations is ragged — row ${row} has length ${rowValues?.length}, expected ${width}`
+        );
+      }
       for (let col = 0; col < width; col++) {
         source[row * width + col] = Number(rowValues[col]);
       }
@@ -85,15 +90,19 @@ function decimateGrid({ width, height, elevations }, maxDimension) {
     return { width, height, elevations };
   }
 
-  const stride = Math.ceil(longest / maxDimension);
-  const outWidth = Math.max(2, Math.ceil(width / stride));
-  const outHeight = Math.max(2, Math.ceil(height / stride));
+  const scale = maxDimension / longest;
+  const outWidth = Math.max(2, Math.round(width * scale));
+  const outHeight = Math.max(2, Math.round(height * scale));
   const out = new Float32Array(outWidth * outHeight);
 
+  // Evenly spaced source indices spanning the FULL source extent (0..dim-1),
+  // not a fixed stride — a fixed stride under-runs the far edge (e.g. a
+  // 1000-cell dimension with stride 4 stops at source cell 996), which
+  // stretches/misaligns the terrain against its declared bounds.
   for (let row = 0; row < outHeight; row++) {
-    const srcRow = Math.min(row * stride, height - 1);
+    const srcRow = outHeight > 1 ? Math.round((row * (height - 1)) / (outHeight - 1)) : 0;
     for (let col = 0; col < outWidth; col++) {
-      const srcCol = Math.min(col * stride, width - 1);
+      const srcCol = outWidth > 1 ? Math.round((col * (width - 1)) / (outWidth - 1)) : 0;
       out[row * outWidth + col] = elevations[srcRow * width + srcCol];
     }
   }
