@@ -6,3 +6,4 @@ pyproj>=3.4
 folium>=0.15
 pyarrow>=12.0
 sqlalchemy>=2.0
+rasterio>=1.4

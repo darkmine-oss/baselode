@@ -5,6 +5,7 @@
 
 import {
   SerializableBaselode3DSceneSchema,
+  SerializableBaselodeGeophysicsRasterSchema,
   SerializableBaselodeBoxPlotSchema,
   SerializableBaselodeHistogramPlotSchema,
   SerializableBaselodeScatterPlotSchema,
@@ -16,6 +17,7 @@ import {
 export const BASELODE_TOOL_UI_KINDS = Object.freeze({
   STRIP_LOG: 'strip-log',
   SCENE_3D: '3d-scene',
+  GEOPHYSICS_RASTER: 'geophysics-raster',
   SCATTER_PLOT: 'scatter-plot',
   HISTOGRAM_PLOT: 'histogram-plot',
   BOX_PLOT: 'box-plot',
@@ -26,6 +28,7 @@ export const BASELODE_TOOL_UI_KINDS = Object.freeze({
 export const BASELODE_TOOL_UI_TOOL_NAMES = Object.freeze({
   [BASELODE_TOOL_UI_KINDS.STRIP_LOG]: 'baselode_strip_log',
   [BASELODE_TOOL_UI_KINDS.SCENE_3D]: 'baselode_3d_scene',
+  [BASELODE_TOOL_UI_KINDS.GEOPHYSICS_RASTER]: 'baselode_geophysics_raster',
   [BASELODE_TOOL_UI_KINDS.SCATTER_PLOT]: 'baselode_scatter_plot',
   [BASELODE_TOOL_UI_KINDS.HISTOGRAM_PLOT]: 'baselode_histogram_plot',
   [BASELODE_TOOL_UI_KINDS.BOX_PLOT]: 'baselode_box_plot',
@@ -41,6 +44,7 @@ const SCENE_PEERS = Object.freeze([
   'three-viewport-gizmo',
   'zod',
 ]);
+const RASTER_PEERS = Object.freeze(['react', 'zod']);
 
 function schemaContract(kind, schema, options = {}) {
   return Object.freeze({
@@ -69,6 +73,11 @@ export const BASELODE_TOOL_UI_SCHEMA_CONTRACTS = Object.freeze({
     BASELODE_TOOL_UI_KINDS.SCENE_3D,
     SerializableBaselode3DSceneSchema,
     { peerDependencies: SCENE_PEERS },
+  ),
+  [BASELODE_TOOL_UI_KINDS.GEOPHYSICS_RASTER]: schemaContract(
+    BASELODE_TOOL_UI_KINDS.GEOPHYSICS_RASTER,
+    SerializableBaselodeGeophysicsRasterSchema,
+    { callbacks: ['onViewChange'], peerDependencies: RASTER_PEERS },
   ),
   [BASELODE_TOOL_UI_KINDS.SCATTER_PLOT]: schemaContract(
     BASELODE_TOOL_UI_KINDS.SCATTER_PLOT,
@@ -142,6 +151,8 @@ export function isBaselodeToolUiResultEmpty(kind, value) {
         || value?.blocks?.data?.length
         || value?.rasterOverlays?.length
       );
+    case BASELODE_TOOL_UI_KINDS.GEOPHYSICS_RASTER:
+      return !value?.raster?.data?.length;
     case BASELODE_TOOL_UI_KINDS.SCATTER_PLOT:
     case BASELODE_TOOL_UI_KINDS.HISTOGRAM_PLOT:
     case BASELODE_TOOL_UI_KINDS.BOX_PLOT:

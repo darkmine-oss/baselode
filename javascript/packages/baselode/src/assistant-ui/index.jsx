@@ -20,6 +20,7 @@ const CALLBACK_EVENT_TYPES = Object.freeze({
   onTrackChange: 'track-change',
   onIntervalClick: 'interval-click',
   onDepthRangeChange: 'depth-range-change',
+  onViewChange: 'view-change',
 });
 
 const DEFAULT_STATE_MESSAGES = Object.freeze({

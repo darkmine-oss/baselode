@@ -1,5 +1,7 @@
 export type {
   Baselode3DSceneResult,
+  BaselodeGeophysicsRasterCallbacks,
+  BaselodeGeophysicsRasterResult,
   BaselodeAnalyticsResultBase,
   BaselodeBoxPlotResult,
   BaselodeDepthRangeChangeEvent,
@@ -28,6 +30,7 @@ export {
   BASELODE_TOOL_UI_SCHEMA_CONTRACTS,
   BASELODE_TOOL_UI_TOOL_NAMES,
   SerializableBaselode3DSceneSchema,
+  SerializableBaselodeGeophysicsRasterSchema,
   SerializableBaselodeBoxPlotSchema,
   SerializableBaselodeHistogramPlotSchema,
   SerializableBaselodeScatterPlotSchema,
@@ -41,6 +44,7 @@ export {
   parseBaselodeToolUiResult,
   resolveBaselodeToolUiToolNames,
   safeParseSerializableBaselode3DScene,
+  safeParseSerializableBaselodeGeophysicsRaster,
   safeParseSerializableBaselodeBoxPlot,
   safeParseSerializableBaselodeHistogramPlot,
   safeParseSerializableBaselodeScatterPlot,

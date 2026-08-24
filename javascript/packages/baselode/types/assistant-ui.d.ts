@@ -5,6 +5,7 @@ import type {
 } from '@assistant-ui/react';
 import type { ComponentType, ReactNode } from 'react';
 import type {
+  BaselodeGeophysicsRasterCallbacks,
   BaselodeStripLogCallbacks,
   BaselodeToolUiKind,
   BaselodeToolUiResultMap,
@@ -38,7 +39,7 @@ export interface BaselodeAssistantUiToolkitOptions {
   toolNames?: Partial<Record<BaselodeToolUiKind, string>>;
   payloadSource?: 'result' | 'args';
   display?: 'inline' | 'standalone';
-  callbacks?: Partial<Record<BaselodeToolUiKind, BaselodeStripLogCallbacks>>;
+  callbacks?: Partial<Record<BaselodeToolUiKind, BaselodeStripLogCallbacks | BaselodeGeophysicsRasterCallbacks>>;
   onEvent?: (event: BaselodeAssistantToolEvent) => void;
   onRenderError?: (error: unknown, info: unknown) => void;
   renderState?: (state: BaselodeAssistantToolStateInfo) => ReactNode;
@@ -47,6 +48,7 @@ export interface BaselodeAssistantUiToolkitOptions {
 export const BASELODE_TOOL_UI_KINDS: Readonly<{
   STRIP_LOG: 'strip-log';
   SCENE_3D: '3d-scene';
+  GEOPHYSICS_RASTER: 'geophysics-raster';
   SCATTER_PLOT: 'scatter-plot';
   HISTOGRAM_PLOT: 'histogram-plot';
   BOX_PLOT: 'box-plot';

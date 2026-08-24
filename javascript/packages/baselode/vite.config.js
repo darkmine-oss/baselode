@@ -24,6 +24,7 @@ export default defineConfig({
         'react/jsx-runtime',
         '@assistant-ui/react',
         'proj4',
+        'geotiff',
         'three',
         /^three\//,
         'three-viewport-gizmo',

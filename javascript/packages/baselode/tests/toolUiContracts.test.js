@@ -19,9 +19,9 @@ const KINDS = Object.values(BASELODE_TOOL_UI_KINDS);
 
 describe('published Tool UI schema contracts', () => {
   it('publishes a canonical tool name and schema for every Tool UI primitive', () => {
-    expect(KINDS).toHaveLength(7);
+    expect(KINDS).toHaveLength(8);
     expect(Object.keys(BASELODE_TOOL_UI_SCHEMA_CONTRACTS)).toEqual(KINDS);
-    expect(new Set(Object.values(BASELODE_TOOL_UI_TOOL_NAMES)).size).toBe(7);
+    expect(new Set(Object.values(BASELODE_TOOL_UI_TOOL_NAMES)).size).toBe(8);
 
     for (const kind of KINDS) {
       const contract = getBaselodeToolUiSchemaContract(kind);

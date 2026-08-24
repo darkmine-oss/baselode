@@ -7,10 +7,29 @@ import { describe, expect, it } from 'vitest';
 
 import {
   safeParseSerializableBaselode3DScene,
+  safeParseSerializableBaselodeGeophysicsRaster,
   safeParseSerializableBaselodeStripLog,
 } from '../src/tool-ui/schema.js';
 
 describe('Tool UI serializable schemas', () => {
+  it('parses a geophysics raster viewer payload', () => {
+    const parsed = safeParseSerializableBaselodeGeophysicsRaster({
+      id: 'magnetics-1',
+      title: 'TMI magnetics',
+      raster: {
+        data: [[[1, 2], [3, null]]],
+        transform: [10, 0, 500000, 0, -10, 7000000],
+        crs: 'EPSG:28351',
+        bandNames: ['tmi'],
+      },
+      palette: 'magnetic',
+      clipRange: [1, 3],
+      hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.7 },
+    });
+    expect(parsed).not.toBeNull();
+    expect(parsed.raster.data[0][1][1]).toBeNull();
+  });
+
   it('parses a valid strip-log payload and applies track defaults', () => {
     const parsed = safeParseSerializableBaselodeStripLog({
       id: 'strip-log-BLDD001',

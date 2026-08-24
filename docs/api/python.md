@@ -4,6 +4,36 @@ Complete reference for the `baselode` Python package (v0.1.x).
 
 ---
 
+## baselode.geophysics
+
+```python
+import baselode.geophysics
+```
+
+### GeophysicsRaster
+
+```python
+GeophysicsRaster(data, transform=None, crs=None, nodata=None,
+                 band_names=None, metadata=None)
+```
+
+In-memory geophysics raster. `data` accepts `(row, column)` or `(band, row,
+column)` numeric arrays and is stored as bands-first. `to_payload()` returns
+a JSON-safe object for the JavaScript raster viewer; `from_payload(payload)`
+reconstructs the model.
+
+### load_raster
+
+```python
+load_raster(source, bands=None, masked=True, **kwargs)
+```
+
+Reads an ER Mapper `.ers`, GeoTIFF/COG, ENVI, or another GDAL-supported
+raster into a `GeophysicsRaster`. Requires the optional `raster` extra:
+`pip install 'baselode[raster]'`.
+
+---
+
 ## baselode.drill.data
 
 Data loading and table normalisation helpers for drillhole datasets.
