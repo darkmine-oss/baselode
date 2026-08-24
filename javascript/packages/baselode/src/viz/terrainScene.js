@@ -259,7 +259,12 @@ export function createTerrainSurface(options = {}) {
   const id = options.id ?? `terrain-surface-${++_terrainIdCounter}`;
   const name = options.name ?? id;
   const verticalExaggeration = options.verticalExaggeration ?? 1;
-  const maxDimension = options.vertexBudget ?? DEFAULT_MAX_DIMENSION;
+  // A non-positive/non-finite budget (e.g. 0 from an unset slider) must not
+  // disable decimation — fall back to the default safety budget rather than
+  // letting decimateGrid's `!maxDimension` check treat it as "no limit".
+  const maxDimension = Number.isFinite(options.vertexBudget) && options.vertexBudget > 0
+    ? options.vertexBudget
+    : DEFAULT_MAX_DIMENSION;
   const skirt = options.skirt ?? false;
   const visible = options.visible ?? true;
   const renderOrder = options.renderOrder ?? -1;

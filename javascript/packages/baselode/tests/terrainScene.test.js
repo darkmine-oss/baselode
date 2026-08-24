@@ -128,6 +128,13 @@ describe('createTerrainSurface — geometry', () => {
     expect(Math.sqrt(positionCount)).toBeLessThan(100);
   });
 
+  it('falls back to the default budget instead of disabling decimation when vertexBudget is 0', () => {
+    const grid = flatGrid(1000, 1000);
+    const layer = createTerrainSurface({ grid, bounds: BOUNDS, vertexBudget: 0 });
+    const positionCount = layer.mesh.geometry.getAttribute('position').count;
+    expect(Math.sqrt(positionCount)).toBeLessThan(400);
+  });
+
   it('decimated grids still span the full declared bounds edge-to-edge', () => {
     // Non-round dimensions that don't divide evenly into the vertex budget —
     // a fixed-stride decimation under-runs the far edge here.
