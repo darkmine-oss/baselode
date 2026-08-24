@@ -244,6 +244,13 @@ export {
 } from './data/lasLoader.js';
 
 export {
+  createGeophysicsRaster,
+  getGeophysicsRasterBand,
+  geophysicsRasterRange,
+  loadGeoTiff,
+} from './data/geophysicsRaster.js';
+
+export {
   interpolateTrace,
   alphaBetaToNormal,
   computeStructuralPositions
@@ -389,6 +396,15 @@ export {
   listRasterOverlays,
   clearRasterOverlays,
 } from './viz/rasterOverlayScene.js';
+
+export {
+  GEOPHYSICS_PALETTES,
+  normalizeGeophysicsClipRange,
+  geophysicsHillshade,
+  renderGeophysicsRaster,
+} from './viz/geophysicsRasterViz.js';
+
+export { GeophysicsRasterViewer } from './viz/GeophysicsRasterViewer.jsx';
 
 export {
   buildViewSignature,

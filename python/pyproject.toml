@@ -36,10 +36,11 @@ dependencies = [
 viz = ["folium>=0.15"]
 sql = ["sqlalchemy>=2.0"]
 las = ["lasio>=0.31"]
+raster = ["rasterio>=1.4"]
 api = ["requests>=2.28"]
 omf = ["omf>=1.0,<2.0"]
 test = ["pytest>=8"]
-all = ["folium>=0.15", "sqlalchemy>=2.0", "lasio>=0.31", "requests>=2.28", "omf>=1.0,<2.0"]
+all = ["folium>=0.15", "sqlalchemy>=2.0", "lasio>=0.31", "rasterio>=1.4", "requests>=2.28", "omf>=1.0,<2.0"]
 
 [tool.pytest.ini_options]
 # Run from python/: `pytest`. `pythonpath` lets tests import baselode from src

@@ -6,12 +6,14 @@ export {
   SerializableBaselodeStripLogSchema,
   SerializableBaselodeStripLogTrackSchema,
   SerializableBaselode3DSceneSchema,
+  SerializableBaselodeGeophysicsRasterSchema,
   SerializableBaselodeScatterPlotSchema,
   SerializableBaselodeHistogramPlotSchema,
   SerializableBaselodeBoxPlotSchema,
   SerializableBaselodeViolinPlotSchema,
   SerializableBaselodeTernaryPlotSchema,
   safeParseSerializableBaselode3DScene,
+  safeParseSerializableBaselodeGeophysicsRaster,
   safeParseSerializableBaselodeStripLog,
   safeParseSerializableBaselodeScatterPlot,
   safeParseSerializableBaselodeHistogramPlot,
@@ -27,6 +29,10 @@ export {
 export {
   Baselode3DSceneToolUI,
 } from './Baselode3DSceneToolUI.jsx';
+
+export {
+  BaselodeGeophysicsRasterToolUI,
+} from './BaselodeGeophysicsRasterToolUI.jsx';
 
 export {
   BaselodeScatterPlotToolUI,

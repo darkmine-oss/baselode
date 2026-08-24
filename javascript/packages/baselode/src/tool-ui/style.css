@@ -187,6 +187,22 @@
   display: block;
 }
 
+.baselode-tool-geophysics-raster {
+  border: 1px solid var(--baselode-tool-line, #d0d0d0);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.baselode-tool-geophysics-raster__header {
+  padding: 14px 16px 10px;
+  background: var(--baselode-tool-panel, #f8fafc);
+  color: var(--baselode-tool-ink, #1e293b);
+}
+
+.baselode-tool-geophysics-raster__header h3,
+.baselode-tool-geophysics-raster__header p { margin: 0; }
+.baselode-tool-geophysics-raster__header p { color: var(--baselode-tool-ink-soft, #64748b); font-size: 13px; }
+
 .baselode-assistant-tool-state {
   border: 1px solid var(--baselode-tool-line, #d0d0d0);
   border-radius: 8px;

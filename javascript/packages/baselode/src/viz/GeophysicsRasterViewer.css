@@ -1,0 +1,9 @@
+/* Copyright (C) 2026 Darkmine Pty Ltd SPDX-License-Identifier: GPL-3.0-or-later */
+.baselode-geophysics-raster { background: #101827; color: #e2e8f0; font: 13px/1.4 Inter, system-ui, sans-serif; }
+.baselode-geophysics-raster__canvas { display: block; width: 100%; object-fit: contain; image-rendering: auto; background: #111827; }
+.baselode-geophysics-raster__controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 0; padding: 12px; border: 0; background: #172033; }
+.baselode-geophysics-raster__controls legend { padding: 0; font-weight: 700; }
+.baselode-geophysics-raster__controls label { display: grid; gap: 4px; color: #cbd5e1; }
+.baselode-geophysics-raster__controls input, .baselode-geophysics-raster__controls select { box-sizing: border-box; width: 100%; min-height: 28px; }
+.baselode-geophysics-raster__checkbox { align-content: end; grid-template-columns: auto 1fr !important; align-items: center; }
+.baselode-geophysics-raster__checkbox input { width: auto !important; }

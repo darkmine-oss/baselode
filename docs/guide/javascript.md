@@ -823,7 +823,8 @@ export default function App() {
 
 The canonical names are `baselode_strip_log`, `baselode_3d_scene`,
 `baselode_scatter_plot`, `baselode_histogram_plot`, `baselode_box_plot`,
-`baselode_violin_plot`, and `baselode_ternary_plot`. Alias only the primitives
+`baselode_violin_plot`, `baselode_ternary_plot`, and
+`baselode_geophysics_raster`. Alias only the primitives
 your backend names differently. Names must be unique.
 
 By default the adapter validates `part.result`. Use `payloadSource: 'args'` only
@@ -1249,6 +1250,55 @@ group.children.forEach((mesh) => {
 `mesh.userData` contains `{ id, attributes }` from the source JSON, available in the click callback.
 
 ---
+
+## Geophysics raster viewer
+
+For numeric grids such as magnetics, radiometrics, gravity, and conductivity,
+use `GeophysicsRasterViewer`. It renders a portable bands-first payload to a
+Canvas and exposes colour map, display clipping, and optional illuminated
+relief controls. Pass `value` and `onViewChange` to own the controls from your
+application, or omit them for the built-in state and controls.
+
+```jsx
+import { GeophysicsRasterViewer } from 'baselode';
+
+function Magnetics({ raster }) {
+  const [view, setView] = useState({
+    palette: 'magnetic',
+    clipRange: [-500, 500],
+    hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.65 },
+  });
+  return <GeophysicsRasterViewer raster={raster} value={view} onViewChange={setView} />;
+}
+```
+
+The payload is compatible with Python's `GeophysicsRaster.to_payload()`:
+
+```js
+const raster = {
+  data: [[[12.4, 11.8], [13.1, null]]], // [band][row][column]
+  transform: [50, 0, 500000, 0, -50, 7000000],
+  crs: 'EPSG:28351',
+  nodata: -9999,
+  bandNames: ['tmi'],
+};
+```
+
+For files selected in a browser, `loadGeoTiff()` reads GeoTIFF and COG data
+directly (including its georeferencing) using the bundled `geotiff` runtime:
+
+```js
+import { loadGeoTiff } from 'baselode';
+
+const raster = await loadGeoTiff('/data/regional_tmi.tif');
+```
+
+ERS and other GDAL-only formats should be opened on the Python side with
+`load_raster()` and transferred as this payload. That retains one dependable
+browser format rather than attempting to replicate GDAL's format drivers in
+the client. The Tool UI equivalent is the `geophysics-raster` primitive with
+canonical name `baselode_geophysics_raster`; it sends a `view-change` event
+when the user changes a control.
 
 ## Raster Overlays
 

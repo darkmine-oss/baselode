@@ -131,6 +131,43 @@ export function safeParseSerializableBaselode3DScene(value) {
   return parsed.success ? parsed.data : null;
 }
 
+// --- Geophysics raster ---------------------------------------------------
+
+const RasterCellSchema = z.number().nullable();
+const RasterGridSchema = z.array(z.array(RasterCellSchema).min(1)).min(1);
+const RasterTransformSchema = z.tuple([
+  z.number(), z.number(), z.number(), z.number(), z.number(), z.number(),
+]);
+
+export const SerializableBaselodeGeophysicsRasterSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  raster: z.object({
+    data: z.array(RasterGridSchema).min(1),
+    transform: RasterTransformSchema.optional(),
+    crs: z.union([z.string(), z.number()]).nullable().optional(),
+    nodata: z.number().nullable().optional(),
+    bandNames: z.array(z.string()).optional(),
+    metadata: JsonObjectSchema.optional(),
+  }),
+  palette: z.enum(['viridis', 'terrain', 'grayscale', 'magnetic']).optional(),
+  clipRange: z.tuple([z.number(), z.number()]).optional(),
+  hillshade: z.object({
+    enabled: z.boolean().optional(),
+    azimuth: z.number().min(0).max(360).optional(),
+    altitude: z.number().min(1).max(90).optional(),
+    strength: z.number().min(0).max(1).optional(),
+  }).optional(),
+  height: z.number().positive().max(1200).optional(),
+  showControls: z.boolean().optional(),
+});
+
+export function safeParseSerializableBaselodeGeophysicsRaster(value) {
+  const parsed = SerializableBaselodeGeophysicsRasterSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
 // --- Analytics plots (TRK-52) ------------------------------------------
 
 const AnalyticsTemplateEnum = z.enum(['baselode', 'baselode-dark', 'plotly-default']);

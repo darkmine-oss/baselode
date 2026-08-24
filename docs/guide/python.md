@@ -847,6 +847,40 @@ These payloads can be serialised to JSON and consumed by the JavaScript `Baselod
 
 ---
 
+## Geophysics rasters
+
+`baselode.geophysics` provides an in-memory, bands-first raster model for
+magnetics, radiometrics, gravity, conductivity grids, and other gridded
+geophysics. It preserves the numeric cells, GDAL affine transform, CRS,
+no-data value, band names, and source metadata without taking a dependency on
+any inversion package.
+
+```bash
+pip install 'baselode[raster]'
+```
+
+```python
+import baselode.geophysics
+
+raster = baselode.geophysics.load_raster('regional_tmi.ers')
+print(raster.band_names, raster.bounds, raster.crs)
+
+# JSON-safe payload for the Baselode JavaScript raster viewer.
+payload = raster.to_payload()
+```
+
+The optional Rasterio/GDAL reader supports ER Mapper `.ers`, GeoTIFF and COG,
+ENVI grids, and other formats enabled by the installed GDAL drivers. Raster
+arrays are always shaped `(band, row, column)`, matching GDAL/Rasterio. The
+affine transform is `(a, b, c, d, e, f)` where `x = a * column + b * row + c`
+and `y = d * column + e * row + f`.
+
+`GeophysicsRaster` does not depend on SimPEG. Its array, transform, CRS, and
+no-data fields are intentionally suitable inputs for a future explicit
+SimPEG mesh/model adapter, while leaving inversion decisions to the caller.
+
+---
+
 ## Using with Jupyter Notebooks
 
 Example notebooks are provided in the repository under [`notebooks/`](https://github.com/darkmine-oss/baselode/tree/main/notebooks):

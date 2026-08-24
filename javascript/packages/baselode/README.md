@@ -16,9 +16,9 @@ npm install baselode
 
 ---
 
-- **Data Loading:** Efficiently import and manage your exploration and mining data (drillholes, assays, geology/lithology, block models, structural measurements).
+- **Data Loading:** Efficiently import and manage your exploration and mining data (drillholes, assays, geology/lithology, block models, structural measurements, and GeoTIFF/COG geophysics rasters).
 - **Data Models:** Utilize predefined models to normalize and interpret your data (40+ column name variants, minimum-curvature desurveying).
-- **Data Visualization:** Create insightful 2D strip logs (Plotly) and interactive 3D scenes (Three.js) with orbit/fly controls, assay coloring, structural disc rendering, and click-select glow.
+- **Data Visualization:** Create insightful 2D strip logs (Plotly), controllable Canvas geophysics rasters (colour map, clipping, hillshade), and interactive 3D scenes (Three.js) with orbit/fly controls, assay coloring, structural disc rendering, and click-select glow.
 - **Common Algorithms:** Access a range of algorithms designed to solve common problems in the industry.
 
 ## Example
@@ -74,8 +74,9 @@ them again. Existing CSV APIs remain backward compatible.
 ## Tool UI for assistant-ui
 
 Baselode publishes schemas, React renderers, and a ready-made assistant-ui
-toolkit for seven geoscience visualisation results: strip logs, 3D scenes,
-scatter plots, histograms, box plots, violin plots, and ternary plots.
+toolkit for eight geoscience visualisation results: strip logs, 3D scenes,
+geophysics rasters, scatter plots, histograms, box plots, violin plots, and
+ternary plots.
 
 ```bash
 npm install baselode @assistant-ui/react zod
