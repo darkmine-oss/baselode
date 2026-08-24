@@ -84,6 +84,15 @@ describe('createTerrainSurface — validation', () => {
     expect(layer.mesh).not.toBeNull();
   });
 
+  it('throws on a degenerate single-row nested grid instead of silently returning an empty terrain', () => {
+    expect(() =>
+      createTerrainSurface({
+        grid: { elevations: [[1, 2]] },
+        bounds: BOUNDS,
+      })
+    ).toThrow(/at least 2 rows/);
+  });
+
   it('throws on a ragged nested grid instead of silently truncating rows', () => {
     expect(() =>
       createTerrainSurface({

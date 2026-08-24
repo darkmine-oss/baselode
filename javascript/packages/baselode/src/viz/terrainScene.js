@@ -32,6 +32,9 @@ function normalizeGrid(grid) {
   if (Array.isArray(grid.elevations) && Array.isArray(grid.elevations[0])) {
     height = grid.elevations.length;
     width = grid.elevations[0].length;
+    if (width < 2 || height < 2) {
+      throw new Error('terrain surface: grid.elevations must have at least 2 rows and 2 columns');
+    }
     source = new Float32Array(width * height);
     for (let row = 0; row < height; row++) {
       const rowValues = grid.elevations[row];
