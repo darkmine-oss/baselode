@@ -57,6 +57,15 @@ describe('createTerrainSurface — validation', () => {
     ).toThrow(/invalid bounds/);
   });
 
+  it('throws on fractional flat-grid dimensions instead of silently producing an empty terrain', () => {
+    expect(() =>
+      createTerrainSurface({
+        grid: { width: 2.5, height: 2, elevations: [1, 2, 3, 4, 5] },
+        bounds: BOUNDS,
+      })
+    ).toThrow(/integers/);
+  });
+
   it('throws when flat elevations length does not match width*height', () => {
     expect(() =>
       createTerrainSurface({

@@ -47,8 +47,8 @@ function normalizeGrid(grid) {
   } else {
     width = Number(grid.width);
     height = Number(grid.height);
-    if (!Number.isFinite(width) || !Number.isFinite(height) || width < 2 || height < 2) {
-      throw new Error('terrain surface: grid.width/grid.height must be >= 2 for a flat elevations array');
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 2 || height < 2) {
+      throw new Error('terrain surface: grid.width/grid.height must be integers >= 2 for a flat elevations array');
     }
     source = Float32Array.from(grid.elevations, Number);
     if (source.length !== width * height) {
