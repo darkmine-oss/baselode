@@ -16,6 +16,7 @@ import CorePhoto from './pages/CorePhoto';
 import ChatHelpers from './pages/ChatHelpers';
 import AnalyticsPlots from './pages/AnalyticsPlots';
 import IdwVolume from './pages/IdwVolume';
+import GeophysicsRaster from './pages/GeophysicsRaster';
 // import RasterDemo from './pages/RasterDemo';
 import './App.css';
 
@@ -36,6 +37,7 @@ function App() {
         <Route path="/chat-helpers" element={<ChatHelpers />} />
         <Route path="/analytics" element={<AnalyticsPlots />} />
         <Route path="/idw-volume" element={<IdwVolume />} />
+        <Route path="/geophysics-raster" element={<GeophysicsRaster />} />
         {/* <Route path="/raster-demo" element={<RasterDemo />} /> */}
       </Routes>
     </Layout>
