@@ -6,9 +6,9 @@ future modelling packages without making any particular algorithm package a
 core Baselode dependency.
 """
 
-import baselode.geophysics.raster
+import baselode.geophysics.raster as geophysics_raster
 
-GeophysicsRaster = baselode.geophysics.raster.GeophysicsRaster
-load_raster = baselode.geophysics.raster.load_raster
+GeophysicsRaster = geophysics_raster.GeophysicsRaster
+load_raster = geophysics_raster.load_raster
 
 __all__ = ["GeophysicsRaster", "load_raster"]
