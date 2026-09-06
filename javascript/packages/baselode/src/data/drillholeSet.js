@@ -21,12 +21,14 @@ import {
   minimumCurvatureDesurvey,
   tangentialDesurvey,
   balancedTangentialDesurvey,
+  midpointTangentialDesurvey,
 } from './desurveyMethods.js';
 
 const DESURVEY_METHODS = {
   minimum_curvature: minimumCurvatureDesurvey,
   tangential: tangentialDesurvey,
   balanced_tangential: balancedTangentialDesurvey,
+  midpoint_tangential: midpointTangentialDesurvey,
 };
 
 // The JS desurvey helpers (kept compatible with their existing callers)

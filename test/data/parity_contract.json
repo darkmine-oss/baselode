@@ -156,6 +156,7 @@
         "minimumCurvatureDesurvey",
         "tangentialDesurvey",
         "balancedTangentialDesurvey",
+        "midpointTangentialDesurvey",
         "attachAssayPositions",
         "buildTraces",
         "interpolateTrajectory"
@@ -164,6 +165,7 @@
         ["baselode.drill.desurvey", "minimum_curvature_desurvey"],
         ["baselode.drill.desurvey", "tangential_desurvey"],
         ["baselode.drill.desurvey", "balanced_tangential_desurvey"],
+        ["baselode.drill.desurvey", "midpoint_tangential_desurvey"],
         ["baselode.drill.desurvey", "attach_assay_positions"],
         ["baselode.drill.desurvey", "build_traces"],
         ["baselode.drill.desurvey", "interpolate_trajectory"]
@@ -328,10 +330,12 @@
     },
     {
       "name": "validate_drillhole_db",
-      "description": "Comprehensive drillhole-database validator: returns a structured {summary, issues} report covering duplicate collar IDs, single-station surveys, az/dip range, orphans, gaps, overlaps, beyond-max-depth, and below-detection sentinels. Ships fix_single_station_surveys + replace_below_detection_limit helpers.",
+      "description": "Comprehensive drillhole-database validator: returns a structured {summary, issues} report covering duplicate collar IDs, survey rows with null orientation, holes with no usable survey station, single-station surveys, az/dip range, orphans, gaps, overlaps, beyond-max-depth, and below-detection sentinels. Ships fix_single_station_surveys, drop_unusable_survey_rows, synthesise_collar_station + replace_below_detection_limit helpers. fix_overlaps (with dataset precedence) is Python-only.",
       "jsExports": [
         "validateDrillholeDb",
         "fixSingleStationSurveys",
+        "dropUnusableSurveyRows",
+        "synthesiseCollarStation",
         "normalizeAzimuth",
         "dropOrphanIntervals",
         "swapInvertedIntervals",
@@ -343,6 +347,8 @@
       "pythonSymbols": [
         ["baselode.drill.validate", "validate_drillhole_db"],
         ["baselode.drill.validate", "fix_single_station_surveys"],
+        ["baselode.drill.validate", "drop_unusable_survey_rows"],
+        ["baselode.drill.validate", "synthesise_collar_station"],
         ["baselode.drill.validate", "normalize_azimuth"],
         ["baselode.drill.validate", "drop_orphan_intervals"],
         ["baselode.drill.validate", "swap_inverted_intervals"],

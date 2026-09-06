@@ -287,11 +287,18 @@ import {
   minimumCurvatureDesurvey,
   tangentialDesurvey,
   balancedTangentialDesurvey,
+  midpointTangentialDesurvey,
   buildTraces
 } from 'baselode';
 
-// minimumCurvatureDesurvey is the industry standard (default)
+// minimumCurvatureDesurvey is the industry standard (default);
+// midpointTangentialDesurvey is Vulcan's default "Tangent" for like-for-like comparisons.
 const trace = minimumCurvatureDesurvey(collarRows, surveyRows, { step: 1.0 });
+```
+
+Every trace starts at the collar (`md = 0`): a first station below the collar has its orientation extended straight up, matching Vulcan / Surpac and the Python package.
+
+```js
 ```
 
 ### Attaching assay positions to 3D traces
@@ -365,12 +372,14 @@ const report = validateDrillholeDb({
 const errors = report.issues.filter((issue) => issue.severity === 'error');
 ```
 
-Checks covered (severity, what triggers): `duplicate_hole_ids` (error), `single_station_surveys` (warning), `azimuth_range` / `dip_range` (error), `orphan_intervals` (error), `negative_lengths` (error), `intervals_beyond_max_depth` (warning), `interval_gaps` (info), `interval_overlaps` (warning), `below_detection_limit` (info).
+Checks covered (severity, what triggers): `duplicate_hole_ids` (error), `survey_null_orientation` (error — a row's depth / azimuth / dip is null or non-numeric, so desurvey ignores it), `survey_no_usable_stations` (warning — a hole has no usable row and drops out of the desurvey), `single_station_surveys` (warning, usable rows only), `azimuth_range` / `dip_range` (error), `orphan_intervals` (error), `negative_lengths` (error), `intervals_beyond_max_depth` (warning), `interval_gaps` (info), `interval_overlaps` (warning), `below_detection_limit` (info).
 
 ### Fix helpers
 
 ```js
-const surveyFixed    = fixSingleStationSurveys(surveyRows, collarRows);
+const surveyUsable   = dropUnusableSurveyRows(surveyRows);            // null / non-numeric depth, azimuth, dip
+const { survey: surveyRebuilt, report } = synthesiseCollarStation(surveyUsable, collarRows);  // collar station for holes with none
+const surveyFixed    = fixSingleStationSurveys(surveyRebuilt, collarRows);
 const surveyWrapped  = normalizeAzimuth(surveyRows);  // 360 → 0, -30 → 330, idempotent
 const assaysMatched  = dropOrphanIntervals(assayRows, collarRows);
 const assaysSwapped  = swapInvertedIntervals(assayRows);  // fixes to<from typos

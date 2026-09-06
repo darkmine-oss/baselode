@@ -484,7 +484,10 @@ def load_geophysics(source, source_column_map=None, keep_all=True, null_sentinel
         if col not in df.columns:
             raise ValueError(f"Geophysics table missing column: {col}")
 
-    df[HOLE_ID] = df[HOLE_ID].astype(str).str.strip()
+    # Blank hole_id must stay blank: ``astype(str)`` on older pandas turns
+    # NaN into the literal "nan", which would then pass the invalid-row
+    # filter below.
+    df[HOLE_ID] = df[HOLE_ID].where(df[HOLE_ID].notna(), "").astype(str).str.strip()
     df = _normalize_interval_bounds(df)
 
     invalid = (

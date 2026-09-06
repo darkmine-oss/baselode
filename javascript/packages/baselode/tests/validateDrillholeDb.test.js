@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import {
   validateDrillholeDb,
   fixSingleStationSurveys,
+  dropUnusableSurveyRows,
+  synthesiseCollarStation,
   normalizeAzimuth,
   dropOrphanIntervals,
   swapInvertedIntervals,
@@ -285,5 +287,117 @@ describe('replaceBelowDetectionLimit', () => {
       { columns: ['au_ppm'], sentinelFactor: 1.0 },
     );
     expect(result[0].au_ppm).toBe(0.01);
+  });
+});
+
+describe('survey usability checks (GH-96)', () => {
+  it('flags rows with null azimuth or dip as errors with a fix recipe', () => {
+    const report = validateDrillholeDb({
+      collar: [collarRow('A')],
+      survey: [surveyRow('A', 0), { hole_id: 'A', depth: 50, azimuth: null, dip: -90 }, { hole_id: 'A', depth: 100, azimuth: 0, dip: undefined }],
+    });
+    const issues = checksWith(report, 'survey_null_orientation');
+    expect(issues.map((issue) => issue.row_index)).toEqual([1, 2]);
+    expect(issues.every((issue) => issue.severity === 'error')).toBe(true);
+    expect(issues[0].message).toContain('azimuth');
+    expect(issues[1].message).toContain('dip');
+    expect(issues[0].fix).toContain('dropUnusableSurveyRows');
+    expect(issues[0].fix).toContain('synthesiseCollarStation');
+    expect(checksWith(report, 'survey_no_usable_stations')).toEqual([]);
+  });
+
+  it('warns for a hole whose only survey rows are unusable', () => {
+    const report = validateDrillholeDb({
+      collar: [collarRow('A'), collarRow('B')],
+      survey: [surveyRow('A', 0), surveyRow('A', 50), { hole_id: 'B', depth: 0, azimuth: null, dip: null }],
+    });
+    const warnings = checksWith(report, 'survey_no_usable_stations');
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0].hole_id).toBe('B');
+    expect(warnings[0].severity).toBe('warning');
+    expect(warnings[0].message).toContain('1 survey row(s)');
+    expect(warnings[0].fix).toContain('synthesiseCollarStation');
+  });
+
+  it('warns for a collar hole with no survey rows at all', () => {
+    const report = validateDrillholeDb({
+      collar: [collarRow('A'), collarRow('C')],
+      survey: [surveyRow('A', 0), surveyRow('A', 50)],
+    });
+    const warnings = checksWith(report, 'survey_no_usable_stations');
+    expect(warnings.map((issue) => issue.hole_id)).toEqual(['C']);
+    expect(warnings[0].message).toContain('no survey rows');
+  });
+
+  it('skips the no-usable-station check when the survey table is empty', () => {
+    const report = validateDrillholeDb({ collar: [collarRow('A')], survey: [] });
+    expect(checksWith(report, 'survey_no_usable_stations')).toEqual([]);
+  });
+
+  it('counts only usable rows for the single-station check', () => {
+    const report = validateDrillholeDb({
+      collar: [collarRow('A')],
+      survey: [surveyRow('A', 0), { hole_id: 'A', depth: 50, azimuth: null, dip: -90 }],
+    });
+    const single = checksWith(report, 'single_station_surveys');
+    expect(single).toHaveLength(1);
+    expect(single[0].row_index).toBe(0);
+  });
+});
+
+describe('dropUnusableSurveyRows', () => {
+  it('removes rows with null or non-numeric depth / azimuth / dip', () => {
+    const survey = [
+      surveyRow('A', 0),
+      { hole_id: 'A', depth: 50, azimuth: null, dip: -90 },
+      { hole_id: 'A', depth: 'bad', azimuth: 0, dip: -90 },
+      { hole_id: 'B', depth: 0, azimuth: 10, dip: 'x' },
+    ];
+    const result = dropUnusableSurveyRows(survey);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toBe(survey[0]);
+    expect(survey).toHaveLength(4);
+  });
+});
+
+describe('synthesiseCollarStation', () => {
+  it('builds a station from the collar orientation and drops the unusable rows', () => {
+    const collar = [
+      { ...collarRow('A'), azimuth: 45, dip: -60 },
+      { ...collarRow('B', 80), azimuth: 90, dip: -70 },
+    ];
+    const survey = [surveyRow('A', 0), surveyRow('A', 50), { hole_id: 'B', depth: 30, azimuth: null, dip: null }];
+    const { survey: result, report } = synthesiseCollarStation(survey, collar);
+    expect(report).toEqual({
+      holesSynthesised: 1, fromCollar: 1, verticalFallback: 0, verticalFallbackHoles: [], rowsDropped: 1,
+    });
+    const bRows = result.filter((row) => row.hole_id === 'B');
+    expect(bRows).toEqual([{ hole_id: 'B', depth: 0, azimuth: 90, dip: -70 }]);
+    expect(result.filter((row) => row.hole_id === 'A')).toHaveLength(2);
+  });
+
+  it('falls back to vertical and reports which holes', () => {
+    const collar = [collarRow('A'), collarRow('B', 80)];
+    const survey = [surveyRow('A', 0), surveyRow('A', 50)];
+    const { survey: result, report } = synthesiseCollarStation(survey, collar);
+    expect(report.holesSynthesised).toBe(1);
+    expect(report.verticalFallback).toBe(1);
+    expect(report.verticalFallbackHoles).toEqual(['B']);
+    expect(result.find((row) => row.hole_id === 'B')).toEqual({ hole_id: 'B', depth: 0, azimuth: 0, dip: -90 });
+  });
+
+  it('matches collar orientation columns case-insensitively', () => {
+    const collar = [{ ...collarRow('B', 80), Azimuth: 120, DIP: -55 }];
+    const { survey: result } = synthesiseCollarStation([], collar);
+    expect(result).toEqual([{ hole_id: 'B', depth: 0, azimuth: 120, dip: -55 }]);
+  });
+
+  it('pads to max_depth when chained with fixSingleStationSurveys', () => {
+    const collar = [{ ...collarRow('B', 80), azimuth: 90, dip: -60 }];
+    const { survey: synthesised } = synthesiseCollarStation([{ hole_id: 'B', depth: 40, azimuth: null, dip: null }], collar);
+    const padded = fixSingleStationSurveys(synthesised, collar);
+    expect(padded.map((row) => row.depth)).toEqual([0, 80]);
+    const report = validateDrillholeDb({ collar, survey: padded });
+    expect(report.summary).toEqual({ error: 0, warning: 0, info: 0 });
   });
 });

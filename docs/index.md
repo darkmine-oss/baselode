@@ -23,7 +23,7 @@ features:
     details: Import and normalise drillhole collars, surveys, assays, structural measurements, and geotechnical intervals from CSV, Parquet, or SQL sources. A smart column-mapping layer handles common naming variations automatically.
   - icon: 🧮
     title: Desurveying
-    details: Convert depth-based survey tables into 3D space. Supports industry-standard Minimum Curvature, as well as Tangential and Balanced Tangential methods.
+    details: Convert depth-based survey tables into 3D space. Supports industry-standard Minimum Curvature, as well as Tangential, Balanced Tangential, and Vulcan-style Midpoint Tangential methods.
   - icon: 🗺️
     title: Map Visualisation
     details: Plot collar locations on an interactive map. The Python library uses Folium/Plotly; the JavaScript library uses MapLibre GL JS.

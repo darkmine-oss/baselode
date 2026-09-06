@@ -141,6 +141,13 @@ def validate_drillhole_db(
     ``hole_id`` / ``table`` / ``row_index``, a human-readable ``message``,
     and a ``fix`` recipe when one is available.
 
+    Survey rows are "usable" when ``depth``, ``azimuth`` and ``dip`` are all
+    numeric.  Desurvey silently ignores anything else, so the survey checks
+    flag them here: ``survey_null_orientation`` (error, per row) and
+    ``survey_no_usable_stations`` (warning, per hole — the hole will drop
+    out of the desurvey entirely).  ``single_station_surveys`` counts only
+    usable rows.
+
     Parameters
     ----------
     collar : pd.DataFrame
@@ -169,7 +176,9 @@ def validate_drillhole_db(
     """
     issues = []
     issues.extend(_check_duplicate_hole_ids(collar, hole_col))
-    issues.extend(_check_single_station_surveys(survey, hole_col, depth_col))
+    issues.extend(_check_survey_null_orientation(survey, hole_col, depth_col, azimuth_col, dip_col))
+    issues.extend(_check_survey_no_usable_stations(collar, survey, hole_col, depth_col, azimuth_col, dip_col))
+    issues.extend(_check_single_station_surveys(survey, hole_col, depth_col, azimuth_col, dip_col))
     issues.extend(_check_azimuth_range(survey, hole_col, depth_col, azimuth_col, allow_full_circle))
     issues.extend(_check_dip_range(survey, hole_col, depth_col, dip_col))
 
@@ -225,8 +234,9 @@ def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=
         return survey.copy()
 
     max_depth_lookup = _build_max_depth_lookup(collar, hole_col, max_depth_col) if collar is not None else {}
+    usable = _usable_station_mask(survey, depth_col, AZIMUTH, DIP)
     new_rows = []
-    for hole_id, group in survey.groupby(hole_col):
+    for hole_id, group in survey[usable].groupby(hole_col):
         if len(group) != 1:
             continue
         original = group.iloc[0]
@@ -242,6 +252,156 @@ def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=
 
     extended = pd.concat([survey, pd.DataFrame(new_rows)], ignore_index=True)
     return extended.sort_values([hole_col, depth_col]).reset_index(drop=True)
+
+
+def drop_unusable_survey_rows(survey, hole_col=HOLE_ID, depth_col=DEPTH, azimuth_col=AZIMUTH, dip_col=DIP):
+    """Drop survey rows whose depth, azimuth or dip is null or non-numeric.
+
+    The complement of the ``survey_null_orientation`` validation check.
+    Desurvey already ignores these rows, so removing them changes no trace;
+    it just makes the table honest about what it contains.  Holes left
+    with no rows at all are reported by ``survey_no_usable_stations`` and
+    can be rebuilt with :func:`synthesise_collar_station`.
+
+    Parameters
+    ----------
+    survey : pd.DataFrame
+        Survey table.
+    hole_col, depth_col, azimuth_col, dip_col : str
+        Column-name overrides (defaults from :mod:`baselode.datamodel`).
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered copy of *survey* with the index reset.
+    """
+    if survey.empty:
+        return survey.copy()
+    usable = _usable_station_mask(survey, depth_col, azimuth_col, dip_col)
+    return survey[usable].reset_index(drop=True)
+
+
+def _resolve_column(df, name):
+    """Return the column of *df* matching *name* exactly or case-insensitively, else ``None``."""
+    if name is None:
+        return None
+    if name in df.columns:
+        return name
+    wanted = str(name).strip().lower()
+    for col in df.columns:
+        if str(col).strip().lower() == wanted:
+            return col
+    return None
+
+
+def synthesise_collar_station(
+    survey,
+    collar,
+    hole_col=HOLE_ID,
+    depth_col=DEPTH,
+    azimuth_col=AZIMUTH,
+    dip_col=DIP,
+    collar_azimuth_col=AZIMUTH,
+    collar_dip_col=DIP,
+    return_diagnostics=False,
+):
+    """Build a survey station at the collar for every hole that has none.
+
+    Targets holes that would otherwise drop out of the desurvey: collar
+    holes with no survey rows, and holes whose every survey row lacks a
+    usable depth / azimuth / dip.  For each one a station at depth ``0``
+    is appended, oriented from the collar table's *collar_azimuth_col* /
+    *collar_dip_col* (matched case-insensitively) when both are numeric,
+    otherwise vertical (``azimuth 0``, ``dip -90``).  The hole's existing
+    unusable rows are dropped so the synthetic station is its only one.
+
+    Pair with :func:`fix_single_station_surveys` afterwards: the synthetic
+    station is a single-station survey, and that helper pads it to
+    ``collar.max_depth`` so the trace runs the full hole length.
+
+    Holes that already have at least one usable station are left alone.
+
+    Parameters
+    ----------
+    survey : pd.DataFrame
+        Survey table.
+    collar : pd.DataFrame
+        Collar table.  Provides the set of holes and, optionally, the
+        orientation columns.
+    hole_col, depth_col, azimuth_col, dip_col : str
+        Survey column-name overrides (defaults from :mod:`baselode.datamodel`).
+    collar_azimuth_col, collar_dip_col : str
+        Collar columns holding the planned hole orientation.  Default to
+        the canonical ``azimuth`` / ``dip`` names.  Dip follows the survey
+        convention (negative = down).
+    return_diagnostics : bool, optional
+        When ``True`` return ``(survey, report)`` where *report* is a dict
+        with ``holes_synthesised``, ``from_collar``, ``vertical_fallback``,
+        ``vertical_fallback_holes`` and ``rows_dropped``.
+
+    Returns
+    -------
+    pd.DataFrame, or tuple of (pd.DataFrame, dict)
+        Survey with synthetic stations appended, sorted by ``hole_col`` /
+        ``depth_col`` with the index reset.  See ``return_diagnostics``.
+    """
+    report = {
+        "holes_synthesised": 0,
+        "from_collar": 0,
+        "vertical_fallback": 0,
+        "vertical_fallback_holes": [],
+        "rows_dropped": 0,
+    }
+    if collar is None or collar.empty or hole_col not in collar.columns:
+        out = survey.copy()
+        return (out, report) if return_diagnostics else out
+
+    if survey.empty:
+        columns = list(survey.columns)
+        for col in (hole_col, depth_col, azimuth_col, dip_col):
+            if col not in columns:
+                columns.append(col)
+        work = pd.DataFrame(columns=columns)
+    else:
+        work = survey.copy()
+    for col in (depth_col, azimuth_col, dip_col):
+        if col not in work.columns:
+            work[col] = np.nan
+
+    usable = _usable_station_mask(work, depth_col, azimuth_col, dip_col)
+    holes_with_station = set(work.loc[usable, hole_col].dropna().tolist())
+
+    az_source = _resolve_column(collar, collar_azimuth_col)
+    dip_source = _resolve_column(collar, collar_dip_col)
+    collar_by_hole = collar.drop_duplicates(subset=[hole_col], keep="first").set_index(hole_col)
+
+    new_rows = []
+    for hole_id in collar_by_hole.index:
+        if hole_id is None or pd.isna(hole_id) or hole_id in holes_with_station:
+            continue
+        collar_row = collar_by_hole.loc[hole_id]
+        azimuth = _to_float(collar_row.get(az_source)) if az_source is not None else None
+        dip = _to_float(collar_row.get(dip_source)) if dip_source is not None else None
+        if azimuth is not None and dip is not None:
+            report["from_collar"] += 1
+        else:
+            azimuth, dip = 0.0, -90.0
+            report["vertical_fallback"] += 1
+            report["vertical_fallback_holes"].append(hole_id)
+        report["holes_synthesised"] += 1
+        new_rows.append({hole_col: hole_id, depth_col: 0.0, azimuth_col: azimuth, dip_col: dip})
+
+    if not new_rows:
+        out = work.reset_index(drop=True)
+        return (out, report) if return_diagnostics else out
+
+    synthesised_holes = {row[hole_col] for row in new_rows}
+    drop_mask = work[hole_col].isin(synthesised_holes) & ~usable
+    report["rows_dropped"] = int(drop_mask.sum())
+    kept = work[~drop_mask]
+    extended = pd.concat([kept, pd.DataFrame(new_rows, columns=kept.columns)], ignore_index=True)
+    out = extended.sort_values([hole_col, depth_col]).reset_index(drop=True)
+    return (out, report) if return_diagnostics else out
 
 
 def drop_orphan_intervals(table, collar, hole_col=HOLE_ID):
@@ -367,6 +527,8 @@ def fix_overlaps(
     touching_tol=0.01,
     merge_tol=0.05,
     coverage_min=0.95,
+    precedence_col=None,
+    precedence=None,
     return_diagnostics=False,
 ):
     """Resolve interval overlaps where it's safe, leave the rest flagged.
@@ -385,6 +547,14 @@ def fix_overlaps(
       longer's value within ``merge_tol`` (relative), and the shorter
       intervals cover at least ``coverage_min`` of the longer.  Drops
       the longer interval, keeps the higher-resolution rows.
+
+    * **Dataset precedence** (opt-in via ``precedence_col`` +
+      ``precedence``) — when two overlapping rows come from different
+      datasets / campaigns, drop the row from the lower-ranked dataset.
+      Resolves the common case of two sampling campaigns (say 0.5 m and
+      1 m intervals) interleaved over the same depths by rule instead of
+      by hand.  Rows whose dataset isn't listed in ``precedence`` are
+      never dropped this way.
 
     Anything else — same depth zone, materially different values, or
     partial overlaps — is left untouched and returned in the
@@ -410,6 +580,14 @@ def fix_overlaps(
         Minimum fraction of a candidate superset that must be covered by
         inner intervals before it qualifies as a "resampled superset".
         Default ``0.95``.
+    precedence_col : str, optional
+        Column identifying the dataset / campaign each row came from
+        (e.g. ``project_id``).  Enables the dataset-precedence pass when
+        given together with ``precedence``.
+    precedence : iterable of str, optional
+        Dataset values in priority order, highest first.  Where two rows
+        from different listed datasets overlap, the row from the dataset
+        that appears later in this list is dropped.
     return_diagnostics : bool, optional
         When ``True``, return ``(fixed, conflicts, report)``: the fixed
         table, the rows still in conflict, and an audit-log frame with
@@ -518,6 +696,41 @@ def fix_overlaps(
             _emit(hole_id, "superset", "dropped",
                   outer_from, outer_to,
                   f"covered by {len(inner_idxs)} finer rows ({covered / outer_length:.0%})")
+
+    # ---- Pass 3b: dataset precedence ----------------------------------------
+    if precedence_col is not None and precedence and precedence_col in work.columns:
+        rank = {str(value): position for position, value in enumerate(precedence)}
+
+        def _rank(idx):
+            value = work.at[idx, precedence_col]
+            if pd.isna(value):
+                return None
+            return rank.get(str(value))
+
+        for hole_id, group in work.loc[keep].groupby(hole_col, sort=False):
+            ordered_idxs = list(group.sort_values([from_col, to_col]).index)
+            for a_pos, a_idx in enumerate(ordered_idxs):
+                if not keep[a_idx]:
+                    continue
+                a_rank = _rank(a_idx)
+                if a_rank is None:
+                    continue
+                for b_idx in ordered_idxs[a_pos + 1:]:
+                    if not keep[a_idx]:
+                        break
+                    if not keep[b_idx]:
+                        continue
+                    if float(work.at[b_idx, from_col]) >= float(work.at[a_idx, to_col]):
+                        break
+                    b_rank = _rank(b_idx)
+                    if b_rank is None or b_rank == a_rank:
+                        continue
+                    loser_idx, winner_idx = (b_idx, a_idx) if b_rank > a_rank else (a_idx, b_idx)
+                    keep[loser_idx] = False
+                    _emit(hole_id, "precedence", "dropped",
+                          float(work.at[loser_idx, from_col]), float(work.at[loser_idx, to_col]),
+                          f"{precedence_col}={work.at[loser_idx, precedence_col]} yields to "
+                          f"{work.at[winner_idx, precedence_col]}")
 
     # ---- Pass 4: surface remaining real conflicts --------------------------
     conflict_idx_set = []
@@ -780,11 +993,107 @@ def _check_duplicate_hole_ids(collar, hole_col):
     ]
 
 
-def _check_single_station_surveys(survey, hole_col, depth_col):
+def _usable_station_mask(survey, depth_col, azimuth_col, dip_col):
+    """Boolean Series: True where depth, azimuth and dip are all finite numbers.
+
+    This is exactly the row filter :mod:`baselode.drill.desurvey` applies,
+    so "usable" here means "will contribute to a trace".
+    """
+    mask = pd.Series(True, index=survey.index)
+    for col in (depth_col, azimuth_col, dip_col):
+        if col not in survey.columns:
+            return pd.Series(False, index=survey.index)
+        numeric = pd.to_numeric(survey[col], errors="coerce")
+        mask &= numeric.notna() & np.isfinite(numeric.fillna(0.0))
+    return mask
+
+
+def _check_survey_null_orientation(survey, hole_col, depth_col, azimuth_col, dip_col):
+    """Error per survey row whose depth / azimuth / dip is null or non-numeric."""
     if survey.empty or hole_col not in survey.columns:
         return []
+    columns = [col for col in (depth_col, azimuth_col, dip_col) if col in survey.columns]
+    if not columns:
+        return []
     issues = []
-    for hole_id, group in survey.groupby(hole_col):
+    for idx, row in survey.iterrows():
+        missing = [col for col in columns if _to_float(row.get(col)) is None]
+        if not missing:
+            continue
+        hole_id = row.get(hole_col)
+        issues.append(_issue(
+            check="survey_null_orientation",
+            severity=SEVERITY_ERROR,
+            hole_id=str(hole_id) if hole_id is not None and not pd.isna(hole_id) else None,
+            table="survey",
+            row_index=int(idx) if isinstance(idx, (int, np.integer)) else None,
+            message=(
+                f"Survey row for hole '{hole_id}' has no usable {' / '.join(missing)}; "
+                "desurvey ignores this row"
+            ),
+            fix=(
+                "Fill the value from the source survey, or call "
+                "drop_unusable_survey_rows(survey); holes left without a station "
+                "can be rebuilt with synthesise_collar_station(survey, collar)"
+            ),
+        ))
+    return issues
+
+
+def _check_survey_no_usable_stations(collar, survey, hole_col, depth_col, azimuth_col, dip_col):
+    """Warning per hole that has no survey row desurvey can use.
+
+    Covers both holes whose every survey row is unusable and collar holes
+    with no survey rows at all — either way the hole silently drops out of
+    the desurvey.  Skipped when the survey table is empty (nothing to
+    compare against).
+    """
+    if survey.empty or hole_col not in survey.columns:
+        return []
+    usable = _usable_station_mask(survey, depth_col, azimuth_col, dip_col)
+    survey_rows = survey[hole_col].dropna().value_counts()
+    usable_rows = survey.loc[usable, hole_col].dropna().value_counts()
+
+    candidate_holes = list(survey_rows.index)
+    if collar is not None and not collar.empty and hole_col in collar.columns:
+        seen = set(candidate_holes)
+        for hole_id in collar[hole_col].dropna().unique():
+            if hole_id not in seen:
+                candidate_holes.append(hole_id)
+                seen.add(hole_id)
+
+    issues = []
+    for hole_id in candidate_holes:
+        if usable_rows.get(hole_id, 0) > 0:
+            continue
+        row_count = int(survey_rows.get(hole_id, 0))
+        if row_count:
+            message = (
+                f"Hole '{hole_id}' has {row_count} survey row(s) but none with usable "
+                "depth / azimuth / dip; it will be dropped by desurvey"
+            )
+        else:
+            message = f"Hole '{hole_id}' has no survey rows; it will be dropped by desurvey"
+        issues.append(_issue(
+            check="survey_no_usable_stations",
+            severity=SEVERITY_WARNING,
+            hole_id=str(hole_id),
+            table="survey",
+            message=message,
+            fix=(
+                "Call synthesise_collar_station(survey, collar) to build a station at "
+                "the collar from the collar azimuth/dip columns (vertical fallback)"
+            ),
+        ))
+    return issues
+
+
+def _check_single_station_surveys(survey, hole_col, depth_col, azimuth_col=AZIMUTH, dip_col=DIP):
+    if survey.empty or hole_col not in survey.columns:
+        return []
+    usable = _usable_station_mask(survey, depth_col, azimuth_col, dip_col)
+    issues = []
+    for hole_id, group in survey[usable].groupby(hole_col):
         if len(group) == 1:
             issues.append(_issue(
                 check="single_station_surveys",
@@ -792,7 +1101,7 @@ def _check_single_station_surveys(survey, hole_col, depth_col):
                 hole_id=str(hole_id),
                 table="survey",
                 row_index=int(group.index[0]) if isinstance(group.index[0], (int, np.integer)) else None,
-                message=f"Hole '{hole_id}' has only one survey station; desurvey will fail",
+                message=f"Hole '{hole_id}' has only one usable survey station; desurvey will fail",
                 fix="Call fix_single_station_surveys(survey, collar) to add a synthetic station",
             ))
     return issues

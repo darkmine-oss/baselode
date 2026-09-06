@@ -2,7 +2,7 @@
 
 The `baselode` Python package provides domain-aware data loaders, desurveying algorithms, and Plotly-based visualisation helpers for drillhole and spatial datasets.
 
-**Requires:** Python 3.12+
+**Requires:** Python 3.10+
 
 ```bash
 pip install baselode
@@ -199,6 +199,9 @@ import baselode.drill.desurvey as desurvey
 | `minimum_curvature` | Industry-standard method — most accurate (default) |
 | `tangential` | Simple first-order method |
 | `balanced_tangential` | Average of start/end orientations per segment |
+| `midpoint_tangential` | Vulcan-style "Tangent" — each station is the midpoint of its straight segment, so orientation changes halfway between stations.  Use for like-for-like comparisons against Vulcan |
+
+Every trace starts at the collar (`md = 0`).  When a hole's first survey station sits below the collar, that station's orientation is extended straight up to `md = 0` — the convention Vulcan and Surpac use — so a hole with a single station at 135 m yields a full 135 m trace rather than a single point.
 
 ### desurvey_holes
 
@@ -297,7 +300,9 @@ errors = [issue for issue in report["issues"] if issue["severity"] == "error"]
 | Check | Severity | Drives |
 |---|---|---|
 | `duplicate_hole_ids` | error | Collar table integrity |
-| `single_station_surveys` | warning | Desurvey reliability — fix recipe is `fix_single_station_surveys` |
+| `survey_null_orientation` | error | Survey row with a null / non-numeric depth, azimuth or dip — desurvey silently ignores it.  Fix recipe is `drop_unusable_survey_rows` |
+| `survey_no_usable_stations` | warning | Hole with no usable survey row (or no survey rows at all) — it silently drops out of the desurvey.  Fix recipe is `synthesise_collar_station` |
+| `single_station_surveys` | warning | Desurvey reliability — counts usable rows only; fix recipe is `fix_single_station_surveys` |
 | `azimuth_range`, `dip_range` | error | Survey angle sanity |
 | `orphan_intervals` | error | Interval `hole_id` must exist in collar |
 | `negative_lengths` | error | `to <= from` |
@@ -309,8 +314,17 @@ errors = [issue for issue in report["issues"] if issue["severity"] == "error"]
 ### Fix helpers
 
 ```python
+# Drop survey rows desurvey can't use (null / non-numeric depth, azimuth, dip)
+survey_usable = validate.drop_unusable_survey_rows(survey)
+
+# Build a collar station for holes left with no usable survey, oriented from
+# the collar's azimuth / dip columns (vertical fallback, counted in the report)
+survey_rebuilt, report = validate.synthesise_collar_station(
+    survey_usable, collar, return_diagnostics=True,
+)
+
 # Synthesize a second station for single-station holes so desurvey can run
-survey_fixed = validate.fix_single_station_surveys(survey, collar)
+survey_fixed = validate.fix_single_station_surveys(survey_rebuilt, collar)
 
 # Wrap azimuths into [0, 360); converts 360 to 0, normalizes negatives
 survey_wrapped = validate.normalize_azimuth(survey)
@@ -325,6 +339,12 @@ assays_swapped = validate.swap_inverted_intervals(assays)
 # superset) and surface only the genuine value-conflicts for review.
 assays_clean, conflicts, report = validate.fix_overlaps(
     assays, return_diagnostics=True,
+)
+
+# Two sampling campaigns interleaved over the same depths?  Rank them and
+# the lower-ranked rows are dropped wherever they overlap a higher-ranked one.
+assays_clean = validate.fix_overlaps(
+    assays, precedence_col="project_id", precedence=["campaign_0.5m", "campaign_1m"],
 )
 
 # Substitute below-detection sentinels with half-MDL — handles both

@@ -12,7 +12,7 @@ Version 0.1.0 focuses on domain-aware data models and validation utilities for d
 pip install baselode
 ```
 
-**Requires:** Python 3.12+
+**Requires:** Python 3.10+
 
 ---
 

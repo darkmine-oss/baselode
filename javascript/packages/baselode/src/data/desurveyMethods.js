@@ -121,6 +121,41 @@ function segmentDisplacement(deltaMd, az0, dip0, az1, dip1, method = 'minimum_cu
   };
 }
 
+/**
+ * Prepend a virtual station at md 0 when the first real station is deeper.
+ *
+ * A survey's first reading often sits below the collar.  Without this the
+ * trace would start at that depth (or, for a single deep station, be a
+ * single point).  Vulcan and Surpac extend the first station's orientation
+ * straight up to the collar; mirror baselode.drill.desurvey and do the same.
+ * @private
+ */
+function extrapolateToCollar(stations) {
+  if (!stations.length || stations[0].from <= 0) return stations;
+  return [{ ...stations[0], from: 0 }, ...stations];
+}
+
+/**
+ * Re-cut stations so each orientation applies to the segment centred on it.
+ *
+ * Vulcan's default "Tangent" desurvey treats each reading as the midpoint of
+ * a straight segment: orientation changes halfway between consecutive
+ * stations.  Expressed as an equivalent station list for the top-of-segment
+ * tangential integrator.
+ * @private
+ */
+function midpointTangentialStations(stations) {
+  if (stations.length < 2) return stations;
+  const recut = [stations[0]];
+  for (let idx = 0; idx < stations.length - 1; idx += 1) {
+    const s0 = stations[idx];
+    const s1 = stations[idx + 1];
+    recut.push({ ...s1, from: 0.5 * (s0.from + s1.from) });
+  }
+  recut.push(stations[stations.length - 1]);
+  return recut;
+}
+
 function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
   const {
     step = 1,
@@ -131,6 +166,8 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
   // A null step emits survey-station vertices only. Consumers such as the
   // demo use it to avoid generating unnecessary intermediate scene points.
   const safeStep = Number.isFinite(Number(step)) && Number(step) > 0 ? Number(step) : null;
+  // midpoint_tangential is the tangential integrator over a re-cut station list.
+  const segmentMethod = method === 'midpoint_tangential' ? 'tangential' : method;
 
   const collarsCanonical = canonicalizeHoleIdRows(rowsCollars, holeIdCol);
   const surveysCanonical = canonicalizeHoleIdRows(rowsSurveys, holeIdCol || collarsCanonical.aliasCol);
@@ -169,14 +206,17 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
 
     if (!sorted.length) return;
 
+    let stationList = extrapolateToCollar(sorted);
+    if (method === 'midpoint_tangential') stationList = midpointTangentialStations(stationList);
+
     // Accept Baselode's canonical projected collar fields. x/y/z remain
     // supported aliases because the emitted trace uses those scene names.
     let x = toNumber(collar.easting ?? collar.x, 0);
     let y = toNumber(collar.northing ?? collar.y, 0);
     let z = toNumber(collar.elevation ?? collar.z, 0);
-    let mdCursor = sorted[0].from;
-    const azPrev = sorted[0].azimuth;
-    const dipPrev = sorted[0].dip;
+    let mdCursor = stationList[0].from;
+    const azPrev = stationList[0].azimuth;
+    const dipPrev = stationList[0].dip;
 
     const firstRecord = {
       hole_id: collar.__hole_id_original || holeId,
@@ -196,9 +236,9 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
     }
     out.push(firstRecord);
 
-    for (let idx = 0; idx < sorted.length - 1; idx += 1) {
-      const s0 = sorted[idx];
-      const s1 = sorted[idx + 1];
+    for (let idx = 0; idx < stationList.length - 1; idx += 1) {
+      const s0 = stationList[idx];
+      const s1 = stationList[idx + 1];
       const md0 = s0.from;
       const md1 = s1.from;
       const deltaMd = md1 - md0;
@@ -213,7 +253,7 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
         const azInterp = s0.azimuth + weight * (s1.azimuth - s0.azimuth);
         const dipInterp = s0.dip + weight * (s1.dip - s0.dip);
 
-        const disp = segmentDisplacement(mdIncrement, s0.azimuth, s0.dip, s1.azimuth, s1.dip, method);
+        const disp = segmentDisplacement(mdIncrement, s0.azimuth, s0.dip, s1.azimuth, s1.dip, segmentMethod);
         x += disp.dx;
         y += disp.dy;
         z += disp.dz;
@@ -227,8 +267,8 @@ function desurvey(rowsCollars = [], rowsSurveys = [], options = {}) {
           easting: x,
           northing: y,
           elevation: z,
-          azimuth: method === 'minimum_curvature' ? azInterp : disp.azimuth,
-          dip: method === 'minimum_curvature' ? dipInterp : disp.dip
+          azimuth: segmentMethod === 'minimum_curvature' ? azInterp : disp.azimuth,
+          dip: segmentMethod === 'minimum_curvature' ? dipInterp : disp.dip
         };
 
         if (collarsCanonical.aliasCol !== 'hole_id' && collar[collarsCanonical.aliasCol] !== undefined) {
@@ -276,6 +316,21 @@ export function tangentialDesurvey(collars, surveys, options = {}) {
  */
 export function balancedTangentialDesurvey(collars, surveys, options = {}) {
   return desurvey(collars, surveys, { ...options, method: 'balanced_tangential' });
+}
+
+/**
+ * Desurvey drillholes using the Vulcan-style midpoint tangent method.
+ *
+ * Each survey station is the midpoint of a straight segment, so orientation
+ * changes halfway between consecutive stations rather than at the stations
+ * themselves.  Like-for-like with Vulcan's default "Tangent" desurvey.
+ * @param {Array<Object>} collars - Collar data
+ * @param {Array<Object>} surveys - Survey data
+ * @param {Object} options - Desurvey options
+ * @returns {Array<Object>} Desurveyed trace points
+ */
+export function midpointTangentialDesurvey(collars, surveys, options = {}) {
+  return desurvey(collars, surveys, { ...options, method: 'midpoint_tangential' });
 }
 
 /**
