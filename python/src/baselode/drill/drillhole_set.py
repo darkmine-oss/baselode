@@ -34,6 +34,7 @@ def _desurvey_methods():
         "minimum_curvature": desurvey.minimum_curvature_desurvey,
         "tangential": desurvey.tangential_desurvey,
         "balanced_tangential": desurvey.balanced_tangential_desurvey,
+        "midpoint_tangential": desurvey.midpoint_tangential_desurvey,
     }
 
 
@@ -127,7 +128,7 @@ class DrillholeSet:
         ----------
         method : str
             One of ``"minimum_curvature"``, ``"tangential"``,
-            ``"balanced_tangential"``.
+            ``"balanced_tangential"``, ``"midpoint_tangential"``.
         step : float
             Output sample spacing (metres).
         force : bool

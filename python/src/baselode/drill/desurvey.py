@@ -23,10 +23,17 @@ Supports multiple methods that trade simplicity for accuracy:
 - minimum_curvature (default): standard industry approach.
 - tangential: keeps the initial station orientation through the segment.
 - balanced_tangential: averages start/end orientations per segment.
+- midpoint_tangential: Vulcan-style "Tangent" — each station is the midpoint
+  of its straight segment, so orientation changes halfway between stations.
 
 All methods output a trace table with x, y, z coordinates at chosen step size,
 plus measured depth and azimuth/dip per vertex. Dependencies are limited to
 pandas and numpy for portability.
+
+Every trace starts at the collar (md 0). When a hole's first survey station
+sits below the collar, that station's orientation is extended straight up to
+md 0 — the convention Vulcan and Surpac use — so a hole with a single station
+at 135 m still produces a full-length trace instead of a zero-length one.
 
 Rows missing a hole identifier, usable collar coordinates, or usable survey
 measurements are ignored. Missing collar elevation defaults to zero. This lets
@@ -136,35 +143,79 @@ def _prepare_desurvey_inputs(collars, surveys):
     return prepared_collars, prepared_surveys
 
 
+def _station_list(hole_surveys):
+    """Return one hole's stations as a depth-sorted list of ``(md, azimuth, dip)``."""
+    ordered = hole_surveys.sort_values(DEPTH)
+    return [
+        (float(md), float(azimuth), float(dip))
+        for md, azimuth, dip in zip(ordered[DEPTH], ordered[AZIMUTH], ordered[DIP])
+    ]
+
+
+def _extrapolate_to_collar(stations):
+    """Prepend a virtual station at md 0 when the first real station is deeper.
+
+    A survey's first reading often sits below the collar (a downhole
+    camera's first shot at a few metres, or a single station recorded at
+    depth).  Without this the trace would start at that depth and the top
+    of the hole would be missing — or, for a single deep station, the
+    trace would be a single point.  Vulcan and Surpac extend the first
+    station's orientation straight up to the collar; do the same.
+    """
+    first_md, first_azimuth, first_dip = stations[0]
+    if first_md <= 0.0:
+        return stations
+    return [(0.0, first_azimuth, first_dip), *stations]
+
+
+def _midpoint_tangential_stations(stations):
+    """Re-cut stations so each orientation applies to the segment centred on it.
+
+    Vulcan's default "Tangent" desurvey treats each survey reading as the
+    midpoint of a straight segment: orientation changes halfway between
+    consecutive stations rather than at the stations themselves.  Express
+    that as an equivalent station list for the top-of-segment tangential
+    method — the first orientation holds from the collar to the first
+    midpoint, each interior orientation from midpoint to midpoint, and the
+    last orientation from the last midpoint to the end of the hole.
+    """
+    if len(stations) < 2:
+        return stations
+    recut = [stations[0]]
+    for (md0, _, _), (md1, azimuth1, dip1) in zip(stations, stations[1:]):
+        recut.append((0.5 * (md0 + md1), azimuth1, dip1))
+    recut.append(stations[-1])
+    return recut
+
+
 def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
     collars, surveys = _prepare_desurvey_inputs(collars, surveys)
     if collars.empty or surveys.empty:
         return pd.DataFrame(columns=_TRACE_COLUMNS)
 
+    # midpoint_tangential is the tangential integrator run over a re-cut
+    # station list (see _midpoint_tangential_stations).
+    segment_method = "tangential" if method == "midpoint_tangential" else method
+
     traces = []
     collars_by_hole = collars.set_index(HOLE_ID)
     for hole_id, hole_surveys in surveys.groupby(HOLE_ID, sort=False):
         collar_row = collars_by_hole.loc[hole_id]
-        hole_surveys = hole_surveys.sort_values(DEPTH)
+        stations = _extrapolate_to_collar(_station_list(hole_surveys))
+        if method == "midpoint_tangential":
+            stations = _midpoint_tangential_stations(stations)
+
         x = float(collar_row[EASTING])
         y = float(collar_row[NORTHING])
         z = float(collar_row[ELEVATION])
-        md_cursor = float(hole_surveys.iloc[0][DEPTH])
-        az_prev = float(hole_surveys.iloc[0][AZIMUTH])
-        dip_prev = float(hole_surveys.iloc[0][DIP])
+        md_cursor, az_prev, dip_prev = stations[0]
         first_record = {HOLE_ID: hole_id, "md": md_cursor, EASTING: x, NORTHING: y, ELEVATION: z, AZIMUTH: az_prev, DIP: dip_prev}
         traces.append(first_record)
 
-        for idx in range(len(hole_surveys) - 1):
-            s0 = hole_surveys.iloc[idx]
-            s1 = hole_surveys.iloc[idx + 1]
-            md0 = float(s0[DEPTH])
-            md1 = float(s1[DEPTH])
+        for (md0, az0, dip0), (md1, az1, dip1) in zip(stations, stations[1:]):
             delta_md = md1 - md0
             if delta_md <= 0:
                 continue
-            az0, dip0 = float(s0[AZIMUTH]), float(s0[DIP])
-            az1, dip1 = float(s1[AZIMUTH]), float(s1[DIP])
 
             segment_steps = max(1, int(math.ceil(delta_md / step)))
             md_increment = delta_md / segment_steps
@@ -179,7 +230,7 @@ def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
                     dip0=dip0,
                     az1=az1,
                     dip1=dip1,
-                    method=method,
+                    method=segment_method,
                 )
                 x += dx
                 y += dy
@@ -190,8 +241,8 @@ def _desurvey(collars, surveys, step=1.0, method="minimum_curvature"):
                     EASTING: x,
                     NORTHING: y,
                     ELEVATION: z,
-                    AZIMUTH: az_interp if method == "minimum_curvature" else az_for_record,
-                    DIP: dip_interp if method == "minimum_curvature" else dip_for_record,
+                    AZIMUTH: az_interp if segment_method == "minimum_curvature" else az_for_record,
+                    DIP: dip_interp if segment_method == "minimum_curvature" else dip_for_record,
                 }
                 traces.append(record)
     out = pd.DataFrame(traces)
@@ -211,6 +262,19 @@ def tangential_desurvey(collars, surveys, step=1.0,):
 def balanced_tangential_desurvey(collars, surveys, step=1.0):
     """Use averaged endpoint orientations, ignoring incomplete input rows."""
     return _desurvey(collars=collars, surveys=surveys, step=step, method="balanced_tangential")
+
+
+def midpoint_tangential_desurvey(collars, surveys, step=1.0):
+    """Vulcan-style tangent: each station is the midpoint of a straight segment.
+
+    Orientation changes halfway between consecutive stations instead of at
+    the stations themselves, so the first station's reading holds from the
+    collar to the first midpoint and the last station's reading from the
+    last midpoint to the end of the hole.  This is the like-for-like method
+    for comparing against Vulcan's default "Tangent" desurvey output.
+    Incomplete input rows are ignored.
+    """
+    return _desurvey(collars=collars, surveys=surveys, step=step, method="midpoint_tangential")
 
 
 def interpolate_trajectory(

@@ -72,9 +72,89 @@ function checkDuplicateHoleIds(collar, holeCol) {
   return issues;
 }
 
-function checkSingleStationSurveys(survey, holeCol) {
+function isFiniteNumber(value) {
+  if (value == null || value === '') return false;
+  return Number.isFinite(Number(value));
+}
+
+/**
+ * True when a survey row has numeric depth, azimuth and dip — exactly the
+ * row filter the desurvey applies, so "usable" means "contributes to a trace".
+ * @private
+ */
+function isUsableStation(row, depthCol, azimuthCol, dipCol) {
+  return Boolean(row)
+    && isFiniteNumber(row[depthCol])
+    && isFiniteNumber(row[azimuthCol])
+    && isFiniteNumber(row[dipCol]);
+}
+
+function checkSurveyNullOrientation(survey, holeCol, depthCol, azimuthCol, dipCol) {
   if (!survey || !survey.length) return [];
-  const grouped = groupBy(survey, holeCol);
+  const issues = [];
+  survey.forEach((row, rowIndex) => {
+    if (!row) return;
+    const missing = [depthCol, azimuthCol, dipCol].filter((col) => !isFiniteNumber(row[col]));
+    if (!missing.length) return;
+    const holeId = row[holeCol];
+    issues.push(makeIssue({
+      check: 'survey_null_orientation',
+      severity: SEVERITY_ERROR,
+      holeId: holeId != null ? String(holeId) : null,
+      table: 'survey',
+      rowIndex,
+      message: `Survey row for hole '${holeId}' has no usable ${missing.join(' / ')}; desurvey ignores this row`,
+      fix: 'Fill the value from the source survey, or call dropUnusableSurveyRows(survey); '
+        + 'holes left without a station can be rebuilt with synthesiseCollarStation(survey, collar)',
+    }));
+  });
+  return issues;
+}
+
+function checkSurveyNoUsableStations(collar, survey, holeCol, depthCol, azimuthCol, dipCol) {
+  if (!survey || !survey.length) return [];
+  const rowCounts = new Map();
+  const usableCounts = new Map();
+  for (const row of survey) {
+    const holeId = row && row[holeCol];
+    if (holeId == null) continue;
+    rowCounts.set(holeId, (rowCounts.get(holeId) || 0) + 1);
+    if (isUsableStation(row, depthCol, azimuthCol, dipCol)) {
+      usableCounts.set(holeId, (usableCounts.get(holeId) || 0) + 1);
+    }
+  }
+  const candidates = [...rowCounts.keys()];
+  const seen = new Set(candidates);
+  for (const row of collar || []) {
+    const holeId = row && row[holeCol];
+    if (holeId == null || seen.has(holeId)) continue;
+    candidates.push(holeId);
+    seen.add(holeId);
+  }
+  const issues = [];
+  for (const holeId of candidates) {
+    if ((usableCounts.get(holeId) || 0) > 0) continue;
+    const rowCount = rowCounts.get(holeId) || 0;
+    const message = rowCount
+      ? `Hole '${holeId}' has ${rowCount} survey row(s) but none with usable depth / azimuth / dip; it will be dropped by desurvey`
+      : `Hole '${holeId}' has no survey rows; it will be dropped by desurvey`;
+    issues.push(makeIssue({
+      check: 'survey_no_usable_stations',
+      severity: SEVERITY_WARNING,
+      holeId: String(holeId),
+      table: 'survey',
+      message,
+      fix: 'Call synthesiseCollarStation(survey, collar) to build a station at the collar '
+        + 'from the collar azimuth/dip columns (vertical fallback)',
+    }));
+  }
+  return issues;
+}
+
+function checkSingleStationSurveys(survey, holeCol, depthCol, azimuthCol, dipCol) {
+  if (!survey || !survey.length) return [];
+  const usable = survey.filter((row) => isUsableStation(row, depthCol, azimuthCol, dipCol));
+  const grouped = groupBy(usable, holeCol);
   const issues = [];
   for (const [holeId, group] of grouped) {
     if (group.length === 1) {
@@ -85,7 +165,7 @@ function checkSingleStationSurveys(survey, holeCol) {
         holeId: String(holeId),
         table: 'survey',
         rowIndex,
-        message: `Hole '${holeId}' has only one survey station; desurvey will fail`,
+        message: `Hole '${holeId}' has only one usable survey station; desurvey will fail`,
         fix: 'Call fixSingleStationSurveys(survey, collar) to add a synthetic station',
       }));
     }
@@ -280,7 +360,9 @@ export function validateDrillholeDb(
 ) {
   const issues = [];
   issues.push(...checkDuplicateHoleIds(collar, holeCol));
-  issues.push(...checkSingleStationSurveys(survey, holeCol));
+  issues.push(...checkSurveyNullOrientation(survey, holeCol, depthCol, azimuthCol, dipCol));
+  issues.push(...checkSurveyNoUsableStations(collar, survey, holeCol, depthCol, azimuthCol, dipCol));
+  issues.push(...checkSingleStationSurveys(survey, holeCol, depthCol, azimuthCol, dipCol));
   issues.push(...checkAzimuthRange(survey, holeCol, azimuthCol, allowFullCircle));
   issues.push(...checkDipRange(survey, holeCol, dipCol));
 
@@ -317,12 +399,17 @@ export function validateDrillholeDb(
 export function fixSingleStationSurveys(
   survey,
   collar,
-  { holeCol = HOLE_ID, depthCol = DEPTH, maxDepthCol = MAX_DEPTH } = {},
+  {
+    holeCol = HOLE_ID, depthCol = DEPTH, maxDepthCol = MAX_DEPTH, azimuthCol = AZIMUTH, dipCol = DIP,
+  } = {},
 ) {
   if (!survey || !survey.length) return [];
 
   const maxDepthLookup = collar ? buildMaxDepthLookup(collar, holeCol, maxDepthCol) : new Map();
-  const grouped = groupBy(survey, holeCol);
+  const grouped = groupBy(
+    survey.filter((row) => isUsableStation(row, depthCol, azimuthCol, dipCol)),
+    holeCol,
+  );
   const additions = [];
   for (const [holeId, group] of grouped) {
     if (group.length !== 1) continue;
@@ -342,6 +429,117 @@ export function fixSingleStationSurveys(
     if (firstHole !== secondHole) return firstHole < secondHole ? -1 : 1;
     return Number(first[depthCol]) - Number(second[depthCol]);
   });
+}
+
+/**
+ * Drop survey rows whose depth, azimuth or dip is null or non-numeric.
+ *
+ * Mirrors `baselode.drill.validate.drop_unusable_survey_rows` — the
+ * complement of the `survey_null_orientation` check.  Desurvey already
+ * ignores these rows, so no trace changes.
+ *
+ * @returns {Array<Object>} new array containing only usable rows
+ */
+export function dropUnusableSurveyRows(
+  survey,
+  { depthCol = DEPTH, azimuthCol = AZIMUTH, dipCol = DIP } = {},
+) {
+  if (!survey || !survey.length) return [];
+  return survey.filter((row) => isUsableStation(row, depthCol, azimuthCol, dipCol));
+}
+
+function resolveColumn(rows, name) {
+  if (name == null) return null;
+  const wanted = String(name).trim().toLowerCase();
+  for (const row of rows || []) {
+    if (!row) continue;
+    if (Object.prototype.hasOwnProperty.call(row, name)) return name;
+    const match = Object.keys(row).find((key) => key.trim().toLowerCase() === wanted);
+    if (match) return match;
+  }
+  return null;
+}
+
+/**
+ * Build a survey station at the collar for every hole that has none.
+ *
+ * Mirrors `baselode.drill.validate.synthesise_collar_station`.  Targets
+ * collar holes with no survey rows and holes whose every row lacks a
+ * usable depth / azimuth / dip.  Each gets a station at depth 0 oriented
+ * from the collar's `collarAzimuthCol` / `collarDipCol` (matched
+ * case-insensitively) when both are numeric, otherwise vertical
+ * (azimuth 0, dip -90).  The hole's unusable rows are dropped.
+ *
+ * Pair with `fixSingleStationSurveys` afterwards to pad the synthetic
+ * station to `collar.max_depth`.
+ *
+ * @returns {{survey: Array<Object>, report: Object}} new survey rows sorted
+ *   by hole / depth, plus counts: `holesSynthesised`, `fromCollar`,
+ *   `verticalFallback`, `verticalFallbackHoles`, `rowsDropped`.
+ */
+export function synthesiseCollarStation(
+  survey,
+  collar,
+  {
+    holeCol = HOLE_ID,
+    depthCol = DEPTH,
+    azimuthCol = AZIMUTH,
+    dipCol = DIP,
+    collarAzimuthCol = AZIMUTH,
+    collarDipCol = DIP,
+  } = {},
+) {
+  const report = {
+    holesSynthesised: 0,
+    fromCollar: 0,
+    verticalFallback: 0,
+    verticalFallbackHoles: [],
+    rowsDropped: 0,
+  };
+  const rows = (survey || []).filter(Boolean);
+  if (!collar || !collar.length) return { survey: rows.map((row) => ({ ...row })), report };
+
+  const holesWithStation = new Set(
+    rows.filter((row) => isUsableStation(row, depthCol, azimuthCol, dipCol)).map((row) => row[holeCol]),
+  );
+  const azSource = resolveColumn(collar, collarAzimuthCol);
+  const dipSource = resolveColumn(collar, collarDipCol);
+
+  const additions = [];
+  const seen = new Set();
+  for (const collarRow of collar) {
+    const holeId = collarRow && collarRow[holeCol];
+    if (holeId == null || seen.has(holeId)) continue;
+    seen.add(holeId);
+    if (holesWithStation.has(holeId)) continue;
+    let azimuth = azSource != null && isFiniteNumber(collarRow[azSource]) ? Number(collarRow[azSource]) : null;
+    let dip = dipSource != null && isFiniteNumber(collarRow[dipSource]) ? Number(collarRow[dipSource]) : null;
+    if (azimuth != null && dip != null) {
+      report.fromCollar += 1;
+    } else {
+      azimuth = 0;
+      dip = -90;
+      report.verticalFallback += 1;
+      report.verticalFallbackHoles.push(holeId);
+    }
+    report.holesSynthesised += 1;
+    additions.push({ [holeCol]: holeId, [depthCol]: 0, [azimuthCol]: azimuth, [dipCol]: dip });
+  }
+
+  const synthesisedHoles = new Set(additions.map((row) => row[holeCol]));
+  const kept = rows.filter((row) => {
+    const drop = synthesisedHoles.has(row[holeCol]) && !isUsableStation(row, depthCol, azimuthCol, dipCol);
+    if (drop) report.rowsDropped += 1;
+    return !drop;
+  }).map((row) => ({ ...row }));
+
+  const extended = [...kept, ...additions].sort((first, second) => {
+    const firstHole = String(first[holeCol] ?? '');
+    const secondHole = String(second[holeCol] ?? '');
+    if (firstHole !== secondHole) return firstHole < secondHole ? -1 : 1;
+    return Number(first[depthCol]) - Number(second[depthCol]);
+  });
+  return { survey: extended, report };
 }
 
 /**

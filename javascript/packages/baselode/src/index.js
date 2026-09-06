@@ -119,6 +119,7 @@ export {
   minimumCurvatureDesurvey,
   tangentialDesurvey,
   balancedTangentialDesurvey,
+  midpointTangentialDesurvey,
   attachAssayPositions,
   buildTraces,
   interpolateTrajectory
@@ -222,6 +223,8 @@ export {
 export {
   validateDrillholeDb,
   fixSingleStationSurveys,
+  dropUnusableSurveyRows,
+  synthesiseCollarStation,
   normalizeAzimuth,
   dropOrphanIntervals,
   swapInvertedIntervals,

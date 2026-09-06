@@ -224,7 +224,9 @@ Desurvey all holes in `collars` using the matching rows in `surveys`.
 | `collars` | GeoDataFrame | — | Collar table |
 | `surveys` | DataFrame | — | Survey table |
 | `step` | float | `1.0` | Output vertex spacing (metres) |
-| `method` | str | `"minimum_curvature"` | `"minimum_curvature"`, `"tangential"`, or `"balanced_tangential"` |
+| `method` | str | `"minimum_curvature"` | `"minimum_curvature"`, `"tangential"`, `"balanced_tangential"`, or `"midpoint_tangential"` |
+
+Every trace starts at the collar (`md = 0`).  If the first survey station is deeper than the collar, its orientation is extended straight up to `md = 0` (Vulcan / Surpac convention), so single-station holes recorded at depth still produce a full trace.
 
 **Returns:** `pandas.DataFrame` with columns `hole_id`, `md`, `easting`, `northing`, `elevation`, `azimuth`, `dip`
 
@@ -278,6 +280,7 @@ python scripts/dev/regenerate_desurvey_fixtures.py
 | `minimum_curvature` | Matches wellpathpy to machine precision on every trajectory |
 | `tangential` | Matches wellpathpy `tan_method(choice="low")` to machine precision |
 | `balanced_tangential` | Matches wellpathpy `tan_method(choice="bal")` to ≤1 cm on every trajectory — including the strong-dogleg stress case. Uses the canonical Walstrom 1969 / Harvey & Eppink 1972 form (average of direction cosines) |
+| `midpoint_tangential` | No wellpathpy equivalent.  Vulcan's default "Tangent": each station is the midpoint of its straight segment (orientation changes halfway between stations).  Verified against analytic cases in `test/test_desurvey_collar_and_midpoint.py`; agrees with the other methods on straight holes |
 
 ---
 
@@ -504,7 +507,7 @@ Delegate to `baselode.drill.validate.validate_drillhole_db(collar, survey, inter
 
 #### `db.desurvey(method="minimum_curvature", step=1.0, force=False)`
 
-Run desurvey via the registered method (one of `"minimum_curvature"`, `"tangential"`, `"balanced_tangential"`).  Cached unless `force=True` or args change.
+Run desurvey via the registered method (one of `"minimum_curvature"`, `"tangential"`, `"balanced_tangential"`, `"midpoint_tangential"`).  Cached unless `force=True` or args change.
 
 **Returns:** `pandas.DataFrame` trace table.
 
@@ -677,7 +680,9 @@ Run the full drillhole-database validation suite.  Returns a structured report (
 | Check | Severity | Notes |
 |---|---|---|
 | `duplicate_hole_ids` | error | Collar table contains the same `hole_id` more than once |
-| `single_station_surveys` | warning | A hole has only one survey row — desurvey will fail.  Fix recipe points at `fix_single_station_surveys` |
+| `survey_null_orientation` | error | A survey row has a null / non-numeric `depth`, `azimuth` or `dip`.  Desurvey silently ignores such rows.  Fix recipe points at `drop_unusable_survey_rows` and `synthesise_collar_station` |
+| `survey_no_usable_stations` | warning | A hole has no usable survey row — every row unusable, or (for collar holes) no survey rows at all — so it silently drops out of the desurvey.  Skipped when the survey table is empty.  Fix recipe points at `synthesise_collar_station` |
+| `single_station_surveys` | warning | A hole has only one *usable* survey row — desurvey will fail.  Fix recipe points at `fix_single_station_surveys` |
 | `azimuth_range` | error | Survey azimuth outside `[0, 360)` |
 | `dip_range` | error | Survey dip outside `[-90, 90]` |
 | `orphan_intervals` | error | Interval `hole_id` not present in collar table |
@@ -693,12 +698,49 @@ Run the full drillhole-database validation suite.  Returns a structured report (
 
 ```python
 fix_single_station_surveys(survey, collar=None,
-                            hole_col=HOLE_ID, depth_col=DEPTH, max_depth_col=MAX_DEPTH)
+                            hole_col=HOLE_ID, depth_col=DEPTH, max_depth_col=MAX_DEPTH,
+                            azimuth_col=AZIMUTH, dip_col=DIP)
 ```
 
-For any hole with exactly one survey row, append a synthetic second station with the same azimuth/dip at `collar.max_depth` (when available) or `depth + 1.0` otherwise.  Equivalent to PyGSLIB's `fix_survey_one_interval_err`.
+For any hole with exactly one usable survey row, append a synthetic second station with the same azimuth/dip at `collar.max_depth` (when available) or `depth + 1.0` otherwise.  Equivalent to PyGSLIB's `fix_survey_one_interval_err`.
 
 **Returns:** `pandas.DataFrame` — original survey rows plus synthetics, sorted by `hole_id`, `depth`, with the index reset.
+
+---
+
+### drop_unusable_survey_rows
+
+```python
+drop_unusable_survey_rows(survey, hole_col=HOLE_ID, depth_col=DEPTH,
+                          azimuth_col=AZIMUTH, dip_col=DIP)
+```
+
+Drop survey rows whose depth, azimuth or dip is null or non-numeric — the complement of the `survey_null_orientation` check.  Desurvey already ignores these rows, so no trace changes.
+
+**Returns:** `pandas.DataFrame` — filtered copy with the index reset.
+
+---
+
+### synthesise_collar_station
+
+```python
+synthesise_collar_station(survey, collar,
+                          hole_col=HOLE_ID, depth_col=DEPTH, azimuth_col=AZIMUTH, dip_col=DIP,
+                          collar_azimuth_col=AZIMUTH, collar_dip_col=DIP,
+                          return_diagnostics=False)
+```
+
+Build a survey station at the collar for every hole that has none — collar holes with no survey rows, and holes whose every row lacks a usable depth / azimuth / dip.  Each gets a row at depth `0` oriented from the collar table's `collar_azimuth_col` / `collar_dip_col` (matched case-insensitively; dip negative = down) when both are numeric, otherwise vertical (`azimuth 0`, `dip -90`).  The hole's existing unusable rows are dropped.  Holes with at least one usable station are untouched.
+
+Chain with `fix_single_station_surveys` to pad the synthetic station to `collar.max_depth`.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `collar_azimuth_col` | str | `"azimuth"` | Collar column holding the planned azimuth |
+| `collar_dip_col` | str | `"dip"` | Collar column holding the planned dip |
+| `return_diagnostics` | bool | `False` | When `True`, return `(survey, report)` where `report` carries `holes_synthesised`, `from_collar`, `vertical_fallback`, `vertical_fallback_holes`, `rows_dropped` |
+
+**Returns:** `pandas.DataFrame` (or `(DataFrame, dict)`) — survey with synthetic stations, sorted by `hole_id`, `depth`, index reset.
 
 ---
 
@@ -745,16 +787,18 @@ fix_overlaps(table,
              hole_col=HOLE_ID, from_col=FROM, to_col=TO,
              value_cols=None,
              touching_tol=0.01, merge_tol=0.05, coverage_min=0.95,
+             precedence_col=None, precedence=None,
              return_diagnostics=False)
 ```
 
-Auto-resolve safe interval overlaps and surface only genuine value-conflicts for human review.  Handles three classes:
+Auto-resolve safe interval overlaps and surface only genuine value-conflicts for human review.  Handles three classes automatically, plus an opt-in fourth:
 
 | Class | Pattern | Action |
 |---|---|---|
 | **Touching** | `A.to > B.from` by less than `touching_tol` metres | Snap `A.to = B.from` (float-rounding cleanup) |
 | **Duplicate** | Identical `(hole_id, from, to)` *and* identical `value_cols` | Drop all but the first |
 | **Resampled superset** | A longer interval fully contains shorter ones whose length-weighted mean ≈ the longer's value within `merge_tol`, with coverage ≥ `coverage_min` | Drop the longer, keep the higher-resolution rows |
+| **Dataset precedence** (opt-in) | Two overlapping rows come from different datasets listed in `precedence` | Drop the row from the lower-ranked dataset; rows from unlisted datasets are never dropped this way |
 | **Conflict** | Anything else — partial overlap, same depth-zone with materially different values | Leave untouched, return in the `conflicts` frame |
 
 | Parameter | Type | Default | Description |
@@ -764,6 +808,8 @@ Auto-resolve safe interval overlaps and surface only genuine value-conflicts for
 | `touching_tol` | float | `0.01` | Max overlap (m) treated as a snap-me glitch |
 | `merge_tol` | float | `0.05` | Max relative diff between superset value and inner mean |
 | `coverage_min` | float | `0.95` | Min coverage of a superset by inner rows before it qualifies |
+| `precedence_col` | str | `None` | Column naming each row's dataset / campaign (e.g. `project_id`) |
+| `precedence` | iterable of str | `None` | Dataset values in priority order, highest first.  With `precedence_col`, enables the dataset-precedence class; audit rows carry `kind="precedence"` |
 | `return_diagnostics` | bool | `False` | When `True`, return `(fixed, conflicts, report)` instead of just `fixed` |
 
 **Returns:** `pandas.DataFrame`, or `(pandas.DataFrame, pandas.DataFrame, pandas.DataFrame)` when `return_diagnostics=True`.  The report has columns `hole_id, kind, action, from, to, note` — one row per resolved or flagged overlap.

@@ -7,7 +7,7 @@ name = "baselode"
 dynamic = ["version"]
 description = "Domain-aware data models and utilities for exploration and mining datasets."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{ name = "Tamara Vasey" }]
@@ -17,7 +17,10 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Operating System :: OS Independent",
   "Topic :: Scientific/Engineering",
 ]
