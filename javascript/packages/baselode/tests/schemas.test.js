@@ -14,6 +14,7 @@ const EXPECTED_TABLES = [
   'drill_geology',
   'geophysics',
   'surface_sample',
+  'block',
 ];
 
 describe('baselode data model schemas (JS)', () => {

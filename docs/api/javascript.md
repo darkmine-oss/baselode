@@ -12,6 +12,8 @@ import { loadCollars, minimumCurvatureDesurvey, TracePlot } from 'baselode';
 
 ## Data Model Constants
 
+Block model geometry keys `BLOCK_X … BLOCK_DZ`, `BLOCK_I … BLOCK_NK` and the `BASELODE_DATA_MODEL_BLOCK` schema are exported alongside the drilling constants (see the `block` table in the JSON schemas).
+
 ```js
 import {
   HOLE_ID, LATITUDE, LONGITUDE, ELEVATION,
@@ -184,6 +186,26 @@ Compute the volume of a single block.
 Get the hex colour for a value from a color scale.
 
 ---
+
+### Block model primitive
+
+Functions over a `{ definition, blocks }` object; see the guide for the conventions.
+
+#### Definition
+`createBlockModelDefinition({ origin, blockSize, nBlocks, parentSize?, rotation?, crs?, name?, description?, extra? })` → frozen definition (`matrix`, `inverse` included).
+`blockModelDefinitionFromDict(meta)` — reads Python `to_dict()` output (or a `*_meta.json` with a `definition` key) and legacy metadata.
+`blockModelDefinitionToDict(definition)` — the same JSON shape Python writes.
+`blockModelRotationMatrix(azimuth, dip, plunge)`, `localToWorld(d, u, v, w)`, `worldToLocal(d, x, y, z)`, `indexToWorld(d, i, j, k, ni=1, nj=1, nk=1)`, `worldToIndex(d, x, y, z)`, `containsIndex(d, i, j, k, ni, nj, nk)`, `parentIndex(d, i, j, k)`, `blockModelExtent(d)`, `parentBlockSize(d)`, `blockModelCorners(d)`, `blockModelBounds(d)`, `blockModelOutline2d(d)`, `sameGrid(a, b, tol)`.
+
+#### Model
+`createBlockModel({ definition, blocks })` — normalises rows so both geometry encodings are present.
+`attachBlockIndices(rows, definition, { overwrite })`, `attachBlockCentroids(rows, definition, { overwrite })`, `blockAttributeKeys(rows)`, `BLOCK_GEOMETRY_KEYS`, `BLOCK_INDEX_KEYS`.
+`validateBlockModel(model, { tol })` → `{ summary, issues }`.
+`regularizeBlocks(model)`, `aggregateToParentBlocks(model, { aggregations, densityKey })`.
+`buildBlockOccupancy(model)`, `findBlockAt(model, x, y, z, occupancy?)`, `sampleBlocksAt(model, points, { attributes })`.
+`selectBlocks(model, criteria)`, `clipBlocks(model, bounds)`.
+`blockVolume(row)`, `blockModelVolume(model)`, `blockModelTonnage(model, { densityKey, density, criteria })`, `gradeTonnage(model, gradeKey, cutoffs, { densityKey, density })`.
+`diffBlockModels(a, b, { attributes, tol })` → `{ summary, cells }`.
 
 ### Grade block loaders
 

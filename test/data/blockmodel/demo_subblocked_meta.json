@@ -1,0 +1,95 @@
+{
+  "name": "demo_subblocked",
+  "description": "Synthetic sub-blocked model: 5x4x3 parents of 10 m on a 5 m base grid, 30 deg azimuth.",
+  "crs": "EPSG:32750",
+  "origin": {
+    "x": 500000.0,
+    "y": 6900000.0,
+    "z": 290.0,
+    "rotation_deg": 30.0
+  },
+  "max_block_size": {
+    "dx": 10.0,
+    "dy": 10.0,
+    "dz": 10.0
+  },
+  "min_block_size": {
+    "dx": 5.0,
+    "dy": 5.0,
+    "dz": 5.0
+  },
+  "bbox_3d": {
+    "min_x": 500000.0,
+    "max_x": 500063.30127018923,
+    "min_y": 6899975.0,
+    "max_y": 6900034.641016152,
+    "min_z": 290.0,
+    "max_z": 320.0
+  },
+  "outline_2d": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          500000.0,
+          6900000.0
+        ],
+        [
+          500043.30127018923,
+          6899975.0
+        ],
+        [
+          500063.30127018923,
+          6900009.641016152
+        ],
+        [
+          500020.0,
+          6900034.641016152
+        ],
+        [
+          500000.0,
+          6900000.0
+        ]
+      ]
+    ]
+  },
+  "extra": {
+    "source": "synthetic",
+    "generator": "scripts/dev/generate_blockmodel_fixture.py"
+  },
+  "definition": {
+    "name": "demo_subblocked",
+    "description": "Synthetic sub-blocked model: 5x4x3 parents of 10 m on a 5 m base grid, 30 deg azimuth.",
+    "crs": "EPSG:32750",
+    "origin": {
+      "x": 500000.0,
+      "y": 6900000.0,
+      "z": 290.0
+    },
+    "block_size": {
+      "dx": 5.0,
+      "dy": 5.0,
+      "dz": 5.0
+    },
+    "n_blocks": {
+      "nx": 10,
+      "ny": 8,
+      "nz": 6
+    },
+    "parent_size": {
+      "nx": 2,
+      "ny": 2,
+      "nz": 2
+    },
+    "rotation": {
+      "azimuth": 30.0,
+      "dip": 0.0,
+      "plunge": 0.0
+    },
+    "extra": {
+      "source": "synthetic",
+      "generator": "scripts/dev/generate_blockmodel_fixture.py"
+    }
+  },
+  "attributes": {}
+}

@@ -48,6 +48,19 @@ export {
   BETA,
   GEOLOGY_CODE,
   GEOLOGY_DESCRIPTION,
+  // Block model geometry
+  BLOCK_X,
+  BLOCK_Y,
+  BLOCK_Z,
+  BLOCK_DX,
+  BLOCK_DY,
+  BLOCK_DZ,
+  BLOCK_I,
+  BLOCK_J,
+  BLOCK_K,
+  BLOCK_NI,
+  BLOCK_NJ,
+  BLOCK_NK,
   // Generics
   COMMENTS,
   EXTRA,
@@ -62,6 +75,7 @@ export {
   BASELODE_DATA_MODEL_STRUCTURAL_POINT,
   BASELODE_DATA_MODEL_GEOPHYSICS,
   BASELODE_DATA_MODEL_SURFACE_SAMPLE,
+  BASELODE_DATA_MODEL_BLOCK,
   // Column-name normalisation
   DEFAULT_COLUMN_MAP
 } from './data/datamodel.js';
@@ -438,6 +452,47 @@ export {
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';
 export { default as BlockModelWidget } from './viz/BlockModelWidget.jsx';
+
+// --- Block model primitive (grid definition + operations) ---
+export {
+  createBlockModelDefinition,
+  blockModelDefinitionFromDict,
+  blockModelDefinitionToDict,
+  blockModelRotationMatrix,
+  localToWorld,
+  worldToLocal,
+  indexToWorld,
+  worldToIndex,
+  containsIndex,
+  parentIndex,
+  blockModelExtent,
+  parentBlockSize,
+  blockModelCorners,
+  blockModelBounds,
+  blockModelOutline2d,
+  sameGrid,
+} from './blockmodel/blockModelDefinition.js';
+export {
+  BLOCK_GEOMETRY_KEYS,
+  BLOCK_INDEX_KEYS,
+  blockAttributeKeys,
+  attachBlockIndices,
+  attachBlockCentroids,
+  createBlockModel,
+  buildBlockOccupancy,
+  findBlockAt,
+  sampleBlocksAt,
+  blockVolume,
+  blockModelVolume,
+  selectBlocks,
+  clipBlocks,
+  blockModelTonnage,
+  gradeTonnage,
+  regularizeBlocks,
+  aggregateToParentBlocks,
+  validateBlockModel,
+  diffBlockModels,
+} from './blockmodel/blockModel.js';
 export { SectionHelper, SliceHelper } from './viz/sectionSliceHelpers.js';
 
 export {

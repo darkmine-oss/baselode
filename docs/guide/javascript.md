@@ -201,6 +201,8 @@ const stats  = getBlockStats(blocks, 'au_ppm');
 const subset = filterBlocks(blocks, { property: 'au_ppm', min: 1.0 });
 ```
 
+For the grid-aware primitive (sub-blocking, validation, aggregation, tonnage, diff) see [Block models](#block-models) below.
+
 ### Polygonal grade blocks
 
 Grade blocks are closed polyhedral meshes — grade shells, geologic domains, or any volumetric solid defined by triangulated vertices.  They are loaded from a structured JSON format:
@@ -466,6 +468,69 @@ const mids    = fromToMidpoints(assayRows);   // number[]
 ```
 
 ---
+
+## Block models
+
+The block model primitive mirrors `baselode.blockmodel` in Python: a **grid definition** plus a **blocks table**, with sub-blocking built in.  The definition fixes a *base block* size; every block spans a whole number of base blocks per axis.  JS keeps it as plain objects and functions over `{ definition, blocks }`.
+
+```js
+import {
+  createBlockModelDefinition, blockModelDefinitionFromDict,
+  createBlockModel, validateBlockModel,
+  regularizeBlocks, aggregateToParentBlocks,
+  findBlockAt, sampleBlocksAt,
+  blockModelTonnage, gradeTonnage, diffBlockModels,
+} from 'baselode';
+
+const definition = createBlockModelDefinition({
+  origin: [500000, 6900000, 290],   // world coords of the grid's minimum corner
+  blockSize: [5, 5, 5],             // base (sub-)block size
+  nBlocks: [10, 8, 6],              // extent in base blocks
+  parentSize: [2, 2, 2],            // parent = 2x2x2 base blocks
+  rotation: { azimuth: 30 },        // bearing of the grid y axis; dip / plunge optional
+  crs: 'EPSG:32750',
+});
+// or from the JSON Python writes (BlockModel.save -> *_meta.json), or legacy metadata:
+// const definition = blockModelDefinitionFromDict(metaJson);
+
+const { data } = await parseBlockModelCSV(csvFile);
+const model = createBlockModel({ definition, blocks: data });   // derives i/j/k/ni/nj/nk from x/y/z/dx/dy/dz (or vice versa)
+```
+
+### Grid geometry
+
+```js
+import { indexToWorld, worldToIndex, blockModelBounds, blockModelCorners, blockModelDefinitionToDict } from 'baselode';
+
+indexToWorld(definition, 2, 4, 2, 2, 2, 2);          // centroid of a 2x2x2 block
+worldToIndex(definition, 500010, 6900010, 292.5);   // base cell under a point
+blockModelBounds(definition);                        // axis-aligned world bbox of the rotated grid
+blockModelDefinitionToDict(definition);              // same JSON shape as Python's to_dict()
+```
+
+Rotation is `azimuth` (bearing of the grid y axis, clockwise from north), `dip` (tilts the y axis down) and `plunge` (tilts the x axis down), applied plunge → dip → azimuth — identical to Python.
+
+### Validation and operations
+
+```js
+const report = validateBlockModel(model);   // { summary: {error, warning, info}, issues: [...] }
+// checks: alignment, within_grid, overlap, duplicate_index, nan_centre (errors); parent_containment (warning)
+
+const fine    = regularizeBlocks(model);                                   // every block -> base blocks
+const parents = aggregateToParentBlocks(model, { densityKey: 'density' }); // mass-weighted means, majority for categoricals
+parents.blocks[0].fill_fraction;                                           // covered fraction of the parent
+
+findBlockAt(model, 500010, 6900010, 292.5);                                // row index or -1
+sampleBlocksAt(model, [[500010, 6900010, 292.5]], { attributes: ['grade'] });
+
+blockModelTonnage(model, { densityKey: 'density' });
+gradeTonnage(model, 'grade', [0, 0.5, 1.0], { densityKey: 'density' });   // [{cutoff, n_blocks, volume, tonnes, grade, metal}]
+diffBlockModels(modelA, modelB);                                           // { summary, cells } on the shared base grid
+```
+
+Per-column aggregation rules (`aggregations: { flag: 'sum', rock: 'first' }`) accept `'mean' | 'sum' | 'min' | 'max' | 'majority' | 'first'` or a `(values, weights) => value` function.  The density column is always volume-weighted so parent tonnage equals sub-block tonnage, and `blockModelTonnage` / `gradeTonnage` honour `fill_fraction` on aggregated models.
+
+The shared fixture `test/data/blockmodel/demo_subblocked.csv` and its Python-computed `blockmodel_reference.json` are asserted from both test suites, so the two implementations agree to floating-point precision.
 
 ## 3D Interpolation Volumes
 

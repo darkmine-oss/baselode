@@ -3,6 +3,13 @@
 ---
 
 ## Unreleased
+**Block models as a primitive (TRK-417)**
+
+- New `BlockModelDefinition` (Python) / `createBlockModelDefinition` (JS): origin, base block size, extent, optional parent size, azimuth/dip/plunge rotation, CRS — with `local_to_world` / `world_to_local`, `index_to_world` / `world_to_index`, bounds / corners, and a JSON round-trip that also reads the legacy `*_meta.json` shape.
+- Sub-blocking built in: blocks carry `i, j, k, ni, nj, nk` (base-cell index + extent) alongside `x, y, z, dx, dy, dz`; either encoding loads and the other is derived.  New `block` table in `baselode.datamodel` and the JSON schemas.
+- `BlockModel` gains `validate()` (alignment, extent, overlap via cell walk, duplicate index, parent containment), `regularize()`, `to_parent_blocks()` (mass-weighted means, majority categoricals, `fill_fraction`), `block_at()` / `sample_at()`, `select()` / `clip()`, `tonnage()` / `grade_tonnage()`, `diff()` (first cut at GH #16) and `save()`.  JS mirrors every operation as functions over `{ definition, blocks }`; a shared sub-blocked fixture with Python-computed expectations pins parity.
+- Existing loader / stats / filter APIs and the legacy metadata fields are unchanged.
+
 **JavaScript desurvey API consolidation (breaking)**
 
 - Removed `desurveyTraces`. Use `minimumCurvatureDesurvey` with canonical

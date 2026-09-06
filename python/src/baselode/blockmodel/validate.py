@@ -19,9 +19,17 @@
 
 """Validation helpers for block model data.
 
-Functions return lists of issue dicts so callers can decide whether to
-raise, warn, or ignore.  Warnings are also emitted via :mod:`warnings`
-when issues are found.
+Two layers:
+
+- The row-level helpers (``validate_block_sizes``, ``validate_blocks_in_bbox``,
+  ``validate_no_overlap``, ``validate_alignment``, ``validate_within_grid``,
+  ``validate_parent_containment``) each return a list of issue dicts and
+  emit a :mod:`warnings` warning when anything is found, so callers can
+  decide whether to raise, warn, or ignore.
+- :func:`validate_block_model` runs the grid-aware checks over a
+  :class:`~baselode.blockmodel.data.BlockModel` and returns a structured
+  ``{"summary", "issues"}`` report in the same shape as
+  :func:`baselode.drill.validate.validate_drillhole_db`.
 """
 
 import warnings
@@ -29,10 +37,21 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from baselode.blockmodel.data import X, Y, Z, DX, DY, DZ
+from baselode.blockmodel.data import (
+    X, Y, Z, DX, DY, DZ, I, J, K, NI, NJ, NK, BLOCK_GEOMETRY_COLS, BLOCK_INDEX_COLS,
+)
+
+SEVERITY_ERROR = "error"
+SEVERITY_WARNING = "warning"
+SEVERITY_INFO = "info"
 
 
-def validate_block_sizes(blocks: pd.DataFrame, max_block_size: dict) -> list[dict]:
+def _warn(prefix, issues):
+    if issues:
+        warnings.warn(f"{prefix}: {len(issues)} issue(s) found.", UserWarning, stacklevel=3)
+
+
+def validate_block_sizes(blocks, max_block_size):
     """Check that every block's dimensions are integer divisors of *max_block_size*.
 
     A dimension d is an acceptable divisor of max D when D / d is (very close to)
@@ -51,7 +70,7 @@ def validate_block_sizes(blocks: pd.DataFrame, max_block_size: dict) -> list[dic
         Issue dicts with keys ``row_index``, ``type``, ``axis``,
         ``block_size``, ``max_size``.
     """
-    issues: list[dict] = []
+    issues = []
     tol = 1e-6
 
     for axis, dim_col in [(DX, DX), (DY, DY), (DZ, DZ)]:
@@ -81,16 +100,11 @@ def validate_block_sizes(blocks: pd.DataFrame, max_block_size: dict) -> list[dic
                     "ratio": float(ratio),
                 })
 
-    if issues:
-        warnings.warn(
-            f"validate_block_sizes: {len(issues)} block size issue(s) found.",
-            UserWarning,
-            stacklevel=2,
-        )
+    _warn("validate_block_sizes", issues)
     return issues
 
 
-def validate_blocks_in_bbox(blocks: pd.DataFrame, bbox_3d: dict) -> list[dict]:
+def validate_blocks_in_bbox(blocks, bbox_3d):
     """Check that every block lies entirely within *bbox_3d*.
 
     Parameters
@@ -104,7 +118,7 @@ def validate_blocks_in_bbox(blocks: pd.DataFrame, bbox_3d: dict) -> list[dict]:
     -------
     list[dict]
     """
-    issues: list[dict] = []
+    issues = []
 
     checks = [
         (X, DX, "min_x", "max_x"),
@@ -131,34 +145,67 @@ def validate_blocks_in_bbox(blocks: pd.DataFrame, bbox_3d: dict) -> list[dict]:
                 "block_dim": float(row[dim_col]),
             })
 
-    if issues:
-        warnings.warn(
-            f"validate_blocks_in_bbox: {len(issues)} block(s) outside bbox.",
-            UserWarning,
-            stacklevel=2,
-        )
+    _warn("validate_blocks_in_bbox", issues)
     return issues
 
 
-def validate_no_overlap(blocks: pd.DataFrame) -> list[dict]:
+def _index_frame(blocks):
+    """Index columns as float arrays (NaN where missing / non-numeric)."""
+    return [pd.to_numeric(blocks[c], errors="coerce").to_numpy(dtype=float) for c in BLOCK_INDEX_COLS]
+
+
+def validate_no_overlap(blocks, definition=None):
     """Check that no two blocks intersect / overlap each other.
 
-    Uses pairwise axis-aligned bounding-box tests.  This is O(n²) and
-    intended for moderately-sized block models (thousands of blocks).
+    With a *definition* (and ``i, j, k, ni, nj, nk`` on the table) the
+    check walks each block's base cells once and reports every cell
+    claimed twice — O(n · cells per block), fine for large models.
+    Without one it falls back to pairwise axis-aligned bounding-box
+    tests, which is O(n²) and intended for moderately-sized models
+    (thousands of blocks).
 
     Parameters
     ----------
     blocks : pd.DataFrame
-        Block table with x/y/z/dx/dy/dz columns.
+        Block table with x/y/z/dx/dy/dz (and, with a definition, the
+        index columns).
+    definition : BlockModelDefinition, optional
 
     Returns
     -------
     list[dict]
-        Each issue identifies the two overlapping block row indices.
+        Each issue identifies the two overlapping block row indices
+        (``block_i`` < ``block_j``); with a definition it also carries
+        the first shared base ``cell``.
     """
-    issues: list[dict] = []
+    issues = []
 
     if blocks.empty or len(blocks) < 2:
+        return issues
+
+    if definition is not None and all(c in blocks.columns for c in BLOCK_INDEX_COLS):
+        i, j, k, ni, nj, nk = _index_frame(blocks)
+        indices = blocks.index.to_numpy()
+        occupancy = {}
+        seen_pairs = set()
+        for row in range(len(blocks)):
+            if any(np.isnan(v[row]) for v in (i, j, k, ni, nj, nk)):
+                continue
+            i0, j0, k0 = int(i[row]), int(j[row]), int(k[row])
+            for di in range(max(1, int(ni[row]))):
+                for dj in range(max(1, int(nj[row]))):
+                    for dk in range(max(1, int(nk[row]))):
+                        cell = (i0 + di, j0 + dj, k0 + dk)
+                        first = occupancy.setdefault(cell, row)
+                        if first != row and (first, row) not in seen_pairs:
+                            seen_pairs.add((first, row))
+                            issues.append({
+                                "type": "overlap",
+                                "block_i": int(indices[first]),
+                                "block_j": int(indices[row]),
+                                "cell": cell,
+                            })
+        _warn("validate_no_overlap", issues)
         return issues
 
     cx = blocks[X].to_numpy(dtype=float)
@@ -172,24 +219,233 @@ def validate_no_overlap(blocks: pd.DataFrame) -> list[dict]:
     n = len(cx)
     indices = blocks.index.to_numpy()
 
-    for i in range(n):
-        for j in range(i + 1, n):
+    for a in range(n):
+        for b in range(a + 1, n):
             # AABB overlap test: two boxes overlap iff they overlap on all three axes
             if (
-                abs(cx[i] - cx[j]) < hdx[i] + hdx[j] - tol
-                and abs(cy[i] - cy[j]) < hdy[i] + hdy[j] - tol
-                and abs(cz[i] - cz[j]) < hdz[i] + hdz[j] - tol
+                abs(cx[a] - cx[b]) < hdx[a] + hdx[b] - tol
+                and abs(cy[a] - cy[b]) < hdy[a] + hdy[b] - tol
+                and abs(cz[a] - cz[b]) < hdz[a] + hdz[b] - tol
             ):
                 issues.append({
                     "type": "overlap",
-                    "block_i": int(indices[i]),
-                    "block_j": int(indices[j]),
+                    "block_i": int(indices[a]),
+                    "block_j": int(indices[b]),
                 })
 
-    if issues:
-        warnings.warn(
-            f"validate_no_overlap: {len(issues)} overlapping block pair(s) found.",
-            UserWarning,
-            stacklevel=2,
-        )
+    _warn("validate_no_overlap", issues)
     return issues
+
+
+def validate_alignment(blocks, definition, tol=1e-6):
+    """Check that every block sits on the definition's base grid.
+
+    A block is aligned when, in the grid frame, its minimum corner lies
+    on a base-cell boundary and each of its sizes is a whole (positive)
+    number of base blocks.  Uses the world geometry columns, so it also
+    catches ``i/j/k`` values that disagree with ``x/y/z``.
+
+    Parameters
+    ----------
+    blocks : pd.DataFrame
+        Block table with x/y/z/dx/dy/dz.
+    definition : BlockModelDefinition
+    tol : float, optional
+        Tolerance in base-block units (default ``1e-6``).
+
+    Returns
+    -------
+    list[dict]
+        Issue dicts with ``row_index``, ``type`` (``misaligned_corner``,
+        ``size_not_multiple`` or ``non_positive_block_size``), ``axis``
+        and the offending value.
+    """
+    issues = []
+    missing = [c for c in BLOCK_GEOMETRY_COLS if c not in blocks.columns]
+    if blocks.empty or missing:
+        return issues
+
+    u, v, w = definition.world_to_local(
+        blocks[X].to_numpy(dtype=float), blocks[Y].to_numpy(dtype=float), blocks[Z].to_numpy(dtype=float),
+    )
+    sizes = {
+        "x": (u, blocks[DX].to_numpy(dtype=float), definition.block_size[0]),
+        "y": (v, blocks[DY].to_numpy(dtype=float), definition.block_size[1]),
+        "z": (w, blocks[DZ].to_numpy(dtype=float), definition.block_size[2]),
+    }
+    indices = blocks.index.to_numpy()
+    for axis, (centre, size, base) in sizes.items():
+        with np.errstate(invalid="ignore"):
+            multiples = size / base
+            corners = (centre - size / 2.0) / base
+        for row in range(len(blocks)):
+            if not np.isfinite(size[row]) or size[row] <= 0:
+                issues.append({
+                    "row_index": int(indices[row]), "type": "non_positive_block_size",
+                    "axis": axis, "block_size": float(size[row]) if np.isfinite(size[row]) else None,
+                })
+                continue
+            if abs(multiples[row] - round(multiples[row])) > tol or round(multiples[row]) < 1:
+                issues.append({
+                    "row_index": int(indices[row]), "type": "size_not_multiple",
+                    "axis": axis, "block_size": float(size[row]), "base_size": float(base),
+                    "multiple": float(multiples[row]),
+                })
+            if not np.isfinite(corners[row]):
+                continue
+            residual = corners[row] - round(corners[row])
+            if abs(residual) > tol:
+                issues.append({
+                    "row_index": int(indices[row]), "type": "misaligned_corner",
+                    "axis": axis, "offset": float(residual * base), "base_size": float(base),
+                })
+    _warn("validate_alignment", issues)
+    return issues
+
+
+def validate_within_grid(blocks, definition):
+    """Check that every block's base cells fall inside the definition's extent.
+
+    Returns
+    -------
+    list[dict]
+        Issue dicts with ``row_index``, ``type`` (``block_outside_grid`` or
+        ``missing_index``), ``axis`` and the offending range.
+    """
+    issues = []
+    if blocks.empty or not all(c in blocks.columns for c in BLOCK_INDEX_COLS):
+        return issues
+    i, j, k, ni, nj, nk = _index_frame(blocks)
+    indices = blocks.index.to_numpy()
+    for row in range(len(blocks)):
+        if any(np.isnan(v[row]) for v in (i, j, k, ni, nj, nk)):
+            issues.append({"row_index": int(indices[row]), "type": "missing_index"})
+            continue
+        for axis, start, count, extent in (
+            ("x", i[row], ni[row], definition.n_blocks[0]),
+            ("y", j[row], nj[row], definition.n_blocks[1]),
+            ("z", k[row], nk[row], definition.n_blocks[2]),
+        ):
+            if start < 0 or start + count > extent:
+                issues.append({
+                    "row_index": int(indices[row]), "type": "block_outside_grid", "axis": axis,
+                    "first_cell": int(start), "last_cell": int(start + count - 1), "n_cells": int(extent),
+                })
+    _warn("validate_within_grid", issues)
+    return issues
+
+
+def validate_parent_containment(blocks, definition):
+    """Check that no block straddles a parent-block boundary.
+
+    Only meaningful when the definition declares ``parent_size``; returns
+    an empty list otherwise.  A straddling block cannot be aggregated to
+    a single parent, which is why :meth:`BlockModel.to_parent_blocks`
+    assigns it by its minimum corner and this check flags it.
+
+    Returns
+    -------
+    list[dict]
+        Issue dicts with ``row_index``, ``type`` (``straddles_parent`` or
+        ``larger_than_parent``) and ``axis``.
+    """
+    issues = []
+    if definition.parent_size is None or blocks.empty:
+        return issues
+    if not all(c in blocks.columns for c in BLOCK_INDEX_COLS):
+        return issues
+    i, j, k, ni, nj, nk = _index_frame(blocks)
+    indices = blocks.index.to_numpy()
+    for row in range(len(blocks)):
+        if any(np.isnan(v[row]) for v in (i, j, k, ni, nj, nk)):
+            continue
+        for axis, start, count, parent in (
+            ("x", i[row], ni[row], definition.parent_size[0]),
+            ("y", j[row], nj[row], definition.parent_size[1]),
+            ("z", k[row], nk[row], definition.parent_size[2]),
+        ):
+            if count > parent:
+                issues.append({
+                    "row_index": int(indices[row]), "type": "larger_than_parent", "axis": axis,
+                    "n_cells": int(count), "parent_cells": int(parent),
+                })
+            elif int(start) // parent != int(start + count - 1) // parent:
+                issues.append({
+                    "row_index": int(indices[row]), "type": "straddles_parent", "axis": axis,
+                    "first_cell": int(start), "last_cell": int(start + count - 1), "parent_cells": int(parent),
+                })
+    _warn("validate_parent_containment", issues)
+    return issues
+
+
+def _issue(check, severity, message, row_index=None, **details):
+    out = {"check": check, "severity": severity, "row_index": row_index, "message": message}
+    out.update(details)
+    return out
+
+
+def validate_block_model(model):
+    """Run every grid-aware check over a :class:`BlockModel`.
+
+    Checks (severity): ``alignment`` (error), ``within_grid`` (error),
+    ``overlap`` (error), ``parent_containment`` (warning), ``duplicate_index``
+    (error, identical ``i, j, k, ni, nj, nk``), ``nan_centre`` (error).
+    Models without a definition only get ``nan_centre`` and the pairwise
+    ``overlap`` check.
+
+    Returns
+    -------
+    dict
+        ``{"summary": {"error": n, "warning": n, "info": n},
+        "issues": [dict, ...]}`` — each issue carries ``check``,
+        ``severity``, ``row_index``, ``message`` and the raw detail keys
+        from the underlying helper.
+    """
+    blocks = model.blocks
+    definition = model.definition
+    issues = []
+
+    if not blocks.empty and all(c in blocks.columns for c in (X, Y, Z)):
+        nan_rows = blocks.index[blocks[[X, Y, Z]].isna().any(axis=1)]
+        for idx in nan_rows:
+            issues.append(_issue("nan_centre", SEVERITY_ERROR, "Block has a NaN centre coordinate", row_index=int(idx)))
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        if definition is not None:
+            for raw in validate_alignment(blocks, definition):
+                issues.append(_issue(
+                    "alignment", SEVERITY_ERROR,
+                    f"Block {raw['row_index']} is not on the base grid along {raw['axis']} ({raw['type']})",
+                    **raw,
+                ))
+            for raw in validate_within_grid(blocks, definition):
+                issues.append(_issue(
+                    "within_grid", SEVERITY_ERROR,
+                    f"Block {raw['row_index']} lies outside the grid extent"
+                    + (f" along {raw['axis']}" if "axis" in raw else ""),
+                    **raw,
+                ))
+            for raw in validate_parent_containment(blocks, definition):
+                issues.append(_issue(
+                    "parent_containment", SEVERITY_WARNING,
+                    f"Block {raw['row_index']} straddles a parent block boundary along {raw['axis']}",
+                    **raw,
+                ))
+            if all(c in blocks.columns for c in BLOCK_INDEX_COLS) and not blocks.empty:
+                dup = blocks.duplicated(subset=BLOCK_INDEX_COLS, keep="first")
+                for idx in blocks.index[dup]:
+                    issues.append(_issue("duplicate_index", SEVERITY_ERROR, f"Block {idx} duplicates another block's cells", row_index=int(idx)))
+        for raw in validate_no_overlap(blocks, definition):
+            issues.append(_issue(
+                "overlap", SEVERITY_ERROR,
+                f"Blocks {raw['block_i']} and {raw['block_j']} overlap",
+                row_index=raw["block_j"], **raw,
+            ))
+
+    summary = {
+        SEVERITY_ERROR: sum(1 for issue in issues if issue["severity"] == SEVERITY_ERROR),
+        SEVERITY_WARNING: sum(1 for issue in issues if issue["severity"] == SEVERITY_WARNING),
+        SEVERITY_INFO: sum(1 for issue in issues if issue["severity"] == SEVERITY_INFO),
+    }
+    return {"summary": summary, "issues": issues}

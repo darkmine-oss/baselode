@@ -62,6 +62,20 @@ export const BETA = "beta";
 export const GEOLOGY_CODE = "geology_code";
 export const GEOLOGY_DESCRIPTION = "geology_description";
 
+// --- Block model geometry (see blockmodel/) ---
+export const BLOCK_X = "x";
+export const BLOCK_Y = "y";
+export const BLOCK_Z = "z";
+export const BLOCK_DX = "dx";
+export const BLOCK_DY = "dy";
+export const BLOCK_DZ = "dz";
+export const BLOCK_I = "i";
+export const BLOCK_J = "j";
+export const BLOCK_K = "k";
+export const BLOCK_NI = "ni";
+export const BLOCK_NJ = "nj";
+export const BLOCK_NK = "nk";
+
 // --- Generics ---
 export const COMMENTS = "comments";
 /**
@@ -273,3 +287,28 @@ for (const [standardCol, variations] of Object.entries(DEFAULT_COLUMN_MAP)) {
     _COLUMN_LOOKUP[normalized] = standardCol;
   }
 }
+
+/**
+ * One row per block of a (sub-blocked) block model.  Blocks sit on the base
+ * grid of a block model definition (see `createBlockModelDefinition`):
+ * i/j/k is the base-cell index of the block's minimum corner and ni/nj/nk
+ * its extent in base blocks.  x/y/z is the world centroid and dx/dy/dz the
+ * block size along the grid axes; either form can be supplied and the other
+ * derived.  Attribute columns (grade, density, rock type, ...) are flexible.
+ */
+export const BASELODE_DATA_MODEL_BLOCK = {
+  [BLOCK_I]: "integer",
+  [BLOCK_J]: "integer",
+  [BLOCK_K]: "integer",
+  [BLOCK_NI]: "integer",
+  [BLOCK_NJ]: "integer",
+  [BLOCK_NK]: "integer",
+  [BLOCK_X]: "number",
+  [BLOCK_Y]: "number",
+  [BLOCK_Z]: "number",
+  [BLOCK_DX]: "number",
+  [BLOCK_DY]: "number",
+  [BLOCK_DZ]: "number",
+  // Per-row dict of source-specific fields outside the canonical schema.
+  [EXTRA]: "object"
+};
