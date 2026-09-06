@@ -13,8 +13,9 @@ Merging to `main` triggers the `.github/workflows/release.yml` workflow, which:
 3. Runs the JavaScript test suite (`npm test`).
 4. Builds the Python package and publishes it to PyPI using trusted publishing
    (OIDC — no long-lived token required).
-5. Builds the JavaScript package and publishes it to npm using the `NPM_TOKEN`
-   repository secret.
+5. Builds the JavaScript package and publishes it to npm, also via trusted
+   publishing (OIDC).  The job upgrades npm first because OIDC publishing
+   needs npm 11.5.1+, newer than the npm bundled with Node 20.
 
 Both publish jobs run against a GitHub Actions environment named **`release`**.
 Configure that environment in *Settings → Environments → release* to add any
@@ -24,8 +25,13 @@ Required secrets / configurations:
 
 | Secret / setting | Where | Purpose |
 |---|---|---|
-| `NPM_TOKEN` | Repository secret | Authenticate `npm publish` |
+| npm trusted publisher | npmjs.com → `baselode` → Settings → Trusted Publisher | OIDC publish from Actions.  GitHub Actions publisher with organization `darkmine-oss`, repository `baselode`, workflow `release.yml`, environment `release` |
 | PyPI trusted publisher | PyPI project settings | OIDC publish from Actions |
+
+No npm token is stored anywhere.  If the npm publish job fails with
+`404 Not Found - PUT https://registry.npmjs.org/baselode`, the registry did
+not accept the workflow's identity: check the trusted-publisher entry matches
+the four values above exactly (the environment name is easy to miss).
 
 ### Recommended branch protection
 
