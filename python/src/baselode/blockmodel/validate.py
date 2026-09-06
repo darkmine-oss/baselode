@@ -378,6 +378,40 @@ def validate_parent_containment(blocks, definition):
     return issues
 
 
+def validate_index_consistency(blocks, definition):
+    """Check that supplied ``i, j, k, ni, nj, nk`` agree with ``x, y, z, dx, dy, dz``.
+
+    A table can carry both encodings; lookup, regularize and aggregate
+    all trust the indices, so an index that points at a different cell
+    than the geometry does must be reported.
+
+    Returns
+    -------
+    list[dict]
+        Issue dicts with ``row_index``, ``type`` (``index_mismatch``),
+        ``column``, ``supplied`` and ``derived``.
+    """
+    issues = []
+    if blocks.empty or not all(c in blocks.columns for c in BLOCK_INDEX_COLS + BLOCK_GEOMETRY_COLS):
+        return issues
+    import baselode.blockmodel.data as data_module
+    derived = data_module.attach_block_indices(blocks[BLOCK_GEOMETRY_COLS], definition, overwrite=True)
+    indices = blocks.index.to_numpy()
+    supplied = _index_frame(blocks)
+    for position, col in enumerate(BLOCK_INDEX_COLS):
+        derived_values = pd.to_numeric(derived[col], errors="coerce").to_numpy(dtype=float)
+        for row in range(len(blocks)):
+            a, b = supplied[position][row], derived_values[row]
+            if np.isnan(a) or np.isnan(b) or a == b:
+                continue
+            issues.append({
+                "row_index": int(indices[row]), "type": "index_mismatch", "column": col,
+                "supplied": int(a), "derived": int(b),
+            })
+    _warn("validate_index_consistency", issues)
+    return issues
+
+
 def _issue(check, severity, message, row_index=None, **details):
     out = {"check": check, "severity": severity, "row_index": row_index, "message": message}
     out.update(details)
@@ -387,9 +421,11 @@ def _issue(check, severity, message, row_index=None, **details):
 def validate_block_model(model):
     """Run every grid-aware check over a :class:`BlockModel`.
 
-    Checks (severity): ``alignment`` (error), ``within_grid`` (error),
-    ``overlap`` (error), ``parent_containment`` (warning), ``duplicate_index``
-    (error, identical ``i, j, k, ni, nj, nk``), ``nan_centre`` (error).
+    Checks (severity): ``alignment`` (error), ``index_consistency``
+    (error, supplied indices disagree with the geometry), ``within_grid``
+    (error), ``overlap`` (error), ``parent_containment`` (warning),
+    ``duplicate_index`` (error, identical ``i, j, k, ni, nj, nk``),
+    ``nan_centre`` (error).
     Models without a definition only get ``nan_centre`` and the pairwise
     ``overlap`` check.
 
@@ -417,6 +453,12 @@ def validate_block_model(model):
                 issues.append(_issue(
                     "alignment", SEVERITY_ERROR,
                     f"Block {raw['row_index']} is not on the base grid along {raw['axis']} ({raw['type']})",
+                    **raw,
+                ))
+            for raw in validate_index_consistency(blocks, definition):
+                issues.append(_issue(
+                    "index_consistency", SEVERITY_ERROR,
+                    f"Block {raw['row_index']}: {raw['column']}={raw['supplied']} but its geometry gives {raw['derived']}",
                     **raw,
                 ))
             for raw in validate_within_grid(blocks, definition):

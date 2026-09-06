@@ -333,16 +333,17 @@ class BlockModel:
         ``x, y, z, dx, dy, dz`` or (with a definition) the index columns
         ``i, j, k`` (+ optional ``ni, nj, nk``), plus any attribute
         columns.  Whichever encoding is missing is derived.
-    definition : BlockModelDefinition or dict, optional
-        The grid.  A dict is passed through
-        :meth:`BlockModelDefinition.from_dict`.  When omitted, one is
-        built from *metadata* if that carries enough (legacy
-        ``min_block_size`` / ``max_block_size`` / ``bbox_3d`` files do).
     metadata : dict, optional
         Legacy top-level metadata (``name``, ``crs``, ``origin``,
         ``max_block_size``, ``min_block_size``, ``bbox_3d``,
         ``outline_2d``, ``attributes``, ``extra``).  Still honoured for
-        the legacy attributes below.
+        the legacy attributes below, and still the second positional
+        argument.
+    definition : BlockModelDefinition or dict, optional (keyword-only)
+        The grid.  A dict is passed through
+        :meth:`BlockModelDefinition.from_dict`.  When omitted, one is
+        built from *metadata* if that carries enough (legacy
+        ``min_block_size`` / ``max_block_size`` / ``bbox_3d`` files do).
 
     Attributes
     ----------
@@ -357,7 +358,7 @@ class BlockModel:
     extra : dict
     """
 
-    def __init__(self, blocks, definition=None, metadata=None):
+    def __init__(self, blocks, metadata=None, *, definition=None):
         meta = dict(metadata or {})
         if definition is None:
             definition = _legacy_definition(meta)
@@ -1077,6 +1078,8 @@ def load_blocks(
     meta = load_block_metadata(metadata) if metadata is not None else None
     if definition is None and meta is not None and meta.get("definition"):
         definition = BlockModelDefinition.from_dict(meta["definition"])
+    if isinstance(definition, dict):
+        definition = BlockModelDefinition.from_dict(definition)
 
     has_geom = all(c in df.columns for c in BLOCK_GEOMETRY_COLS)
     has_index = all(c in df.columns for c in (I, J, K))

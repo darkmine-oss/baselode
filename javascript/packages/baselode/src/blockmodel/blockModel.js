@@ -31,6 +31,8 @@ const RESERVED = new Set([...BLOCK_GEOMETRY_KEYS, ...BLOCK_INDEX_KEYS]);
 const VALID_AGGREGATIONS = ['mean', 'sum', 'min', 'max', 'majority', 'first'];
 
 function num(value) {
+  // Missing stays missing: Number(null) / Number('') would silently be 0.
+  if (value === null || value === undefined || value === '') return NaN;
   const n = Number(value);
   return Number.isFinite(n) ? n : NaN;
 }
@@ -346,9 +348,10 @@ function issue(check, severity, message, rowIndex, details = {}) {
 }
 
 /**
- * Grid-aware validation: alignment (error), within_grid (error), overlap
- * (error), duplicate_index (error), nan_centre (error), parent_containment
- * (warning).  Same `{summary, issues}` shape as the Python validator.
+ * Grid-aware validation: alignment (error), index_consistency (error —
+ * supplied indices disagree with the geometry), within_grid (error),
+ * overlap (error), duplicate_index (error), nan_centre (error),
+ * parent_containment (warning).  Same `{summary, issues}` shape as the Python validator.
  */
 export function validateBlockModel(model, { tol = 1e-6 } = {}) {
   const { definition, blocks } = model;
@@ -404,6 +407,12 @@ export function validateBlockModel(model, { tol = 1e-6 } = {}) {
         } else if (Math.floor(start / parent) !== Math.floor((start + count - 1) / parent)) {
           issues.push(issue('parent_containment', 'warning', `Block ${index} straddles a parent block boundary along ${axis}`, index, { type: 'straddles_parent', axis, first_cell: start, last_cell: start + count - 1, parent_cells: parent }));
         }
+      }
+    }
+    const [derived] = attachBlockIndices([{ x, y, z, dx: row.dx, dy: row.dy, dz: row.dz }], definition, { overwrite: true });
+    for (const key of BLOCK_INDEX_KEYS) {
+      if (Number.isFinite(derived[key]) && derived[key] !== row[key]) {
+        issues.push(issue('index_consistency', 'error', `Block ${index}: ${key}=${row[key]} but its geometry gives ${derived[key]}`, index, { type: 'index_mismatch', column: key, supplied: row[key], derived: derived[key] }));
       }
     }
     const indexKey = BLOCK_INDEX_KEYS.map((key) => row[key]).join(',');

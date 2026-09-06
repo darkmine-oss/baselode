@@ -214,6 +214,36 @@ describe('block model operations', () => {
     expect(types).toEqual(new Set(['size_not_multiple', 'misaligned_corner']));
   });
 
+  it('flags supplied indices that disagree with the geometry', () => {
+    const d = definition({ nBlocks: [8, 8, 8] });
+    const model = createBlockModel({
+      definition: d,
+      blocks: [{ x: 1002.5, y: 2002.5, z: 101.25, dx: 5, dy: 5, dz: 2.5, i: 5, j: 0, k: 0, ni: 1, nj: 1, nk: 1 }],
+    });
+    const report = validateBlockModel(model);
+    const mismatch = report.issues.filter((issue) => issue.check === 'index_consistency');
+    expect(mismatch.map((m) => [m.column, m.supplied, m.derived])).toEqual([['i', 5, 0]]);
+    expect(report.summary.error).toBe(1);
+  });
+
+  it('keeps missing numeric values missing', () => {
+    // Codex review: Number(null) is 0, which corrupted means, tonnage and diffs.
+    const d = definition();
+    const model = createBlockModel({
+      definition: d,
+      blocks: [{ i: 0, j: 0, k: 0, grade: 2, density: 2 }, { i: 1, j: 0, k: 0, grade: null, density: 2 }, { i: 0, j: 1, k: 0, grade: '', density: 2 }],
+    });
+    const [parent] = aggregateToParentBlocks(model).blocks;
+    expect(parent.grade).toBe(2);
+    const [curve] = gradeTonnage(model, 'grade', [0], { densityKey: 'density' });
+    expect(curve.n_blocks).toBe(1);
+    expect(curve.tonnes).toBeCloseTo(62.5 * 2, 9);
+    const other = createBlockModel({ definition: d, blocks: model.blocks.map((row) => ({ ...row, grade: row.grade === null || row.grade === '' ? 0 : row.grade })) });
+    const { summary } = diffBlockModels(model, other);
+    expect(summary.changed).toBe(2);
+    expect(summary.unchanged).toBe(1);
+  });
+
   it('regularizes to base blocks preserving volume', () => {
     const model = loadFixture();
     const regular = regularizeBlocks(model);

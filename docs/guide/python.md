@@ -607,6 +607,7 @@ report = model.validate()
 | Check | Severity | Meaning |
 |---|---|---|
 | `alignment` | error | Min corner off the base grid, or a size that is not a whole number of base blocks |
+| `index_consistency` | error | Supplied `i, j, k, ni, nj, nk` disagree with `x, y, z, dx, dy, dz` |
 | `within_grid` | error | Block cells fall outside `n_blocks` |
 | `overlap` | error | Two blocks claim the same base cell (found by walking cells, not by an O(n²) scan) |
 | `duplicate_index` | error | Identical `i, j, k, ni, nj, nk` |

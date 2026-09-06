@@ -392,23 +392,26 @@ class BlockModelDefinition:
         if not isinstance(other, BlockModelDefinition):
             return NotImplemented
         return (
-            np.allclose(self.origin, other.origin)
-            and np.allclose(self.block_size, other.block_size)
+            np.allclose(self.origin, other.origin, rtol=0.0, atol=1e-9)
+            and np.allclose(self.block_size, other.block_size, rtol=0.0, atol=1e-9)
             and self.n_blocks == other.n_blocks
             and self.parent_size == other.parent_size
-            and np.allclose(self.rotation, other.rotation)
+            and np.allclose(self.rotation, other.rotation, rtol=0.0, atol=1e-9)
         )
 
     def same_grid(self, other, tol=1e-6):
         """True when both grids share origin, base block size and rotation.
 
         Extent and parent structure may differ — this is the precondition
-        for cell-by-cell comparison of two models.
+        for cell-by-cell comparison of two models.  *tol* is absolute (in
+        world units for the origin and block size, degrees for the
+        rotation): projected coordinates are large enough that a relative
+        tolerance would let grids metres apart compare equal.
         """
         return (
-            np.allclose(self.origin, other.origin, atol=tol)
-            and np.allclose(self.block_size, other.block_size, atol=tol)
-            and np.allclose(self.rotation, other.rotation, atol=tol)
+            np.allclose(self.origin, other.origin, rtol=0.0, atol=tol)
+            and np.allclose(self.block_size, other.block_size, rtol=0.0, atol=tol)
+            and np.allclose(self.rotation, other.rotation, rtol=0.0, atol=tol)
         )
 
     def __repr__(self):

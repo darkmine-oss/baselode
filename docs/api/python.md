@@ -1065,7 +1065,7 @@ Properties: `is_rotated`, `is_subblocked`, `n_parent_blocks`, `parent_block_size
 ### BlockModel
 
 ```python
-BlockModel(blocks, definition=None, metadata=None)
+BlockModel(blocks, metadata=None, *, definition=None)
 ```
 
 `blocks` must carry either `x, y, z, dx, dy, dz` or (with a definition) `i, j, k` (+ optional `ni, nj, nk`); the other encoding is derived.  Attribute columns are everything else (`attribute_columns`).  `definition` may be a `BlockModelDefinition` or its dict; when omitted, one is built from legacy `metadata` if it carries enough.
@@ -1099,11 +1099,12 @@ load_block_metadata(source)
 | Function | Issue types |
 |---|---|
 | `validate_alignment(blocks, definition, tol=1e-6)` | `misaligned_corner`, `size_not_multiple`, `non_positive_block_size` |
+| `validate_index_consistency(blocks, definition)` | `index_mismatch` — supplied `i…nk` disagree with the geometry |
 | `validate_within_grid(blocks, definition)` | `block_outside_grid`, `missing_index` |
 | `validate_parent_containment(blocks, definition)` | `straddles_parent`, `larger_than_parent` |
 | `validate_no_overlap(blocks, definition=None)` | `overlap` — cell walk with a definition, pairwise AABB without |
 | `validate_block_sizes(blocks, max_block_size)`, `validate_blocks_in_bbox(blocks, bbox_3d)` | Legacy helpers, unchanged |
-| `validate_block_model(model)` | `{"summary", "issues"}` report over `alignment` (error), `within_grid` (error), `overlap` (error), `duplicate_index` (error), `nan_centre` (error), `parent_containment` (warning) |
+| `validate_block_model(model)` | `{"summary", "issues"}` report over `alignment` (error), `index_consistency` (error), `within_grid` (error), `overlap` (error), `duplicate_index` (error), `nan_centre` (error), `parent_containment` (warning) |
 
 ---
 

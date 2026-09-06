@@ -514,7 +514,7 @@ Rotation is `azimuth` (bearing of the grid y axis, clockwise from north), `dip` 
 
 ```js
 const report = validateBlockModel(model);   // { summary: {error, warning, info}, issues: [...] }
-// checks: alignment, within_grid, overlap, duplicate_index, nan_centre (errors); parent_containment (warning)
+// checks: alignment, index_consistency, within_grid, overlap, duplicate_index, nan_centre (errors); parent_containment (warning)
 
 const fine    = regularizeBlocks(model);                                   // every block -> base blocks
 const parents = aggregateToParentBlocks(model, { densityKey: 'density' }); // mass-weighted means, majority for categoricals

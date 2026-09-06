@@ -132,6 +132,13 @@ class TestDefinition:
         assert a.same_grid(b) and a != b
         assert not a.same_grid(_definition(rotation={"azimuth": 1.0}))
 
+    def test_same_grid_uses_an_absolute_tolerance_on_projected_coordinates(self):
+        # Codex review: a relative tolerance let grids metres apart compare equal.
+        a = _definition(origin=(500000.0, 6000000.0, 0.0))
+        b = _definition(origin=(500004.0, 6000040.0, 0.0))
+        assert not a.same_grid(b) and a != b
+        assert a.same_grid(_definition(origin=(500000.0, 6000000.0, 1e-8)))
+
 
 # ----------------------------------------------------------------- model
 
@@ -161,6 +168,17 @@ class TestModelConstruction:
         assert model.bbox_3d["max_x"] == 500050.0
         assert model.attributes["grade"]["units"] == "%"
         assert model.validate()["summary"] == {"error": 0, "warning": 0, "info": 0}
+
+    def test_metadata_is_still_the_second_positional_argument(self):
+        blocks = pd.DataFrame({"x": [5.0], "y": [5.0], "z": [5.0], "dx": [10.0], "dy": [10.0], "dz": [10.0]})
+        model = blockmodel.BlockModel(blocks, {"name": "legacy", "crs": "EPSG:1"})
+        assert model.name == "legacy" and model.crs == "EPSG:1" and model.definition is None
+
+    def test_index_only_load_accepts_a_dict_definition(self):
+        d = _definition()
+        model = blockmodel.load_blocks(pd.DataFrame({"i": [1], "j": [2], "k": [3]}), definition=d.to_dict())
+        assert model.definition == d
+        assert model.blocks.iloc[0].x == pytest.approx(1007.5)
 
     def test_no_definition_keeps_legacy_behaviour_and_refuses_grid_ops(self):
         model = blockmodel.BlockModel(pd.DataFrame({
@@ -211,6 +229,18 @@ class TestValidation:
         odd = pd.DataFrame({"x": [1004.5], "y": [2002.5], "z": [101.25], "dx": [7.0], "dy": [5.0], "dz": [2.5]})
         issues = validate.validate_alignment(odd, d)
         assert {i["type"] for i in issues} == {"size_not_multiple", "misaligned_corner"}
+
+    def test_supplied_indices_that_disagree_with_geometry_are_flagged(self):
+        d = _definition(n_blocks=(8, 8, 8))
+        blocks = pd.DataFrame({
+            "x": [1002.5], "y": [2002.5], "z": [101.25], "dx": [5.0], "dy": [5.0], "dz": [2.5],
+            "i": [5], "j": [0], "k": [0], "ni": [1], "nj": [1], "nk": [1],
+        })
+        model = blockmodel.BlockModel(blocks, definition=d)
+        report = model.validate()
+        mismatch = [issue for issue in report["issues"] if issue["check"] == "index_consistency"]
+        assert [(m["column"], m["supplied"], m["derived"]) for m in mismatch] == [("i", 5, 0)]
+        assert report["summary"]["error"] == 1
 
     def test_pairwise_overlap_still_works_without_a_definition(self):
         blocks = pd.DataFrame({
