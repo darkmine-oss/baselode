@@ -394,6 +394,15 @@ export {
 } from './viz/rasterOverlayScene.js';
 
 export {
+  createTerrainSurface,
+  setTerrain,
+  clearTerrain,
+  setTerrainOpacity,
+  setTerrainVisibility,
+  getTerrain,
+} from './viz/terrainScene.js';
+
+export {
   buildViewSignature,
   getViewState,
   setViewState,

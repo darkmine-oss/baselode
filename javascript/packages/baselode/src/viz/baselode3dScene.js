@@ -46,6 +46,13 @@ import {
   listRasterOverlays as _listRasterOverlays,
   clearRasterOverlays as _clearRasterOverlays,
 } from './rasterOverlayScene.js';
+import {
+  setTerrain as _setTerrain,
+  clearTerrain as _clearTerrain,
+  setTerrainOpacity as _setTerrainOpacity,
+  setTerrainVisibility as _setTerrainVisibility,
+  getTerrain as _getTerrain,
+} from './terrainScene.js';
 
 /**
  * Baselode 3D Scene Manager
@@ -88,6 +95,7 @@ class Baselode3DScene {
     this._blockHighlightMesh = null;
     this._outlinePass = null;
     this.rasterOverlays = new Map();
+    this.terrain = null;
   }
 
   init(container) {
@@ -246,6 +254,7 @@ class Baselode3DScene {
     _clearStripLogs(this);
     _clearStructuralDiscs(this);
     _clearRasterOverlays(this);
+    _clearTerrain(this);
     disposeSelectionGlow(this);
     if (this.container && this._wheelRelay) {
       this.container.removeEventListener('wheel', this._wheelRelay);
@@ -444,6 +453,39 @@ class Baselode3DScene {
    * @returns {object[]}
    */
   listRasterOverlays() { return _listRasterOverlays(this); }
+
+  // ---------------------------------------------------------------------------
+  // Terrain surface API — delegate to terrainScene
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Set the scene's terrain layer, replacing and disposing any existing one.
+   * @param {object} layer - Layer descriptor returned by createTerrainSurface()
+   */
+  setTerrain(layer) { _setTerrain(this, layer); }
+
+  /**
+   * Remove the scene's terrain layer (if any) and dispose its GPU resources.
+   */
+  clearTerrain() { _clearTerrain(this); }
+
+  /**
+   * Set the terrain layer's opacity at runtime.
+   * @param {number} opacity - New opacity [0, 1]
+   */
+  setTerrainOpacity(opacity) { _setTerrainOpacity(this, opacity); }
+
+  /**
+   * Show or hide the terrain layer.
+   * @param {boolean} visible
+   */
+  setTerrainVisible(visible) { _setTerrainVisibility(this, visible); }
+
+  /**
+   * Return the scene's current terrain layer, or null if none is set.
+   * @returns {object|null}
+   */
+  getTerrain() { return _getTerrain(this); }
 }
 
 export default Baselode3DScene;
