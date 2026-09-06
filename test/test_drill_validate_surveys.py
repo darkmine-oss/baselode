@@ -244,3 +244,58 @@ def test_fix_overlaps_without_precedence_leaves_campaign_conflicts():
     fixed, conflicts, _ = validate.fix_overlaps(table, return_diagnostics=True)
     assert len(fixed) == 2
     assert len(conflicts) == 2
+
+
+# ------------------------------------------------- codex review follow-ups
+
+def test_infinite_survey_orientation_is_flagged_and_unusable():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    survey = _survey([("A", 0.0, float("inf"), -90.0)])
+    report = validate.validate_drillhole_db(collar, survey)
+    assert len(_checks_with(report, "survey_null_orientation")) == 1
+    assert len(_checks_with(report, "survey_no_usable_stations")) == 1
+
+
+def test_synthesise_collar_station_treats_infinite_collar_orientation_as_missing():
+    collar = _collar(
+        [("B", 0.0, 0.0, 0.0, 80.0, float("inf"), -55.0)],
+        columns=("hole_id", "easting", "northing", "elevation", "max_depth", "azimuth", "dip"),
+    )
+    out, report = validate.synthesise_collar_station(_survey([]), collar, return_diagnostics=True)
+    assert report["vertical_fallback_holes"] == ["B"]
+    assert out.iloc[0][["azimuth", "dip"]].tolist() == [0.0, -90.0]
+    assert not desurvey.build_traces(collar, out).empty
+
+
+def test_fix_single_station_surveys_honours_custom_orientation_columns():
+    collar = _collar([("A", 0.0, 0.0, 0.0, 100.0)])
+    survey = pd.DataFrame(
+        [("A", 0.0, 10.0, -60.0)], columns=["hole_id", "depth", "bearing", "inclination"],
+    )
+    out = validate.fix_single_station_surveys(
+        survey, collar, azimuth_col="bearing", dip_col="inclination",
+    )
+    assert out["depth"].tolist() == [0.0, 100.0]
+    assert out["bearing"].tolist() == [10.0, 10.0]
+
+
+def test_fix_overlaps_precedence_beats_duplicate_and_superset_passes():
+    # Identical rows from two datasets, lower-ranked first: the duplicate
+    # pass alone would keep the first (lower-ranked) row.
+    table = _assays([
+        ("A", 0.0, 1.0, 1.0, "low"),
+        ("A", 0.0, 1.0, 1.0, "high"),
+        # Preferred coarse row with lower-ranked finer rows that would
+        # otherwise qualify it as a resampled superset.
+        ("A", 2.0, 4.0, 2.0, "high"),
+        ("A", 2.0, 3.0, 2.0, "low"),
+        ("A", 3.0, 4.0, 2.0, "low"),
+    ])
+    fixed, conflicts, report = validate.fix_overlaps(
+        table, value_cols=["au_ppm"], precedence_col="project_id",
+        precedence=["high", "low"], return_diagnostics=True,
+    )
+    assert conflicts.empty
+    assert fixed["project_id"].tolist() == ["high", "high"]
+    assert fixed[["from", "to"]].values.tolist() == [[0.0, 1.0], [2.0, 4.0]]
+    assert report["kind"].tolist() == ["precedence"] * 3

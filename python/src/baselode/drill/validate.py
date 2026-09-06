@@ -203,7 +203,15 @@ def validate_drillhole_db(
     return {"summary": summary, "issues": issues}
 
 
-def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=DEPTH, max_depth_col=MAX_DEPTH):
+def fix_single_station_surveys(
+    survey,
+    collar=None,
+    hole_col=HOLE_ID,
+    depth_col=DEPTH,
+    max_depth_col=MAX_DEPTH,
+    azimuth_col=AZIMUTH,
+    dip_col=DIP,
+):
     """Synthesize a second survey station for any hole with only one.
 
     Desurvey requires at least two stations per hole; a hole with exactly
@@ -222,7 +230,9 @@ def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=
     collar : pd.DataFrame, optional
         Collar table; if provided and contains *max_depth_col*, that value
         is used as the synthetic station depth.
-    hole_col, depth_col, max_depth_col : str
+    hole_col, depth_col, max_depth_col, azimuth_col, dip_col : str
+        Column-name overrides.  Only rows with a finite *depth_col*,
+        *azimuth_col* and *dip_col* count as stations.
 
     Returns
     -------
@@ -234,7 +244,7 @@ def fix_single_station_surveys(survey, collar=None, hole_col=HOLE_ID, depth_col=
         return survey.copy()
 
     max_depth_lookup = _build_max_depth_lookup(collar, hole_col, max_depth_col) if collar is not None else {}
-    usable = _usable_station_mask(survey, depth_col, AZIMUTH, DIP)
+    usable = _usable_station_mask(survey, depth_col, azimuth_col, dip_col)
     new_rows = []
     for hole_id, group in survey[usable].groupby(hole_col):
         if len(group) != 1:
@@ -311,8 +321,8 @@ def synthesise_collar_station(
     holes with no survey rows, and holes whose every survey row lacks a
     usable depth / azimuth / dip.  For each one a station at depth ``0``
     is appended, oriented from the collar table's *collar_azimuth_col* /
-    *collar_dip_col* (matched case-insensitively) when both are numeric,
-    otherwise vertical (``azimuth 0``, ``dip -90``).  The hole's existing
+    *collar_dip_col* (matched case-insensitively) when both are finite
+    numbers, otherwise vertical (``azimuth 0``, ``dip -90``).  The hole's existing
     unusable rows are dropped so the synthetic station is its only one.
 
     Pair with :func:`fix_single_station_surveys` afterwards: the synthetic
@@ -380,8 +390,8 @@ def synthesise_collar_station(
         if hole_id is None or pd.isna(hole_id) or hole_id in holes_with_station:
             continue
         collar_row = collar_by_hole.loc[hole_id]
-        azimuth = _to_float(collar_row.get(az_source)) if az_source is not None else None
-        dip = _to_float(collar_row.get(dip_source)) if dip_source is not None else None
+        azimuth = _finite_float(collar_row.get(az_source)) if az_source is not None else None
+        dip = _finite_float(collar_row.get(dip_source)) if dip_source is not None else None
         if azimuth is not None and dip is not None:
             report["from_collar"] += 1
         else:
@@ -634,10 +644,50 @@ def fix_overlaps(
             "note": note,
         })
 
+    # ---- Pass 0: dataset precedence -----------------------------------------
+    # Runs first so the duplicate / superset passes below can never discard
+    # a preferred-dataset row in favour of a lower-ranked one.
+    if precedence_col is not None and precedence and precedence_col in work.columns:
+        rank = {str(value): position for position, value in enumerate(precedence)}
+
+        def _rank(idx):
+            value = work.at[idx, precedence_col]
+            if pd.isna(value):
+                return None
+            return rank.get(str(value))
+
+        for hole_id, group in work.loc[keep].groupby(hole_col, sort=False):
+            ordered_idxs = list(group.sort_values([from_col, to_col]).index)
+            for a_pos, a_idx in enumerate(ordered_idxs):
+                if not keep[a_idx]:
+                    continue
+                a_rank = _rank(a_idx)
+                if a_rank is None:
+                    continue
+                for b_idx in ordered_idxs[a_pos + 1:]:
+                    if not keep[a_idx]:
+                        break
+                    if not keep[b_idx]:
+                        continue
+                    if float(work.at[b_idx, from_col]) >= float(work.at[a_idx, to_col]):
+                        break
+                    b_rank = _rank(b_idx)
+                    if b_rank is None or b_rank == a_rank:
+                        continue
+                    loser_idx, winner_idx = (b_idx, a_idx) if b_rank > a_rank else (a_idx, b_idx)
+                    keep[loser_idx] = False
+                    _emit(hole_id, "precedence", "dropped",
+                          float(work.at[loser_idx, from_col]), float(work.at[loser_idx, to_col]),
+                          f"{precedence_col}={work.at[loser_idx, precedence_col]} yields to "
+                          f"{work.at[winner_idx, precedence_col]}")
+
     # ---- Pass 1: drop exact duplicates -------------------------------------
     dup_keys = [hole_col, from_col, to_col] + value_cols
     dup_keys = [k for k in dup_keys if k in work.columns]
-    duplicated_mask = work.duplicated(subset=dup_keys, keep="first")
+    # Only rows still kept take part, so a row already dropped by the
+    # precedence pass can't shadow the preferred duplicate.
+    duplicated_mask = pd.Series(False, index=work.index)
+    duplicated_mask.loc[keep] = work.loc[keep].duplicated(subset=dup_keys, keep="first")
     for idx in work.index[duplicated_mask]:
         row = work.loc[idx]
         _emit(row[hole_col], "duplicate", "dropped", row[from_col], row[to_col])
@@ -696,41 +746,6 @@ def fix_overlaps(
             _emit(hole_id, "superset", "dropped",
                   outer_from, outer_to,
                   f"covered by {len(inner_idxs)} finer rows ({covered / outer_length:.0%})")
-
-    # ---- Pass 3b: dataset precedence ----------------------------------------
-    if precedence_col is not None and precedence and precedence_col in work.columns:
-        rank = {str(value): position for position, value in enumerate(precedence)}
-
-        def _rank(idx):
-            value = work.at[idx, precedence_col]
-            if pd.isna(value):
-                return None
-            return rank.get(str(value))
-
-        for hole_id, group in work.loc[keep].groupby(hole_col, sort=False):
-            ordered_idxs = list(group.sort_values([from_col, to_col]).index)
-            for a_pos, a_idx in enumerate(ordered_idxs):
-                if not keep[a_idx]:
-                    continue
-                a_rank = _rank(a_idx)
-                if a_rank is None:
-                    continue
-                for b_idx in ordered_idxs[a_pos + 1:]:
-                    if not keep[a_idx]:
-                        break
-                    if not keep[b_idx]:
-                        continue
-                    if float(work.at[b_idx, from_col]) >= float(work.at[a_idx, to_col]):
-                        break
-                    b_rank = _rank(b_idx)
-                    if b_rank is None or b_rank == a_rank:
-                        continue
-                    loser_idx, winner_idx = (b_idx, a_idx) if b_rank > a_rank else (a_idx, b_idx)
-                    keep[loser_idx] = False
-                    _emit(hole_id, "precedence", "dropped",
-                          float(work.at[loser_idx, from_col]), float(work.at[loser_idx, to_col]),
-                          f"{precedence_col}={work.at[loser_idx, precedence_col]} yields to "
-                          f"{work.at[winner_idx, precedence_col]}")
 
     # ---- Pass 4: surface remaining real conflicts --------------------------
     conflict_idx_set = []
@@ -939,6 +954,18 @@ def _to_float(value):
     return result
 
 
+def _finite_float(value):
+    """Like :func:`_to_float` but also rejects ``inf`` / ``-inf``.
+
+    Desurvey treats infinities as missing, so anything that decides whether
+    a station is usable must do the same.
+    """
+    result = _to_float(value)
+    if result is None or not np.isfinite(result):
+        return None
+    return result
+
+
 def _numeric_view(table, *columns):
     """Return a copy of *table* with *columns* coerced to numeric (NaN on failure)."""
     out = table.copy()
@@ -1017,7 +1044,7 @@ def _check_survey_null_orientation(survey, hole_col, depth_col, azimuth_col, dip
         return []
     issues = []
     for idx, row in survey.iterrows():
-        missing = [col for col in columns if _to_float(row.get(col)) is None]
+        missing = [col for col in columns if _finite_float(row.get(col)) is None]
         if not missing:
             continue
         hole_id = row.get(hole_col)

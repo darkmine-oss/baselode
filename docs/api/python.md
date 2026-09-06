@@ -698,7 +698,8 @@ Run the full drillhole-database validation suite.  Returns a structured report (
 
 ```python
 fix_single_station_surveys(survey, collar=None,
-                            hole_col=HOLE_ID, depth_col=DEPTH, max_depth_col=MAX_DEPTH)
+                            hole_col=HOLE_ID, depth_col=DEPTH, max_depth_col=MAX_DEPTH,
+                            azimuth_col=AZIMUTH, dip_col=DIP)
 ```
 
 For any hole with exactly one usable survey row, append a synthetic second station with the same azimuth/dip at `collar.max_depth` (when available) or `depth + 1.0` otherwise.  Equivalent to PyGSLIB's `fix_survey_one_interval_err`.
