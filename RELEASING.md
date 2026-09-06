@@ -14,8 +14,9 @@ Merging to `main` triggers the `.github/workflows/release.yml` workflow, which:
 4. Builds the Python package and publishes it to PyPI using trusted publishing
    (OIDC — no long-lived token required).
 5. Builds the JavaScript package and publishes it to npm, also via trusted
-   publishing (OIDC).  The job upgrades npm first because OIDC publishing
-   needs npm 11.5.1+, newer than the npm bundled with Node 20.
+   publishing (OIDC).  The job upgrades to npm 11 first because OIDC
+   publishing needs npm 11.5.1+, newer than the npm bundled with Node 20
+   (npm 12 needs Node 22+, so the 11.x line is pinned).
 
 Both publish jobs run against a GitHub Actions environment named **`release`**.
 Configure that environment in *Settings → Environments → release* to add any

@@ -160,10 +160,11 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       # Trusted publishing (OIDC) needs npm 11.5.1+, newer than the npm
-      # bundled with Node 20.  The registry trusts this repo + workflow +
-      # environment directly, so no NPM_TOKEN secret is involved.
+      # bundled with Node 20.  Pin the 11.x line: npm 12 requires Node 22+.
+      # The registry trusts this repo + workflow + environment directly, so
+      # no NPM_TOKEN secret is involved.
       - name: Update npm for trusted publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
 
       - name: Install dependencies
         working-directory: javascript/packages/baselode
