@@ -14,6 +14,7 @@ The two implementations should remain aligned for:
 4. 2D plan/section mapping helpers
 5. 3D drillhole payload/scene helpers
 6. Spatial extent bounds, CRS normalisation, reprojection, and center helpers
+7. Block model primitive: grid definition + transforms, sub-block operations, validation, tonnage, diff
 
 ## Runtime differences (intentional)
 

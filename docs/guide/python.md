@@ -551,6 +551,108 @@ True-thickness compositing is Python-only.
 
 ---
 
+## Block Models
+
+`baselode.blockmodel` treats a block model as a first-class primitive: a **grid definition** plus a **blocks table**.  Sub-blocking is built in — the definition fixes a *base block* size, and every block spans a whole number of base blocks in each axis, so a regular model is just the case where every block is one parent block.
+
+```python
+import baselode.blockmodel as blockmodel
+
+definition = blockmodel.BlockModelDefinition(
+    origin=(500000.0, 6900000.0, 290.0),   # world coords of the grid's minimum corner
+    block_size=(5.0, 5.0, 5.0),            # base (sub-)block size
+    n_blocks=(10, 8, 6),                   # grid extent in base blocks
+    parent_size=(2, 2, 2),                 # parent block = 2x2x2 base blocks (10 m)
+    rotation={"azimuth": 30.0},            # bearing of the grid y axis; dip / plunge optional
+    crs="EPSG:32750",
+)
+
+model = blockmodel.load_blocks("blocks.csv", definition=definition)
+# or, after model.save("out/model"): blockmodel.load_blocks("out/model.parquet", kind="parquet",
+#                                                            metadata="out/model_meta.json")
+```
+
+### The blocks table
+
+Two geometry encodings coexist on `model.blocks`; load either and the other is derived:
+
+| Columns | Meaning |
+|---|---|
+| `i, j, k` | Base-cell index of the block's minimum corner |
+| `ni, nj, nk` | Extent in base blocks (`1` = a single sub-block) |
+| `x, y, z` | World centroid |
+| `dx, dy, dz` | Block size along the grid axes |
+
+Every other column is an attribute (`model.attribute_columns`).  Common source spellings (`xc/yc/zc`, `xinc`, `ix/iy/iz`, …) are normalised on load.
+
+### Grid geometry
+
+```python
+definition.index_to_world(2, 4, 2, ni=2, nj=2, nk=2)   # centroid of a 2x2x2 block
+definition.world_to_index(500010.0, 6900010.0, 292.5)   # base cell under a point
+definition.bounds()      # axis-aligned world bbox of the rotated grid
+definition.corners()     # the eight world corners
+definition.to_dict()     # JSON-ready; BlockModelDefinition.from_dict() reverses it
+```
+
+Rotation is `azimuth` (bearing of the grid y axis, clockwise from north), `dip` (tilts the y axis down) and `plunge` (tilts the x axis down), applied plunge → dip → azimuth.  Legacy metadata with `origin.rotation_deg` is read as azimuth.
+
+### Validation
+
+```python
+report = model.validate()
+# {"summary": {"error": 0, "warning": 0, "info": 0}, "issues": [...]}
+```
+
+| Check | Severity | Meaning |
+|---|---|---|
+| `alignment` | error | Min corner off the base grid, or a size that is not a whole number of base blocks |
+| `index_consistency` | error | Supplied `i, j, k, ni, nj, nk` disagree with `x, y, z, dx, dy, dz` |
+| `within_grid` | error | Block cells fall outside `n_blocks` |
+| `overlap` | error | Two blocks claim the same base cell (found by walking cells, not by an O(n²) scan) |
+| `duplicate_index` | error | Identical `i, j, k, ni, nj, nk` |
+| `parent_containment` | warning | A block straddles a parent boundary (it can't be aggregated to one parent) |
+| `nan_centre` | error | Missing centroid |
+
+### Sub-block operations
+
+```python
+fine    = model.regularize()                         # every block -> its base blocks
+parents = model.to_parent_blocks(density_col="density")   # mass-weighted means, majority for categoricals
+parents.blocks[["n_subblocks", "fill_fraction"]]   # how much of each parent was covered
+
+row = model.block_at(500010.0, 6900010.0, 292.5)   # row position of the covering block, or None
+model.sample_at([[500010.0, 6900010.0, 292.5]], attributes=["grade"])
+
+model.select({"classification": "ore"})           # same criteria forms as filtered_volume
+model.clip({"max_z": 300.0})
+```
+
+Aggregation rules can be overridden per column (`"mean"`, `"sum"`, `"min"`, `"max"`, `"majority"`, `"first"` or a callable).  The density column is always volume-weighted so that parent tonnage equals sub-block tonnage; `tonnage()` and `grade_tonnage()` honour `fill_fraction` on aggregated models for the same reason.
+
+### Tonnage and grade-tonnage
+
+```python
+model.tonnage(density_col="density")                       # sum(volume * density)
+model.tonnage(density=2.7, criteria={"rock_type": "fresh"})
+model.grade_tonnage("grade", cutoffs=[0.0, 0.5, 1.0], density_col="density")
+# -> DataFrame: cutoff, n_blocks, volume, tonnes, grade (tonnage-weighted), metal
+```
+
+### Comparing two models
+
+```python
+result = model_a.diff(model_b)          # both regularized and joined on (i, j, k)
+result["summary"]                        # added / removed / changed / unchanged cell counts
+result["cells"]                          # per cell: status, <attr>_a, <attr>_b, <attr>_delta
+```
+
+Both models must share origin, base block size and rotation (`definition.same_grid(other)`); extents and parent structure may differ.
+
+### Legacy metadata
+
+Models loaded with the older `*_meta.json` shape (`origin` + `min_block_size` + `max_block_size` + `bbox_3d`) get a definition derived from those fields, and the legacy attributes (`bbox_3d`, `outline_2d`, `max_block_size`, …) are still populated.  A model with no metadata at all still supports volume and attribute statistics; grid-aware operations raise `ValueError` until a definition is attached.
+
 ## Visualization
 
 ### Map

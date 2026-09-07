@@ -1024,6 +1024,90 @@ Convert an assay/interval DataFrame into tube payload dicts for 3D rendering.
 
 ---
 
+## baselode.blockmodel
+
+Block models as a primitive: a sub-blocked grid definition plus a blocks table.
+
+```python
+import baselode.blockmodel as blockmodel
+```
+
+### BlockModelDefinition
+
+```python
+BlockModelDefinition(origin, block_size, n_blocks, parent_size=None, rotation=None,
+                     crs="", name="", description="", extra=None)
+```
+
+| Parameter | Type | Description |
+|---|---|---|
+| `origin` | `(x, y, z)` or dict | World coordinates of the grid's minimum corner |
+| `block_size` | `(dx, dy, dz)` or dict | Base block size — the finest cell; every block spans whole base blocks |
+| `n_blocks` | `(nx, ny, nz)` or dict | Grid extent in base blocks |
+| `parent_size` | `(nx, ny, nz)` or dict, optional | Parent block size in base-block multiples |
+| `rotation` | `{azimuth, dip, plunge}` or `(az, dip, plunge)`, optional | Degrees. `azimuth` = bearing of the grid y axis clockwise from north; `dip` tilts the y axis down; `plunge` tilts the x axis down. `R = Rz(azimuth) · Rx(dip) · Ry(plunge)` |
+| `crs`, `name`, `description`, `extra` | | Metadata carried through `to_dict()` |
+
+Properties: `is_rotated`, `is_subblocked`, `n_parent_blocks`, `parent_block_size`, `extent`, `base_cell_count`, `base_cell_volume`, `azimuth` / `dip` / `plunge`.
+
+| Method | Returns |
+|---|---|
+| `rotation_matrix()` | 3×3 `R` with `world = origin + R @ local` |
+| `local_to_world(u, v, w)` / `world_to_local(x, y, z)` | Scalars or arrays |
+| `index_to_world(i, j, k, ni=1, nj=1, nk=1)` | World centroid of the block spanning those base cells |
+| `world_to_index(x, y, z)` | Base cell containing each point (may fall outside the grid) |
+| `contains_index(i, j, k, ni=1, nj=1, nk=1)` | Boolean (arrays ok) |
+| `parent_index(i, j, k)` | Parent block index; identity without parents |
+| `corners()` / `bounds()` / `outline_2d()` | Eight world corners / axis-aligned world bbox / GeoJSON footprint |
+| `to_dict()` / `BlockModelDefinition.from_dict(meta)` | JSON round-trip; `from_dict` also accepts legacy `*_meta.json` (`origin.rotation_deg`, `min_block_size`, `max_block_size`, `bbox_3d`) |
+| `same_grid(other, tol=1e-6)` | True when origin, base block size and rotation match |
+
+### BlockModel
+
+```python
+BlockModel(blocks, metadata=None, *, definition=None)
+```
+
+`blocks` must carry either `x, y, z, dx, dy, dz` or (with a definition) `i, j, k` (+ optional `ni, nj, nk`); the other encoding is derived.  Attribute columns are everything else (`attribute_columns`).  `definition` may be a `BlockModelDefinition` or its dict; when omitted, one is built from legacy `metadata` if it carries enough.
+
+| Method | Description |
+|---|---|
+| `total_volume()`, `filtered_volume(criteria)`, `attribute_stats(attribute, filter_criteria=None)`, `block_size_stats()`, `query_metadata()` | Unchanged legacy API |
+| `validate()` | `validate_block_model(self)` |
+| `occupancy()` | `{(i, j, k): row}` map of covered base cells (cached) |
+| `block_at(x, y, z)` | Row position of the covering block, or `None` |
+| `sample_at(points, attributes=None)` | DataFrame `x, y, z, block_row, <attributes>` (`block_row = -1` where uncovered) |
+| `select(criteria)` / `clip(bounds)` | New models; `bounds` is any subset of `min_x … max_z` |
+| `regularize()` | Every block split into base blocks (attributes copied, volume preserved) |
+| `to_parent_blocks(aggregations=None, density_col=None)` | Sub-blocks merged to parents. Numerics: volume-weighted mean (mass-weighted with `density_col`; the density column itself stays volume-weighted). Categoricals: volume-weighted majority. Rules per column: `"mean"`, `"sum"`, `"min"`, `"max"`, `"majority"`, `"first"` or a callable `(values, weights)`. Adds `n_subblocks` and `fill_fraction` |
+| `tonnage(density_col=None, density=None, criteria=None)` | `sum(volume × density)`; parent rows are scaled by `fill_fraction` |
+| `grade_tonnage(grade_col, cutoffs, density_col=None, density=None)` | DataFrame `cutoff, n_blocks, volume, tonnes, grade, metal` (grade ≥ cutoff, tonnage-weighted grade) |
+| `diff(other, attributes=None, tol=1e-9)` | `{"summary": {added, removed, changed, unchanged, cells_a, cells_b}, "cells": DataFrame}` on the shared base grid |
+| `to_dict()` / `save(path_stem, formats=("parquet", "csv"))` | Metadata dict (includes `definition`) / writes `<stem>.parquet`, `<stem>.csv`, `<stem>_meta.json` |
+
+### Module functions
+
+```python
+load_blocks(source, kind="csv", metadata=None, definition=None, source_column_map=None, ...)
+attach_block_indices(blocks, definition, overwrite=False)     # x/y/z/dx/dy/dz -> i/j/k/ni/nj/nk
+attach_block_centroids(blocks, definition, overwrite=False)   # i/j/k/ni/nj/nk -> x/y/z/dx/dy/dz
+load_block_metadata(source)
+```
+
+### baselode.blockmodel.validate
+
+| Function | Issue types |
+|---|---|
+| `validate_alignment(blocks, definition, tol=1e-6)` | `misaligned_corner`, `size_not_multiple`, `non_positive_block_size` |
+| `validate_index_consistency(blocks, definition)` | `index_mismatch` — supplied `i…nk` disagree with the geometry |
+| `validate_within_grid(blocks, definition)` | `block_outside_grid`, `missing_index` |
+| `validate_parent_containment(blocks, definition)` | `straddles_parent`, `larger_than_parent` |
+| `validate_no_overlap(blocks, definition=None)` | `overlap` — cell walk with a definition, pairwise AABB without |
+| `validate_block_sizes(blocks, max_block_size)`, `validate_blocks_in_bbox(blocks, bbox_3d)` | Legacy helpers, unchanged |
+| `validate_block_model(model)` | `{"summary", "issues"}` report over `alignment` (error), `index_consistency` (error), `within_grid` (error), `overlap` (error), `duplicate_index` (error), `nan_centre` (error), `parent_containment` (warning) |
+
+---
+
 ## baselode.map
 
 Folium/Plotly map helpers.

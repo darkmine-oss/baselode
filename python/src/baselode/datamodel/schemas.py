@@ -63,6 +63,9 @@ from baselode.datamodel import (
     BASELODE_DATA_MODEL_DRILL_GEOLOGY,
     BASELODE_DATA_MODEL_GEOPHYSICS,
     BASELODE_DATA_MODEL_SURFACE_SAMPLE,
+    BASELODE_DATA_MODEL_BLOCK,
+    BLOCK_X, BLOCK_Y, BLOCK_Z, BLOCK_DX, BLOCK_DY, BLOCK_DZ,
+    BLOCK_I, BLOCK_J, BLOCK_K, BLOCK_NI, BLOCK_NJ, BLOCK_NK,
 )
 
 DRAFT = "https://json-schema.org/draft/2020-12/schema"
@@ -111,6 +114,20 @@ _FIELD_METADATA = {
     DATE_START: {"description": "ISO-8601 start date"},
     DATE_END: {"description": "ISO-8601 end date"},
 
+    # Block model
+    BLOCK_I: {"description": "Base-grid index (x axis) of the block's minimum corner"},
+    BLOCK_J: {"description": "Base-grid index (y axis) of the block's minimum corner"},
+    BLOCK_K: {"description": "Base-grid index (z axis) of the block's minimum corner"},
+    BLOCK_NI: {"description": "Block extent along the grid x axis, in base blocks"},
+    BLOCK_NJ: {"description": "Block extent along the grid y axis, in base blocks"},
+    BLOCK_NK: {"description": "Block extent along the grid z axis, in base blocks"},
+    BLOCK_X: {"description": "World x of the block centroid", "unit": "m"},
+    BLOCK_Y: {"description": "World y of the block centroid", "unit": "m"},
+    BLOCK_Z: {"description": "World z of the block centroid", "unit": "m"},
+    BLOCK_DX: {"description": "Block size along the grid x axis", "unit": "m"},
+    BLOCK_DY: {"description": "Block size along the grid y axis", "unit": "m"},
+    BLOCK_DZ: {"description": "Block size along the grid z axis", "unit": "m"},
+
     # Misc
     GEOLOGY_CODE: {"description": "Standardised lithology / geology code for strip-log colouring"},
     GEOLOGY_DESCRIPTION: {"description": "Free-text geology description"},
@@ -129,6 +146,7 @@ _PRIMARY_KEYS = {
     "drill_geology": [HOLE_ID, FROM, TO],
     "geophysics": [HOLE_ID, FROM, TO],
     "surface_sample": [SAMPLE_ID],
+    "block": [BLOCK_I, BLOCK_J, BLOCK_K],
 }
 
 # Per-table foreign-key relations.  Every drillhole-keyed table refers
@@ -150,6 +168,7 @@ _REQUIRED_FIELDS = {
     "drill_geology": [HOLE_ID, FROM, TO],
     "geophysics": [HOLE_ID, FROM, TO],
     "surface_sample": [SAMPLE_ID, SURFACE_SAMPLE_TYPE],
+    "block": [BLOCK_I, BLOCK_J, BLOCK_K, BLOCK_NI, BLOCK_NJ, BLOCK_NK],
 }
 
 # Registry of every emitted schema, keyed by the table name used in
@@ -163,6 +182,7 @@ ALL_MODELS = (
     ("drill_geology", BASELODE_DATA_MODEL_DRILL_GEOLOGY, "Drillhole geology / lithology intervals"),
     ("geophysics", BASELODE_DATA_MODEL_GEOPHYSICS, "Downhole geophysics interval measurements"),
     ("surface_sample", BASELODE_DATA_MODEL_SURFACE_SAMPLE, "Out-of-hole sample points (rock chip / stream / soil / outcrop)"),
+    ("block", BASELODE_DATA_MODEL_BLOCK, "Blocks of a (sub-blocked) block model on a BlockModelDefinition base grid"),
 )
 
 

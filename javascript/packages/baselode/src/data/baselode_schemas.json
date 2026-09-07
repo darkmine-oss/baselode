@@ -498,6 +498,108 @@
       "primaryKey": [
         "sample_id"
       ]
+    },
+    "block": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://baselode.darkmine.ai/schemas/block.json",
+      "title": "block",
+      "type": "object",
+      "properties": {
+        "i": {
+          "type": "integer",
+          "description": "Base-grid index (x axis) of the block's minimum corner"
+        },
+        "j": {
+          "type": "integer",
+          "description": "Base-grid index (y axis) of the block's minimum corner"
+        },
+        "k": {
+          "type": "integer",
+          "description": "Base-grid index (z axis) of the block's minimum corner"
+        },
+        "ni": {
+          "type": "integer",
+          "description": "Block extent along the grid x axis, in base blocks"
+        },
+        "nj": {
+          "type": "integer",
+          "description": "Block extent along the grid y axis, in base blocks"
+        },
+        "nk": {
+          "type": "integer",
+          "description": "Block extent along the grid z axis, in base blocks"
+        },
+        "x": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "World x of the block centroid",
+          "unit": "m"
+        },
+        "y": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "World y of the block centroid",
+          "unit": "m"
+        },
+        "z": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "World z of the block centroid",
+          "unit": "m"
+        },
+        "dx": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Block size along the grid x axis",
+          "unit": "m"
+        },
+        "dy": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Block size along the grid y axis",
+          "unit": "m"
+        },
+        "dz": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Block size along the grid z axis",
+          "unit": "m"
+        },
+        "extra": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "description": "Per-row dict of source-specific fields outside the canonical schema; empty dict when the source had nothing extra."
+        }
+      },
+      "required": [
+        "i",
+        "j",
+        "k",
+        "ni",
+        "nj",
+        "nk"
+      ],
+      "additionalProperties": true,
+      "description": "Blocks of a (sub-blocked) block model on a BlockModelDefinition base grid",
+      "primaryKey": [
+        "i",
+        "j",
+        "k"
+      ]
     }
   }
 }

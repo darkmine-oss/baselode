@@ -83,6 +83,20 @@ EXTRA = "extra"
 
 
 
+# Block model geometry (see baselode.blockmodel)
+BLOCK_X = "x"
+BLOCK_Y = "y"
+BLOCK_Z = "z"
+BLOCK_DX = "dx"
+BLOCK_DY = "dy"
+BLOCK_DZ = "dz"
+BLOCK_I = "i"
+BLOCK_J = "j"
+BLOCK_K = "k"
+BLOCK_NI = "ni"
+BLOCK_NJ = "nj"
+BLOCK_NK = "nk"
+
 # Constants and defaults
 GEOPHYSICS_NULL = -999.25
 
@@ -217,5 +231,30 @@ BASELODE_DATA_MODEL_SURFACE_SAMPLE = {
     SURFACE_SAMPLE_TYPE: str,
     # Per-row dict of source-specific fields outside the canonical schema
     # (analyte values, lab metadata, detection-limit flags, anumber, ...).
+    EXTRA: dict,
+}
+
+
+# One row per block of a (sub-blocked) block model.  Blocks sit on the
+# base grid of a ``baselode.blockmodel.BlockModelDefinition``: ``i/j/k``
+# is the base-cell index of the block's minimum corner and ``ni/nj/nk``
+# its extent in base blocks.  ``x/y/z`` is the world centroid and
+# ``dx/dy/dz`` the block size along the grid axes; either form can be
+# supplied and the other derived.  Attribute columns (grade, density,
+# rock type, ...) are flexible and sit alongside.
+BASELODE_DATA_MODEL_BLOCK = {
+    BLOCK_I: int,
+    BLOCK_J: int,
+    BLOCK_K: int,
+    BLOCK_NI: int,
+    BLOCK_NJ: int,
+    BLOCK_NK: int,
+    BLOCK_X: float,
+    BLOCK_Y: float,
+    BLOCK_Z: float,
+    BLOCK_DX: float,
+    BLOCK_DY: float,
+    BLOCK_DZ: float,
+    # Per-row dict of source-specific fields outside the canonical schema.
     EXTRA: dict,
 }
