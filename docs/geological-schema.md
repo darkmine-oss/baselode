@@ -3,7 +3,8 @@
 The geological storage schema defines scientific tables, column types, units,
 identity and interpretation. It is available in Python through
 `baselode.datamodel.geological.get_geological_schema()` and in JavaScript through
-`getGeologicalSchema()`. Use `get_geological_table('drill.petrophysics')` or
+`getGeologicalSchema()` from `baselode/geological-schema`. Use
+`get_geological_table('drill.petrophysics')` or
 `getGeologicalTable('drill.petrophysics')` for one table. The npm resource is
 also exported as `baselode/geological-schema.json`.
 

@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 const publishedEntries = {
+  './geological-schema': ['dist/geological-schema.js', 'types/geological.d.ts'],
   './extent': ['dist/extent.js', 'types/extent.d.ts'],
   './tool-ui': ['dist/tool-ui.js', 'types/tool-ui.d.ts'],
   './tool-ui/contracts': ['dist/tool-ui-contracts.js', 'types/tool-ui-contracts.d.ts'],
@@ -65,6 +66,8 @@ const geologicalResource = 'src/data/geological_schema.json';
 assert.equal(packageJson.exports['./geological-schema.json'], `./${geologicalResource}`);
 assert(files.has(geologicalResource), 'Geological schema is missing from npm pack output');
 const geological = JSON.parse(readFileSync(resolve(root, geologicalResource), 'utf8'));
+const geologicalModule = await import(pathToFileURL(resolve(root, 'dist/geological-schema.js')));
+assert.deepEqual(geologicalModule.getGeologicalSchema(), geological);
 assert.equal(Object.keys(geological.tables).length, 21);
 assert.equal(geological.tables['drill.collar'].columns.geography.storageType, 'geography(Point,7844)');
 

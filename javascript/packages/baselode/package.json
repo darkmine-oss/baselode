@@ -41,7 +41,11 @@
       "import": "./dist/assistant-ui.js"
     },
     "./tool-ui/style.css": "./src/tool-ui/style.css",
-    "./geological-schema.json": "./src/data/geological_schema.json"
+    "./geological-schema.json": "./src/data/geological_schema.json",
+    "./geological-schema": {
+      "types": "./types/geological.d.ts",
+      "import": "./dist/geological-schema.js"
+    }
   },
   "files": [
     "dist",

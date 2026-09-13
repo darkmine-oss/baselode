@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Darkmine Pty Ltd.
+
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
@@ -10,6 +12,7 @@ export default defineConfig({
       entry: {
         baselode: resolve(__dirname, 'src/index.js'),
         extent: resolve(__dirname, 'src/extent/Extent.js'),
+        'geological-schema': resolve(__dirname, 'src/data/geological.js'),
         'tool-ui': resolve(__dirname, 'src/tool-ui/index.js'),
         'tool-ui-contracts': resolve(__dirname, 'src/tool-ui/contracts-entry.js'),
         'assistant-ui': resolve(__dirname, 'src/assistant-ui/index.jsx'),
