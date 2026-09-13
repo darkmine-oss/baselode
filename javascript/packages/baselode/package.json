@@ -1,4 +1,5 @@
 {
+  "copyright": "Copyright (C) 2026 Darkmine Pty Ltd.",
   "name": "baselode",
   "version": "0.1.11",
   "description": "Geoscience drillhole data processing and visualization toolkit",
@@ -39,13 +40,15 @@
       "types": "./types/assistant-ui.d.ts",
       "import": "./dist/assistant-ui.js"
     },
-    "./tool-ui/style.css": "./src/tool-ui/style.css"
+    "./tool-ui/style.css": "./src/tool-ui/style.css",
+    "./geological-schema.json": "./src/data/geological_schema.json"
   },
   "files": [
     "dist",
     "src/tool-ui/style.css",
     "types",
-    "README.md"
+    "README.md",
+    "src/data/geological_schema.json"
   ],
   "sideEffects": [
     "**/*.css"

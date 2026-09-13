@@ -1,3 +1,5 @@
+# Copyright (C) 2026 Darkmine Pty Ltd.
+
 [build-system]
 requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
@@ -58,6 +60,9 @@ Issues = "https://github.com/darkmine-oss/baselode/issues"
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["build", "build.*", "*.egg-info", "*.egg-info.*"]
+
+[tool.setuptools.package-data]
+"baselode.datamodel" = ["resources/*.json"]
 
 [tool.setuptools_scm]
 root = ".."

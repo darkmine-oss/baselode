@@ -61,5 +61,11 @@ for (const [runtime, types] of Object.values(publishedEntries)) {
 assert(files.has('dist/style.css'));
 assert(files.has('src/tool-ui/style.css'));
 assert(files.has('README.md'));
+const geologicalResource = 'src/data/geological_schema.json';
+assert.equal(packageJson.exports['./geological-schema.json'], `./${geologicalResource}`);
+assert(files.has(geologicalResource), 'Geological schema is missing from npm pack output');
+const geological = JSON.parse(readFileSync(resolve(root, geologicalResource), 'utf8'));
+assert.equal(Object.keys(geological.tables).length, 21);
+assert.equal(geological.tables['drill.collar'].columns.geography.storageType, 'geography(Point,7844)');
 
-console.log('Published Extent and Tool UI contracts are present, importable, and typed.');
+console.log('Published Extent and Tool UI contracts are present, importable, and typed; geological schema is included.');

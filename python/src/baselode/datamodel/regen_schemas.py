@@ -1,5 +1,6 @@
+# Copyright (C) 2026 Darkmine Pty Ltd.
+
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Copyright (C) 2026 Darkmine Pty Ltd
 
 """Regenerate the committed ``baselode_schemas.json`` files.
 
@@ -7,12 +8,14 @@ Run via::
 
     python -m baselode.datamodel.regen_schemas
 
-Writes two identical copies of the combined JSON Schema document:
+Writes two identical copies of the dataframe JSON Schema document:
 
 1. ``test/data/baselode_schemas.json`` — the parity-contract truth.
 2. ``javascript/packages/baselode/src/data/baselode_schemas.json`` —
    bundled into the JS package so the loader can ship the schemas to
    the browser without a network fetch.
+
+Also copies the geological storage schema resource into the JavaScript package.
 
 A separate parity test asserts that the two copies match the
 generator's current output bit-for-bit — failures there mean someone
@@ -21,6 +24,7 @@ edited the JSON by hand or forgot to run the regen after touching a
 """
 
 import json
+import baselode.datamodel.geological
 import sys
 from pathlib import Path
 
@@ -91,6 +95,13 @@ def main(argv=None):
         written.append(out)
     for path in written:
         print(f"wrote {path.relative_to(_REPO_ROOT)} ({len(text)} bytes)")
+    geological_path = JS_OUT_PATH.with_name("geological_schema.json")
+    geological_text = json.dumps(
+        baselode.datamodel.geological.get_geological_schema(),
+        indent=2, ensure_ascii=False,
+    ) + "\n"
+    write(geological_path, geological_text)
+    print(f"wrote {geological_path.relative_to(_REPO_ROOT)} ({len(geological_text)} bytes)")
     return 0
 
 

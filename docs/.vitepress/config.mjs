@@ -1,3 +1,5 @@
+// Copyright (C) 2026 Darkmine Pty Ltd.
+
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
@@ -35,6 +37,7 @@ export default defineConfig({
       {
         text: 'API Reference',
         items: [
+          { text: 'Geological Schema', link: '/geological-schema' },
           { text: 'Python API', link: '/api/python' },
           { text: 'JavaScript API', link: '/api/javascript' }
         ]

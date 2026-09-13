@@ -1,0 +1,4818 @@
+{
+  "copyright": "Copyright (C) 2026 Darkmine Pty Ltd.",
+  "version": "1.0.0",
+  "spatialProfile": {
+    "name": "Australia",
+    "geographySrid": 7844,
+    "geometry": "MGA2020 projected point with zone-specific SRID",
+    "axisOrder": {
+      "geography": [
+        "longitude",
+        "latitude"
+      ],
+      "geometry": [
+        "easting",
+        "northing"
+      ]
+    },
+    "verticalReference": "AHD71 for mainland common elevation; explicit vertical_datum",
+    "deliverySrid": 4326
+  },
+  "semantics": {
+    "identity": "Observation and parent identifiers are decimal strings. Public labels and matching depths do not establish identity.",
+    "support": "Drill depths are metres along the hole from collar. Point, interval, composite and unresolved support remain distinct.",
+    "azimuth": "Degrees clockwise from true north in [0,360). Original 360-to-0 normalization is recorded in audit.",
+    "boreholeDip": "Degrees from horizontal, negative downward; -90 down, 0 horizontal, +90 up.",
+    "chemistry": "Numeric analyte columns carry half-limit substitutions for eligible below-limit results and reported lower bounds for above-limit results. Deliver assay metadata with values; preserve originals and calculation context.",
+    "extensions": "Unpromoted attributes and repeated contextual occurrences are retained losslessly in JSONB. Flattened columns must preserve key identity and occurrence context.",
+    "surveySelection": "Select whole runs using source hierarchy, otherwise most recent eligible source run date. Rank 1 is preferred; unresolved selection has no preferred run."
+  },
+  "tables": {
+    "drill.alteration": {
+      "description": "Alteration components and their reported intensity and style.",
+      "primaryKey": [
+        "_alteration_id"
+      ],
+      "columns": {
+        "_alteration_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Alteration id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "_source_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source collar id.",
+          "encoding": "decimal-string"
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "_source_alteration_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source alteration id.",
+          "encoding": "decimal-string"
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "project_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Project id."
+        },
+        "dataset": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Dataset."
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_accuracy": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Depth accuracy."
+        },
+        "logged_by": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Logged by."
+        },
+        "date_logged": {
+          "storageType": "date",
+          "nullable": true,
+          "description": "Date logged."
+        },
+        "data_source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Data source."
+        },
+        "priority": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Priority.",
+          "encoding": "decimal-string"
+        },
+        "code_system": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Code system."
+        },
+        "comments": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Comments."
+        },
+        "alt_1_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 1 code."
+        },
+        "alt_1_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 1 description."
+        },
+        "alt_1_intensity": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 1 intensity."
+        },
+        "alt_1_intensity_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Alt 1 intensity pct.",
+          "unit": "%"
+        },
+        "alt_1_style": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 1 style."
+        },
+        "alt_2_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 2 code."
+        },
+        "alt_2_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 2 description."
+        },
+        "alt_2_intensity": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 2 intensity."
+        },
+        "alt_2_intensity_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Alt 2 intensity pct.",
+          "unit": "%"
+        },
+        "alt_2_style": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 2 style."
+        },
+        "alt_3_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 3 code."
+        },
+        "alt_3_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 3 description."
+        },
+        "alt_3_intensity": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 3 intensity."
+        },
+        "alt_3_intensity_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Alt 3 intensity pct.",
+          "unit": "%"
+        },
+        "alt_3_style": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 3 style."
+        },
+        "alt_4_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 4 code."
+        },
+        "alt_4_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 4 description."
+        },
+        "alt_4_intensity": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 4 intensity."
+        },
+        "alt_4_intensity_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Alt 4 intensity pct.",
+          "unit": "%"
+        },
+        "alt_4_style": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 4 style."
+        },
+        "alt_5_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 5 code."
+        },
+        "alt_5_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 5 description."
+        },
+        "alt_5_intensity": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 5 intensity."
+        },
+        "alt_5_intensity_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Alt 5 intensity pct.",
+          "unit": "%"
+        },
+        "alt_5_style": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Alt 5 style."
+        },
+        "mapping_version": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Mapping version."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "attribute_clash_count": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Attribute clash count.",
+          "encoding": "decimal-string"
+        },
+        "attribute_clash_fields": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Attribute clash fields."
+        },
+        "source_record": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source record retained with original field names, values and types."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "log_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Log key."
+        }
+      }
+    },
+    "drill.collar": {
+      "description": "Drillhole identity, collar position and drilling extent.",
+      "primaryKey": [
+        "_collar_id"
+      ],
+      "columns": {
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Collar id.",
+          "encoding": "decimal-string"
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_collar_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Source collar key."
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "project_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Project id."
+        },
+        "report_number": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Report number."
+        },
+        "_source_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source collar id.",
+          "encoding": "decimal-string"
+        },
+        "original_hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Original hole id."
+        },
+        "company_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Company id.",
+          "encoding": "decimal-string"
+        },
+        "source_company_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Source company id."
+        },
+        "company_name": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Company name."
+        },
+        "latitude": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Common GDA2020 latitude in degrees.",
+          "unit": "deg"
+        },
+        "longitude": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Common GDA2020 longitude in degrees.",
+          "unit": "deg"
+        },
+        "elevation": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Resolved common elevation in metres, interpreted with vertical_datum.",
+          "unit": "m"
+        },
+        "hole_type": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Hole type."
+        },
+        "max_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Max depth.",
+          "unit": "m"
+        },
+        "start_date": {
+          "storageType": "date",
+          "nullable": true,
+          "description": "Start date."
+        },
+        "start_date_precision": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Start date precision."
+        },
+        "end_date": {
+          "storageType": "date",
+          "nullable": true,
+          "description": "End date."
+        },
+        "end_date_precision": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "End date precision."
+        },
+        "h3_index": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "H3 index."
+        },
+        "geometry": {
+          "storageType": "geometry(Point)",
+          "nullable": true,
+          "description": "Derived 2D projected point; its SRID identifies the MGA2020 zone."
+        },
+        "source_record": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source record retained with original field names, values and types."
+        },
+        "source_attributes": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Preserved related source attributes and contextual occurrences."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "easting": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported projected easting, interpreted with source datum/projection/zone metadata."
+        },
+        "northing": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported projected northing, interpreted with source datum/projection/zone metadata."
+        },
+        "dip": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Borehole dip from horizontal, negative downward.",
+          "unit": "deg"
+        },
+        "azimuth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Degrees clockwise from true north in [0,360); a reported 360 is normalized to 0 with the original retained in audit.",
+          "unit": "deg"
+        },
+        "datum": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Datum."
+        },
+        "projection": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Projection."
+        },
+        "zone": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Zone."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "vertical_datum": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference system of the common elevation; unknown remains null."
+        },
+        "location_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Location status."
+        },
+        "elevation_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Elevation status."
+        },
+        "geography": {
+          "storageType": "geography(Point,7844)",
+          "nullable": true,
+          "description": "Authoritative common 2D GDA2020 longitude/latitude point."
+        },
+        "projected_srid": {
+          "storageType": "integer",
+          "nullable": true,
+          "description": "EPSG SRID matching the projected geometry reference."
+        }
+      }
+    },
+    "drill.geochemistry_flat": {
+      "description": "Selected drill-sample chemistry in numeric columns with assay metadata and alternative determinations.",
+      "primaryKey": [
+        "_geochemistry_flat_id"
+      ],
+      "columns": {
+        "_geochemistry_flat_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Geochemistry flat id.",
+          "encoding": "decimal-string"
+        },
+        "_source_geochemistry_interval_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source geochemistry interval id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "sample_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public sample label; not a globally unique identity."
+        },
+        "company_sample_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Company sample id."
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "geometry": {
+          "storageType": "geometry(Point)",
+          "nullable": true,
+          "description": "Derived 2D projected point; its SRID identifies the MGA2020 zone."
+        },
+        "source_attributes": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Preserved related source attributes and contextual occurrences."
+        },
+        "assay": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Per-analyte qualification and method context accompanying numeric values, including reported text, bound, unit and calculation for substitutions."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "au_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Au ppm.",
+          "unit": "ppm"
+        },
+        "cu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cu ppm.",
+          "unit": "ppm"
+        },
+        "pb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pb ppm.",
+          "unit": "ppm"
+        },
+        "zn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zn ppm.",
+          "unit": "ppm"
+        },
+        "ag_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ag ppm.",
+          "unit": "ppm"
+        },
+        "as_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "As ppm.",
+          "unit": "ppm"
+        },
+        "co_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Co ppm.",
+          "unit": "ppm"
+        },
+        "ni_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ni ppm.",
+          "unit": "ppm"
+        },
+        "fe_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Fe ppm.",
+          "unit": "ppm"
+        },
+        "mn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mn ppm.",
+          "unit": "ppm"
+        },
+        "mo_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mo ppm.",
+          "unit": "ppm"
+        },
+        "sb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sb ppm.",
+          "unit": "ppm"
+        },
+        "bi_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bi ppm.",
+          "unit": "ppm"
+        },
+        "w_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "W ppm.",
+          "unit": "ppm"
+        },
+        "cr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cr ppm.",
+          "unit": "ppm"
+        },
+        "s_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "S ppm.",
+          "unit": "ppm"
+        },
+        "ca_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ca ppm.",
+          "unit": "ppm"
+        },
+        "mg_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mg ppm.",
+          "unit": "ppm"
+        },
+        "p_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "P ppm.",
+          "unit": "ppm"
+        },
+        "al_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Al ppm.",
+          "unit": "ppm"
+        },
+        "v_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "V ppm.",
+          "unit": "ppm"
+        },
+        "ti_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ti ppm.",
+          "unit": "ppm"
+        },
+        "sr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sr ppm.",
+          "unit": "ppm"
+        },
+        "ba_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ba ppm.",
+          "unit": "ppm"
+        },
+        "zr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zr ppm.",
+          "unit": "ppm"
+        },
+        "k_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "K ppm.",
+          "unit": "ppm"
+        },
+        "sn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sn ppm.",
+          "unit": "ppm"
+        },
+        "cd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cd ppm.",
+          "unit": "ppm"
+        },
+        "u_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "U ppm.",
+          "unit": "ppm"
+        },
+        "rb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rb ppm.",
+          "unit": "ppm"
+        },
+        "th_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Th ppm.",
+          "unit": "ppm"
+        },
+        "si_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Si ppm.",
+          "unit": "ppm"
+        },
+        "na_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Na ppm.",
+          "unit": "ppm"
+        },
+        "cl_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cl ppm.",
+          "unit": "ppm"
+        },
+        "mrt_file_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Mrt file id.",
+          "encoding": "decimal-string"
+        },
+        "source_record": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source record retained with original field names, values and types."
+        },
+        "selected_assay_extras": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional attributes of selected determinations, preserving source keys and occurrence context."
+        },
+        "alternate_assays": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Independent alternative determinations with their source, method and qualification context."
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "al2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Al2o3 pct.",
+          "unit": "%"
+        },
+        "b_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "B ppm.",
+          "unit": "ppm"
+        },
+        "bao_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bao pct.",
+          "unit": "%"
+        },
+        "be_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Be ppm.",
+          "unit": "ppm"
+        },
+        "br_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Br ppm.",
+          "unit": "ppm"
+        },
+        "cao_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cao pct.",
+          "unit": "%"
+        },
+        "ce_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ce ppm.",
+          "unit": "ppm"
+        },
+        "cr2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cr2o3 pct.",
+          "unit": "%"
+        },
+        "cs_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cs ppm.",
+          "unit": "ppm"
+        },
+        "dy_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dy ppm.",
+          "unit": "ppm"
+        },
+        "er_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Er ppm.",
+          "unit": "ppm"
+        },
+        "eu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Eu ppm.",
+          "unit": "ppm"
+        },
+        "f_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "F ppm.",
+          "unit": "ppm"
+        },
+        "fe2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Fe2o3 pct.",
+          "unit": "%"
+        },
+        "ga_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ga ppm.",
+          "unit": "ppm"
+        },
+        "gd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Gd ppm.",
+          "unit": "ppm"
+        },
+        "ge_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ge ppm.",
+          "unit": "ppm"
+        },
+        "hf_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Hf ppm.",
+          "unit": "ppm"
+        },
+        "hg_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Hg ppm.",
+          "unit": "ppm"
+        },
+        "ho_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ho ppm.",
+          "unit": "ppm"
+        },
+        "in_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "In ppm.",
+          "unit": "ppm"
+        },
+        "ir_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ir ppm.",
+          "unit": "ppm"
+        },
+        "k2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "K2o pct.",
+          "unit": "%"
+        },
+        "la_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "La ppm.",
+          "unit": "ppm"
+        },
+        "li2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Li2o pct.",
+          "unit": "%"
+        },
+        "li_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Li ppm.",
+          "unit": "ppm"
+        },
+        "loi_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Loi pct.",
+          "unit": "%"
+        },
+        "lu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Lu ppm.",
+          "unit": "ppm"
+        },
+        "mgo_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mgo pct.",
+          "unit": "%"
+        },
+        "mno_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mno pct.",
+          "unit": "%"
+        },
+        "na2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Na2o pct.",
+          "unit": "%"
+        },
+        "nb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Nb ppm.",
+          "unit": "ppm"
+        },
+        "nd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Nd ppm.",
+          "unit": "ppm"
+        },
+        "os_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Os ppm.",
+          "unit": "ppm"
+        },
+        "p2o5_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "P2o5 pct.",
+          "unit": "%"
+        },
+        "pd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pd ppm.",
+          "unit": "ppm"
+        },
+        "pr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pr ppm.",
+          "unit": "ppm"
+        },
+        "pt_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pt ppm.",
+          "unit": "ppm"
+        },
+        "re_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Re ppm.",
+          "unit": "ppm"
+        },
+        "rh_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rh ppm.",
+          "unit": "ppm"
+        },
+        "ru_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ru ppm.",
+          "unit": "ppm"
+        },
+        "sc_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sc ppm.",
+          "unit": "ppm"
+        },
+        "se_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Se ppm.",
+          "unit": "ppm"
+        },
+        "sio2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sio2 pct.",
+          "unit": "%"
+        },
+        "sm_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sm ppm.",
+          "unit": "ppm"
+        },
+        "so3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "So3 pct.",
+          "unit": "%"
+        },
+        "ta_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ta ppm.",
+          "unit": "ppm"
+        },
+        "tb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tb ppm.",
+          "unit": "ppm"
+        },
+        "te_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Te ppm.",
+          "unit": "ppm"
+        },
+        "tio2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tio2 pct.",
+          "unit": "%"
+        },
+        "tl_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tl ppm.",
+          "unit": "ppm"
+        },
+        "tm_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tm ppm.",
+          "unit": "ppm"
+        },
+        "total_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Total pct.",
+          "unit": "%"
+        },
+        "v2o5_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "V2o5 pct.",
+          "unit": "%"
+        },
+        "y_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Y ppm.",
+          "unit": "ppm"
+        },
+        "yb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Yb ppm.",
+          "unit": "ppm"
+        },
+        "zro2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zro2 pct.",
+          "unit": "%"
+        },
+        "feo_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Feo pct.",
+          "unit": "%"
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "_sample_context_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Sample context id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.sample_context",
+            "column": "_sample_context_id",
+            "resolution": "explicit"
+          }
+        },
+        "elevation": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Resolved common elevation in metres, interpreted with vertical_datum.",
+          "unit": "m"
+        },
+        "vertical_datum": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference system of the common elevation; unknown remains null."
+        },
+        "location_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Location status."
+        },
+        "elevation_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Elevation status."
+        },
+        "geography": {
+          "storageType": "geography(Point,7844)",
+          "nullable": true,
+          "description": "Authoritative common 2D GDA2020 longitude/latitude point."
+        },
+        "projected_srid": {
+          "storageType": "integer",
+          "nullable": true,
+          "description": "EPSG SRID matching the projected geometry reference."
+        }
+      },
+      "requiredCompanionColumns": [
+        "assay",
+        "audit",
+        "alternate_assays",
+        "selected_assay_extras"
+      ]
+    },
+    "drill.geology": {
+      "description": "Lithology, weathering and regolith observations with independent logging intervals.",
+      "primaryKey": [
+        "_geology_id"
+      ],
+      "columns": {
+        "_geology_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Geology id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "observation_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Observation kind."
+        },
+        "log_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Log key."
+        },
+        "geology_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Geology code."
+        },
+        "geology_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Geology description."
+        },
+        "stratigraphy_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stratigraphy code."
+        },
+        "stratigraphy_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stratigraphy description."
+        },
+        "weathering_grade": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Weathering grade."
+        },
+        "regolith_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Regolith code."
+        },
+        "code_system": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Code system."
+        }
+      }
+    },
+    "drill.interval_observation": {
+      "description": "Observations retaining their source classification and depth support.",
+      "primaryKey": [
+        "_interval_observation_id"
+      ],
+      "columns": {
+        "_interval_observation_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Interval observation id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "kind": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Kind."
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        }
+      }
+    },
+    "drill.qa_qc": {
+      "description": "Chemistry quality-control observations, including standards, blanks and duplicates.",
+      "primaryKey": [
+        "_qa_qc_id"
+      ],
+      "columns": {
+        "_qa_qc_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Qa qc id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "sample_id": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Public sample label; not a globally unique identity."
+        },
+        "qaqc_type": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Qaqc type."
+        },
+        "standard_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Standard id."
+        },
+        "original_sample_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Original sample id."
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "assay": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Per-analyte qualification and method context accompanying numeric values, including reported text, bound, unit and calculation for substitutions."
+        },
+        "alternate_assays": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Independent alternative determinations with their source, method and qualification context."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "ag_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ag ppm.",
+          "unit": "ppm"
+        },
+        "al2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Al2o3 pct.",
+          "unit": "%"
+        },
+        "al_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Al ppm.",
+          "unit": "ppm"
+        },
+        "as_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "As ppm.",
+          "unit": "ppm"
+        },
+        "au_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Au ppm.",
+          "unit": "ppm"
+        },
+        "b_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "B ppm.",
+          "unit": "ppm"
+        },
+        "ba_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ba ppm.",
+          "unit": "ppm"
+        },
+        "bao_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bao pct.",
+          "unit": "%"
+        },
+        "be_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Be ppm.",
+          "unit": "ppm"
+        },
+        "bi_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bi ppm.",
+          "unit": "ppm"
+        },
+        "br_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Br ppm.",
+          "unit": "ppm"
+        },
+        "ca_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ca ppm.",
+          "unit": "ppm"
+        },
+        "cao_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cao pct.",
+          "unit": "%"
+        },
+        "cd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cd ppm.",
+          "unit": "ppm"
+        },
+        "ce_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ce ppm.",
+          "unit": "ppm"
+        },
+        "cl_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cl ppm.",
+          "unit": "ppm"
+        },
+        "co_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Co ppm.",
+          "unit": "ppm"
+        },
+        "cr2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cr2o3 pct.",
+          "unit": "%"
+        },
+        "cr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cr ppm.",
+          "unit": "ppm"
+        },
+        "cs_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cs ppm.",
+          "unit": "ppm"
+        },
+        "cu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cu ppm.",
+          "unit": "ppm"
+        },
+        "dy_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dy ppm.",
+          "unit": "ppm"
+        },
+        "er_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Er ppm.",
+          "unit": "ppm"
+        },
+        "eu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Eu ppm.",
+          "unit": "ppm"
+        },
+        "f_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "F ppm.",
+          "unit": "ppm"
+        },
+        "fe2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Fe2o3 pct.",
+          "unit": "%"
+        },
+        "fe_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Fe ppm.",
+          "unit": "ppm"
+        },
+        "ga_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ga ppm.",
+          "unit": "ppm"
+        },
+        "gd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Gd ppm.",
+          "unit": "ppm"
+        },
+        "ge_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ge ppm.",
+          "unit": "ppm"
+        },
+        "hf_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Hf ppm.",
+          "unit": "ppm"
+        },
+        "hg_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Hg ppm.",
+          "unit": "ppm"
+        },
+        "ho_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ho ppm.",
+          "unit": "ppm"
+        },
+        "in_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "In ppm.",
+          "unit": "ppm"
+        },
+        "ir_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ir ppm.",
+          "unit": "ppm"
+        },
+        "k2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "K2o pct.",
+          "unit": "%"
+        },
+        "k_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "K ppm.",
+          "unit": "ppm"
+        },
+        "la_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "La ppm.",
+          "unit": "ppm"
+        },
+        "li2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Li2o pct.",
+          "unit": "%"
+        },
+        "li_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Li ppm.",
+          "unit": "ppm"
+        },
+        "loi_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Loi pct.",
+          "unit": "%"
+        },
+        "lu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Lu ppm.",
+          "unit": "ppm"
+        },
+        "mg_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mg ppm.",
+          "unit": "ppm"
+        },
+        "mgo_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mgo pct.",
+          "unit": "%"
+        },
+        "mn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mn ppm.",
+          "unit": "ppm"
+        },
+        "mno_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mno pct.",
+          "unit": "%"
+        },
+        "mo_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mo ppm.",
+          "unit": "ppm"
+        },
+        "na2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Na2o pct.",
+          "unit": "%"
+        },
+        "na_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Na ppm.",
+          "unit": "ppm"
+        },
+        "nb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Nb ppm.",
+          "unit": "ppm"
+        },
+        "nd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Nd ppm.",
+          "unit": "ppm"
+        },
+        "ni_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ni ppm.",
+          "unit": "ppm"
+        },
+        "os_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Os ppm.",
+          "unit": "ppm"
+        },
+        "p2o5_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "P2o5 pct.",
+          "unit": "%"
+        },
+        "p_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "P ppm.",
+          "unit": "ppm"
+        },
+        "pb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pb ppm.",
+          "unit": "ppm"
+        },
+        "pd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pd ppm.",
+          "unit": "ppm"
+        },
+        "pr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pr ppm.",
+          "unit": "ppm"
+        },
+        "pt_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pt ppm.",
+          "unit": "ppm"
+        },
+        "rb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rb ppm.",
+          "unit": "ppm"
+        },
+        "re_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Re ppm.",
+          "unit": "ppm"
+        },
+        "rh_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rh ppm.",
+          "unit": "ppm"
+        },
+        "ru_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ru ppm.",
+          "unit": "ppm"
+        },
+        "s_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "S ppm.",
+          "unit": "ppm"
+        },
+        "sb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sb ppm.",
+          "unit": "ppm"
+        },
+        "sc_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sc ppm.",
+          "unit": "ppm"
+        },
+        "se_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Se ppm.",
+          "unit": "ppm"
+        },
+        "si_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Si ppm.",
+          "unit": "ppm"
+        },
+        "sio2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sio2 pct.",
+          "unit": "%"
+        },
+        "sm_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sm ppm.",
+          "unit": "ppm"
+        },
+        "sn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sn ppm.",
+          "unit": "ppm"
+        },
+        "so3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "So3 pct.",
+          "unit": "%"
+        },
+        "sr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sr ppm.",
+          "unit": "ppm"
+        },
+        "ta_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ta ppm.",
+          "unit": "ppm"
+        },
+        "tb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tb ppm.",
+          "unit": "ppm"
+        },
+        "te_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Te ppm.",
+          "unit": "ppm"
+        },
+        "th_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Th ppm.",
+          "unit": "ppm"
+        },
+        "ti_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ti ppm.",
+          "unit": "ppm"
+        },
+        "tio2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tio2 pct.",
+          "unit": "%"
+        },
+        "tl_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tl ppm.",
+          "unit": "ppm"
+        },
+        "tm_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tm ppm.",
+          "unit": "ppm"
+        },
+        "total_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Total pct.",
+          "unit": "%"
+        },
+        "u_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "U ppm.",
+          "unit": "ppm"
+        },
+        "v2o5_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "V2o5 pct.",
+          "unit": "%"
+        },
+        "v_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "V ppm.",
+          "unit": "ppm"
+        },
+        "w_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "W ppm.",
+          "unit": "ppm"
+        },
+        "y_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Y ppm.",
+          "unit": "ppm"
+        },
+        "yb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Yb ppm.",
+          "unit": "ppm"
+        },
+        "zn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zn ppm.",
+          "unit": "ppm"
+        },
+        "zr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zr ppm.",
+          "unit": "ppm"
+        },
+        "zro2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zro2 pct.",
+          "unit": "%"
+        },
+        "feo_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Feo pct.",
+          "unit": "%"
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "_sample_context_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Sample context id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.sample_context",
+            "column": "_sample_context_id",
+            "resolution": "explicit"
+          }
+        }
+      },
+      "requiredCompanionColumns": [
+        "assay",
+        "audit",
+        "alternate_assays"
+      ]
+    },
+    "drill.survey": {
+      "description": "Independent directional survey stations with whole-run preference.",
+      "primaryKey": [
+        "_survey_id"
+      ],
+      "columns": {
+        "_survey_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Survey id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "dip": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Borehole dip from horizontal, negative downward.",
+          "unit": "deg"
+        },
+        "azimuth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Degrees clockwise from true north in [0,360); a reported 360 is normalized to 0 with the original retained in audit.",
+          "unit": "deg"
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "azimuth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Azimuth reference."
+        },
+        "orientation_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Orientation status."
+        },
+        "survey_run_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Run identity within the resolved collar and source context."
+        },
+        "run_date": {
+          "storageType": "date",
+          "nullable": true,
+          "description": "Source survey run date, preserving recorded precision."
+        },
+        "run_time": {
+          "storageType": "timestamp with time zone",
+          "nullable": true,
+          "description": "Source survey run instant only when its time and timezone are established."
+        },
+        "run_date_precision": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Run date precision."
+        },
+        "selection_rank": {
+          "storageType": "integer",
+          "nullable": true,
+          "description": "Calculated preference of the whole run: 1 preferred, higher alternatives, null unresolved."
+        },
+        "selection_basis": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Source hierarchy or recency rule used to select the run."
+        },
+        "selection_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolved, unresolved or ineligible run selection."
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "instrument": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Instrument."
+        }
+      }
+    },
+    "surface.lab_assay": {
+      "description": "Independent certificate determinations linked to surface sample context.",
+      "primaryKey": [
+        "_lab_assay_id"
+      ],
+      "columns": {
+        "_lab_assay_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Lab assay id.",
+          "encoding": "decimal-string"
+        },
+        "sample_id": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Public sample label; not a globally unique identity."
+        },
+        "analyte": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Analyte."
+        },
+        "value": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Numeric result, including eligible half-limit substitution or reported lower bound; interpret with qualification metadata."
+        },
+        "value_raw": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Original reported result text, including qualifiers."
+        },
+        "units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Units."
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "detection_limit": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Detection limit."
+        },
+        "flag_lt": {
+          "storageType": "boolean",
+          "nullable": false,
+          "description": "True when the determination is qualified as below its reported limit."
+        },
+        "flag_gt": {
+          "storageType": "boolean",
+          "nullable": false,
+          "description": "True when the determination is qualified as above its reported limit."
+        },
+        "flag_not_analysed": {
+          "storageType": "boolean",
+          "nullable": false,
+          "description": "True when no analytical determination was performed."
+        },
+        "is_check": {
+          "storageType": "boolean",
+          "nullable": false,
+          "description": "Is check."
+        },
+        "original_sample_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Original sample id."
+        },
+        "batch_no": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Batch no."
+        },
+        "client": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Client."
+        },
+        "project": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Project."
+        },
+        "date_received": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Date received."
+        },
+        "date_completed": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Date completed."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "_surface_sample_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Surface sample id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "surface.surface_sample",
+            "column": "_surface_sample_id",
+            "resolution": "explicit"
+          }
+        },
+        "_sample_context_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Sample context id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "surface.sample_context",
+            "column": "_sample_context_id",
+            "resolution": "explicit"
+          }
+        },
+        "sample_resolution_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Sample resolution status."
+        }
+      },
+      "requiredCompanionColumns": [
+        "value_raw",
+        "units",
+        "method",
+        "detection_limit",
+        "flag_lt",
+        "flag_gt",
+        "flag_not_analysed",
+        "audit"
+      ]
+    },
+    "surface.surface_sample": {
+      "description": "Independent surface field sample identity, collection context, location and selected chemistry.",
+      "primaryKey": [
+        "_surface_sample_id"
+      ],
+      "columns": {
+        "_surface_sample_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Surface sample id.",
+          "encoding": "decimal-string"
+        },
+        "sample_id": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Public sample label; not a globally unique identity."
+        },
+        "sample_type": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Sample type."
+        },
+        "easting": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported projected easting, interpreted with source datum/projection/zone metadata."
+        },
+        "northing": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported projected northing, interpreted with source datum/projection/zone metadata."
+        },
+        "latitude": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Common GDA2020 latitude in degrees.",
+          "unit": "deg"
+        },
+        "longitude": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Common GDA2020 longitude in degrees.",
+          "unit": "deg"
+        },
+        "elevation": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Resolved common elevation in metres, interpreted with vertical_datum.",
+          "unit": "m"
+        },
+        "datum": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Datum."
+        },
+        "projection": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Projection."
+        },
+        "zone": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Zone."
+        },
+        "assay": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Per-analyte qualification and method context accompanying numeric values, including reported text, bound, unit and calculation for substitutions."
+        },
+        "alternate_assays": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Independent alternative determinations with their source, method and qualification context."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": false,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "_source_anumber": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Source anumber.",
+          "encoding": "decimal-string"
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "ag_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ag ppm.",
+          "unit": "ppm"
+        },
+        "al2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Al2o3 pct.",
+          "unit": "%"
+        },
+        "al_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Al ppm.",
+          "unit": "ppm"
+        },
+        "as_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "As ppm.",
+          "unit": "ppm"
+        },
+        "au_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Au ppm.",
+          "unit": "ppm"
+        },
+        "b_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "B ppm.",
+          "unit": "ppm"
+        },
+        "ba_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ba ppm.",
+          "unit": "ppm"
+        },
+        "bao_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bao pct.",
+          "unit": "%"
+        },
+        "be_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Be ppm.",
+          "unit": "ppm"
+        },
+        "bi_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bi ppm.",
+          "unit": "ppm"
+        },
+        "br_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Br ppm.",
+          "unit": "ppm"
+        },
+        "ca_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ca ppm.",
+          "unit": "ppm"
+        },
+        "cao_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cao pct.",
+          "unit": "%"
+        },
+        "cd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cd ppm.",
+          "unit": "ppm"
+        },
+        "ce_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ce ppm.",
+          "unit": "ppm"
+        },
+        "cl_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cl ppm.",
+          "unit": "ppm"
+        },
+        "co_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Co ppm.",
+          "unit": "ppm"
+        },
+        "cr2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cr2o3 pct.",
+          "unit": "%"
+        },
+        "cr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cr ppm.",
+          "unit": "ppm"
+        },
+        "cs_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cs ppm.",
+          "unit": "ppm"
+        },
+        "cu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Cu ppm.",
+          "unit": "ppm"
+        },
+        "dy_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dy ppm.",
+          "unit": "ppm"
+        },
+        "er_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Er ppm.",
+          "unit": "ppm"
+        },
+        "eu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Eu ppm.",
+          "unit": "ppm"
+        },
+        "f_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "F ppm.",
+          "unit": "ppm"
+        },
+        "fe2o3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Fe2o3 pct.",
+          "unit": "%"
+        },
+        "fe_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Fe ppm.",
+          "unit": "ppm"
+        },
+        "ga_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ga ppm.",
+          "unit": "ppm"
+        },
+        "gd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Gd ppm.",
+          "unit": "ppm"
+        },
+        "ge_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ge ppm.",
+          "unit": "ppm"
+        },
+        "hf_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Hf ppm.",
+          "unit": "ppm"
+        },
+        "hg_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Hg ppm.",
+          "unit": "ppm"
+        },
+        "ho_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ho ppm.",
+          "unit": "ppm"
+        },
+        "in_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "In ppm.",
+          "unit": "ppm"
+        },
+        "ir_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ir ppm.",
+          "unit": "ppm"
+        },
+        "k2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "K2o pct.",
+          "unit": "%"
+        },
+        "k_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "K ppm.",
+          "unit": "ppm"
+        },
+        "la_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "La ppm.",
+          "unit": "ppm"
+        },
+        "li2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Li2o pct.",
+          "unit": "%"
+        },
+        "li_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Li ppm.",
+          "unit": "ppm"
+        },
+        "loi_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Loi pct.",
+          "unit": "%"
+        },
+        "lu_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Lu ppm.",
+          "unit": "ppm"
+        },
+        "mg_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mg ppm.",
+          "unit": "ppm"
+        },
+        "mgo_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mgo pct.",
+          "unit": "%"
+        },
+        "mn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mn ppm.",
+          "unit": "ppm"
+        },
+        "mno_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mno pct.",
+          "unit": "%"
+        },
+        "mo_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mo ppm.",
+          "unit": "ppm"
+        },
+        "na2o_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Na2o pct.",
+          "unit": "%"
+        },
+        "na_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Na ppm.",
+          "unit": "ppm"
+        },
+        "nb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Nb ppm.",
+          "unit": "ppm"
+        },
+        "nd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Nd ppm.",
+          "unit": "ppm"
+        },
+        "ni_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ni ppm.",
+          "unit": "ppm"
+        },
+        "os_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Os ppm.",
+          "unit": "ppm"
+        },
+        "p2o5_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "P2o5 pct.",
+          "unit": "%"
+        },
+        "p_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "P ppm.",
+          "unit": "ppm"
+        },
+        "pb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pb ppm.",
+          "unit": "ppm"
+        },
+        "pd_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pd ppm.",
+          "unit": "ppm"
+        },
+        "pr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pr ppm.",
+          "unit": "ppm"
+        },
+        "pt_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Pt ppm.",
+          "unit": "ppm"
+        },
+        "rb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rb ppm.",
+          "unit": "ppm"
+        },
+        "re_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Re ppm.",
+          "unit": "ppm"
+        },
+        "rh_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rh ppm.",
+          "unit": "ppm"
+        },
+        "ru_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ru ppm.",
+          "unit": "ppm"
+        },
+        "s_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "S ppm.",
+          "unit": "ppm"
+        },
+        "sb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sb ppm.",
+          "unit": "ppm"
+        },
+        "sc_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sc ppm.",
+          "unit": "ppm"
+        },
+        "se_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Se ppm.",
+          "unit": "ppm"
+        },
+        "si_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Si ppm.",
+          "unit": "ppm"
+        },
+        "sio2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sio2 pct.",
+          "unit": "%"
+        },
+        "sm_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sm ppm.",
+          "unit": "ppm"
+        },
+        "sn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sn ppm.",
+          "unit": "ppm"
+        },
+        "so3_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "So3 pct.",
+          "unit": "%"
+        },
+        "sr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sr ppm.",
+          "unit": "ppm"
+        },
+        "ta_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ta ppm.",
+          "unit": "ppm"
+        },
+        "tb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tb ppm.",
+          "unit": "ppm"
+        },
+        "te_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Te ppm.",
+          "unit": "ppm"
+        },
+        "th_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Th ppm.",
+          "unit": "ppm"
+        },
+        "ti_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ti ppm.",
+          "unit": "ppm"
+        },
+        "tio2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tio2 pct.",
+          "unit": "%"
+        },
+        "tl_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tl ppm.",
+          "unit": "ppm"
+        },
+        "tm_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Tm ppm.",
+          "unit": "ppm"
+        },
+        "total_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Total pct.",
+          "unit": "%"
+        },
+        "u_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "U ppm.",
+          "unit": "ppm"
+        },
+        "v2o5_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "V2o5 pct.",
+          "unit": "%"
+        },
+        "v_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "V ppm.",
+          "unit": "ppm"
+        },
+        "w_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "W ppm.",
+          "unit": "ppm"
+        },
+        "y_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Y ppm.",
+          "unit": "ppm"
+        },
+        "yb_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Yb ppm.",
+          "unit": "ppm"
+        },
+        "zn_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zn ppm.",
+          "unit": "ppm"
+        },
+        "zr_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zr ppm.",
+          "unit": "ppm"
+        },
+        "zro2_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Zro2 pct.",
+          "unit": "%"
+        },
+        "feo_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Feo pct.",
+          "unit": "%"
+        },
+        "c_ppm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "C ppm.",
+          "unit": "ppm"
+        },
+        "vertical_datum": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference system of the common elevation; unknown remains null."
+        },
+        "location_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Location status."
+        },
+        "elevation_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Elevation status."
+        },
+        "geometry": {
+          "storageType": "geometry(Point)",
+          "nullable": true,
+          "description": "Derived 2D projected point; its SRID identifies the MGA2020 zone."
+        },
+        "sample_medium": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Material sampled, distinct from collection method."
+        },
+        "sampling_method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Field collection method, distinct from sampled material."
+        },
+        "sample_horizon": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reported sampling horizon."
+        },
+        "sampling_depth_from": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sampling depth from."
+        },
+        "sampling_depth_to": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sampling depth to."
+        },
+        "sampling_depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Sampling depth reference."
+        },
+        "sampling_depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Sampling depth units."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "geography": {
+          "storageType": "geography(Point,7844)",
+          "nullable": true,
+          "description": "Authoritative common 2D GDA2020 longitude/latitude point."
+        },
+        "projected_srid": {
+          "storageType": "integer",
+          "nullable": true,
+          "description": "EPSG SRID matching the projected geometry reference."
+        }
+      },
+      "requiredCompanionColumns": [
+        "assay",
+        "audit",
+        "alternate_assays"
+      ]
+    },
+    "drill.geophysics": {
+      "description": "Instrument measurements made in a borehole, including repeated logging passes.",
+      "primaryKey": [
+        "_geophysics_id"
+      ],
+      "columns": {
+        "_geophysics_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Geophysics id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "measurement_run_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Measurement run key."
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "gamma_ray": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported gamma-ray measurement interpreted with gamma_ray_units and method.",
+          "unit": "gamma_ray_units"
+        },
+        "gamma_ray_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Gamma ray units."
+        },
+        "density_kg_m3": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Density in kilograms per cubic metre; retain bulk/grain and specimen-condition context.",
+          "unit": "kg/m3"
+        },
+        "resistivity_ohm_m": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Resistivity ohm m.",
+          "unit": "ohm m"
+        },
+        "sonic_slowness_us_m": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Sonic slowness us m.",
+          "unit": "us/m"
+        },
+        "volume_magnetic_susceptibility_si": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dimensionless volume magnetic susceptibility in SI; preserve reported scale and measurement context.",
+          "unit": "1"
+        }
+      }
+    },
+    "drill.petrophysics": {
+      "description": "Rock or specimen properties, including core/specimen magnetic susceptibility.",
+      "primaryKey": [
+        "_petrophysics_id"
+      ],
+      "columns": {
+        "_petrophysics_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Petrophysics id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "_sample_context_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Sample context id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.sample_context",
+            "column": "_sample_context_id",
+            "resolution": "explicit"
+          }
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "specific_gravity": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dimensionless ratio to the reference fluid density; retain method and reference conditions.",
+          "unit": "1"
+        },
+        "bulk_density_kg_m3": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bulk density in kilograms per cubic metre with moisture basis.",
+          "unit": "kg/m3"
+        },
+        "grain_density_kg_m3": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Grain density in kilograms per cubic metre with method context.",
+          "unit": "kg/m3"
+        },
+        "moisture_basis": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Moisture basis."
+        },
+        "volume_magnetic_susceptibility_si": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dimensionless volume magnetic susceptibility in SI; preserve reported scale and measurement context.",
+          "unit": "1"
+        },
+        "mass_magnetic_susceptibility_m3_kg": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mass magnetic susceptibility in cubic metres per kilogram.",
+          "unit": "m3/kg"
+        }
+      }
+    },
+    "drill.geotechnical": {
+      "description": "Recovery, RQD and other geotechnical observations.",
+      "primaryKey": [
+        "_geotechnical_id"
+      ],
+      "columns": {
+        "_geotechnical_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Geotechnical id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "recovery_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Recovered percentage using the reported recovery reference length.",
+          "unit": "%"
+        },
+        "recovered_length_m": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Recovered length m.",
+          "unit": "m"
+        },
+        "recovery_reference_length_m": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Recovery reference length m.",
+          "unit": "m"
+        },
+        "rqd_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rock Quality Designation percentage using its reported reference length and method.",
+          "unit": "%"
+        },
+        "rqd_reference_length_m": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Rqd reference length m.",
+          "unit": "m"
+        }
+      }
+    },
+    "drill.mineralogy": {
+      "description": "Mineral observations and abundance with measurement basis.",
+      "primaryKey": [
+        "_mineralogy_id"
+      ],
+      "columns": {
+        "_mineralogy_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Mineralogy id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "mineral_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Mineral code."
+        },
+        "mineral_description": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Mineral description."
+        },
+        "abundance_pct": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mineral abundance percentage interpreted with abundance_basis.",
+          "unit": "%"
+        },
+        "abundance_basis": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Abundance basis."
+        }
+      }
+    },
+    "drill.veins": {
+      "description": "Vein observations retaining width, count and measurement basis.",
+      "primaryKey": [
+        "_veins_id"
+      ],
+      "columns": {
+        "_veins_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Veins id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "vein_type": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Vein type."
+        },
+        "vein_count": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Vein count.",
+          "encoding": "decimal-string"
+        },
+        "vein_width_mm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported vein width in millimetres interpreted with width_basis.",
+          "unit": "mm"
+        },
+        "width_basis": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Width basis."
+        },
+        "vein_intensity": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Vein intensity."
+        }
+      }
+    },
+    "drill.structure": {
+      "description": "Structural orientations, including plane dip/direction and core alpha/beta.",
+      "primaryKey": [
+        "_structure_id"
+      ],
+      "columns": {
+        "_structure_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Structure id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "orientation_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Orientation kind."
+        },
+        "dip": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Structural plane dip in degrees, 0 horizontal to 90 vertical; distinct from borehole dip.",
+          "unit": "deg"
+        },
+        "dip_direction": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Direction of steepest descent of a structural plane, clockwise from the stated north reference.",
+          "unit": "deg"
+        },
+        "strike": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Strike.",
+          "unit": "deg"
+        },
+        "alpha": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Alpha.",
+          "unit": "deg"
+        },
+        "beta": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Beta.",
+          "unit": "deg"
+        },
+        "orientation_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Orientation reference."
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        }
+      }
+    },
+    "drill.hyperspectral": {
+      "description": "Spectral observations, products and mineral interpretations.",
+      "primaryKey": [
+        "_hyperspectral_id"
+      ],
+      "columns": {
+        "_hyperspectral_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Hyperspectral id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "measurement_run_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Measurement run key."
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "instrument": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Instrument."
+        },
+        "product_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Product kind."
+        },
+        "mineral_code": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Mineral code."
+        },
+        "interpretation": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Interpretation."
+        },
+        "spectrum_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Spectrum reference."
+        }
+      }
+    },
+    "drill.hydrogeology": {
+      "description": "Water observations retaining time and measurement reference.",
+      "primaryKey": [
+        "_hydrogeology_id"
+      ],
+      "columns": {
+        "_hydrogeology_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Hydrogeology id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "observation_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Observation kind."
+        },
+        "observed_date": {
+          "storageType": "date",
+          "nullable": true,
+          "description": "Observed date."
+        },
+        "observed_at": {
+          "storageType": "timestamp with time zone",
+          "nullable": true,
+          "description": "Observed at."
+        },
+        "date_precision": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Date precision."
+        },
+        "water_level_depth_m": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Water-level depth in metres relative to water_level_reference.",
+          "unit": "m"
+        },
+        "water_level_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Water level reference."
+        },
+        "flow_rate_l_s": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Flow rate l s.",
+          "unit": "L/s"
+        },
+        "temperature_c": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Temperature c.",
+          "unit": "degC"
+        },
+        "ph": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Ph.",
+          "unit": "1"
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        }
+      }
+    },
+    "drill.operations": {
+      "description": "Drilling activity, construction and incidents.",
+      "primaryKey": [
+        "_operations_id"
+      ],
+      "columns": {
+        "_operations_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Operations id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "hole_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public hole label; not a globally unique identity."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "support_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Point, interval, composite or unknown observation extent."
+        },
+        "depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Point measured depth in metres along the borehole from collar.",
+          "unit": "m"
+        },
+        "from_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval start in common measured-depth units.",
+          "unit": "m"
+        },
+        "to_depth": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Reported interval end in common measured-depth units.",
+          "unit": "m"
+        },
+        "depth_units": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Common measured-depth unit: metres; original units are retained in audit."
+        },
+        "depth_reference": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reference for measured depth; the common drill reference is collar."
+        },
+        "support_status": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Resolution status of observation support."
+        },
+        "operation_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Operation kind."
+        },
+        "drilling_method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Drilling method."
+        },
+        "rig": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Rig."
+        },
+        "contractor": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Contractor."
+        },
+        "diameter_mm": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Diameter mm.",
+          "unit": "mm"
+        },
+        "diameter_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Diameter kind."
+        },
+        "casing_material": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Casing material."
+        },
+        "metres_drilled": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Metres drilled."
+        },
+        "start_date": {
+          "storageType": "date",
+          "nullable": true,
+          "description": "Start date."
+        },
+        "end_date": {
+          "storageType": "date",
+          "nullable": true,
+          "description": "End date."
+        },
+        "date_precision": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Date precision."
+        },
+        "incident": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Incident."
+        }
+      }
+    },
+    "surface.petrophysics": {
+      "description": "Rock or specimen properties, including core/specimen magnetic susceptibility.",
+      "primaryKey": [
+        "_petrophysics_id"
+      ],
+      "columns": {
+        "_petrophysics_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Petrophysics id.",
+          "encoding": "decimal-string"
+        },
+        "_surface_sample_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Surface sample id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "surface.surface_sample",
+            "column": "_surface_sample_id",
+            "resolution": "explicit"
+          }
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        },
+        "_sample_context_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Sample context id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "surface.sample_context",
+            "column": "_sample_context_id",
+            "resolution": "explicit"
+          }
+        },
+        "method": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Method."
+        },
+        "specific_gravity": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dimensionless ratio to the reference fluid density; retain method and reference conditions.",
+          "unit": "1"
+        },
+        "bulk_density_kg_m3": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Bulk density in kilograms per cubic metre with moisture basis.",
+          "unit": "kg/m3"
+        },
+        "grain_density_kg_m3": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Grain density in kilograms per cubic metre with method context.",
+          "unit": "kg/m3"
+        },
+        "moisture_basis": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Moisture basis."
+        },
+        "volume_magnetic_susceptibility_si": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Dimensionless volume magnetic susceptibility in SI; preserve reported scale and measurement context.",
+          "unit": "1"
+        },
+        "mass_magnetic_susceptibility_m3_kg": {
+          "storageType": "double precision",
+          "nullable": true,
+          "description": "Mass magnetic susceptibility in cubic metres per kilogram.",
+          "unit": "m3/kg"
+        }
+      }
+    },
+    "drill.sample_context": {
+      "description": "Sample, specimen and preparation identity, including fractions and aliquots; contains no chemistry values.",
+      "primaryKey": [
+        "_sample_context_id"
+      ],
+      "columns": {
+        "_sample_context_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Sample context id.",
+          "encoding": "decimal-string"
+        },
+        "_collar_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Collar id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.collar",
+            "column": "_collar_id",
+            "resolution": "may be reserved before parent materialization"
+          }
+        },
+        "parent_context_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Preparation parent in the same drill or surface context namespace.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "drill.sample_context",
+            "column": "_sample_context_id",
+            "resolution": "explicit"
+          }
+        },
+        "context_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Context kind."
+        },
+        "sample_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public sample label; not a globally unique identity."
+        },
+        "specimen_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Specimen id."
+        },
+        "size_fraction": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reported prepared size fraction associated with this context."
+        },
+        "aliquot_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reported aliquot identifier associated with this context."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        }
+      }
+    },
+    "surface.sample_context": {
+      "description": "Sample, specimen and preparation identity, including fractions and aliquots; contains no chemistry values.",
+      "primaryKey": [
+        "_sample_context_id"
+      ],
+      "columns": {
+        "_sample_context_id": {
+          "storageType": "bigint",
+          "nullable": false,
+          "description": "Sample context id.",
+          "encoding": "decimal-string"
+        },
+        "_surface_sample_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Surface sample id.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "surface.surface_sample",
+            "column": "_surface_sample_id",
+            "resolution": "explicit"
+          }
+        },
+        "parent_context_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Preparation parent in the same drill or surface context namespace.",
+          "encoding": "decimal-string",
+          "reference": {
+            "table": "surface.sample_context",
+            "column": "_sample_context_id",
+            "resolution": "explicit"
+          }
+        },
+        "context_kind": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Context kind."
+        },
+        "sample_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Public sample label; not a globally unique identity."
+        },
+        "specimen_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Specimen id."
+        },
+        "size_fraction": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reported prepared size fraction associated with this context."
+        },
+        "aliquot_id": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Reported aliquot identifier associated with this context."
+        },
+        "source": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Identifier of the supplying source or collection."
+        },
+        "source_dataset_id": {
+          "storageType": "bigint",
+          "nullable": true,
+          "description": "Identifier of the source dataset; interpreted within its source namespace.",
+          "encoding": "decimal-string"
+        },
+        "source_record_key": {
+          "storageType": "text",
+          "nullable": true,
+          "description": "Stable source record key within source and dataset."
+        },
+        "origin": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Source observation identity and provenance."
+        },
+        "audit": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Original values and processing/selection provenance, including normalization and substitution details."
+        },
+        "attributes_extra": {
+          "storageType": "jsonb",
+          "nullable": true,
+          "description": "Additional source attributes with original keys, types and repeated occurrence context preserved."
+        }
+      }
+    }
+  }
+}
