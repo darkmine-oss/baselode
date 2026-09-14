@@ -121,6 +121,7 @@ class Baselode3DScene {
       pivotIndicator: options.pivotIndicator !== false,
       keyboard: options.keyboard !== false,
       accent: options.accent ?? ACCENT,
+      gizmoSize: Number.isFinite(options.gizmoSize) && options.gizmoSize > 0 ? options.gizmoSize : 132,
     };
     this.container = null;
     this.scene = null;
@@ -728,18 +729,32 @@ class Baselode3DScene {
     if (this.gizmo) { this.gizmo.dispose(); this.gizmo = null; }
     const dark = this.isDarkBackground;
     const accent = this.options.accent;
+    const size = this.options.gizmoSize;
     const face = (label) => ({
       label,
-      color: dark ? 0x2b2b3a : 0xe6e4ee,
+      color: dark ? 0x3a3a4e : 0xe6e4ee,
       labelColor: dark ? 0xe9e8f1 : 0x23223a,
       border: { size: 1.5, color: dark ? 0x5a5970 : 0x9b99b3 },
-      hover: { color: accent, labelColor: 0xffffff, border: { size: 1, color: accent } },
+      // Hover: a soft tint of the accent and an accent border, no scaling, so
+      // the face stays inside the cube silhouette.
+      hover: {
+        color: dark ? 0x4a2c47 : 0xf1dfee,
+        labelColor: dark ? 0xf3c9ee : 0x6d1f65,
+        border: { size: 2, color: accent },
+      },
     });
+    // three-viewport-gizmo lays out its faces and labels for whatever
+    // THREE.Object3D.DEFAULT_UP is at construction time, and converts drag /
+    // click coordinates through it at runtime.  Our scene is Z-up, so build
+    // the widget under a temporary Z-up default (restored immediately, so the
+    // rest of the app is untouched) and pin the runtime conversion to Z-up.
+    const savedUp = THREE.Object3D.DEFAULT_UP.clone();
+    THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
     try {
       this.gizmo = new ViewportGizmo(this.camera, this.renderer, {
         container: this.container,
         type: 'cube',
-        size: 96,
+        size,
         placement: 'top-right',
         offset: { top: 14, right: 14 },
         animated: true,
@@ -747,20 +762,34 @@ class Baselode3DScene {
         resolution: 256,
         lineWidth: 2,
         font: { family: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', weight: 600 },
-        background: { enabled: false },
-        edges: { color: dark ? 0x3d3c4e : 0xc4c2d3, radius: 1, hover: { color: accent } },
-        corners: { color: dark ? 0x55546a : 0xaeacc0, radius: 0.15, hover: { color: accent } },
+        // A faint disc behind the cube shows the whole widget is a drag target;
+        // it brightens on hover.
+        background: {
+          enabled: true,
+          color: dark ? 0xffffff : 0x1c1b2e,
+          opacity: dark ? 0.06 : 0.04,
+          hover: { color: dark ? 0xffffff : 0x1c1b2e, opacity: dark ? 0.12 : 0.09 },
+        },
+        // Edge and corner targets have large invisible hit zones that swallow
+        // face clicks, which is what made the cube feel random.  Faces only:
+        // a click always means a cardinal view; 45° views live on the keys.
+        edges: { enabled: false },
+        corners: { enabled: false },
         x: face('E'), nx: face('W'),
         y: face('N'), ny: face('S'),
         z: face('UP'), nz: face('DOWN'),
       });
+      pinGizmoToZUp(this.gizmo);
       this.gizmo.attachControls(this.controls);
     } catch (err) {
       console.warn('Baselode3DScene: cube gizmo unavailable, falling back to sphere', err);
       this.gizmo = new ViewportGizmo(this.camera, this.renderer, {
-        container: this.container, placement: 'top-right', size: 96, offset: { top: 14, right: 14 },
+        container: this.container, placement: 'top-right', size, offset: { top: 14, right: 14 },
       });
+      pinGizmoToZUp(this.gizmo);
       this.gizmo.attachControls(this.controls);
+    } finally {
+      THREE.Object3D.DEFAULT_UP.copy(savedUp);
     }
   }
 
@@ -951,6 +980,20 @@ class Baselode3DScene {
       return p ? { x: p.x, y: p.y } : null;
     });
   }
+}
+
+/**
+ * Make a ViewportGizmo instance behave as if THREE.Object3D.DEFAULT_UP were
+ * +Z regardless of the global default: same mapping the library applies for
+ * Z-up, pinned on the instance.
+ */
+function pinGizmoToZUp(gizmo) {
+  if (!gizmo) return;
+  gizmo.up.set(0, 0, 1);
+  gizmo.coordinateConversion = (v, isSpherical = false) => {
+    const { x, y, z } = v;
+    return isSpherical ? v.set(z, x, y) : v.set(y, z, x);
+  };
 }
 
 function _getDrillholeSelected(scene) {

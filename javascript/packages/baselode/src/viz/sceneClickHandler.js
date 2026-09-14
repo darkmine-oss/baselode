@@ -48,8 +48,9 @@ export function updateSelectionFromPointer(sceneCtx) {
 export function primeRaycasterFromEvent(sceneCtx, event) {
   const renderer = sceneCtx.renderer;
   if (!renderer || !sceneCtx.camera) return false;
-  if (sceneCtx.gizmo?.domElement) {
-    const gizmoRect = sceneCtx.gizmo.domElement.getBoundingClientRect();
+  const gizmoEl = sceneCtx.gizmo?.domElement || sceneCtx.gizmo?._domElement;
+  if (gizmoEl?.getBoundingClientRect) {
+    const gizmoRect = gizmoEl.getBoundingClientRect();
     if (
       event.clientX >= gizmoRect.left && event.clientX <= gizmoRect.right &&
       event.clientY >= gizmoRect.top && event.clientY <= gizmoRect.bottom
