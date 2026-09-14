@@ -107,6 +107,19 @@ a common SRID or an explicit transformation; a per-row CRS does not cause an
 automatic transformation. Map and API WGS84 coordinates are derived outputs.
 The Australia profile does not admit coordinates from arbitrary foreign datums.
 
+`location_status` distinguishes `resolved`, `approximate` and `unresolved`
+positions. Australian coordinates explicitly identified only as WGS84 may use a
+reviewed approximate conversion when realization or epoch is unspecified.
+Approximate positions remain available for exploration searches and must be
+visibly qualified in maps, tables, APIs and exports. Deliver their spatial audit
+with the position: original coordinates/reference, operation, operation accuracy
+and separate known or unknown source accuracy. Operation accuracy is not a
+maximum error guarantee or the total measurement accuracy. Aggregates report
+approximate counts and provide contributing position metadata; boundary matches
+do not imply survey precision. Better established datum/epoch evidence takes
+precedence while superseded source and conversion provenance remain available.
+Unspecified datum is not automatically WGS84.
+
 Elevation is separate from horizontal position, in metres with an explicit
 vertical datum; the mainland common reference is AHD71. Unknown elevations stay
 null. Original coordinates, CRS, units and any original Z component remain in

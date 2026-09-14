@@ -16,7 +16,13 @@
       ]
     },
     "verticalReference": "AHD71 for mainland common elevation; explicit vertical_datum",
-    "deliverySrid": 4326
+    "deliverySrid": 4326,
+    "locationStatuses": {
+      "resolved": "Common position derived from an established source datum and an appropriate available coordinate operation; source accuracy remains separate.",
+      "approximate": "Common position derived using a reviewed approximation for unspecified WGS84 realization or epoch. Suitable for qualified exploration discovery; does not establish survey precision.",
+      "unresolved": "No usable common position; original observations and unresolved context remain available."
+    },
+    "qualification": "Deliver location_status and spatial audit with positions. Preserve original reference and coordinates, operation and accuracy, and separate source accuracy. Prefer better established datum/epoch evidence with preserved superseded provenance. Aggregates expose approximate counts and contributing position metadata; near-boundary membership is not a precision guarantee."
   },
   "semantics": {
     "identity": "Observation and parent identifiers are decimal strings. Public labels and matching depths do not establish identity.",
@@ -541,7 +547,7 @@
         "location_status": {
           "storageType": "text",
           "nullable": true,
-          "description": "Location status."
+          "description": "Common-position resolution: resolved, approximate or unresolved. Approximate positions require visible qualification and companion spatial audit; status does not establish total positional accuracy."
         },
         "elevation_status": {
           "storageType": "text",
@@ -558,7 +564,11 @@
           "nullable": true,
           "description": "EPSG SRID matching the projected geometry reference."
         }
-      }
+      },
+      "requiredCompanionColumns": [
+        "location_status",
+        "audit"
+      ]
     },
     "drill.geochemistry_flat": {
       "description": "Selected drill-sample chemistry in numeric columns with assay metadata and alternative determinations.",
@@ -1281,7 +1291,7 @@
         "location_status": {
           "storageType": "text",
           "nullable": true,
-          "description": "Location status."
+          "description": "Common-position resolution: resolved, approximate or unresolved. Approximate positions require visible qualification and companion spatial audit; status does not establish total positional accuracy."
         },
         "elevation_status": {
           "storageType": "text",
@@ -1303,7 +1313,8 @@
         "assay",
         "audit",
         "alternate_assays",
-        "selected_assay_extras"
+        "selected_assay_extras",
+        "location_status"
       ]
     },
     "drill.geology": {
@@ -3178,7 +3189,7 @@
         "location_status": {
           "storageType": "text",
           "nullable": true,
-          "description": "Location status."
+          "description": "Common-position resolution: resolved, approximate or unresolved. Approximate positions require visible qualification and companion spatial audit; status does not establish total positional accuracy."
         },
         "elevation_status": {
           "storageType": "text",
@@ -3250,7 +3261,8 @@
       "requiredCompanionColumns": [
         "assay",
         "audit",
-        "alternate_assays"
+        "alternate_assays",
+        "location_status"
       ]
     },
     "drill.geophysics": {
