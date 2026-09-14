@@ -4,21 +4,34 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { FlyControls } from 'three/examples/jsm/controls/FlyControls.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { ViewportGizmo } from 'three-viewport-gizmo';
 import {
   buildViewSignature,
   emitViewChangeIfNeeded,
   fitCameraToBounds,
   focusOnLastBounds,
+  focusOnPoint,
   getViewState,
   lookDown,
   pan,
   dolly,
   recenterCameraToOrigin,
+  recenterOnBounds,
   setControlMode,
   setFov,
-  setViewState
+  setViewState,
+  setOrbitDepth,
+  setProjection,
+  viewFromDirection,
+  updateCameraTween,
+  cancelCameraTween,
+  isCameraAnimating,
+  updateClipPlanes,
+  boundsSphere,
+  fitDistanceForRadius,
+  getCameraHeading,
+  unitsPerPixel,
 } from './baselode3dCameraControls.js';
 import {
   initSelectionGlow,
@@ -26,7 +39,23 @@ import {
   applySelection,
   disposeSelectionGlow
 } from './selectionGlow.js';
-import { setDrillholes as _setDrillholes, clearDrillholes as _clearDrillholes } from './drillholeScene.js';
+import {
+  setDrillholes as _setDrillholes,
+  clearDrillholes as _clearDrillholes,
+  setDrillholeColorBy as _setDrillholeColorBy,
+  setDrillholeRadius as _setDrillholeRadius,
+  setDrillholeFilter as _setDrillholeFilter,
+  setSelectedDrillhole as _setSelectedDrillhole,
+  getSelectedDrillhole as _getSelectedDrillhole,
+  getDrillholeLegend as _getDrillholeLegend,
+  getDrillholeMeta as _getDrillholeMeta,
+  setDrillholeAnnotations as _setDrillholeAnnotations,
+  setDrillholeLod as _setDrillholeLod,
+  setDrillholeDatum as _setDrillholeDatum,
+  setDrillholeGhostColor as _setDrillholeGhostColor,
+  rebuildDrillholeAnnotations as _rebuildDrillholeAnnotations,
+  updateDrillholeFrame as _updateDrillholeFrame,
+} from './drillholeScene.js';
 import { setStripLogs as _setStripLogs, clearStripLogs as _clearStripLogs } from './stripLogScene.js';
 import { setBlocks as _setBlocks, clearBlocks as _clearBlocks, setBlockOpacity as _setBlockOpacity } from './blockModelScene.js';
 import {
@@ -34,7 +63,12 @@ import {
   clearStructuralDiscs as _clearStructuralDiscs,
   setStructuralDiscsVisible as _setStructuralDiscsVisible
 } from './structuralScene.js';
-import { attachCanvasClickHandler as _attachCanvasClickHandler, updateSelectionFromPointer as _updateSelectionFromPointer } from './sceneClickHandler.js';
+import {
+  attachCanvasClickHandler as _attachCanvasClickHandler,
+  updateSelectionFromPointer as _updateSelectionFromPointer,
+  primeRaycasterFromEvent,
+  pickScene,
+} from './sceneClickHandler.js';
 import { syncSelectables } from './sceneSelectables.js';
 import {
   addRasterOverlay as _addRasterOverlay,
@@ -53,17 +87,41 @@ import {
   setTerrainVisibility as _setTerrainVisibility,
   getTerrain as _getTerrain,
 } from './terrainScene.js';
+import {
+  createExtentBox,
+  createGroundGrid,
+  createPivotIndicator,
+  describeGrid,
+  disposeAnchor,
+  updateExtentLabels,
+  updatePivotIndicator,
+} from './sceneAnchors.js';
+import { WalkControls, isTypingTarget } from './walkControls.js';
+
+const ACCENT = 0x8c2981;
+const HOVER_THROTTLE_MS = 40;
 
 /**
  * Baselode 3D Scene Manager
  * Manages THREE.js scene for rendering drillholes and block models in 3D.
- * Supports orbit and fly camera controls, assay coloring, and interactive selection.
+ * Supports orbit and first-person walk camera controls, attribute colouring
+ * that never rebuilds geometry, interactive selection, and a set of spatial
+ * anchors (ground grid, extent box, orbit pivot marker).
  *
  * Rendering logic lives in the domain-specific modules; this class is a thin
  * orchestrator that owns the WebGL context and delegates to those modules.
  */
 class Baselode3DScene {
-  constructor() {
+  constructor(options = {}) {
+    this.options = {
+      gizmo: options.gizmo !== false,
+      environment: options.environment !== false,
+      groundGrid: options.groundGrid !== false,
+      extentBox: Boolean(options.extentBox),
+      pivotIndicator: options.pivotIndicator !== false,
+      keyboard: options.keyboard !== false,
+      accent: options.accent ?? ACCENT,
+    };
     this.container = null;
     this.scene = null;
     this.camera = null;
@@ -74,6 +132,7 @@ class Baselode3DScene {
     this.blocks = [];
     this.drillLines = [];
     this.drillMeshes = [];
+    this.drillholeLayer = null;
     this.structuralGroup = null;
     this.structuralMeshes = [];
     this.stripLogGroups = [];
@@ -84,7 +143,12 @@ class Baselode3DScene {
     this.pointer = new THREE.Vector2();
     this.drillholeClickHandler = null;
     this.blockClickHandler = null;
+    this.hoverHandler = null;
+    this.emptyClickHandler = null;
+    this.escapeHandler = null;
     this.controlMode = 'orbit';
+    this.projection = 'perspective';
+    this.isDarkBackground = false;
     this._tmpDir = new THREE.Vector3();
     this.viewChangeHandler = null;
     this._lastViewSignature = '';
@@ -96,6 +160,18 @@ class Baselode3DScene {
     this._outlinePass = null;
     this.rasterOverlays = new Map();
     this.terrain = null;
+    this.lastBounds = null;
+    this.anchors = { grid: null, extent: null, pivot: null, gridInfo: null, boundsKey: '' };
+    this.anchorVisibility = { grid: this.options.groundGrid, extent: this.options.extentBox };
+    this.fogEnabled = false;
+    this._hover = null;
+    this._hoverStampMs = 0;
+    this._interacting = false;
+    this._lastInteractionMs = 0;
+    this._pointerInside = false;
+    this._pmrem = null;
+    this._environment = null;
+    this._listeners = [];
   }
 
   init(container) {
@@ -108,39 +184,57 @@ class Baselode3DScene {
     // Scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xffffff);
+    this._ghostColor = new THREE.Color(0xffffff);
 
-    // Camera — lower near plane allows ultra-close zoom without clipping;
-    // far plane set large enough for ultra-low-FOV (near-ortho) modes where
-    // the camera must retreat several hundred kilometres to show a km-scale scene.
-    this.camera = new THREE.PerspectiveCamera(28, width / height, 0.001, 10_000_000);
+    // Camera. Near / far are retuned every frame from the scene bounds
+    // (see updateClipPlanes) so depth precision is spent on the geometry.
+    this.camera = new THREE.PerspectiveCamera(28, width / height, 0.05, 1_000_000);
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(50, 50, 50);
     this.camera.lookAt(0, 0, 0);
 
     // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.autoClear = false;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.domElement.tabIndex = 0;
+    this.renderer.domElement.style.outline = 'none';
     container.appendChild(this.renderer.domElement);
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-    this.scene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    directionalLight.position.set(10, 10, 5);
-    this.scene.add(directionalLight);
-
-    // Axes helper
-    const axesHelper = new THREE.AxesHelper(20);
-    this.scene.add(axesHelper);
+    // Lighting: hemisphere + key light, and an image-based environment so
+    // PBR tubes read as polished core rather than flat prisms.
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x8f8fa8, 0.55);
+    hemi.position.set(0, 0, 1);
+    this.scene.add(hemi);
+    const key = new THREE.DirectionalLight(0xffffff, 1.15);
+    key.position.set(1, 0.7, 1.6).multiplyScalar(1000);
+    this.scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+    fill.position.set(-1, -0.5, 0.4).multiplyScalar(1000);
+    this.scene.add(fill);
+    if (this.options.environment) {
+      try {
+        this._pmrem = new THREE.PMREMGenerator(this.renderer);
+        this._environment = this._pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+        this.scene.environment = this._environment;
+      } catch (err) {
+        console.warn('Baselode3DScene: environment map unavailable', err);
+      }
+    }
 
     // Orbit controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    this.controls.enableDamping = false;
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.09;
     this.controls.screenSpacePanning = true;
     this.controls.enableZoom = true;
-    this.controls.zoomSpeed = 10;
+    this.controls.zoomToCursor = true;
+    this.controls.zoomSpeed = 1.2;
+    this.controls.rotateSpeed = 0.9;
     this.controls.minDistance = 0.0001;
     this.controls.maxDistance = 5_000_000;
     this.controls.mouseButtons = {
@@ -153,26 +247,34 @@ class Baselode3DScene {
       TWO: THREE.TOUCH.DOLLY_PAN
     };
     this.controls.maxPolarAngle = Math.PI;
-
-    // Fly controls (disabled by default)
-    this.flyControls = new FlyControls(this.camera, this.renderer.domElement);
-    this.flyControls.movementSpeed = 2000;
-    this.flyControls.rollSpeed = Math.PI / 12;
-    this.flyControls.dragToLook = true;
-    this.flyControls.enabled = false;
-
-    // Viewport gizmo
-    this.gizmo = new ViewportGizmo(this.camera, this.renderer, {
-      container: this.container,
-      placement: 'top-right',
-      size: 110,
-      offset: { top: 12, right: 12 },
-      animated: true,
-      speed: 1.5
+    this.controls.keyPanSpeed = 14;
+    if (typeof this.controls.listenToKeyEvents === 'function') this.controls.listenToKeyEvents(window);
+    this.controls.addEventListener('start', () => {
+      cancelCameraTween(this);
+      this._interacting = true;
     });
-    this.gizmo.attachControls(this.controls);
+    this.controls.addEventListener('end', () => {
+      this._interacting = false;
+      this._lastInteractionMs = nowMs();
+    });
+
+    // First-person walk controls (disabled by default)
+    this.flyControls = new WalkControls(this.camera, this.renderer.domElement);
+    this.flyControls.enabled = false;
+    this._resolveForwardTarget = () => {
+      if (!this.camera) return null;
+      this.camera.getWorldDirection(this._tmpDir);
+      this.raycaster.set(this.camera.position, this._tmpDir);
+      const hit = pickScene(this);
+      return hit ? hit.point.clone() : null;
+    };
+
+    // Viewport gizmo (cube)
+    if (this.options.gizmo) this._createGizmo();
 
     _attachCanvasClickHandler(this);
+    this._attachPointerHandlers();
+    if (this.options.keyboard) this._attachKeyboard();
 
     // On macOS, Chrome latches wheel events to whichever element is under the
     // cursor at the start of a gesture.  If that element is an overlaid UI panel
@@ -181,6 +283,7 @@ class Baselode3DScene {
     // but did NOT originate from the canvas itself.
     this._wheelRelay = (e) => {
       if (e.target === this.renderer.domElement) return; // already going to OrbitControls
+      if (isTypingTarget(e.target) || e.target?.closest?.('[data-baselode-scroll]')) return;
       e.preventDefault();
       this.renderer.domElement.dispatchEvent(new WheelEvent('wheel', {
         clientX: e.clientX,
@@ -197,21 +300,34 @@ class Baselode3DScene {
     };
     this.container.addEventListener('wheel', this._wheelRelay, { passive: false });
 
-    // Selection glow post-processing
+    // Selection glow post-processing (blocks and structural discs)
     initSelectionGlow(this);
+
+    // Orbit pivot marker
+    if (this.options.pivotIndicator) {
+      this.anchors.pivot = createPivotIndicator({ color: hexToCss(this.options.accent) });
+      if (this.anchors.pivot) this.scene.add(this.anchors.pivot);
+    }
 
     // Animation loop
     const animate = () => {
       this.frameId = requestAnimationFrame(animate);
       const delta = this.clock.getDelta();
-      this.renderer.clear();
+      const now = nowMs();
+      const tweening = updateCameraTween(this, now);
       if (this.controlMode === 'fly' && this.flyControls?.enabled) {
         this.flyControls.update(delta);
-      } else if (this.controls) {
+      } else if (this.controls && !tweening) {
         this.controls.update();
       }
+      updateClipPlanes(this);
       this._emitViewChangeIfNeeded();
-      if (this._composer) {
+      const viewportHeight = this.container?.clientHeight || 1;
+      _updateDrillholeFrame(this, { dt: delta, viewportHeight });
+      this._updateAnchorsFrame(delta, viewportHeight, tweening);
+      this.renderer.clear();
+      const useComposer = this._composer && this._outlinePass && this._outlinePass.selectedObjects?.length > 0;
+      if (useComposer) {
         this._composer.render(delta);
       } else {
         this.renderer.render(this.scene, this.camera);
@@ -244,11 +360,14 @@ class Baselode3DScene {
     if (this.renderer && this.handleCanvasClick) {
       this.renderer.domElement.removeEventListener('click', this.handleCanvasClick);
     }
+    this._listeners.forEach(({ target, type, fn, opts }) => target.removeEventListener(type, fn, opts));
+    this._listeners = [];
     if (this.gizmo) {
       this.gizmo.dispose();
       this.gizmo = null;
     }
     this.viewChangeHandler = null;
+    this.hoverHandler = null;
     _clearBlocks(this);
     _clearDrillholes(this);
     _clearStripLogs(this);
@@ -256,11 +375,15 @@ class Baselode3DScene {
     _clearRasterOverlays(this);
     _clearTerrain(this);
     disposeSelectionGlow(this);
+    this._disposeAnchors();
+    if (this.anchors.pivot) { this.scene?.remove(this.anchors.pivot); disposeAnchor(this.anchors.pivot); this.anchors.pivot = null; }
     if (this.container && this._wheelRelay) {
       this.container.removeEventListener('wheel', this._wheelRelay);
     }
     if (this.controls) this.controls.dispose();
     if (this.flyControls) this.flyControls.dispose();
+    this._environment?.dispose?.();
+    this._pmrem?.dispose?.();
     if (this.renderer) {
       this.renderer.dispose();
       if (this.container && this.renderer.domElement) {
@@ -273,40 +396,63 @@ class Baselode3DScene {
   // Data renderers — delegate to domain modules
   // ---------------------------------------------------------------------------
 
-  setDrillholes(holes, options = {}) { _setDrillholes(this, holes, options); }
+  /**
+   * Render drillholes as one merged tube mesh.
+   * @param {Array<object>} holes - desurveyed holes with `points`
+   * @param {object} [options] - see normalizeDrillholeRenderOptions in drillholeScene.js
+   */
+  setDrillholes(holes, options = {}) {
+    _setDrillholes(this, holes, options);
+    this._syncAnchors();
+  }
+
+  clearDrillholes() { _clearDrillholes(this); }
+
+  /**
+   * Recolour the drillholes by a different attribute without rebuilding
+   * geometry.  Accepts the same colour options as setDrillholes.
+   * @returns {object|null} legend
+   */
+  setDrillholeColorBy(options = {}) { return _setDrillholeColorBy(this, options); }
+
+  /** Tube radius (scene units) or `{ radius, screenPixels }` for constant pixel width. */
+  setDrillholeRadius(value) { _setDrillholeRadius(this, value); }
+
+  /** Ghost every hole whose id is not in the iterable; null shows all. */
+  setDrillholeFilter(visibleIds) { _setDrillholeFilter(this, visibleIds); }
+
+  /** Highlight a hole (null clears). */
+  setSelectedDrillhole(holeId) { return _setSelectedDrillhole(this, holeId); }
+  getSelectedDrillhole() { return _getSelectedDrillhole(this); }
+
+  /** Legend entries matching the current drillhole colouring. */
+  getDrillholeLegend() { return _getDrillholeLegend(this); }
+  getDrillholeMeta() { return _getDrillholeMeta(this); }
+
+  /** Toggle hole labels, collar markers and collar drop lines. */
+  setDrillholeAnnotations(flags) { _setDrillholeAnnotations(this, flags); }
+
+  /** Configure the far level of detail. */
+  setDrillholeLod(opts) { _setDrillholeLod(this, opts); }
 
   /**
    * Add floating 2D strip log panels beside drillholes in the 3D scene.
-   * Each panel is a flat rectangle offset from the hole collar, depth-registered
-   * to the hole's vertical extent and containing a line graph of numeric data.
-   *
    * @param {Array<object>} holes - Hole objects (same array as passed to setDrillholes)
-   * @param {Array<object>} stripLogs - Strip log definitions.  Each must contain:
-   *   - `holeId`  {string}    — must match a hole id
-   *   - `depths`  {number[]}  — downhole depth positions for each sample
-   *   - `values`  {number[]}  — numeric value at each depth
-   *   - `options` {object}    — optional: panelWidth, lateralOffset, color, valueMin, valueMax
+   * @param {Array<object>} stripLogs - Strip log definitions (see stripLogScene.js)
    */
   setStripLogs(holes, stripLogs) { _setStripLogs(this, holes, stripLogs); }
 
-  /**
-   * Remove all strip log panels from the scene and free GPU resources.
-   */
+  /** Remove all strip log panels from the scene and free GPU resources. */
   clearStripLogs() { _clearStripLogs(this); }
 
   /**
    * Render block model data as a single merged mesh of exterior faces only.
-   * @param {Array<Object>} data - Block rows (canonical column names)
-   * @param {string} selectedProperty - Attribute column used for colouring
-   * @param {Object} stats - Property statistics
-   * @param {Object} [options]
    */
-  setBlocks(data, selectedProperty, stats, options = {}) { _setBlocks(this, data, selectedProperty, stats, options); }
+  setBlocks(data, selectedProperty, stats, options = {}) {
+    _setBlocks(this, data, selectedProperty, stats, options);
+    this._syncAnchors();
+  }
 
-  /**
-   * Update the opacity of all currently rendered blocks.
-   * @param {number} opacity - New opacity value between 0 and 1
-   */
   setBlockOpacity(opacity) { _setBlockOpacity(this, opacity); }
 
   setStructuralDiscs(structures, holes, opts = {}) { _setStructuralDiscs(this, structures, holes, opts); }
@@ -314,20 +460,34 @@ class Baselode3DScene {
   setStructuralDiscsVisible(visible) { _setStructuralDiscsVisible(this, visible); }
 
   // ---------------------------------------------------------------------------
-  // Click handlers
+  // Handlers
   // ---------------------------------------------------------------------------
 
   setDrillholeClickHandler(handler) {
-    this.drillholeClickHandler = handler;
+    this.drillholeClickHandler = typeof handler === 'function' ? handler : null;
   }
 
-  /**
-   * Register a click handler for block selection.
-   * @param {Function|null} handler - Callback ``(blockData) => void``, or null to clear
-   */
   setBlockClickHandler(handler) {
     this.blockClickHandler = typeof handler === 'function' ? handler : null;
   }
+
+  /** Called with hover info ({ type, x, y, z, holeId?, md? } or null) as the pointer moves. */
+  setHoverHandler(handler) {
+    this.hoverHandler = typeof handler === 'function' ? handler : null;
+  }
+
+  /** Called when the user clicks empty space. */
+  setEmptyClickHandler(handler) {
+    this.emptyClickHandler = typeof handler === 'function' ? handler : null;
+  }
+
+  /** Called when Escape is pressed over the viewport (after the scene clears its own selection). */
+  setEscapeHandler(handler) {
+    this.escapeHandler = typeof handler === 'function' ? handler : null;
+  }
+
+  /** Last hover info, or null. */
+  getHover() { return this._hover; }
 
   // ---------------------------------------------------------------------------
   // Camera controls — delegate to baselode3dCameraControls
@@ -343,15 +503,61 @@ class Baselode3DScene {
   _buildViewSignature(viewState) { return buildViewSignature(viewState); }
   _emitViewChangeIfNeeded() { emitViewChangeIfNeeded(this); }
 
-  _fitCameraToBounds({ minX, maxX, minY, maxY, minZ, maxZ }) {
-    fitCameraToBounds(this, { minX, maxX, minY, maxY, minZ, maxZ });
+  _fitCameraToBounds(bounds, opts) {
+    fitCameraToBounds(this, bounds, opts);
   }
 
   recenterCameraToOrigin(distance = 1000) { recenterCameraToOrigin(this, distance); }
-  lookDown(distance = 2000) { lookDown(this, distance); }
+
+  /** Recentre on the scene extent, keeping the viewing direction. */
+  recenter(opts = {}) { recenterOnBounds(this, this.lastBounds, { animate: true, ...opts }); }
+
+  lookDown(distance, opts = {}) {
+    let d = distance;
+    if (!Number.isFinite(d) || d <= 0) {
+      d = this.lastBounds ? fitDistanceForRadius(this.camera, boundsSphere(this.lastBounds).radius, 1.2) : 2000;
+    }
+    lookDown(this, d, { animate: true, ...opts });
+  }
+
   pan(dx = 0, dy = 0) { pan(this, dx, dy); }
   dolly(scale = 1.1) { dolly(this, scale); }
-  focusOnLastBounds(padding = 1.2) { focusOnLastBounds(this, padding); }
+  focusOnLastBounds(padding = 1.2, opts = {}) { focusOnLastBounds(this, padding, { animate: true, ...opts }); }
+
+  /** Frame everything (animated). */
+  fitAll(opts = {}) { focusOnLastBounds(this, 1.15, { animate: true, ...opts }); }
+
+  /** Move the orbit target to a point and dolly to it. */
+  focusOnPoint(point, opts = {}) { focusOnPoint(this, point, { animate: true, ...opts }); }
+
+  /** Snap to a cardinal view: 'north' | 'south' | 'east' | 'west' | 'top' | 'bottom'. */
+  viewFrom(name, opts = {}) { viewFromDirection(this, name, { animate: true, ...opts }); }
+
+  /** Frame the selected hole, or everything when nothing is selected. */
+  frameSelection() {
+    const holeId = _getSelectedDrillhole(this);
+    const meta = holeId != null ? _getDrillholeMeta(this).find((h) => h.id === holeId) : null;
+    if (!meta) { this.fitAll(); return; }
+    const centre = {
+      x: (meta.collar.x + meta.eoh.x) / 2,
+      y: (meta.collar.y + meta.eoh.y) / 2,
+      z: (meta.collar.z + meta.eoh.z) / 2,
+    };
+    const span = Math.max(meta.length, 1) * 0.55;
+    focusOnPoint(this, centre, { distance: fitDistanceForRadius(this.camera, span, 1.25), animate: true });
+  }
+
+  /** Move the orbit pivot to the selected hole without changing distance. */
+  pivotToSelection() {
+    const holeId = _getSelectedDrillhole(this);
+    const meta = holeId != null ? _getDrillholeMeta(this).find((h) => h.id === holeId) : null;
+    if (!meta) return;
+    focusOnPoint(this, {
+      x: (meta.collar.x + meta.eoh.x) / 2,
+      y: (meta.collar.y + meta.eoh.y) / 2,
+      z: (meta.collar.z + meta.eoh.z) / 2,
+    }, { animate: true });
+  }
 
   /**
    * Change the camera field-of-view while keeping the visible scene the same apparent size.
@@ -359,16 +565,118 @@ class Baselode3DScene {
    */
   setCameraFov(fovDeg) { setFov(this, fovDeg); }
 
+  /** Switch projection: 'perspective' | 'orthographic'. */
+  setProjection(mode) {
+    const applied = setProjection(this, mode, {
+      createOrthographic: (l, r, t, b, n, f) => new THREE.OrthographicCamera(l, r, t, b, n, f),
+    });
+    if (applied) this.projection = this.camera.isOrthographicCamera ? 'orthographic' : 'perspective';
+    return applied;
+  }
+
+  getProjection() { return this.camera?.isOrthographicCamera ? 'orthographic' : 'perspective'; }
+
+  toggleProjection() {
+    return this.setProjection(this.getProjection() === 'orthographic' ? 'perspective' : 'orthographic');
+  }
+
   /**
    * Set the scene background colour.
-   * @param {'white'|'black'} colour
+   * @param {'white'|'black'|string} colour
    */
   setBackground(colour) {
     if (!this.scene) return;
-    this.scene.background = new THREE.Color(colour === 'black' ? 0x000000 : 0xffffff);
+    const c = new THREE.Color(colour === 'black' ? 0x000000 : colour === 'white' ? 0xffffff : colour);
+    const wasDark = this.isDarkBackground;
+    this.scene.background = c;
+    this.isDarkBackground = relativeLuminance(c) < 0.4;
+    this._ghostColor = c.clone();
+    _setDrillholeGhostColor(this, c);
+    if (this.scene.fog) this.scene.fog.color.copy(c);
+    if (wasDark !== this.isDarkBackground) {
+      if (this.options.gizmo) this._createGizmo();
+      _rebuildDrillholeAnnotations(this);
+      this._rebuildAnchors();
+    }
   }
 
-  setControlMode(mode = 'orbit') { setControlMode(this, mode); }
+  setControlMode(mode = 'orbit') {
+    setControlMode(this, mode);
+  }
+
+  getControlMode() { return this.controlMode; }
+
+  // ---------------------------------------------------------------------------
+  // Anchors and atmosphere
+  // ---------------------------------------------------------------------------
+
+  setGroundGridVisible(visible) {
+    this.anchorVisibility.grid = Boolean(visible);
+    if (this.anchors.grid) this.anchors.grid.visible = this.anchorVisibility.grid;
+  }
+
+  setExtentBoxVisible(visible) {
+    this.anchorVisibility.extent = Boolean(visible);
+    if (this.anchors.extent) this.anchors.extent.visible = this.anchorVisibility.extent;
+  }
+
+  /** Datum elevation for the ground grid and collar drop lines. */
+  setGridElevation(elevation) {
+    if (!Number.isFinite(elevation)) return;
+    this._gridElevation = elevation;
+    this._rebuildAnchors();
+    _setDrillholeDatum(this, elevation);
+  }
+
+  getGridInfo() {
+    const info = this.anchors.gridInfo;
+    return info ? { spacing: info.spacing, elevation: info.elevation } : null;
+  }
+
+  setFogEnabled(enabled) {
+    this.fogEnabled = Boolean(enabled);
+    if (!this.scene) return;
+    if (!this.fogEnabled || !this.lastBounds) {
+      this.scene.fog = null;
+      return;
+    }
+    const { radius } = boundsSphere(this.lastBounds);
+    const bg = this.scene.background instanceof THREE.Color ? this.scene.background : new THREE.Color(0xffffff);
+    this.scene.fog = new THREE.FogExp2(bg.getHex(), 1.1 / (radius * 9));
+  }
+
+  // ---------------------------------------------------------------------------
+  // HUD readouts
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Snapshot of everything a heads-up display needs: heading, scale, pivot,
+   * bounds, grid, projection and the frustum footprint on the grid plane.
+   */
+  getHudState() {
+    if (!this.camera || !this.controls) return null;
+    const heading = getCameraHeading(this);
+    const viewportHeight = this.container?.clientHeight || 1;
+    const grid = this.anchors.gridInfo;
+    const target = this.controls.target;
+    return {
+      azimuthDeg: heading.azimuthDeg,
+      pitchDeg: heading.pitchDeg,
+      unitsPerPixel: unitsPerPixel(this, viewportHeight),
+      target: { x: target.x, y: target.y, z: target.z },
+      camera: { x: this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z },
+      bounds: this.lastBounds ? { ...this.lastBounds } : null,
+      gridSpacing: grid?.spacing ?? null,
+      gridElevation: grid?.elevation ?? null,
+      projection: this.getProjection(),
+      controlMode: this.controlMode,
+      animating: isCameraAnimating(this),
+      selectedHoleId: _getDrillholeSelected(this),
+      lodActive: Boolean(this.drillholeLayer?.lod?.active),
+      footprint: this._frustumFootprint(grid?.elevation ?? this.lastBounds?.maxZ ?? 0),
+      walkSpeed: this.flyControls?.movementSpeed ?? null,
+    };
+  }
 
   // ---------------------------------------------------------------------------
   // Selection glow public API
@@ -376,29 +684,14 @@ class Baselode3DScene {
 
   _syncSelectables() { syncSelectables(this); }
 
-  /**
-   * Register the objects that are candidates for click-select glow.
-   * @param {THREE.Object3D[]} objects
-   */
   setSelectableObjects(objects) {
     this.selectables = Array.isArray(objects) ? objects.slice() : [];
   }
 
-  /**
-   * Programmatically select an object (or pass null to clear).
-   * @param {THREE.Object3D|null} object
-   */
   selectObject(object) { applySelection(this, object || null); }
 
-  /**
-   * Return the currently selected object, or null if nothing is selected.
-   * @returns {THREE.Object3D|null}
-   */
   getSelectedObject() { return this._selectedObject || null; }
 
-  /**
-   * Dispose the effect composer and all GPU resources used by the selection glow.
-   */
   disposeGlow() { disposeSelectionGlow(this); }
 
   /** @private */
@@ -408,84 +701,281 @@ class Baselode3DScene {
   // Raster overlay API — delegate to rasterOverlayScene
   // ---------------------------------------------------------------------------
 
-  /**
-   * Add a raster overlay layer (created with createRasterOverlay) to the scene.
-   * @param {object} layer - Layer descriptor returned by createRasterOverlay()
-   */
   addRasterOverlay(layer) { _addRasterOverlay(this, layer); }
-
-  /**
-   * Remove a raster overlay from the scene and dispose its GPU resources.
-   * @param {string} id - Overlay id
-   */
   removeRasterOverlay(id) { _removeRasterOverlay(this, id); }
-
-  /**
-   * Set the opacity of a raster overlay at runtime.
-   * @param {string} id - Overlay id
-   * @param {number} opacity - New opacity [0, 1]
-   */
   setRasterOverlayOpacity(id, opacity) { _setRasterOverlayOpacity(this, id, opacity); }
-
-  /**
-   * Show or hide a raster overlay.
-   * @param {string} id - Overlay id
-   * @param {boolean} visible
-   */
   setRasterOverlayVisibility(id, visible) { _setRasterOverlayVisibility(this, id, visible); }
-
-  /**
-   * Update the elevation (Z position) of a raster overlay.
-   * @param {string} id - Overlay id
-   * @param {number} elevation
-   */
   setRasterOverlayElevation(id, elevation) { _setRasterOverlayElevation(this, id, elevation); }
-
-  /**
-   * Return a raster overlay by id, or undefined if not found.
-   * @param {string} id
-   * @returns {object|undefined}
-   */
   getRasterOverlay(id) { return _getRasterOverlay(this, id); }
-
-  /**
-   * Return all raster overlay layers in insertion order.
-   * @returns {object[]}
-   */
   listRasterOverlays() { return _listRasterOverlays(this); }
 
   // ---------------------------------------------------------------------------
   // Terrain surface API — delegate to terrainScene
   // ---------------------------------------------------------------------------
 
-  /**
-   * Set the scene's terrain layer, replacing and disposing any existing one.
-   * @param {object} layer - Layer descriptor returned by createTerrainSurface()
-   */
   setTerrain(layer) { _setTerrain(this, layer); }
-
-  /**
-   * Remove the scene's terrain layer (if any) and dispose its GPU resources.
-   */
   clearTerrain() { _clearTerrain(this); }
-
-  /**
-   * Set the terrain layer's opacity at runtime.
-   * @param {number} opacity - New opacity [0, 1]
-   */
   setTerrainOpacity(opacity) { _setTerrainOpacity(this, opacity); }
-
-  /**
-   * Show or hide the terrain layer.
-   * @param {boolean} visible
-   */
   setTerrainVisible(visible) { _setTerrainVisibility(this, visible); }
-
-  /**
-   * Return the scene's current terrain layer, or null if none is set.
-   * @returns {object|null}
-   */
   getTerrain() { return _getTerrain(this); }
+
+  // ---------------------------------------------------------------------------
+  // Internals
+  // ---------------------------------------------------------------------------
+
+  _createGizmo() {
+    if (!this.renderer || !this.camera) return;
+    if (this.gizmo) { this.gizmo.dispose(); this.gizmo = null; }
+    const dark = this.isDarkBackground;
+    const accent = this.options.accent;
+    const face = (label) => ({
+      label,
+      color: dark ? 0x2b2b3a : 0xe6e4ee,
+      labelColor: dark ? 0xe9e8f1 : 0x23223a,
+      border: { size: 1.5, color: dark ? 0x5a5970 : 0x9b99b3 },
+      hover: { color: accent, labelColor: 0xffffff, border: { size: 1, color: accent } },
+    });
+    try {
+      this.gizmo = new ViewportGizmo(this.camera, this.renderer, {
+        container: this.container,
+        type: 'cube',
+        size: 96,
+        placement: 'top-right',
+        offset: { top: 14, right: 14 },
+        animated: true,
+        speed: 2,
+        resolution: 256,
+        lineWidth: 2,
+        font: { family: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', weight: 600 },
+        background: { enabled: false },
+        edges: { color: dark ? 0x3d3c4e : 0xc4c2d3, radius: 1, hover: { color: accent } },
+        corners: { color: dark ? 0x55546a : 0xaeacc0, radius: 0.15, hover: { color: accent } },
+        x: face('E'), nx: face('W'),
+        y: face('N'), ny: face('S'),
+        z: face('UP'), nz: face('DOWN'),
+      });
+      this.gizmo.attachControls(this.controls);
+    } catch (err) {
+      console.warn('Baselode3DScene: cube gizmo unavailable, falling back to sphere', err);
+      this.gizmo = new ViewportGizmo(this.camera, this.renderer, {
+        container: this.container, placement: 'top-right', size: 96, offset: { top: 14, right: 14 },
+      });
+      this.gizmo.attachControls(this.controls);
+    }
+  }
+
+  _listen(target, type, fn, opts) {
+    target.addEventListener(type, fn, opts);
+    this._listeners.push({ target, type, fn, opts });
+  }
+
+  _attachPointerHandlers() {
+    const canvas = this.renderer.domElement;
+    this._listen(canvas, 'pointerdown', (e) => {
+      cancelCameraTween(this);
+      this._lastInteractionMs = nowMs();
+      try { canvas.focus({ preventScroll: true }); } catch { /* ignore */ }
+      if (this.controlMode !== 'orbit' || !this.controls?.enabled) return;
+      if (!primeRaycasterFromEvent(this, e)) return;
+      // Orbit / pan around whatever is under the cursor: move the target to
+      // that depth along the view axis so the view itself does not jump.
+      const hit = pickScene(this);
+      if (hit && Number.isFinite(hit.distance) && hit.distance > 0) setOrbitDepth(this, hit.distance);
+    });
+    this._listen(canvas, 'dblclick', (e) => {
+      if (this.controlMode !== 'orbit') return;
+      if (!primeRaycasterFromEvent(this, e)) return;
+      const hit = pickScene(this);
+      if (!hit) { this.fitAll(); return; }
+      let distance = this.camera.position.distanceTo(this.controls.target) * 0.45;
+      if (hit.type === 'drillhole') {
+        const meta = this.drillholeLayer?.holes?.[hit.holeIndex];
+        if (meta) distance = fitDistanceForRadius(this.camera, Math.max(meta.length, 1) * 0.55, 1.25);
+      }
+      focusOnPoint(this, hit.point, { distance, animate: true });
+    });
+    this._listen(canvas, 'pointermove', (e) => {
+      const now = nowMs();
+      if (now - this._hoverStampMs < HOVER_THROTTLE_MS) return;
+      this._hoverStampMs = now;
+      if (this._interacting || e.buttons) return;
+      if (!primeRaycasterFromEvent(this, e)) return;
+      const hit = pickScene(this);
+      let hover = null;
+      if (hit) {
+        hover = { type: hit.type, x: hit.point.x, y: hit.point.y, z: hit.point.z };
+        if (hit.type === 'drillhole') { hover.holeId = hit.holeId; hover.md = hit.md; hover.project = hit.project; }
+        if (hit.type === 'block') hover.block = hit.block;
+      } else {
+        const elevation = this.anchors.gridInfo?.elevation ?? this.lastBounds?.maxZ;
+        if (Number.isFinite(elevation)) {
+          const p = intersectHorizontalPlane(this.raycaster.ray, elevation);
+          if (p) hover = { type: 'ground', x: p.x, y: p.y, z: p.z };
+        }
+      }
+      this._setHover(hover);
+    });
+    this._listen(canvas, 'pointerleave', () => this._setHover(null));
+    this._listen(this.container, 'pointerenter', () => { this._pointerInside = true; });
+    this._listen(this.container, 'pointerleave', () => { this._pointerInside = false; });
+    // Right-click is the rotate button; keep the browser menu out of the way.
+    this._listen(canvas, 'contextmenu', (e) => e.preventDefault());
+  }
+
+  _setHover(hover) {
+    const prev = this._hover;
+    const same = (!prev && !hover) || (prev && hover && prev.type === hover.type && prev.holeId === hover.holeId
+      && Math.abs(prev.x - hover.x) < 1e-6 && Math.abs(prev.y - hover.y) < 1e-6 && Math.abs(prev.z - hover.z) < 1e-6);
+    if (same) return;
+    this._hover = hover;
+    this.hoverHandler?.(hover);
+  }
+
+  _attachKeyboard() {
+    if (typeof window === 'undefined') return;
+    const canvas = this.renderer.domElement;
+    this._listen(window, 'keydown', (e) => {
+      if (isTypingTarget(e.target)) return;
+      const focused = typeof document !== 'undefined' && document.activeElement === canvas;
+      if (!focused && !this._pointerInside) return;
+      if (e.altKey) return;
+      const ctrl = e.ctrlKey || e.metaKey;
+      const helper = this._baselodeViewingHelper;
+      let handled = true;
+      switch (e.code) {
+        case 'Escape':
+          _setSelectedDrillhole(this, null);
+          applySelection(this, null);
+          this.escapeHandler?.();
+          break;
+        case 'KeyG':
+          if (this.controlMode === 'fly') { handled = false; break; }
+          this.setGroundGridVisible(!this.anchorVisibility.grid);
+          this.setExtentBoxVisible(this.anchorVisibility.grid);
+          break;
+        case 'KeyL':
+          if (this.controlMode === 'fly') { handled = false; break; }
+          if (this.drillholeLayer) _setDrillholeAnnotations(this, { labels: !this.drillholeLayer.show.labels });
+          break;
+        case 'BracketLeft':
+        case 'BracketRight':
+          if (helper?.active && typeof helper.step === 'function') {
+            const step = helper.width || this.anchors.gridInfo?.spacing || 10;
+            helper.step(e.code === 'BracketRight' ? step : -step);
+            this.sectionStepHandler?.(helper.position);
+          } else handled = false;
+          break;
+        default:
+          handled = false;
+      }
+      if (!handled && this.controlMode === 'orbit' && !helper?.active) {
+        handled = true;
+        switch (e.code) {
+          case 'Digit1': case 'Numpad1': this.viewFrom(ctrl ? 'south' : 'north'); break;
+          case 'Digit3': case 'Numpad3': this.viewFrom(ctrl ? 'west' : 'east'); break;
+          case 'Digit7': case 'Numpad7': this.viewFrom(ctrl ? 'bottom' : 'top'); break;
+          case 'Digit5': case 'Numpad5': this.toggleProjection(); this.projectionChangeHandler?.(this.getProjection()); break;
+          case 'KeyF': this.frameSelection(); break;
+          case 'Home': this.fitAll(); break;
+          case 'Period': case 'NumpadDecimal': this.pivotToSelection(); break;
+          default: handled = false;
+        }
+      }
+      if (handled) e.preventDefault();
+    });
+  }
+
+  /** Called when the projection is toggled from the keyboard. */
+  setProjectionChangeHandler(handler) { this.projectionChangeHandler = typeof handler === 'function' ? handler : null; }
+  /** Called with the new position when a section / slab is stepped from the keyboard. */
+  setSectionStepHandler(handler) { this.sectionStepHandler = typeof handler === 'function' ? handler : null; }
+
+  _syncAnchors() {
+    if (!this.scene) return;
+    const b = this.lastBounds;
+    const key = b ? [b.minX, b.maxX, b.minY, b.maxY, b.minZ, b.maxZ].map((v) => v.toFixed(2)).join('|') : '';
+    if (key === this.anchors.boundsKey) return;
+    this.anchors.boundsKey = key;
+    this._rebuildAnchors();
+    if (this.fogEnabled) this.setFogEnabled(true);
+    if (this.flyControls) this.flyControls.setSpeedFromBounds?.(b);
+  }
+
+  _rebuildAnchors() {
+    if (!this.scene) return;
+    this._disposeAnchors();
+    const b = this.lastBounds;
+    if (!b) return;
+    const dark = this.isDarkBackground;
+    const grid = describeGrid(b, { elevation: this._gridElevation });
+    this.anchors.gridInfo = grid;
+    this.anchors.grid = createGroundGrid(grid, { dark });
+    this.anchors.grid.visible = this.anchorVisibility.grid;
+    this.scene.add(this.anchors.grid);
+    this.anchors.extent = createExtentBox(b, { dark });
+    this.anchors.extent.visible = this.anchorVisibility.extent;
+    this.scene.add(this.anchors.extent);
+  }
+
+  _disposeAnchors() {
+    if (this.anchors.grid) { this.scene?.remove(this.anchors.grid); disposeAnchor(this.anchors.grid); this.anchors.grid = null; }
+    if (this.anchors.extent) { this.scene?.remove(this.anchors.extent); disposeAnchor(this.anchors.extent); this.anchors.extent = null; }
+  }
+
+  _updateAnchorsFrame(dt, viewportHeight, tweening) {
+    if (this.anchors.pivot && this.controls) {
+      const recent = nowMs() - this._lastInteractionMs < 450;
+      updatePivotIndicator(this.anchors.pivot, {
+        target: this.controls.target,
+        camera: this.camera,
+        viewportHeight,
+        active: this.controlMode === 'orbit' && (this._interacting || recent || tweening),
+        dt,
+      });
+    }
+    updateExtentLabels(this.anchors.extent, this.camera, viewportHeight);
+  }
+
+  _frustumFootprint(elevation) {
+    if (!this.camera || !Number.isFinite(elevation)) return null;
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    const near = new THREE.Vector3();
+    const far = new THREE.Vector3();
+    const ray = new THREE.Ray();
+    return corners.map(([x, y]) => {
+      near.set(x, y, -1).unproject(this.camera);
+      far.set(x, y, 1).unproject(this.camera);
+      ray.origin.copy(near);
+      ray.direction.copy(far).sub(near).normalize();
+      const p = intersectHorizontalPlane(ray, elevation);
+      return p ? { x: p.x, y: p.y } : null;
+    });
+  }
+}
+
+function _getDrillholeSelected(scene) {
+  return _getSelectedDrillhole(scene);
+}
+
+function nowMs() {
+  return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+}
+
+function hexToCss(hex) {
+  return `#${Number(hex).toString(16).padStart(6, '0')}`;
+}
+
+function relativeLuminance(color) {
+  return 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+}
+
+const _planeHit = new THREE.Vector3();
+function intersectHorizontalPlane(ray, elevation) {
+  const dz = ray.direction.z;
+  if (Math.abs(dz) < 1e-9) return null;
+  const t = (elevation - ray.origin.z) / dz;
+  if (t <= 0) return null;
+  return _planeHit.copy(ray.origin).addScaledVector(ray.direction, t).clone();
 }
 
 export default Baselode3DScene;

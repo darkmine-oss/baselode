@@ -28,7 +28,22 @@ export function initSelectionGlow(sceneCtx) {
   const width = container?.clientWidth || renderer.domElement.clientWidth || 1;
   const height = container?.clientHeight || renderer.domElement.clientHeight || 1;
 
-  const composer = new EffectComposer(renderer);
+  // Multisampled render target so the composer keeps the renderer's
+  // antialiasing; the default target has no samples and would leave thin
+  // tube edges jagged whenever the outline pass is active.
+  const pixelRatio = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  let composer;
+  try {
+    const target = new THREE.WebGLRenderTarget(
+      Math.max(1, Math.floor(width * pixelRatio)),
+      Math.max(1, Math.floor(height * pixelRatio)),
+      { type: THREE.HalfFloatType, samples: 4 },
+    );
+    composer = new EffectComposer(renderer, target);
+    if (typeof composer.setPixelRatio === 'function') composer.setPixelRatio(pixelRatio);
+  } catch {
+    composer = new EffectComposer(renderer);
+  }
 
   const renderPass = new RenderPass(scene, camera);
   composer.addPass(renderPass);

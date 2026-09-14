@@ -52,16 +52,31 @@ function SectionOverview({ bounds, sectionAxis, sectionPosition, sliceAxis, slic
   );
 }
 
+function Toggle({ checked, onChange, label, title }) {
+  return (
+    <label className="baselode-3d-controls-checkbox" title={title}>
+      <input type="checkbox" checked={Boolean(checked)} onChange={(e) => onChange(e.target.checked)} />
+      {label}
+    </label>
+  );
+}
+
 /**
- * 3D scene control buttons component
- * Provides UI controls for camera manipulation in the 3D drillhole viewer
- * @param {Object} props - Component props
- * @param {string} props.controlMode - Current control mode ('orbit' or 'fly')
- * @param {Function} props.onToggleFly - Handler for toggling fly mode
- * @param {Function} props.onRecenter - Handler for recentering camera
- * @param {Function} props.onLookDown - Handler for top-down view
- * @param {Function} props.onFit - Handler for fitting camera to scene
- * @returns {JSX.Element} Control buttons component
+ * 3D scene control panel.
+ *
+ * Existing props (camera / section / slab) are unchanged.  The new groups
+ * render only when their handler is supplied, so hosts can opt in piecemeal:
+ *
+ *   projection / onToggleProjection          perspective ↔ orthographic
+ *   showGrid / onToggleGrid                  ground grid
+ *   showExtent / onToggleExtent              extent box
+ *   showLabels / onToggleLabels              hole-id labels
+ *   showCollars / onToggleCollars            collar markers
+ *   fog / onToggleFog                        depth-cue fog
+ *   radiusScale / onSetRadiusScale           tube thickness multiplier (0.25–4)
+ *   constantWidth / onToggleConstantWidth    screen-constant tube width
+ *   lodEnabled / onToggleLod                 far-view line level of detail
+ *   filterText / onSetFilterText             ghost holes not matching text
  */
 function Baselode3DControls({
   controlMode = 'orbit',
@@ -87,9 +102,31 @@ function Baselode3DControls({
   overviewBounds = null,
   overviewPoints = [],
   overviewPaths = [],
+  projection = 'perspective',
+  onToggleProjection = null,
+  showGrid = true,
+  onToggleGrid = null,
+  showExtent = false,
+  onToggleExtent = null,
+  showLabels = true,
+  onToggleLabels = null,
+  showCollars = true,
+  onToggleCollars = null,
+  fog = false,
+  onToggleFog = null,
+  radiusScale = 1,
+  onSetRadiusScale = null,
+  constantWidth = false,
+  onToggleConstantWidth = null,
+  lodEnabled = true,
+  onToggleLod = null,
+  filterText = '',
+  onSetFilterText = null,
 }) {
+  const hasSceneGroup = onToggleGrid || onToggleExtent || onToggleLabels || onToggleCollars || onToggleFog;
+  const hasHoleGroup = onSetRadiusScale || onToggleConstantWidth || onToggleLod || onSetFilterText;
   return (
-    <div className="baselode-3d-controls">
+    <div className={`baselode-3d-controls${darkBackground ? ' baselode-3d-controls--dark' : ''}`} data-baselode-scroll>
       <SectionOverview
         bounds={overviewBounds}
         sectionAxis={sectionAxis}
@@ -100,27 +137,58 @@ function Baselode3DControls({
         overviewPoints={overviewPoints}
         overviewPaths={overviewPaths}
       />
-      <button type="button" className="ghost-button" onClick={onRecenter}>
-        Recenter to (0,0,0)
-      </button>
-      <button type="button" className="ghost-button" onClick={onLookDown}>
-        Look down
-      </button>
-      <button type="button" className="ghost-button" onClick={onFit}>
-        Fit to scene
-      </button>
-      <button type="button" className="ghost-button" onClick={onToggleFly}>
-        {controlMode === 'orbit' ? 'Enable fly controls' : 'Disable fly controls'}
-      </button>
-      <label className="baselode-3d-controls-checkbox">
-        <input
-          type="checkbox"
-          checked={darkBackground}
-          onChange={onToggleDarkBackground}
-        />
-        Dark background
-      </label>
-      <div className="baselode-3d-controls-group">
+      <div className="baselode-3d-controls-group" role="group" aria-label="Camera">
+        <button type="button" className="ghost-button" onClick={onFit} title="Frame everything (Home)">Fit</button>
+        <button type="button" className="ghost-button" onClick={onLookDown} title="Look straight down (7)">Look down</button>
+        <button type="button" className="ghost-button" onClick={onRecenter} title="Recentre on the scene">Recentre</button>
+        {onToggleProjection && (
+          <button type="button" className={`ghost-button${projection === 'orthographic' ? ' active' : ''}`} onClick={onToggleProjection} title="Perspective / orthographic (5)">
+            {projection === 'orthographic' ? 'Ortho' : 'Persp'}
+          </button>
+        )}
+        <button type="button" className={`ghost-button${controlMode === 'fly' ? ' active' : ''}`} onClick={onToggleFly} title="First-person walk: W A S D, Q E, Shift">
+          {controlMode === 'orbit' ? 'Walk' : 'Exit walk'}
+        </button>
+      </div>
+      {hasSceneGroup && (
+        <div className="baselode-3d-controls-group" role="group" aria-label="Scene">
+          {onToggleGrid && <Toggle checked={showGrid} onChange={onToggleGrid} label="Grid" title="Ground grid at collar datum (G)" />}
+          {onToggleExtent && <Toggle checked={showExtent} onChange={onToggleExtent} label="Extent" title="Hairline extent box with dimensions" />}
+          {onToggleLabels && <Toggle checked={showLabels} onChange={onToggleLabels} label="Labels" title="Hole-id labels (L)" />}
+          {onToggleCollars && <Toggle checked={showCollars} onChange={onToggleCollars} label="Collars" title="Collar markers" />}
+          {onToggleFog && <Toggle checked={fog} onChange={onToggleFog} label="Fog" title="Depth-cue fog" />}
+          <Toggle checked={darkBackground} onChange={(v) => onToggleDarkBackground({ target: { checked: v } })} label="Dark" title="Dark background" />
+        </div>
+      )}
+      {!hasSceneGroup && (
+        <label className="baselode-3d-controls-checkbox">
+          <input type="checkbox" checked={darkBackground} onChange={onToggleDarkBackground} />
+          Dark background
+        </label>
+      )}
+      {hasHoleGroup && (
+        <div className="baselode-3d-controls-group" role="group" aria-label="Holes">
+          {onSetRadiusScale && (
+            <label className="baselode-3d-width-label" title="Tube thickness">
+              Thickness
+              <input aria-label="Tube thickness" className="baselode-3d-slider baselode-3d-slider--short" type="range" min="0.25" max="4" step="0.05" value={radiusScale} onChange={(e) => onSetRadiusScale(Number(e.target.value))} />
+            </label>
+          )}
+          {onToggleConstantWidth && <Toggle checked={constantWidth} onChange={onToggleConstantWidth} label="Px width" title="Keep tubes the same width on screen at any distance" />}
+          {onToggleLod && <Toggle checked={lodEnabled} onChange={onToggleLod} label="Far LOD" title="Draw lines instead of tubes when zoomed far out" />}
+          {onSetFilterText && (
+            <input
+              aria-label="Filter holes by id"
+              className="baselode-3d-filter"
+              type="search"
+              placeholder="Filter hole id…"
+              value={filterText}
+              onChange={(e) => onSetFilterText(e.target.value)}
+            />
+          )}
+        </div>
+      )}
+      <div className="baselode-3d-controls-group" role="group" aria-label="Section">
         <button type="button" className={`ghost-button${sectionAxis === 'x' ? ' active' : ''}`} onClick={() => onToggleSection('x')}>Section X</button>
         <button type="button" className={`ghost-button${sectionAxis === 'y' ? ' active' : ''}`} onClick={() => onToggleSection('y')}>Section Y</button>
         {sectionAxis && sectionRange && (
@@ -136,7 +204,7 @@ function Baselode3DControls({
           />
         )}
       </div>
-      <div className="baselode-3d-controls-group">
+      <div className="baselode-3d-controls-group" role="group" aria-label="Slab">
         <button type="button" className={`ghost-button${sliceAxis ? ' active' : ''}`} onClick={() => onToggleSlice(sliceAxis || 'x')}>Slice</button>
         {sliceAxis && <>
           <button type="button" className={`ghost-button${sliceAxis === 'x' ? ' active' : ''}`} onClick={() => onSetSliceAxis('x')}>X</button>

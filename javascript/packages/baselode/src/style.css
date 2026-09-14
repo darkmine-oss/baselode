@@ -7,5 +7,6 @@
  * into a single dist/style.css via vite build.
  */
 @import './viz/Baselode3DControls.css';
+@import './viz/Baselode3DHud.css';
 @import './viz/BlockModelWidget.css';
 @import './viz/TracePlot.css';

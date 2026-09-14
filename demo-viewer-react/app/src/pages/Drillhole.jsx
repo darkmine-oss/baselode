@@ -6,13 +6,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Baselode3DScene,
   Baselode3DControls,
+  Baselode3DHud,
   SectionHelper,
   SliceHelper,
   parseDrillholesCSV,
   parseSurveyCSV,
   minimumCurvatureDesurvey,
   classifyColumns,
-  getCategoryHexColor,
   COMMODITY_COLOURS,
 } from 'baselode';
 import 'baselode/style.css';
@@ -25,19 +25,12 @@ import {
 import { createPortal } from 'react-dom';
 import { useDemoData } from '../context/DemoDataContext.jsx';
 
-const ASSAY_COLOR_PALETTE_10 = [
-  '#313695',
-  '#4575b4',
-  '#74add1',
-  '#abd9e9',
-  '#e0f3f8',
-  '#fee090',
-  '#fdae61',
-  '#f46d43',
-  '#d73027',
-  '#a50026'
+const MAX_SCENE_HOLES = 500;
+const SCALE_MODES = [
+  { value: 'quantile', label: 'Quantile bins' },
+  { value: 'linear', label: 'Linear' },
+  { value: 'log', label: 'Log' },
 ];
-const MAX_SCENE_HOLES = 100;
 // FOV stops from nearly-orthographic to full perspective
 const FOV_STEPS = [1, 4, 8, 14, 21, 28];
 const CAMERA_CACHE_KEY = 'baselode-drillhole-camera-v1';
@@ -70,6 +63,22 @@ function Drillhole() {
   const [sliceAxis, setSliceAxis] = useState(null);
   const [slicePosition, setSlicePosition] = useState(0);
   const [sliceWidth, setSliceWidth] = useState(50);
+  const [sceneInstance, setSceneInstance] = useState(null);
+  const [legend, setLegend] = useState(null);
+  const [scaleMode, setScaleMode] = useState('quantile');
+  const [continuous, setContinuous] = useState(false);
+  const [projection, setProjection] = useState('perspective');
+  const [showGrid, setShowGrid] = useState(true);
+  const [showExtent, setShowExtent] = useState(false);
+  const [showLabels, setShowLabels] = useState(true);
+  const [showCollars, setShowCollars] = useState(true);
+  const [fog, setFog] = useState(false);
+  const [radiusScale, setRadiusScale] = useState(1);
+  const [constantWidth, setConstantWidth] = useState(false);
+  const [lodEnabled, setLodEnabled] = useState(true);
+  const [filterText, setFilterText] = useState('');
+  const baseRadiusRef = useRef(1);
+  const colorOptionsRef = useRef(null);
 
   const assayVariables = useMemo(() => {
     const numeric = (assayState?.numericProps || []).filter(Boolean);
@@ -131,14 +140,14 @@ function Drillhole() {
     return logs.length ? logs : null;
   }, [showStripLogs, holes, selectedAssayIntervalsByHole, isCategorical, colorByVariable]);
 
-  const legendScale = useMemo(() => {
-    if (!selectedAssayIntervalsByHole || isCategorical || colorByVariable === '__HAS_ASSAY__') return null;
-    const values = Object.values(selectedAssayIntervalsByHole)
-      .flatMap((intervals) => (intervals || []).map((interval) => Number(interval?.value)))
-      .filter((value) => Number.isFinite(value));
-    const scale = buildEqualRangeColorScale(values, ASSAY_COLOR_PALETTE_10);
-    return scale?.bins?.length ? scale : null;
-  }, [selectedAssayIntervalsByHole, colorByVariable, isCategorical]);
+  const colorOptions = useMemo(() => ({
+    selectedAssayVariable: colorByVariable === 'None' ? '' : colorByVariable,
+    assayIntervalsByHole: isCategorical ? geologyCategoryIntervalsByHole : selectedAssayIntervalsByHole,
+    isCategoricalVariable: isCategorical,
+    scaleMode,
+    continuous,
+  }), [colorByVariable, isCategorical, geologyCategoryIntervalsByHole, selectedAssayIntervalsByHole, scaleMode, continuous]);
+  colorOptionsRef.current = colorOptions;
 
   const projectTo28350 = useMemo(() => {
     const def = '+proj=utm +zone=50 +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
@@ -240,12 +249,27 @@ function Drillhole() {
     let viewSaveInterval = null;
     scene.init(containerRef.current);
     scene.setDrillholeClickHandler((meta) => setSelectedHole(meta));
+    scene.setEmptyClickHandler(() => setSelectedHole(null));
+    scene.setProjectionChangeHandler((mode) => setProjection(mode));
+    scene.setSectionStepHandler((position) => {
+      if (sectionRef.current?.active) setSectionPosition(position);
+      if (sliceRef.current?.active) setSlicePosition(position);
+    });
+    scene.setEscapeHandler(() => {
+      setSelectedHole(null);
+      if (sectionRef.current?.active) { sectionRef.current.disable(); setSectionAxis(null); }
+      if (sliceRef.current?.active) { sliceRef.current.disable(); setSliceAxis(null); }
+      setControlMode('orbit');
+    });
     sectionRef.current = new SectionHelper(scene);
     sliceRef.current = new SliceHelper(scene);
     scene.setControlMode(controlMode);
+    // Only persist views once holes are on screen; otherwise React's dev-mode
+    // double mount would cache the pristine start-up camera and suppress the
+    // initial fit.
     if (typeof scene.setViewChangeHandler === 'function') {
       scene.setViewChangeHandler((viewState) => {
-        saveCachedCameraView(viewState);
+        if (renderedHolesRef.current) saveCachedCameraView(viewState);
       });
     } else {
       viewSaveInterval = window.setInterval(() => {
@@ -258,6 +282,8 @@ function Drillhole() {
       restoredCameraRef.current = setSceneViewState(scene, cachedView);
     }
     sceneRef.current = scene;
+    setSceneInstance(scene);
+    if (typeof window !== 'undefined') window.__baselodeScene = scene; // dev aid for tooling and tests
 
     const handleResize = () => scene.resize();
     window.addEventListener('resize', handleResize);
@@ -265,13 +291,38 @@ function Drillhole() {
     return () => {
       if (viewSaveInterval) window.clearInterval(viewSaveInterval);
       const viewState = getSceneViewState(scene);
-      if (viewState) saveCachedCameraView(viewState);
+      if (viewState && renderedHolesRef.current) saveCachedCameraView(viewState);
       window.removeEventListener('resize', handleResize);
       sectionRef.current?.dispose();
       sliceRef.current?.dispose();
       scene.dispose();
+      setSceneInstance(null);
     };
   }, []);
+
+  // Scene presentation toggles
+  useEffect(() => { sceneRef.current?.setGroundGridVisible(showGrid); }, [showGrid, holes]);
+  useEffect(() => { sceneRef.current?.setExtentBoxVisible(showExtent); }, [showExtent, holes]);
+  useEffect(() => { sceneRef.current?.setDrillholeAnnotations({ labels: showLabels, collars: showCollars }); }, [showLabels, showCollars, holes]);
+  useEffect(() => { sceneRef.current?.setFogEnabled(fog); }, [fog, holes]);
+  useEffect(() => { sceneRef.current?.setDrillholeLod({ enabled: lodEnabled }); }, [lodEnabled, holes]);
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    scene.setDrillholeRadius({ radius: baseRadiusRef.current * radiusScale, screenPixels: constantWidth ? 5 * radiusScale : 0 });
+  }, [radiusScale, constantWidth, holes]);
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || !holes?.length) return;
+    const needle = filterText.trim().toLowerCase();
+    if (!needle) { scene.setDrillholeFilter(null); return; }
+    scene.setDrillholeFilter(holes.filter((h) => `${h.id}`.toLowerCase().includes(needle)).map((h) => h.id));
+  }, [filterText, holes]);
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (scene.getProjection() !== projection) scene.setProjection(projection);
+  }, [projection]);
 
   useEffect(() => {
     if (sceneRef.current) {
@@ -302,19 +353,32 @@ function Drillhole() {
   const updateSlice = (position) => { sliceRef.current?.setPosition(position); setSlicePosition(position); };
   const updateSliceWidth = (width) => { if (!Number.isFinite(width) || width <= 0) return; sliceRef.current?.setWidth(width); setSliceWidth(width); };
 
+  // Geometry is built once per hole set; colour changes never rebuild it.
   useEffect(() => {
-    if (sceneRef.current && holes && holes.length) {
+    const scene = sceneRef.current;
+    if (scene && holes && holes.length) {
       const preserveView = renderedHolesRef.current === holes || restoredCameraRef.current;
-      sceneRef.current.setDrillholes(holes, {
-        selectedAssayVariable: colorByVariable === 'None' ? '' : colorByVariable,
-        assayIntervalsByHole: isCategorical ? geologyCategoryIntervalsByHole : selectedAssayIntervalsByHole,
+      scene.setDrillholes(holes, {
+        ...colorOptionsRef.current,
         preserveView,
-        isCategoricalVariable: isCategorical,
+        labels: showLabels,
+        collars: showCollars,
+        lod: { enabled: lodEnabled },
       });
+      baseRadiusRef.current = scene.drillholeLayer?.radius || 1;
+      scene.setDrillholeRadius({ radius: baseRadiusRef.current * radiusScale, screenPixels: constantWidth ? 5 * radiusScale : 0 });
+      setLegend(scene.getDrillholeLegend());
       renderedHolesRef.current = holes;
       restoredCameraRef.current = false;
     }
-  }, [holes, colorByVariable, selectedAssayIntervalsByHole, isCategorical, geologyCategoryIntervalsByHole]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holes]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene || !holes?.length || renderedHolesRef.current !== holes) return;
+    setLegend(scene.setDrillholeColorBy(colorOptions));
+  }, [colorOptions, holes]);
 
   const processAndSetHoles = (surveyRows) => {
     if (!collars.length) {
@@ -434,17 +498,32 @@ function Drillhole() {
               Strip logs
             </label>
           )}
-          <label className="drillhole-projection-slider">
-            Ortho
+          {!isCategorical && colorByVariable !== 'None' && colorByVariable !== '__HAS_ASSAY__' && (
+            <label className="drillhole-color-control">
+              Scale
+              <select className="drillhole-select" value={scaleMode} onChange={(e) => setScaleMode(e.target.value)}>
+                {SCALE_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+              {scaleMode !== 'quantile' && (
+                <label className="drillhole-color-control">
+                  <input type="checkbox" checked={continuous} onChange={(e) => setContinuous(e.target.checked)} />
+                  Smooth
+                </label>
+              )}
+            </label>
+          )}
+          <label className="drillhole-projection-slider" title={projection === 'orthographic' ? 'Field of view applies to the perspective camera' : 'Field of view'}>
+            Narrow
             <input
               type="range"
               min={0}
               max={FOV_STEPS.length - 1}
               step={1}
               value={perspectiveLevel}
+              disabled={projection === 'orthographic'}
               onChange={(e) => setPerspectiveLevel(Number(e.target.value))}
             />
-            Persp
+            Wide
           </label>
           {holes && (
             <span className="drillhole-info">
@@ -455,49 +534,16 @@ function Drillhole() {
             <span className="drillhole-info">Desurveyed in {desurveyMs.toFixed(1)} ms</span>
           )}
           {error && <span className="drillhole-info error">{error}</span>}
-          {colorByVariable === '__HAS_ASSAY__' && (
-            <div className="drillhole-legend" aria-label="Color legend for assay data presence">
-              <div className="drillhole-legend-title">Legend (Has Assay Data)</div>
-              <div className="drillhole-legend-grid">
-                <div className="drillhole-legend-item">
-                  <span className="drillhole-legend-swatch" style={{ background: '#ff8c42' }} />
-                  <span className="drillhole-legend-label">Has assay data</span>
-                </div>
-                <div className="drillhole-legend-item">
-                  <span className="drillhole-legend-swatch" style={{ background: '#9ca3af' }} />
-                  <span className="drillhole-legend-label">No assay data</span>
-                </div>
+          {legend && legend.entries.length > 0 && (
+            <div className="drillhole-legend" aria-label={`Color legend for ${legend.variable || colorByVariable}`}>
+              <div className="drillhole-legend-title">
+                Legend ({colorByVariable === '__HAS_ASSAY__' ? 'Has Assay Data' : colorByVariable})
               </div>
-            </div>
-          )}
-          {isCategorical && geologyCategoryIntervalsByHole && (() => {
-            const cats = [...new Set(
-              Object.values(geologyCategoryIntervalsByHole)
-                .flatMap((ivs) => ivs.map((iv) => iv.value))
-                .filter(Boolean)
-            )].sort();
-            return cats.length ? (
-              <div className="drillhole-legend" aria-label={`Color legend for ${colorByVariable}`}>
-                <div className="drillhole-legend-title">Legend ({colorByVariable})</div>
-                <div className="drillhole-legend-grid">
-                  {cats.map((cat) => (
-                    <div key={cat} className="drillhole-legend-item">
-                      <span className="drillhole-legend-swatch" style={{ background: getCategoryHexColor(cat) }} />
-                      <span className="drillhole-legend-label">{cat}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null;
-          })()}
-          {!isCategorical && colorByVariable !== 'None' && colorByVariable !== '__HAS_ASSAY__' && legendScale && (
-            <div className="drillhole-legend" aria-label={`Color legend for ${colorByVariable}`}>
-              <div className="drillhole-legend-title">Legend ({colorByVariable})</div>
-              <div className="drillhole-legend-grid">
-                {legendScale.bins.map((bin, index) => (
-                  <div key={`${bin.index}-${index}`} className="drillhole-legend-item">
-                    <span className="drillhole-legend-swatch" style={{ background: legendScale.colors[index] }} />
-                    <span className="drillhole-legend-label">{bin.label}</span>
+              <div className={`drillhole-legend-grid${legend.entries[0]?.continuous ? ' drillhole-legend-grid--ramp' : ''}`}>
+                {legend.entries.map((entry, index) => (
+                  <div key={`${entry.label}-${index}`} className="drillhole-legend-item">
+                    <span className="drillhole-legend-swatch" style={{ background: entry.color }} />
+                    <span className="drillhole-legend-label">{entry.label}</span>
                   </div>
                 ))}
               </div>
@@ -535,14 +581,26 @@ function Drillhole() {
             <p>Loading demo survey and cached collars...</p>
           </div>
         )}
+        <Baselode3DHud scene={sceneInstance} dark={darkBackground} paths={overviewPaths} />
         <Baselode3DControls
           controlMode={controlMode}
           onToggleFly={() => setControlMode((m) => (m === 'orbit' ? 'fly' : 'orbit'))}
-          onRecenter={() => sceneRef.current?.recenterCameraToOrigin(2000)}
-          onLookDown={() => sceneRef.current?.lookDown(3000)}
-          onFit={() => sceneRef.current?.focusOnLastBounds(1.2)}
+          onRecenter={() => sceneRef.current?.recenter()}
+          onLookDown={() => sceneRef.current?.lookDown()}
+          onFit={() => sceneRef.current?.fitAll()}
           darkBackground={darkBackground}
           onToggleDarkBackground={(e) => setDarkBackground(e.target.checked)}
+          projection={projection}
+          onToggleProjection={() => setProjection((p) => (p === 'orthographic' ? 'perspective' : 'orthographic'))}
+          showGrid={showGrid} onToggleGrid={setShowGrid}
+          showExtent={showExtent} onToggleExtent={setShowExtent}
+          showLabels={showLabels} onToggleLabels={setShowLabels}
+          showCollars={showCollars} onToggleCollars={setShowCollars}
+          fog={fog} onToggleFog={setFog}
+          radiusScale={radiusScale} onSetRadiusScale={setRadiusScale}
+          constantWidth={constantWidth} onToggleConstantWidth={setConstantWidth}
+          lodEnabled={lodEnabled} onToggleLod={setLodEnabled}
+          filterText={filterText} onSetFilterText={setFilterText}
           sectionAxis={sectionAxis} sectionPosition={sectionPosition} sectionRange={rangeFor(sectionAxis)} onToggleSection={toggleSection} onSetSectionPosition={updateSection}
           sliceAxis={sliceAxis} slicePosition={slicePosition} sliceWidth={sliceWidth} sliceRange={rangeFor(sliceAxis)} onToggleSlice={toggleSlice} onSetSliceAxis={updateSliceAxis} onSetSlicePosition={updateSlice} onSetSliceWidth={updateSliceWidth}
           overviewBounds={sceneRef.current?.lastBounds || null}
@@ -554,6 +612,8 @@ function Drillhole() {
             <div className="selection-body">
               <div><strong>Hole ID:</strong> {selectedHole.holeId}</div>
               <div><strong>Project:</strong> {selectedHole.project || 'N/A'}</div>
+              {Number.isFinite(selectedHole.md) && <div><strong>Depth:</strong> {selectedHole.md.toFixed(1)} m</div>}
+              <div className="selection-hint">F frames it · . pivots on it</div>
             </div>
             <button className="ghost-button" type="button" onClick={() => setSelectedHole(null)}>
               Close
@@ -633,79 +693,6 @@ function mapIntervalsForVariable(intervalsByHole, variable) {
     }
   });
   return mapped;
-}
-
-function formatLegendRange(min, max) {
-  if (!Number.isFinite(min) || !Number.isFinite(max)) return 'n/a';
-  return `${formatLegendValue(min)} – ${formatLegendValue(max)}`;
-}
-
-function formatLegendValue(value) {
-  if (!Number.isFinite(value)) return 'n/a';
-  if (Math.abs(value) >= 1000) return value.toFixed(0);
-  if (Math.abs(value) >= 10) return value.toFixed(1);
-  return value.toFixed(3);
-}
-
-function buildEqualRangeColorScale(values = [], colors = ASSAY_COLOR_PALETTE_10) {
-  let min = Infinity;
-  let max = -Infinity;
-  let count = 0;
-  for (let i = 0; i < values.length; i += 1) {
-    const value = values[i];
-    if (!Number.isFinite(value)) continue;
-    if (value < min) min = value;
-    if (value > max) max = value;
-    count += 1;
-  }
-
-  if (!count) {
-    return {
-      min: null,
-      max: null,
-      step: null,
-      bins: [],
-      colors
-    };
-  }
-
-  const binCount = colors.length;
-
-  if (max === min) {
-    const bins = colors.map((_, index) => ({
-      index,
-      min,
-      max,
-      label: `${min}`
-    }));
-    return {
-      min,
-      max,
-      step: 0,
-      bins,
-      colors
-    };
-  }
-
-  const step = (max - min) / binCount;
-  const bins = colors.map((_, index) => {
-    const lower = min + (step * index);
-    const upper = index === binCount - 1 ? max : min + (step * (index + 1));
-    return {
-      index,
-      min: lower,
-      max: upper,
-      label: `${lower.toFixed(3)} - ${upper.toFixed(3)}`
-    };
-  });
-
-  return {
-    min,
-    max,
-    step,
-    bins,
-    colors
-  };
 }
 
 function normalizeHoleKey(value) {
