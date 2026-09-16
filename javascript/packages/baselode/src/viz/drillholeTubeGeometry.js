@@ -26,7 +26,9 @@ import * as THREE from 'three';
  * @param {object} [options]
  * @param {number} [options.radialSegments=8] - vertices per ring
  * @param {number} [options.radius=1] - initial tube radius in scene units
- * @returns {{ geometry: THREE.BufferGeometry|null, holes: Array<object>, bounds: object|null, singlePointHoles: Array<object> }}
+ * @returns {{ geometry: THREE.BufferGeometry|null, holes: Array<object>, bounds: object|null, singlePointHoles: Array<object>, origin: THREE.Vector3 }}
+ *   `holes` metadata (collar, eoh, points, sphere) stays in world coordinates;
+ *   geometry attributes are relative to `origin`.
  */
 export function buildDrillholeTubeGeometry(holes, options = {}) {
   const radialSegments = Math.max(3, Math.floor(options.radialSegments ?? 8));
@@ -54,8 +56,14 @@ export function buildDrillholeTubeGeometry(holes, options = {}) {
   });
 
   const bounds = Number.isFinite(minX) ? { minX, maxX, minY, maxY, minZ, maxZ } : null;
+  // Geometry is stored relative to the bounds centre and the mesh is placed
+  // there, so projected coordinates (northings of several million metres)
+  // keep sub-millimetre precision in float32 attributes.
+  const origin = bounds
+    ? new THREE.Vector3((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2)
+    : new THREE.Vector3();
   if (prepared.length === 0) {
-    return { geometry: null, holes: [], bounds, singlePointHoles };
+    return { geometry: null, holes: [], bounds, singlePointHoles, origin };
   }
 
   // Count vertices / indices up front so we can allocate typed arrays once.
@@ -98,11 +106,12 @@ export function buildDrillholeTubeGeometry(holes, options = {}) {
 
     const writeVertex = (centre, radialVec, normalVec, md) => {
       const o = vi * 3;
-      positions[o] = centre.x + radialVec.x * radius;
-      positions[o + 1] = centre.y + radialVec.y * radius;
-      positions[o + 2] = centre.z + radialVec.z * radius;
+      const cx = centre.x - origin.x, cy = centre.y - origin.y, cz = centre.z - origin.z;
+      positions[o] = cx + radialVec.x * radius;
+      positions[o + 1] = cy + radialVec.y * radius;
+      positions[o + 2] = cz + radialVec.z * radius;
       normals[o] = normalVec.x; normals[o + 1] = normalVec.y; normals[o + 2] = normalVec.z;
-      centres[o] = centre.x; centres[o + 1] = centre.y; centres[o + 2] = centre.z;
+      centres[o] = cx; centres[o + 1] = cy; centres[o + 2] = cz;
       radials[o] = radialVec.x; radials[o + 1] = radialVec.y; radials[o + 2] = radialVec.z;
       holeIdx[vi] = holeIndex;
       mdNorm[vi] = (md - mdMin) / length;
@@ -227,8 +236,9 @@ export function buildDrillholeTubeGeometry(holes, options = {}) {
   geometry.computeBoundingSphere();
   geometry.computeBoundingBox();
   geometry.userData.radius = radius;
+  geometry.userData.origin = origin.clone();
 
-  return { geometry, holes: meta, bounds, singlePointHoles };
+  return { geometry, holes: meta, bounds, singlePointHoles, origin };
 }
 
 /**

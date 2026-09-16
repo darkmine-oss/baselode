@@ -261,7 +261,22 @@ export function focusOnPoint(state, point, opts = {}) {
   const dir = viewDirection(state);
   const target = state.controls.target.clone().set(point.x, point.y, point.z);
   const current = state.camera.position.distanceTo(state.controls.target);
-  const distance = Number.isFinite(opts.distance) && opts.distance > 0 ? opts.distance : current;
+  let distance = Number.isFinite(opts.distance) && opts.distance > 0 ? opts.distance : current;
+  if (state.camera.isOrthographicCamera) {
+    // Moving an orthographic camera along its axis changes nothing on screen;
+    // express the requested "distance" as a zoom instead and keep the
+    // current standoff.
+    if (Number.isFinite(opts.distance) && opts.distance > 0) {
+      const fovDeg = Number.isFinite(state._perspectiveCamera?.fov) ? state._perspectiveCamera.fov : DEFAULT_FOV_DEG;
+      const halfHeight = opts.distance * Math.tan((fovDeg * Math.PI) / 360);
+      const zoom = ((state.camera.top - state.camera.bottom) / 2) / Math.max(halfHeight, 1e-6);
+      if (Number.isFinite(zoom) && zoom > 0) {
+        state.camera.zoom = zoom;
+        state.camera.updateProjectionMatrix?.();
+      }
+    }
+    distance = current;
+  }
   const position = target.clone().addScaledVector(dir, distance);
   moveCamera(state, position, target, opts);
 }
@@ -560,8 +575,18 @@ export function isCameraAnimating(state) {
  * pitch (degrees, negative looks down).
  */
 export function getCameraHeading(state) {
-  if (!state.camera || !state.controls) return { azimuthDeg: 0, pitchDeg: 0 };
-  const dir = state.controls.target.clone().sub(state.camera.position);
+  if (!state.camera) return { azimuthDeg: 0, pitchDeg: 0 };
+  let dir;
+  if (typeof state.camera.getWorldDirection === 'function') {
+    // Actual view direction: correct in walk mode too, where the orbit
+    // target is not where the camera is looking.
+    dir = state.camera.position.clone();
+    state.camera.getWorldDirection(dir);
+  } else if (state.controls) {
+    dir = state.controls.target.clone().sub(state.camera.position);
+  } else {
+    return { azimuthDeg: 0, pitchDeg: 0 };
+  }
   const len = dir.length();
   if (!(len > 0)) return { azimuthDeg: 0, pitchDeg: 0 };
   dir.normalize();

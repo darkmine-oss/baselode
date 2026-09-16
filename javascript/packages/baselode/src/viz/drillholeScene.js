@@ -20,7 +20,7 @@ import {
   seededUnit,
 } from './drillholeColorTexture.js';
 import { createDrillholeTubeMaterial, createDrillholeUniforms, updateDrillholeCameraUniforms } from './drillholeMaterial.js';
-import { buildCollarDropLines, buildCollarMarkers, buildHoleLabels, disposeAnnotationGroup, updateLabelSprites } from './drillholeAnnotations.js';
+import { buildCollarDropLines, buildCollarMarkers, buildHoleLabels, disposeAnnotationGroup, pickCollar, updateLabelSprites } from './drillholeAnnotations.js';
 import { buildDrillholeLines, disposeDrillholeLines } from './drillholeLineLod.js';
 
 export { getCategoryHexColor, seededUnit, normalizeHoleKey };
@@ -256,6 +256,10 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
 
   const group = new THREE.Group();
   group.name = 'baselode-drillholes';
+  // Everything under the group is stored relative to the bounds centre so
+  // projected coordinates keep their precision in float32 buffers.
+  const origin = built.origin.clone();
+  group.position.copy(origin);
   const uniforms = createDrillholeUniforms();
   uniforms.uRadius.value = radius;
   uniforms.uScreenRadius.value = opts.screenPixels;
@@ -268,7 +272,7 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
 
   const material = createDrillholeTubeMaterial(uniforms);
   let mesh = null;
-  const spheres = built.holes.map((h) => new THREE.Sphere(h.sphere.center.clone(), h.sphere.radius + radius * 2));
+  const spheres = built.holes.map((h) => new THREE.Sphere(h.sphere.center.clone().sub(origin), h.sphere.radius + radius * 2));
   if (built.geometry) {
     mesh = new THREE.Mesh(built.geometry, material);
     mesh.name = 'baselode-drillhole-tubes';
@@ -287,7 +291,9 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
     singlePointHoles: built.singlePointHoles,
     holeIndexById: buildHoleIndex(built.holes),
     bounds,
+    origin,
     radius,
+    pickRadius: radius,
     screenPixels: opts.screenPixels,
     spheres,
     group,
@@ -391,11 +397,19 @@ export function setDrillholeRadius(sceneCtx, value) {
   if (Number.isFinite(radius) && radius > 0 && radius !== layer.radius) {
     layer.radius = radius;
     layer.uniforms.uRadius.value = radius;
-    if (layer.geometry) updateTubeRadius(layer.geometry, radius);
-    layer.holes.forEach((h, i) => { layer.spheres[i].radius = h.sphere.radius + radius * 2; });
+    setPickRadius(layer, radius);
   }
   layer.screenPixels = screenPixels;
   layer.uniforms.uScreenRadius.value = screenPixels;
+  if (screenPixels <= 0) setPickRadius(layer, layer.radius);
+}
+
+/** Re-bake CPU positions / bounds so picking matches what the shader draws. */
+function setPickRadius(layer, radius) {
+  if (!layer.geometry || !(radius > 0) || radius === layer.pickRadius) return;
+  updateTubeRadius(layer.geometry, radius);
+  layer.holes.forEach((h, i) => { layer.spheres[i].radius = h.sphere.radius + radius * 2; });
+  layer.pickRadius = radius;
 }
 
 /**
@@ -413,6 +427,7 @@ export function setDrillholeFilter(sceneCtx, visibleIds) {
     data[i * 4 + 3] = set === null || set.has(normalizeHoleKey(h.id)) ? 1 : 0;
   });
   layer.textures.hole.needsUpdate = true;
+  layer.linesDirty = true; // the line LOD bakes ghosting into its colours
 }
 
 /**
@@ -514,11 +529,12 @@ export function rebuildDrillholeAnnotations(sceneCtx) {
   if (layer.markers) { layer.group.remove(layer.markers); disposeAnnotationGroup(layer.markers); }
   if (layer.labels) { layer.group.remove(layer.labels); disposeAnnotationGroup(layer.labels); }
   if (layer.dropLines) { layer.group.remove(layer.dropLines); disposeAnnotationGroup(layer.dropLines); }
-  layer.markers = buildCollarMarkers(layer.holes, layer.singlePointHoles, { radius: layer.radius * 2.6, dark });
+  const origin = layer.origin;
+  layer.markers = buildCollarMarkers(layer.holes, layer.singlePointHoles, { radius: layer.radius * 2.6, dark, origin });
   layer.markers.visible = layer.show.collars;
-  layer.labels = buildHoleLabels(layer.holes, layer.singlePointHoles, { lift: layer.radius * 5, dark });
+  layer.labels = buildHoleLabels(layer.holes, layer.singlePointHoles, { lift: layer.radius * 5, dark, origin });
   layer.labels.visible = layer.show.labels;
-  layer.dropLines = buildCollarDropLines(layer.holes, layer.singlePointHoles, layer.datumZ, { dark });
+  layer.dropLines = buildCollarDropLines(layer.holes, layer.singlePointHoles, layer.datumZ, { dark, origin });
   if (layer.dropLines) layer.dropLines.visible = layer.show.dropLines;
   layer.group.add(layer.markers, layer.labels);
   if (layer.dropLines) layer.group.add(layer.dropLines);
@@ -530,7 +546,10 @@ export function rebuildDrillholeAnnotations(sceneCtx) {
 export function setDrillholeGhostColor(sceneCtx, color) {
   sceneCtx._ghostColor = new THREE.Color(color);
   const layer = sceneCtx.drillholeLayer;
-  if (layer) layer.uniforms.uGhostColor.value.copy(sceneCtx._ghostColor);
+  if (layer) {
+    layer.uniforms.uGhostColor.value.copy(sceneCtx._ghostColor);
+    layer.linesDirty = true;
+  }
 }
 
 /**
@@ -542,6 +561,7 @@ export function setDrillholeGhostColor(sceneCtx, color) {
 export function pickDrillhole(sceneCtx, raycaster) {
   const layer = sceneCtx.drillholeLayer;
   if (!layer || !raycaster) return null;
+  if (!raycaster.camera && sceneCtx.camera) raycaster.camera = sceneCtx.camera; // Line2 picking needs it
   const hits = [];
   if (layer.mesh?.visible) layer.mesh.raycast(raycaster, hits);
   if (layer.lines?.visible) {
@@ -550,9 +570,16 @@ export function pickDrillhole(sceneCtx, raycaster) {
     layer.lines.raycast(raycaster, hits);
     if (saved !== undefined) raycaster.params.Line2.threshold = saved;
   }
+  // Collar discs: the only representation single-station holes have.
+  const collar = pickCollar(layer.markers, raycaster);
+  if (collar) hits.push({ object: layer.markers, point: collar.point, distance: collar.distance, collarEntry: collar.entry });
   if (!hits.length) return null;
   hits.sort((a, b) => a.distance - b.distance);
   const hit = hits[0];
+  if (hit.collarEntry) {
+    const e = hit.collarEntry;
+    return { holeId: e.id, holeIndex: e.index, project: e.project, point: hit.point.clone(), distance: hit.distance, md: e.mdMin, collar: true };
+  }
   let holeIndex = -1;
   if (hit.object === layer.mesh && hit.face) {
     holeIndex = layer.geometry.getAttribute('aHole').getX(hit.face.a);
@@ -589,8 +616,15 @@ export function updateDrillholeFrame(sceneCtx, { dt = 0.016, viewportHeight = 1 
 
   // How many pixels wide a tube is at the orbit pivot.  Drives both the far
   // level of detail (lines when tubes would be sub-pixel) and label density.
-  const pixelRadius = tubePixelRadius(sceneCtx, layer, camera, viewportHeight);
+  const { pixelRadius, unitsPerPixel } = tubePixelRadius(sceneCtx, layer, camera, viewportHeight);
   layer.pixelRadius = pixelRadius;
+
+  // Constant-pixel mode: the shader fattens tubes with depth, so keep the CPU
+  // picking geometry roughly in step (re-baked only when it drifts > 15 %).
+  if (layer.screenPixels > 0 && unitsPerPixel > 0) {
+    const wanted = layer.screenPixels * unitsPerPixel;
+    if (Math.abs(wanted - layer.pickRadius) > layer.pickRadius * 0.15) setPickRadius(layer, wanted);
+  }
 
   // Level of detail: when tubes would be thinner than a pixel, draw
   // screen-width lines instead.  Hysteresis stops it flickering.
@@ -636,13 +670,12 @@ export function updateDrillholeFrame(sceneCtx, { dt = 0.016, viewportHeight = 1 
     layer.labels.visible = allowed;
     if (allowed) {
       const L = Math.max(layer.typicalLength || 100, 10);
-      updateLabelSprites(layer.labels, camera, viewportHeight, { pixelHeight: 18, fadeStart: L * 18, fadeEnd: L * 32 });
+      updateLabelSprites(layer.labels, camera, viewportHeight, { pixelHeight: 18, fadeStart: L * 18, fadeEnd: L * 32, origin: layer.origin });
     }
   }
 }
 
 function tubePixelRadius(sceneCtx, layer, camera, viewportHeight) {
-  if (layer.screenPixels > 0) return layer.screenPixels;
   let upp;
   if (camera.isOrthographicCamera) {
     upp = ((camera.top - camera.bottom) / (camera.zoom || 1)) / Math.max(viewportHeight, 1);
@@ -660,7 +693,8 @@ function tubePixelRadius(sceneCtx, layer, camera, viewportHeight) {
     const fov = THREE.MathUtils.degToRad(camera.fov || 28);
     upp = (2 * Math.max(dist, 1e-6) * Math.tan(fov / 2)) / Math.max(viewportHeight, 1);
   }
-  return upp > 0 ? layer.radius / upp : Infinity;
+  if (layer.screenPixels > 0) return { pixelRadius: layer.screenPixels, unitsPerPixel: upp };
+  return { pixelRadius: upp > 0 ? layer.radius / upp : Infinity, unitsPerPixel: upp };
 }
 
 // ---------------------------------------------------------------------------
@@ -754,7 +788,14 @@ function rebuildLines(sceneCtx) {
     sceneCtx.renderer?.domElement?.clientWidth || 1,
     sceneCtx.renderer?.domElement?.clientHeight || 1,
   );
-  layer.lines = buildDrillholeLines(layer.holes, layer.colorLayer, { lineWidth: 2.5, resolution });
+  layer.lines = buildDrillholeLines(layer.holes, layer.colorLayer, {
+    lineWidth: 2.5,
+    resolution,
+    origin: layer.origin,
+    holeFlags: layer.holeTexData,
+    ghostColor: layer.uniforms.uGhostColor.value,
+    ghostMix: layer.uniforms.uGhostMix.value,
+  });
   layer.lines.visible = false;
   layer.group.add(layer.lines);
   layer.linesDirty = false;

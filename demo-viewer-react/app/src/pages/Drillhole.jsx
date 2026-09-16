@@ -79,6 +79,8 @@ function Drillhole() {
   const [filterText, setFilterText] = useState('');
   const baseRadiusRef = useRef(1);
   const colorOptionsRef = useRef(null);
+  const filterTextRef = useRef('');
+  filterTextRef.current = filterText;
 
   const assayVariables = useMemo(() => {
     const numeric = (assayState?.numericProps || []).filter(Boolean);
@@ -311,12 +313,10 @@ function Drillhole() {
     if (!scene) return;
     scene.setDrillholeRadius({ radius: baseRadiusRef.current * radiusScale, screenPixels: constantWidth ? 5 * radiusScale : 0 });
   }, [radiusScale, constantWidth, holes]);
+  // Applied on filter change and again right after a geometry rebuild (see
+  // the holes effect), because a new layer starts unfiltered.
   useEffect(() => {
-    const scene = sceneRef.current;
-    if (!scene || !holes?.length) return;
-    const needle = filterText.trim().toLowerCase();
-    if (!needle) { scene.setDrillholeFilter(null); return; }
-    scene.setDrillholeFilter(holes.filter((h) => `${h.id}`.toLowerCase().includes(needle)).map((h) => h.id));
+    if (renderedHolesRef.current === holes) applyHoleFilter(sceneRef.current, holes, filterText);
   }, [filterText, holes]);
   useEffect(() => {
     const scene = sceneRef.current;
@@ -370,6 +370,7 @@ function Drillhole() {
       setLegend(scene.getDrillholeLegend());
       renderedHolesRef.current = holes;
       restoredCameraRef.current = false;
+      applyHoleFilter(scene, holes, filterTextRef.current);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [holes]);
@@ -697,6 +698,13 @@ function mapIntervalsForVariable(intervalsByHole, variable) {
 
 function normalizeHoleKey(value) {
   return `${value ?? ''}`.trim().toLowerCase();
+}
+
+function applyHoleFilter(scene, holes, filterText) {
+  if (!scene || !holes?.length) return;
+  const needle = `${filterText || ''}`.trim().toLowerCase();
+  if (!needle) { scene.setDrillholeFilter(null); return; }
+  scene.setDrillholeFilter(holes.filter((h) => `${h.id}`.toLowerCase().includes(needle)).map((h) => h.id));
 }
 
 function finiteValueRange(values) {

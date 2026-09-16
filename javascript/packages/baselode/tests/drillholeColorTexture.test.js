@@ -112,6 +112,17 @@ describe('buildDrillholeColorLayer', () => {
 });
 
 describe('buildDrillholeColorLayer edge cases', () => {
+  it('falls back to a linear scale when a log scale has no positive values', () => {
+    const layer = buildDrillholeColorLayer(meta(), {
+      mode: 'numeric', scaleMode: 'log', depthTexels: 16,
+      intervalsByHole: { DDH001: [{ from: 0, to: 50, value: -2 }, { from: 50, to: 100, value: 0 }] },
+    });
+    expect(layer.legend.scaleMode).toBe('linear');
+    expect(layer.intervalData[0]).toBeCloseTo(0);
+    expect(layer.intervalData[15]).toBeCloseTo(1);
+    expect(layer.legend.entries.every((e) => !/n\/a/.test(e.label))).toBe(true);
+  });
+
   it('survives a categorical attribute with no categories at all', () => {
     const layer = buildDrillholeColorLayer(meta(), { mode: 'categorical', depthTexels: 16, intervalsByHole: { DDH001: [{ from: 0, to: 10, value: '' }] } });
     expect(layer.categories).toEqual([]);

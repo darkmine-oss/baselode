@@ -86,6 +86,28 @@ describe('buildDrillholeTubeGeometry', () => {
   });
 });
 
+describe('local origin', () => {
+  it('stores attributes relative to the bounds centre and keeps metadata in world coordinates', () => {
+    const utm = [
+      { id: 'A', points: [{ x: 512340.25, y: 6912001.5, z: 412, md: 0 }, { x: 512340.25, y: 6912001.5, z: 312, md: 100 }] },
+      { id: 'B', points: [{ x: 512440.25, y: 6912101.5, z: 412, md: 0 }, { x: 512440.25, y: 6912101.5, z: 312, md: 100 }] },
+    ];
+    const { geometry, holes: meta, origin } = buildDrillholeTubeGeometry(utm, { radialSegments: 8, radius: 0.2 });
+    expect(origin.x).toBeCloseTo(512390.25);
+    expect(origin.y).toBeCloseTo(6912051.5);
+    const centre = geometry.getAttribute('aCentre');
+    // Local coordinates are small, so float32 keeps the 0.2 m radius exactly.
+    expect(Math.abs(centre.getY(0))).toBeLessThan(100);
+    const pos = geometry.getAttribute('position');
+    const ys = new Set();
+    for (let i = 0; i < 8; i += 1) ys.add(pos.getY(i).toFixed(3));
+    expect(ys.size).toBeGreaterThan(1);
+    // Metadata stays absolute for consumers (labels, HUD, focus).
+    expect(meta[0].collar.y).toBeCloseTo(6912001.5);
+    expect(meta[0].sphere.center.y).toBeGreaterThan(6.9e6);
+  });
+});
+
 describe('defaultTubeRadius', () => {
   it('scales with the scene extent and stays within sane limits', () => {
     expect(defaultTubeRadius(null)).toBe(1);

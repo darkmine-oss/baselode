@@ -73,25 +73,27 @@ export function createGroundGrid(grid, opts = {}) {
       uSpacing: { value: grid.spacing },
       uMajorEvery: { value: opts.majorEvery ?? 5 },
       uColor: { value: new THREE.Color(opts.dark ? 0xb5b3c8 : 0x4b5563) },
-      uCenter: { value: grid.center.clone() },
+      // Phase of the grid centre within one cell (computed in float64 here)
+      // so lines sit on absolute multiples of the spacing without pushing
+      // multi-million-metre coordinates through float32 in the shader.
+      uPhase: { value: new THREE.Vector2(mod(grid.center.x, grid.spacing), mod(grid.center.y, grid.spacing)) },
       uFadeRadius: { value: grid.fadeRadius },
       uOpacity: { value: opts.dark ? 0.55 : 0.5 },
     },
     vertexShader: `
-      varying vec3 vWorld;
+      varying vec2 vLocal;
       void main() {
-        vec4 world = modelMatrix * vec4(position, 1.0);
-        vWorld = world.xyz;
-        gl_Position = projectionMatrix * viewMatrix * world;
+        vLocal = position.xy;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
       uniform float uSpacing;
       uniform float uMajorEvery;
       uniform vec3 uColor;
-      uniform vec3 uCenter;
+      uniform vec2 uPhase;
       uniform float uFadeRadius;
       uniform float uOpacity;
-      varying vec3 vWorld;
+      varying vec2 vLocal;
       float gridLine(vec2 coord) {
         vec2 d = fwidth(coord);
         vec2 g = abs(fract(coord - 0.5) - 0.5) / max(d, vec2(1e-6));
@@ -99,14 +101,14 @@ export function createGroundGrid(grid, opts = {}) {
         return 1.0 - min(line, 1.0);
       }
       void main() {
-        vec2 p = vWorld.xy;
+        vec2 p = vLocal + uPhase;
         vec2 minorCoord = p / uSpacing;
         float minor = gridLine(minorCoord);
         float major = gridLine(p / (uSpacing * uMajorEvery));
         // Drop minor lines as they crowd together on screen.
         vec2 density = fwidth(minorCoord);
         float minorFade = 1.0 - smoothstep(0.04, 0.12, max(density.x, density.y));
-        float dist = length(p - uCenter.xy) / uFadeRadius;
+        float dist = length(vLocal) / uFadeRadius;
         float fade = 1.0 - smoothstep(0.2, 0.9, dist);
         float a = max(minor * 0.22 * minorFade, major * 0.75) * fade * uOpacity;
         if (a < 0.003) discard;
@@ -123,6 +125,10 @@ export function createGroundGrid(grid, opts = {}) {
   mesh.name = 'baselode-ground-grid';
   mesh.userData.grid = grid;
   return mesh;
+}
+
+function mod(a, n) {
+  return ((a % n) + n) % n;
 }
 
 /**

@@ -63,6 +63,19 @@ export function initSelectionGlow(sceneCtx) {
 
   sceneCtx._composer = composer;
   sceneCtx._outlinePass = outlinePass;
+
+  // Rendering through the composer skips the renderer's tone mapping and
+  // output colour-space conversion, so an OutputPass is appended to keep the
+  // composer path identical to direct rendering.  Loaded lazily because it
+  // only exists in three r154+.
+  import('three/examples/jsm/postprocessing/OutputPass.js')
+    .then(({ OutputPass }) => {
+      if (sceneCtx._composer !== composer || !OutputPass) return;
+      const outputPass = new OutputPass();
+      composer.addPass(outputPass);
+      sceneCtx._outputPass = outputPass;
+    })
+    .catch(() => { /* older three: composer output stays untransformed */ });
 }
 
 /**

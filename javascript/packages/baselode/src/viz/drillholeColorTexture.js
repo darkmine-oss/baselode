@@ -214,7 +214,10 @@ export function buildDrillholeColorLayer(holesMeta, options = {}) {
     });
     return intervals;
   });
-  const scaleMode = options.scaleMode || 'quantile';
+  let scaleMode = options.scaleMode || 'quantile';
+  // A log scale needs at least one positive value; otherwise fall back to
+  // linear rather than producing NaN texels and an empty legend.
+  if (scaleMode === 'log' && !values.some((v) => v > 0)) scaleMode = 'linear';
   const continuous = Boolean(options.continuous) && scaleMode !== 'quantile';
   const binCount = Math.max(2, Math.floor(options.bins || palette.length));
   const binColours = resamplePalette(palette, binCount);
@@ -241,13 +244,13 @@ export function buildDrillholeColorLayer(holesMeta, options = {}) {
   } else if (scaleMode === 'log') {
     let floor = Infinity;
     values.forEach((v) => { if (v > 0 && v < floor) floor = v; });
-    if (!Number.isFinite(floor)) floor = Math.max(max * 1e-4, 1e-9);
     if (floor >= max) floor = max / 10; // a single positive value still gets a usable range
     const lo = Math.log10(floor);
     const hi = Math.log10(Math.max(max, floor * 10));
     const span = Math.max(hi - lo, 1e-9);
     toNorm = (v) => clamp01((Math.log10(Math.max(v, floor)) - lo) / span);
     layer.scale = { min: floor, max, mode: 'log' };
+    layer.legend.scaleMode = 'log';
     layer.rampBytes = continuous ? interpolatedRamp(palette) : steppedRamp(binColours);
     layer.rampContinuous = continuous;
     layer.legend.entries = logLegend(floor, max, binCount, binColours, continuous, palette);
@@ -255,6 +258,7 @@ export function buildDrillholeColorLayer(holesMeta, options = {}) {
     const span = Math.max(max - min, 1e-12);
     toNorm = (v) => clamp01((v - min) / span);
     layer.scale = { min, max, mode: 'linear' };
+    layer.legend.scaleMode = 'linear';
     layer.rampBytes = continuous ? interpolatedRamp(palette) : steppedRamp(binColours);
     layer.rampContinuous = continuous;
     layer.legend.entries = linearLegend(min, max, binCount, binColours, continuous, palette);

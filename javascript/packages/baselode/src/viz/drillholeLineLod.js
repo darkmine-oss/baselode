@@ -42,6 +42,10 @@ export function pointAtNormalisedDepth(hole, t, out = new THREE.Vector3()) {
  * @param {object} [opts]
  * @param {number} [opts.lineWidth=2.5] - pixels
  * @param {THREE.Vector2} [opts.resolution]
+ * @param {THREE.Vector3} [opts.origin] - coordinates are stored relative to this point
+ * @param {Float32Array} [opts.holeFlags] - RGBA per hole; alpha 0 means ghosted
+ * @param {THREE.Color} [opts.ghostColor] - background tint for ghosted holes
+ * @param {number} [opts.ghostMix=0.12]
  * @returns {LineSegments2}
  */
 export function buildDrillholeLines(holesMeta, layer, opts = {}) {
@@ -51,13 +55,18 @@ export function buildDrillholeLines(holesMeta, layer, opts = {}) {
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
   const tmpColor = new THREE.Color();
+  const origin = opts.origin || new THREE.Vector3();
+  const ghost = opts.ghostColor || new THREE.Color(0xffffff);
+  const ghostMix = opts.ghostMix ?? 0.12;
 
   holesMeta.forEach((hole) => {
     const runs = intervalRunsForHole(layer, hole.index);
     const base = holeBaseColor(hole.index);
+    const ghosted = opts.holeFlags ? opts.holeFlags[hole.index * 4 + 3] < 0.5 : false;
     runs.forEach((run) => {
       const [r, g, bb] = sampleLayerColorBytes(layer, hole.index, (run.start + run.end) / 2, base);
       tmpColor.setRGB(r / 255, g / 255, bb / 255, THREE.SRGBColorSpace);
+      if (ghosted) tmpColor.lerpColors(ghost, tmpColor, ghostMix);
       // Break the run at survey stations so curved holes stay curved.
       const mdStart = hole.mdMin + run.start * hole.length;
       const mdEnd = hole.mdMin + run.end * hole.length;
@@ -71,7 +80,7 @@ export function buildDrillholeLines(holesMeta, layer, opts = {}) {
         pointAtNormalisedDepth(hole, breakpoints[i], a);
         pointAtNormalisedDepth(hole, breakpoints[i + 1], b);
         if (a.distanceToSquared(b) < 1e-12) continue;
-        positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+        positions.push(a.x - origin.x, a.y - origin.y, a.z - origin.z, b.x - origin.x, b.y - origin.y, b.z - origin.z);
         colors.push(tmpColor.r, tmpColor.g, tmpColor.b, tmpColor.r, tmpColor.g, tmpColor.b);
         segmentToHole.push(hole.index);
       }

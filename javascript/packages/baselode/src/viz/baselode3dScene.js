@@ -249,7 +249,11 @@ class Baselode3DScene {
     };
     this.controls.maxPolarAngle = Math.PI;
     this.controls.keyPanSpeed = 14;
-    if (typeof this.controls.listenToKeyEvents === 'function') this.controls.listenToKeyEvents(window);
+    // Arrow-key panning only while the canvas itself has focus (it is focused
+    // on pointer-down), so typing in a filter box never pans the scene.
+    if (this.options.keyboard && typeof this.controls.listenToKeyEvents === 'function') {
+      this.controls.listenToKeyEvents(this.renderer.domElement);
+    }
     this.controls.addEventListener('start', () => {
       cancelCameraTween(this);
       this._interacting = true;
@@ -266,6 +270,7 @@ class Baselode3DScene {
       if (!this.camera) return null;
       this.camera.getWorldDirection(this._tmpDir);
       this.raycaster.set(this.camera.position, this._tmpDir);
+      this.raycaster.camera = this.camera; // Line2 raycasting reads it
       const hit = pickScene(this);
       return hit ? hit.point.clone() : null;
     };

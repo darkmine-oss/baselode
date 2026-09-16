@@ -125,6 +125,27 @@ describe('view presets and heading', () => {
     expect(state.camera.up.z).toBe(1);
   });
 
+  it('getCameraHeading follows the camera orientation, not the stale orbit target', () => {
+    const state = makeState();
+    // Walk mode: camera turned to look east while the target stays put.
+    state.camera.up.set(0, 0, 1);
+    state.camera.lookAt(state.camera.position.clone().add(new THREE.Vector3(1, 0, 0)));
+    expect(getCameraHeading(state).azimuthDeg).toBeCloseTo(90, 4);
+    expect(getCameraHeading(state).pitchDeg).toBeCloseTo(0, 4);
+  });
+
+  it('focusOnPoint in orthographic mode frames by zoom instead of moving along the axis', () => {
+    const state = makeState();
+    const create = (l, r, t, b, n, f) => new THREE.OrthographicCamera(l, r, t, b, n, f);
+    setProjection(state, 'orthographic', { createOrthographic: create });
+    const before = state.camera.position.distanceTo(state.controls.target);
+    const zoomBefore = state.camera.zoom;
+    focusOnPoint(state, { x: 10, y: 10, z: 0 }, { distance: 5 });
+    expect(state.controls.target.toArray()).toEqual([10, 10, 0]);
+    expect(state.camera.position.distanceTo(state.controls.target)).toBeCloseTo(before, 4);
+    expect(state.camera.zoom).toBeGreaterThan(zoomBefore);
+  });
+
   it('unitsPerPixel matches the frustum height at the target', () => {
     const state = makeState();
     const dist = state.camera.position.distanceTo(state.controls.target);
