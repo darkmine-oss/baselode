@@ -1,5 +1,7 @@
 // Copyright (C) 2026 Darkmine Pty Ltd.
 
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import { describe, expect, it } from 'vitest';
 import { getGeologicalSchema, getGeologicalTable } from '../src/data/geological.js';
 
@@ -11,6 +13,9 @@ describe('geological storage schema', () => {
     expect(getGeologicalTable('surface.petrophysics').columns._collar_id).toBeUndefined();
     expect(getGeologicalTable('drill.veins')).toBeDefined();
     expect(getGeologicalTable('missing')).toBeUndefined();
+    expect(getGeologicalTable('constructor')).toBeUndefined();
+    expect(getGeologicalTable('toString')).toBeUndefined();
+    expect(getGeologicalTable('__proto__')).toBeUndefined();
   });
 
   it('does not let consumers mutate subsequent lookups', () => {

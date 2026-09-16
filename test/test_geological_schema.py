@@ -1,5 +1,7 @@
 # Copyright (C) 2026 Darkmine Pty Ltd.
 
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Scientific boundaries and language parity of the packaged storage schema."""
 
 import json
@@ -49,6 +51,9 @@ def test_public_schema_references_and_independent_copies():
                 assert reference["column"] in schema["tables"][reference["table"]]["columns"]
     schema["tables"].clear()
     assert baselode.datamodel.geological.get_geological_schema()["tables"]
+    table = baselode.datamodel.geological.get_geological_table("drill.collar")
+    table["columns"].clear()
+    assert baselode.datamodel.geological.get_geological_table("drill.collar")["columns"]
     with pytest.raises(KeyError):
         baselode.datamodel.geological.get_geological_table("missing")
 

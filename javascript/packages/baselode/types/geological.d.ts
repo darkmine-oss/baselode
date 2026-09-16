@@ -1,5 +1,7 @@
 // Copyright (C) 2026 Darkmine Pty Ltd.
 
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 export interface GeologicalColumn {
   storageType: string;
   nullable: boolean;
@@ -26,6 +28,8 @@ export interface GeologicalSchema {
     axisOrder: { geography: string[]; geometry: string[] };
     verticalReference: string;
     deliverySrid: number;
+    locationStatuses: { resolved: string; approximate: string; unresolved: string };
+    qualification: string;
   };
   semantics: Record<string, string>;
   tables: Record<string, GeologicalTable>;

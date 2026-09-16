@@ -201,8 +201,6 @@ export {
   getBaselodeSchema
 } from './data/schemas.js';
 
-export { getGeologicalSchema, getGeologicalTable } from './data/geological.js';
-
 // Interactive plot wrappers — bundles each viz primitive with its
 // own property pickers + view toggles so embedding apps don't have
 // to reinvent the dropdown plumbing.

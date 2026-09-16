@@ -1,9 +1,21 @@
 # Copyright (C) 2026 Darkmine Pty Ltd.
 
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 """Versioned geological storage schema and scientific field meanings."""
 
 import importlib.resources
+import copy
+import functools
 import json
+
+
+@functools.lru_cache(maxsize=1)
+def _packaged_schema():
+    resource = importlib.resources.files("baselode.datamodel").joinpath(
+        "resources/geological_schema.json"
+    )
+    return json.loads(resource.read_text(encoding="utf-8"))
 
 
 def get_geological_schema():
@@ -16,10 +28,7 @@ def get_geological_schema():
         Table names use ``drill.`` and ``surface.`` namespaces. Storage types
         describe columns, rather than a JSON transport representation.
     """
-    resource = importlib.resources.files("baselode.datamodel").joinpath(
-        "resources/geological_schema.json"
-    )
-    return json.loads(resource.read_text(encoding="utf-8"))
+    return copy.deepcopy(_packaged_schema())
 
 
 def get_geological_table(name):
@@ -35,4 +44,4 @@ def get_geological_table(name):
     dict
         Description, primary key and column definitions.
     """
-    return get_geological_schema()["tables"][name]
+    return copy.deepcopy(_packaged_schema()["tables"][name])

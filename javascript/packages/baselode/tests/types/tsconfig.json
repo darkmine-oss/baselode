@@ -1,4 +1,5 @@
 {
+  "_copyright": "Copyright (C) 2026 Darkmine Pty Ltd.",
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "jsx": "react-jsx",
@@ -10,5 +11,5 @@
     "strict": true,
     "target": "ES2022"
   },
-  "include": ["contracts.tsx", "extent.ts"]
+  "include": ["contracts.tsx", "extent.ts", "geological.ts"]
 }
