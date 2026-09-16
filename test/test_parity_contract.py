@@ -58,10 +58,14 @@ def test_python_methods_exist_for_contract():
 
 def test_js_exports_declared_for_contract():
     contract = _load_contract()
-    source = JS_INDEX_PATH.read_text(encoding="utf-8")
+    package = json.loads(JS_INDEX_PATH.parent.parent.joinpath("package.json").read_text(encoding="utf-8"))
     for capability in contract["capabilities"]:
+        source_path = JS_INDEX_PATH.parent / capability.get("jsExportSource", "index.js")
+        source = source_path.read_text(encoding="utf-8")
+        if capability.get("jsSubpath"):
+            assert capability["jsSubpath"] in package["exports"]
         for symbol in capability.get("jsExports", []):
-            assert symbol in source, f"Missing JS export symbol in index.js: {symbol}"
+            assert symbol in source, f"Missing JS export symbol in {source_path}: {symbol}"
 
 
 def test_js_methods_declared_for_contract():

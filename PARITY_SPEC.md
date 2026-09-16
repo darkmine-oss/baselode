@@ -14,10 +14,12 @@ The two implementations should remain aligned for:
 4. 2D plan/section mapping helpers
 5. 3D drillhole payload/scene helpers
 6. Spatial extent bounds, CRS normalisation, reprojection, and center helpers
-7. Block model primitive: grid definition + transforms, sub-block operations, validation, tonnage, diff
+7. Geological storage schema and table lookup
+8. Block model primitive: grid definition + transforms, sub-block operations, validation, tonnage, diff
 
 ## Runtime differences (intentional)
 
+- Geological table lookup returns `undefined` in JavaScript and raises `KeyError` in Python when the table is absent; both return independent copies for known tables. JavaScript exposes these lookups through `baselode/geological-schema`.
 - JavaScript favors browser/runtime-native structures (arrays/objects, interactive scene APIs).
 - Python favors DataFrame-centric workflows and figure/dataframe utilities.
 - JS `loadTable` supports CSV/array sources in-browser; SQL/Parquet are out of runtime scope and should fail clearly.
@@ -64,7 +66,7 @@ Automated checks live at:
 Checks include:
 
 - Python symbols listed in the contract are importable and present.
-- JS barrel export file declares all contracted symbols.
+- JS barrel or declared subpath source declares all contracted symbols; declared subpaths exist in the package exports.
 
 ## Change process
 
@@ -74,3 +76,5 @@ When adding/removing parity APIs:
 2. Update [test/data/parity_contract.json](test/data/parity_contract.json).
 3. Ensure [test/test_parity_contract.py](test/test_parity_contract.py) passes.
 4. If divergence is intentional, add rationale under "Runtime differences" in this file.
+
+Copyright (C) 2026 Darkmine Pty Ltd.
