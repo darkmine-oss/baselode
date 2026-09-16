@@ -11,6 +11,6 @@ export function getGeologicalSchema() {
 
 /** Return a qualified table definition, or undefined for an unknown name. */
 export function getGeologicalTable(name) {
-  if (!Object.hasOwn(geologicalSchema.tables, name)) return undefined;
+  if (!Object.prototype.hasOwnProperty.call(geologicalSchema.tables, name)) return undefined;
   return JSON.parse(JSON.stringify(geologicalSchema.tables[name]));
 }
