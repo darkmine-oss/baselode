@@ -1243,6 +1243,70 @@ scene.setBlockClickHandler((blockRow) => console.log(blockRow));
 scene.dispose();
 ```
 
+#### Drillholes: one mesh, colour by anything
+
+All drillholes are drawn as **one merged tube mesh**.  Colour is resolved in
+the shader from a per-hole *interval texture* indexed by measured depth, so a
+1 m interval is painted exactly no matter how sparse the survey stations are,
+and changing the attribute, palette, binning or scale never rebuilds geometry.
+
+```js
+scene.setDrillholes(holes, {
+  selectedAssayVariable: 'au_ppm',
+  assayIntervalsByHole,          // { holeId: [{ from, to, value }] }
+  scaleMode: 'quantile',         // 'quantile' | 'linear' | 'log'
+  continuous: false,             // smooth ramp for linear / log
+  radius: 2.5,                   // scene units; omit for an extent-based default
+  labels: true,                  // hole-id labels above collars
+  collars: true,                 // collar markers
+  lod: { enabled: true, distanceFactor: 5 },   // screen-width lines when far away
+});
+
+// Recolour instantly (cross-fades on the GPU); returns legend entries
+const legend = scene.setDrillholeColorBy({ selectedAssayVariable: 'lithology', isCategoricalVariable: true, assayIntervalsByHole: geologyIntervals });
+legend.entries.forEach(({ color, label }) => { /* draw your legend */ });
+
+scene.setDrillholeRadius(4);                          // world units
+scene.setDrillholeRadius({ screenPixels: 5 });        // constant width on screen
+scene.setDrillholeFilter(['DDH001', 'DDH007']);       // ghost every other hole (null shows all)
+scene.setSelectedDrillhole('DDH001');                 // highlight one hole; others desaturate
+scene.setDrillholeAnnotations({ labels: false });
+```
+
+Clicks report `{ holeId, project, md, point }`; register `setHoverHandler`
+for a live readout and `setEmptyClickHandler` to react to clicks on empty space.
+
+#### Navigation
+
+Orbit controls use the Blender conventions: right-drag orbits **around the
+point you grab** (the pivot slides to the depth under the cursor), the wheel
+zooms toward the cursor, and double-clicking focuses on a point (double-click
+empty space frames everything).  Every programmatic move is animated.
+
+```js
+scene.fitAll();                        // frame everything (Home)
+scene.viewFrom('north');               // 'north' | 'south' | 'east' | 'west' | 'top' | 'bottom'
+scene.setProjection('orthographic');   // or 'perspective' (key 5)
+scene.focusOnPoint({ x, y, z });
+scene.setControlMode('walk');          // Z-up first-person: W A S D, Q E, Shift, wheel = speed
+scene.setGroundGridVisible(true);      // fading grid at collar datum (G)
+scene.setExtentBoxVisible(true);       // hairline extent box with dimensions
+scene.setFogEnabled(true);             // depth-cue fog
+scene.getHudState();                   // heading, scale, pivot, footprint — for overlays
+```
+
+Keyboard: `1 / 3 / 7` look north / east / down (Ctrl inverts), `5` projection,
+`F` frame selection, `Home` frame all, `.` pivot on selection, `[ ]` step a
+section, `G` grid, `L` labels, `Esc` clear.  The viewport gizmo is a cube
+labelled E / W / N / S / UP / DOWN.
+
+`Baselode3DHud` renders a north arrow, scale bar, plan-view mini-map (click
+to move the pivot), cursor coordinates and a keyboard cheat-sheet:
+
+```jsx
+<Baselode3DHud scene={scene} dark={darkBackground} paths={planViewTraces} />
+```
+
 ### React component — Baselode3DControls
 
 Drop-in React component with orbit controls, a camera gizmo, and a controls panel:

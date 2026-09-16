@@ -3,19 +3,14 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import * as THREE from 'three';
+import { replaceActiveCamera } from './baselode3dCameraControls.js';
 
 function axisNormal(axis) {
   return axis === 'y' ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
 }
 
 function replaceCamera(ctx, camera) {
-  ctx.camera = camera;
-  if (ctx.controls) ctx.controls.object = camera;
-  if (ctx.flyControls) ctx.flyControls.object = camera;
-  if (ctx.gizmo) ctx.gizmo.camera = camera;
-  for (const pass of ctx._composer?.passes || []) {
-    if (pass.camera) pass.camera = camera;
-  }
+  replaceActiveCamera(ctx, camera);
 }
 
 /**

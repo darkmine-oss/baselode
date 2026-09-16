@@ -423,11 +423,26 @@ export {
   emitViewChangeIfNeeded,
   fitCameraToBounds,
   recenterCameraToOrigin,
+  recenterOnBounds,
   lookDown,
   pan,
   dolly,
   focusOnLastBounds,
+  focusOnPoint,
+  setOrbitDepth,
+  viewFromDirection,
   setControlMode,
+  setProjection,
+  replaceActiveCamera,
+  updateClipPlanes,
+  animateCameraTo,
+  updateCameraTween,
+  cancelCameraTween,
+  isCameraAnimating,
+  boundsSphere,
+  fitDistanceForRadius,
+  getCameraHeading,
+  unitsPerPixel,
   setFov,
   FOV_MIN_DEG,
   FOV_MAX_DEG
@@ -435,7 +450,49 @@ export {
 
 export {
   getCategoryHexColor,
+  setDrillholeColorBy,
+  setDrillholeRadius,
+  setDrillholeFilter,
+  setSelectedDrillhole,
+  getSelectedDrillhole,
+  getDrillholeLegend,
+  getDrillholeMeta,
+  setDrillholeAnnotations,
+  setDrillholeLod,
+  pickDrillhole,
 } from './viz/drillholeScene.js';
+
+export {
+  buildDrillholeTubeGeometry,
+  updateTubeRadius,
+  defaultTubeRadius,
+} from './viz/drillholeTubeGeometry.js';
+
+export {
+  buildDrillholeColorLayer,
+  resolveColorMode,
+  holeBaseColor,
+  sampleLayerColorBytes,
+  intervalRunsForHole,
+  NO_DATA_COLOR,
+  PRESENCE_COLOR,
+} from './viz/drillholeColorTexture.js';
+
+export {
+  createDrillholeUniforms,
+  createDrillholeTubeMaterial,
+} from './viz/drillholeMaterial.js';
+
+export {
+  niceNumber,
+  formatMetres,
+  describeGrid,
+  createGroundGrid,
+  createExtentBox,
+} from './viz/sceneAnchors.js';
+
+export { WalkControls, forwardFromAzimuthPitch, azimuthPitchFromForward } from './viz/walkControls.js';
+export { pickScene } from './viz/sceneClickHandler.js';
 
 export {
   STRIP_LOG_DEFAULT_PANEL_WIDTH,
@@ -451,6 +508,7 @@ export {
 
 export { default as Baselode3DScene } from './viz/baselode3dScene.js';
 export { default as Baselode3DControls } from './viz/Baselode3DControls.jsx';
+export { default as Baselode3DHud } from './viz/Baselode3DHud.jsx';
 export { default as BlockModelWidget } from './viz/BlockModelWidget.jsx';
 
 // --- Block model primitive (grid definition + operations) ---

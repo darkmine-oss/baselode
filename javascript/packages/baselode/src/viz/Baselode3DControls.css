@@ -86,3 +86,66 @@
 .baselode-section-overview-line { stroke: #dc2626; stroke-width: 2; vector-effect: non-scaling-stroke; }
 .baselode-section-overview-camera { fill: #1e293b; }
 .baselode-section-overview-axis { display: block; text-align: center; color: #64748b; }
+
+/* --- Groups, dark chrome, hole controls ------------------------------- */
+.baselode-3d-controls {
+  max-width: calc(100% - 40px);
+  align-items: center;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.baselode-3d-controls-group {
+  padding: 0 8px;
+  border-left: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.baselode-3d-controls-group:first-of-type { border-left: none; padding-left: 0; }
+
+.baselode-3d-slider--short { width: 80px; }
+
+.baselode-3d-filter {
+  width: 120px;
+  padding: 5px 8px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 12px;
+  background: #fff;
+  color: #333;
+}
+
+.baselode-3d-controls .ghost-button:focus-visible,
+.baselode-3d-controls input:focus-visible {
+  outline: 2px solid #8c2981;
+  outline-offset: 2px;
+}
+
+.baselode-3d-controls .ghost-button.active {
+  background: #8c2981;
+  border-color: #8c2981;
+}
+
+.baselode-3d-controls--dark {
+  background: rgba(24, 24, 32, 0.9);
+  border-color: #3a3a4c;
+  color: #ecebf3;
+}
+.baselode-3d-controls--dark .ghost-button,
+.baselode-3d-controls--dark button,
+.baselode-3d-controls--dark .baselode-3d-filter,
+.baselode-3d-controls--dark input[type="number"] {
+  background: #23232f;
+  border-color: #454558;
+  color: #ecebf3;
+}
+.baselode-3d-controls--dark button:hover { background: #2e2e3c; border-color: #55556a; }
+.baselode-3d-controls--dark .ghost-button.active { background: #d982cf; border-color: #d982cf; color: #1a1a24; }
+.baselode-3d-controls--dark .baselode-3d-controls-checkbox,
+.baselode-3d-controls--dark .baselode-3d-width-label { color: #ecebf3; }
+.baselode-3d-controls--dark .baselode-3d-controls-group { border-left-color: #3a3a4c; }
+.baselode-3d-controls--dark .baselode-section-overview {
+  background: rgba(24, 24, 32, 0.92);
+  border-color: #3a3a4c;
+  color: #cfcde0;
+}
+.baselode-3d-controls--dark .baselode-section-overview-bounds { fill: #1c1c26; stroke: #6b6b80; }

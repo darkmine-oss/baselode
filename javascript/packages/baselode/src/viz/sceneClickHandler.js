@@ -4,6 +4,7 @@
  */
 import { applySelection } from './selectionGlow.js';
 import { getBlockHighlightMesh } from './blockModelScene.js';
+import { pickDrillhole, setSelectedDrillhole } from './drillholeScene.js';
 
 /**
  * Raycast against `selectables` using the current pointer position and apply
@@ -37,6 +38,79 @@ export function updateSelectionFromPointer(sceneCtx) {
 }
 
 /**
+ * Convert a pointer event to normalised device coordinates on the canvas and
+ * prime the scene raycaster.  Returns false when the event is inside the
+ * gizmo widget (which handles its own input).
+ * @param {object} sceneCtx
+ * @param {{clientX: number, clientY: number}} event
+ * @returns {boolean}
+ */
+export function primeRaycasterFromEvent(sceneCtx, event) {
+  const renderer = sceneCtx.renderer;
+  if (!renderer || !sceneCtx.camera) return false;
+  const gizmoEl = sceneCtx.gizmo?.domElement || sceneCtx.gizmo?._domElement;
+  if (gizmoEl?.getBoundingClientRect) {
+    const gizmoRect = gizmoEl.getBoundingClientRect();
+    if (
+      event.clientX >= gizmoRect.left && event.clientX <= gizmoRect.right &&
+      event.clientY >= gizmoRect.top && event.clientY <= gizmoRect.bottom
+    ) {
+      return false;
+    }
+  }
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (!(rect.width > 0) || !(rect.height > 0)) return false;
+  const localX = event.clientX - rect.left;
+  const localY = event.clientY - rect.top;
+  sceneCtx.pointer.x = ((localX / rect.width) * 2) - 1;
+  sceneCtx.pointer.y = -((localY / rect.height) * 2) + 1;
+  sceneCtx.raycaster.setFromCamera(sceneCtx.pointer, sceneCtx.camera);
+  return true;
+}
+
+/**
+ * Nearest hit across every pickable layer: blocks, structural discs,
+ * drillholes, terrain and raster overlays.
+ * @param {object} sceneCtx
+ * @returns {{type: string, point: THREE.Vector3, distance: number, [key: string]: any}|null}
+ */
+export function pickScene(sceneCtx) {
+  const candidates = [];
+  const raycaster = sceneCtx.raycaster;
+
+  if (sceneCtx.blocks.length > 0) {
+    const hit = raycaster.intersectObjects(sceneCtx.blocks, false)[0];
+    if (hit) {
+      const quadIndex = Math.floor(hit.faceIndex / 2);
+      const blockData = hit.object?.userData?._isMergedBlocks ? hit.object.userData._quadToBlock?.[quadIndex] : null;
+      candidates.push({ type: 'block', point: hit.point, distance: hit.distance, object: hit.object, block: blockData, faceIndex: hit.faceIndex });
+    }
+  }
+  if (sceneCtx.structuralMeshes.length > 0) {
+    const hit = raycaster.intersectObjects(sceneCtx.structuralMeshes, true)[0];
+    if (hit) candidates.push({ type: 'structure', point: hit.point, distance: hit.distance, object: hit.object, ...hit.object.userData });
+  }
+  const drill = pickDrillhole(sceneCtx, raycaster);
+  if (drill) candidates.push({ type: 'drillhole', ...drill });
+
+  const terrainMesh = sceneCtx.terrain?.mesh;
+  if (terrainMesh?.visible) {
+    const hit = raycaster.intersectObject(terrainMesh, false)[0];
+    if (hit) candidates.push({ type: 'terrain', point: hit.point, distance: hit.distance, object: hit.object });
+  }
+  if (sceneCtx.rasterOverlays?.size) {
+    const meshes = [...sceneCtx.rasterOverlays.values()].map((l) => l?.mesh).filter((m) => m?.visible);
+    if (meshes.length) {
+      const hit = raycaster.intersectObjects(meshes, false)[0];
+      if (hit) candidates.push({ type: 'raster', point: hit.point, distance: hit.distance, object: hit.object });
+    }
+  }
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => a.distance - b.distance);
+  return candidates[0];
+}
+
+/**
  * Register a click listener on the renderer canvas. Handles block →
  * structural → drillhole priority. Stores the listener reference in
  * `sceneCtx.handleCanvasClick` for later removal in `dispose()`.
@@ -49,71 +123,44 @@ export function attachCanvasClickHandler(sceneCtx) {
 
   sceneCtx.handleCanvasClick = (event) => {
     if (event.button !== 0) return; // left click only
+    if (sceneCtx._suppressClick) { sceneCtx._suppressClick = false; return; }
+    if (!primeRaycasterFromEvent(sceneCtx, event)) return;
 
-    // Ignore clicks inside the gizmo area
-    if (sceneCtx.gizmo?.domElement) {
-      const gizmoRect = sceneCtx.gizmo.domElement.getBoundingClientRect();
-      if (
-        event.clientX >= gizmoRect.left &&
-        event.clientX <= gizmoRect.right &&
-        event.clientY >= gizmoRect.top &&
-        event.clientY <= gizmoRect.bottom
-      ) {
-        return;
-      }
-    }
-
-    const rect = renderer.domElement.getBoundingClientRect();
-    const localX = event.clientX - rect.left;
-    const localY = event.clientY - rect.top;
-
-    sceneCtx.pointer.x = ((localX / rect.width) * 2) - 1;
-    sceneCtx.pointer.y = -((localY / rect.height) * 2) + 1;
-
-    sceneCtx.raycaster.setFromCamera(sceneCtx.pointer, sceneCtx.camera);
-
-    // Selection glow: raycast against registered selectables
+    // Outline glow for blocks / structures
     updateSelectionFromPointer(sceneCtx);
 
-    // Check block clicks first (blocks take priority over drillholes)
-    if (sceneCtx.blocks.length > 0) {
-      const blockIntersects = sceneCtx.raycaster.intersectObjects(sceneCtx.blocks, false);
-      if (blockIntersects.length > 0) {
-        const hit = blockIntersects[0];
-        const blockObj = hit.object;
-        if (blockObj?.userData?._isMergedBlocks && sceneCtx.blockClickHandler) {
-          const quadIndex = Math.floor(hit.faceIndex / 2);
-          const blockData = blockObj.userData._quadToBlock[quadIndex];
-          if (blockData) sceneCtx.blockClickHandler(blockData);
-        }
-        return;
-      }
+    const hit = pickScene(sceneCtx);
+    if (!hit) {
+      setSelectedDrillhole(sceneCtx, null);
+      sceneCtx.emptyClickHandler?.();
+      return;
     }
 
-    // Fall through to drillhole / structural click detection
-    const drillHits = sceneCtx.raycaster.intersectObjects(sceneCtx.drillMeshes, true);
-    const structHits = sceneCtx.raycaster.intersectObjects(sceneCtx.structuralMeshes, true);
+    if (hit.type === 'block') {
+      setSelectedDrillhole(sceneCtx, null);
+      if (hit.block && sceneCtx.blockClickHandler) sceneCtx.blockClickHandler(hit.block);
+      return;
+    }
 
-    const drillDist = drillHits[0]?.distance ?? Infinity;
-    const structDist = structHits[0]?.distance ?? Infinity;
-
-    if (structDist < drillDist && structHits.length > 0) {
-      const mesh = structHits[0].object;
+    if (hit.type === 'structure') {
+      setSelectedDrillhole(sceneCtx, null);
       if (sceneCtx.drillholeClickHandler) {
-        sceneCtx.drillholeClickHandler({ type: 'structure', ...mesh.userData });
+        const { object, point, distance, type, ...userData } = hit;
+        sceneCtx.drillholeClickHandler({ type: 'structure', ...userData });
       }
       return;
     }
 
-    if (drillHits.length === 0) return;
-    let obj = drillHits[0].object;
-    while (obj && obj.parent && !obj.userData?.holeId) {
-      obj = obj.parent;
-    }
-    const holeId = obj?.userData?.holeId;
-    const project = obj?.userData?.project;
-    if (holeId && sceneCtx.drillholeClickHandler) {
-      sceneCtx.drillholeClickHandler({ holeId, project });
+    if (hit.type === 'drillhole') {
+      setSelectedDrillhole(sceneCtx, hit.holeId);
+      if (sceneCtx.drillholeClickHandler) {
+        sceneCtx.drillholeClickHandler({
+          holeId: hit.holeId,
+          project: hit.project,
+          md: hit.md,
+          point: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+        });
+      }
     }
   };
 
