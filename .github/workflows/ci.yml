@@ -51,6 +51,21 @@ jobs:
       - name: Run tests
         run: python -m pytest test -q
 
+  licence-copies:
+    name: Package licence copies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # The PyPI and npm packages each ship their own copy of LICENSE,
+      # including the Section 7 additional permission. Keep them identical
+      # to the root LICENSE.
+      - name: Check package LICENSE files match root LICENSE
+        run: |
+          cmp LICENSE python/LICENSE
+          cmp LICENSE javascript/packages/baselode/LICENSE
+
   test-js:
     name: JavaScript tests
     runs-on: ubuntu-latest
