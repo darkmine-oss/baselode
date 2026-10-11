@@ -267,7 +267,7 @@ def build_assay_flat_query(hole_ids=None, extent=None, analyte_columns=None,
                 latitude, longitude, 'FromDepth', 'ToDepth', dip, 'Azimuth',
                 'HoleType', 'Elevation']
         cols.extend(_validate_identifier(c, "analyte column") for c in analyte_columns)
-        select = ", ".join(f'f."{c}"' for c in dict.fromkeys(cols))
+        select = ", ".join(f'f."{c}"' for c in dict.fromkeys(cols) if c != "HoleId")
     else:
         select = "f.*"
     sql = (

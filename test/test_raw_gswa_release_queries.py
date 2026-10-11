@@ -50,7 +50,7 @@ def test_drill_projection_retains_values_and_parent_identity(database, release, 
     database.execute('CREATE TABLE postgres_gswa.gsd_dhassayflat AS SELECT * FROM main.flat')
     sql, params = baselode.adaptors.raw_gswa.queries.build_assay_flat_query(
         extent=baselode.extent.Extent(xmin=119, xmax=121, ymin=-31, ymax=-29),
-        analyte_columns=['Fe_PPM', oxide] if project_columns else None,
+        analyte_columns=['Fe_PPM', oxide, 'HoleId', 'Fe_PPM'] if project_columns else None,
         source_release=release)
     rows = execute(database, sql, params)
     assert len(rows) == 3
