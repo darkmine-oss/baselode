@@ -672,3 +672,34 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+
+----------------------------------------------------------------
+Additional Permission (GPLv3 Section 7)
+
+Notwithstanding any provision of the GNU General Public License v3.0 or later:
+
+Darkmine Pty Ltd (ACN 694 885 455) is granted a perpetual,
+worldwide, royalty-free permission to use, modify, create derivative
+works of, and distribute this software as part of proprietary
+applications without the obligation to disclose source code.
+
+This permission explicitly includes, without limitation:
+
+- Web applications, including JavaScript or other code transmitted
+  to and executed within end-user browsers
+- Mobile applications, including iOS, Android, and similar platforms
+- Desktop applications and other compiled or bundled software
+- Software provided as part of a hosted or managed service where
+  portions of the software may be delivered to end users
+
+For the avoidance of doubt, Darkmine Pty Ltd is not required to
+provide corresponding source code for any such proprietary applications
+or distributions that include this software.
+
+This additional permission applies only to Darkmine Pty Ltd and does
+not extend to any other individual or entity.
+
+All other users of this software remain fully subject to the terms
+and conditions of the GNU General Public License v3.0 or later.
+----------------------------------------------------------------
