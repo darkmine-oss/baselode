@@ -1154,3 +1154,41 @@ from baselode.datamodel import (
     DEPTH, ALPHA, BETA, COMMENTS
 )
 ```
+
+---
+
+## GSWA flat SQL queries
+
+`baselode.adaptors.raw_gswa.queries` builds parameterised SQL for a caller-owned
+PostgreSQL connection. Select the shape of the database snapshot explicitly:
+
+```python
+import baselode.adaptors.raw_gswa.queries
+
+sql, params = baselode.adaptors.raw_gswa.queries.build_assay_flat_query(
+    hole_ids=["stable-hole-id"],
+    analyte_columns=["Au_PPM", "SiO2_PCT"],
+    schema="postgres_gswa",
+    source_release="2026-05",
+)
+```
+
+`build_assay_flat_query` and `build_surface_sample_assay_flat_query` accept
+`source_release="2025-10"` (the default) or `"2026-05"`. The builders do not
+inspect the database and cannot infer the release from a schema name. Specify
+`"2026-05"` after changing the database snapshot; choose analyte columns present
+in that release. Omit `analyte_columns` to select all publisher columns.
+
+The drill builder obtains the stable `HoleId` through a left join to
+`dbo_collar`, retaining unmatched flat rows when no hole filter is requested.
+It uses `Latitude`/`Longitude`/`Dip` for 2025-10 and
+`CollarLatitude`/`CollarLongitude`/`DIP` for 2026-05. These output columns keep
+their publisher names. Surface projections retain `SurfaceSampleId` and
+`SurfaceSampleType` only in 2025-10; in 2026-05 `Id` is the surface parent key.
+
+Queries preserve rows, values and unit suffixes, including `_PPM` and `_PCT`.
+They do not normalise chemistry or certify publisher quality. The caller must
+retain provenance and apply its own recorded QAQC policy before interpreting
+suspected inconsistencies.
+
+Copyright (C) 2026 Darkmine Pty Ltd.

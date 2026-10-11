@@ -229,30 +229,54 @@ def build_assay_query(hole_ids=None, analytes=None, extent=None,
     return sql, params
 
 
-def build_assay_flat_query(hole_ids=None, extent=None, analyte_columns=None, schema=None):
-    """Fetch the GSWA derived flat downhole-assay table ``gsd_dhassayflat``.
+def _flat_release(source_release):
+    if source_release not in ("2025-10", "2026-05"):
+        raise ValueError("source_release must be '2025-10' or '2026-05'")
+    return source_release == "2026-05"
 
-    This table is already pivoted (one row per interval, one column per
-    analyte ``Au_PPM``, ``Cu_PPM``, etc.) and is the recommended path for
-    most assay use cases. Use :func:`convert_assays_flat` to map to baselode.
+
+def build_assay_flat_query(hole_ids=None, extent=None, analyte_columns=None,
+                           schema=None, *, source_release="2025-10"):
+    """Fetch publisher flat downhole assays with their parent ``HoleId``.
+
+    Parameters
+    ----------
+    source_release : {"2025-10", "2026-05"}, optional
+        Shape of the caller's database snapshot. The default retains the older
+        column selection; pass ``"2026-05"`` for the newer dump. This pure SQL
+        builder does not inspect the database or infer a release from its name.
+    analyte_columns : sequence of str, optional
+        Exact publisher columns, such as ``Au_PPM`` or ``SiO2_PCT``. Their names
+        and values are retained without conversion or a claim of QAQC.
+
+    Returns
+    -------
+    tuple
+        Parameterised SQL and its parameters. A left join supplies ``HoleId``
+        from ``dbo_collar`` (neither flat release carries it). Unfiltered queries
+        retain orphan flat rows with a null parent identity. Selected spatial
+        and orientation columns retain their release-specific names.
     """
     s = _schema(schema)
+    newer = _flat_release(source_release)
+    latitude, longitude, dip = (("CollarLatitude", "CollarLongitude", "DIP")
+                                if newer else ("Latitude", "Longitude", "Dip"))
     params = {}
     if analyte_columns:
-        # Quote each requested column. Always include the base interval columns.
-        cols = ['Id', 'HoleId', 'Collarid', 'CompanyHoleId', 'Anumber',
-                'Latitude', 'Longitude', 'FromDepth', 'ToDepth', 'Dip', 'Azimuth',
+        cols = ['Id', 'Collarid', 'CompanyHoleId', 'Anumber',
+                latitude, longitude, 'FromDepth', 'ToDepth', dip, 'Azimuth',
                 'HoleType', 'Elevation']
         cols.extend(_validate_identifier(c, "analyte column") for c in analyte_columns)
-        select = ", ".join(f'"{c}"' for c in cols)
+        select = ", ".join(f'f."{c}"' for c in dict.fromkeys(cols))
     else:
-        select = "*"
+        select = "f.*"
     sql = (
-        f'SELECT {select} FROM {s}.gsd_dhassayflat WHERE 1=1'
+        f'SELECT {select}, c."HoleId" AS "HoleId" FROM {s}.gsd_dhassayflat f '
+        f'LEFT JOIN {s}.dbo_collar c ON c."Id" = f."Collarid" WHERE 1=1'
     )
-    sql += _in_clause(list(hole_ids) if hole_ids else None, '"HoleId"', "hole_ids", params)
-    sql += _extent_clause(extent, '"Longitude"', '"Latitude"', params)
-    sql += ' ORDER BY "HoleId", "FromDepth"'
+    sql += _in_clause(list(hole_ids) if hole_ids else None, 'c."HoleId"', "hole_ids", params)
+    sql += _extent_clause(extent, f'f."{longitude}"', f'f."{latitude}"', params)
+    sql += ' ORDER BY c."HoleId", f."FromDepth"'
     return sql, params
 
 
@@ -324,26 +348,44 @@ def build_surface_sample_query(sample_ids=None, extent=None, analytes=None,
 
 
 def build_surface_sample_assay_flat_query(sample_ids=None, extent=None,
-                                          analyte_columns=None, schema=None):
-    """Fetch the GSWA derived flat surface-assay table ``gsd_ssassayflat``.
+                                          analyte_columns=None, schema=None, *,
+                                          source_release="2025-10"):
+    """Fetch publisher flat surface assays, preserving their units and IDs.
 
-    Already pivoted (one row per surface sample, one column per analyte).
-    Use :func:`convert_surface_samples_flat` to map to baselode.
+    Parameters
+    ----------
+    source_release : {"2025-10", "2026-05"}, optional
+        Database snapshot shape, not inferred from the schema name. In 2025-10
+        ``SurfaceSampleId`` is the parent key and ``Id`` identifies the flat
+        row. In 2026-05 ``Id`` itself is the parent key; ``SurfaceSampleId`` and
+        ``SurfaceSampleType`` are absent. Default: ``"2025-10"``.
+    analyte_columns : sequence of str, optional
+        Exact publisher column names. ``_PPM`` and ``_PCT`` suffixes and values
+        are retained. No normalisation, deduplication or QAQC is applied.
+
+    Returns
+    -------
+    tuple
+        Parameterised SQL and its parameters. Column projection includes only
+        base columns present in the selected release, retaining their names.
     """
     s = _schema(schema)
+    newer = _flat_release(source_release)
     params = {}
     if analyte_columns:
-        cols = ['Id', 'SurfaceSampleId', 'CompanySampleId', 'Dataset', 'Anumber',
-                'Latitude', 'Longitude', 'SurfaceSampleType', 'Elevation']
+        cols = ['Id', 'CompanySampleId', 'Dataset', 'Anumber',
+                'Latitude', 'Longitude', 'Elevation']
+        if not newer:
+            cols.extend(['SurfaceSampleId', 'SurfaceSampleType'])
         cols.extend(_validate_identifier(c, "analyte column") for c in analyte_columns)
-        select = ", ".join(f'"{c}"' for c in cols)
+        select = ", ".join(f'f."{c}"' for c in dict.fromkeys(cols))
     else:
-        select = "*"
-    sql = f'SELECT {select} FROM {s}.gsd_ssassayflat WHERE 1=1'
+        select = "f.*"
+    sql = f'SELECT {select} FROM {s}.gsd_ssassayflat f WHERE 1=1'
     sql += _in_clause(
         list(sample_ids) if sample_ids else None,
-        '"CompanySampleId"', "sample_ids", params,
+        'f."CompanySampleId"', "sample_ids", params,
     )
-    sql += _extent_clause(extent, '"Longitude"', '"Latitude"', params)
-    sql += ' ORDER BY "Id"'
+    sql += _extent_clause(extent, 'f."Longitude"', 'f."Latitude"', params)
+    sql += ' ORDER BY f."Id"'
     return sql, params
