@@ -148,6 +148,9 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
                     try:
                         if not isinstance(modified, str):
                             raise ValueError('Expected ISO date/time text')
+                        modified = modified.strip()
+                        if not re.match(r'^\d{4}(?:-\d{2}-\d{2}|\d{4})(?:$|[T ])', modified):
+                            raise ValueError('Expected an explicit ISO calendar date')
                         timestamp = pd.to_datetime(modified, utc=True)
                     except (ValueError, TypeError, OverflowError) as exc:
                         raise ValueError(f'Invalid modified_date for attribute {record["attribute_id"]}; use ISO date/time or null') from exc

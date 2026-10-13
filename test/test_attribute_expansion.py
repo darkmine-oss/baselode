@@ -125,3 +125,12 @@ def test_fractional_dates_unicode_ids_and_numeric_extras():
     extra=json.loads(result.loc[0,'attributes_extra'])
     assert extra['rare']==12.5
     assert len(extra['_attribute_records'])==3
+
+
+def test_relative_modification_dates_are_not_clock_dependent():
+    parent=pd.DataFrame({'parent_id':[1]})
+    for text in ('today','now','Jan 1'):
+        source=attrs([[1,1,'a','X',text]])
+        with pytest.raises(ValueError,match='Invalid modified_date'):
+            baselode.datamodel.attributes.promote_attributes(parent,source,
+                [{'name':'a','target':'lithology','priority':1}],['lithology'])
