@@ -51,7 +51,7 @@ def _attribute_id_key(value):
     if isinstance(value, numbers.Integral):
         return (0, int(value))
     if isinstance(value, str):
-        segments = tuple((1,int(v)) if v.isdigit() else (0,v) for v in re.split(r'(\d+)', value))
+        segments = tuple((1,int(v)) if v.isdecimal() else (0,v) for v in re.split(r'(\d+)', value))
         return (1, segments, value)
     raise ValueError('Attribute IDs must be integer or text identifiers')
 
@@ -65,7 +65,7 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
         Unique, non-null parent keys. Existing columns are preserved.
     attributes : pandas.DataFrame
         Long-form records with parent_id, attribute_id, name, value and
-        optional modified_date. Values must be text or null: numeric columns
+        optional modified_date. Mapped values must be text or null: numeric columns
         must be converted explicitly before DataFrame coercion can erase
         source formatting. Additional supported scalar metadata is retained.
     mapping : list of dict
@@ -105,8 +105,6 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
     added = set(fields) | reserved
     if added & set(parents.columns):
         raise ValueError('Attribute expansion would overwrite parent columns')
-    if not attributes['value'].map(lambda v: pd.isna(v) or isinstance(v, str)).all():
-        raise ValueError('Attribute values must be text or null; preserve numeric source formatting explicitly')
     mappings = {}
     for item in mapping:
         key = normalize_attribute_name(item['name'])
@@ -118,6 +116,9 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
         if isinstance(priority, bool) or not isinstance(priority, numbers.Integral):
             raise ValueError('Mapping priority must be an integer')
         mappings[key] = (item['target'], int(priority))
+    mapped_values = attributes.loc[attributes['name'].map(normalize_attribute_name).isin(mappings), 'value']
+    if not mapped_values.map(lambda v: pd.isna(v) or isinstance(v, str)).all():
+        raise ValueError('Mapped attribute values must be text or null; preserve numeric source formatting explicitly')
     output = parents.copy()
     for field in fields:
         output[field] = pd.Series([None] * len(output), index=output.index, dtype='string')
@@ -147,8 +148,7 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
                     try:
                         if not isinstance(modified, str):
                             raise ValueError('Expected ISO date/time text')
-                        parsed = datetime.datetime.fromisoformat(modified.replace('Z', '+00:00'))
-                        timestamp = pd.to_datetime(parsed, utc=True)
+                        timestamp = pd.to_datetime(modified, utc=True)
                     except (ValueError, TypeError, OverflowError) as exc:
                         raise ValueError(f'Invalid modified_date for attribute {record["attribute_id"]}; use ISO date/time or null') from exc
                 candidates.setdefault(target, []).append({'source_record': record, 'attribute_value': value,
