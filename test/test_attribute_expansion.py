@@ -93,3 +93,22 @@ def test_scalar_metadata_and_conflict_source_namespaces():
     assert evidence['decimal_metadata']['value'] == '0.1234567890123456789'
     assert evidence['bytes_metadata']['value'] == 'YWJj'
     assert evidence['infinite_metadata']['value'] == 'inf'
+
+
+def test_reserved_fields_natural_text_ids_and_date_validation():
+    parent=pd.DataFrame({'parent_id':[1]})
+    source=attrs([[1,'A10','a','X',None],[1,'A9','a','Y',None]])
+    mapping=[{'name':'a','target':'lithology','priority':1}]
+    result=baselode.datamodel.attributes.promote_attributes(parent,source,mapping,['lithology'])
+    assert result.loc[0,'lithology']=='Y'
+    with pytest.raises(ValueError,match='reserved'):
+        baselode.datamodel.attributes.promote_attributes(parent,source,[],['attributes_extra'])
+    source=attrs([[1,10,'a','X',None],[1,'A9','a','Y',None]])
+    with pytest.raises(ValueError,match='Mixed'):
+        baselode.datamodel.attributes.promote_attributes(parent,source,mapping,['lithology'])
+    source=attrs([[1,1,'a','X',123]])
+    with pytest.raises(ValueError,match='Invalid modified_date'):
+        baselode.datamodel.attributes.promote_attributes(parent,source,mapping,['lithology'])
+    source=attrs([[1,1,'a','X','not a date']])
+    with pytest.raises(ValueError,match='Invalid modified_date'):
+        baselode.datamodel.attributes.promote_attributes(parent,source,mapping,['lithology'])

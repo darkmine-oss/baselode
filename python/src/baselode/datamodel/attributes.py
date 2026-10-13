@@ -45,6 +45,17 @@ def json_scalar(value):
     raise ValueError(f'Unsupported scalar metadata type: {type(value).__name__}')
 
 
+def _attribute_id_key(value):
+    if isinstance(value, bool):
+        raise ValueError('Attribute IDs must be integer or text identifiers')
+    if isinstance(value, numbers.Integral):
+        return (0, int(value))
+    if isinstance(value, str):
+        segments = tuple((1,int(v)) if v.isdigit() else (0,v) for v in re.split(r'(\d+)', value))
+        return (1, segments, value)
+    raise ValueError('Attribute IDs must be integer or text identifiers')
+
+
 def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_id'):
     """Return one unchanged parent row with mapped columns and JSON evidence.
 
@@ -88,7 +99,10 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
         raise ValueError('Attributes contain null or orphan parent keys')
     if len(fields) != len(set(fields)):
         raise ValueError('Output fields must be unique')
-    added = set(fields) | {'attributes_extra', 'attribute_clash_count'}
+    reserved = {'attributes_extra', 'attribute_clash_count'}
+    if set(fields) & reserved:
+        raise ValueError('Output fields contain reserved expansion columns')
+    added = set(fields) | reserved
     if added & set(parents.columns):
         raise ValueError('Attribute expansion would overwrite parent columns')
     if not attributes['value'].map(lambda v: pd.isna(v) or isinstance(v, str)).all():
@@ -109,7 +123,11 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
         output[field] = pd.Series([None] * len(output), index=output.index, dtype='string')
     summaries = {}
     groups = {}
-    for record in attributes.sort_values('attribute_id', kind='stable').to_dict('records'):
+    original_records = attributes.to_dict('records')
+    id_families = {_attribute_id_key(r['attribute_id'])[0] for r in original_records}
+    if len(id_families) > 1:
+        raise ValueError('Mixed numeric and text attribute IDs are not supported')
+    for record in sorted(original_records, key=lambda r:_attribute_id_key(r['attribute_id'])):
         groups.setdefault(record['parent_id'], []).append(record)
     for parent_id, source_records in groups.items():
         extras, candidates, records = {}, {}, []
@@ -123,9 +141,18 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
             if name in mappings:
                 target, priority = mappings[name]
                 modified = record.get('modified_date')
-                timestamp = pd.to_datetime(modified, utc=True) if modified is not None else pd.NaT
+                if modified is None:
+                    timestamp = pd.NaT
+                else:
+                    try:
+                        if not isinstance(modified, str):
+                            raise ValueError('Expected ISO date/time text')
+                        parsed = datetime.datetime.fromisoformat(modified.replace('Z', '+00:00'))
+                        timestamp = pd.to_datetime(parsed, utc=True)
+                    except (ValueError, TypeError, OverflowError) as exc:
+                        raise ValueError(f'Invalid modified_date for attribute {record["attribute_id"]}; use ISO date/time or null') from exc
                 candidates.setdefault(target, []).append({'source_record': record, 'attribute_value': value,
-                    'priority': priority, '_time': timestamp})
+                    'priority': priority, '_time': timestamp, '_id_key': _attribute_id_key(original['attribute_id'])})
             else:
                 extras.setdefault(name, []).append(raw_value)
         extra = {}
@@ -136,14 +163,14 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
         promoted, conflicts = {}, {}
         for field, choices in candidates.items():
             choices.sort(key=lambda c: (c['priority'], pd.isna(c['_time']),
-                         -c['_time'].value if pd.notna(c['_time']) else 0, c['source_record']['attribute_id']))
+                         -c['_time'].value if pd.notna(c['_time']) else 0, c['_id_key']))
             usable = [c for c in choices if c['attribute_value'] is not None]
             winner = usable[0] if usable else None
             promoted[field] = winner['attribute_value'] if winner else None
             different_names = len({c['source_record']['name'] for c in choices}) > 1
             different_values = len({c['attribute_value'] for c in choices if c['attribute_value'] is not None}) > 1
             if len(choices) > 1 and (different_names or different_values):
-                conflicts[field] = [{k:v for k,v in c.items() if k != '_time'} |
+                conflicts[field] = [{k:v for k,v in c.items() if k not in ('_time', '_id_key')} |
                     {'candidate_rank': i+1, 'selected': c is winner} for i,c in enumerate(choices)]
         extra['_attribute_records'] = records
         if conflicts:
