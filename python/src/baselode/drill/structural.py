@@ -157,7 +157,10 @@ def attach_structure_positions(structures, traces, depth_col=DEPTH):
         ``elevation`` columns.
     depth_col : str
         Column in *structures* to use as the measured depth for lookup.
-        Defaults to ``DEPTH`` for point data; use ``MID`` for interval data.
+        Defaults to ``DEPTH``. Preserving GSWA conversion uses the source
+        interval start (``depth = from``), retaining original bounds and null
+        end depths. Use an explicitly prepared alternative column only when
+        another anchor has been reviewed; no midpoint is inferred here.
     """
     import baselode.drill.desurvey as desurvey_module
 
@@ -192,6 +195,9 @@ def structural_to_tadpole(structures, depth_col=DEPTH, dip_col=DIP, dipdir_col=A
     """Compute tadpole tail vectors for 2D log display.
 
     Adds 'tadpole_tail_x', 'tadpole_tail_y', 'tadpole_depth' columns.
+    ``depth_col`` is used as supplied. Preserving GSWA conversion sets
+    ``depth = from`` so bounded intervals plot at their start; original
+    bounds and missing end depths remain unchanged. No midpoint is inferred.
     """
     if structures.empty:
         return structures.copy()

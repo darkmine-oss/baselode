@@ -519,3 +519,16 @@ def test_column_normalization_dipdir_to_azimuth():
     assert df["azimuth"].iloc[0] == pytest.approx(270.0)
 
 
+
+
+def test_tadpole_uses_supplied_start_depth_without_filling_bounds():
+    observations = pd.DataFrame({"hole_id": ["H", "H"], "from": [10., 20.],
+                                 "to": [81., None], "depth": [10., 20.],
+                                 "dip": [45., 60.], "azimuth": [90., 180.]})
+    before = observations.copy(deep=True)
+    figure = plot_tadpole_log(observations)
+    assert list(figure.data[0].y) == [10., 20.]
+    transformed = structural.structural_to_tadpole(observations)
+    assert transformed["tadpole_depth"].tolist() == [10., 20.]
+    pd.testing.assert_series_equal(transformed["to"], before["to"])
+    pd.testing.assert_frame_equal(observations, before)

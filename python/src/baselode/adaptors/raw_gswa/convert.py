@@ -402,8 +402,10 @@ def convert_structures(raw, *, extras="bundle", interval_position="from"):
     with EAV orientation attributes. The baselode structural-point model
     expects a single ``depth`` per measurement, so we collapse each interval
     to a depth using ``interval_position`` (``"from"``, ``"to"`` or
-    ``"mid"``). Structural intervals in GSWA are typically thin or
-    zero-length, so the choice rarely matters.
+    ``"mid"``). The default ``"from"`` anchors plots at the interval start.
+    Intervals can be long, so this point view does not replace their source
+    extent. This legacy adaptor drops bounds; use a preserving conversion
+    when original bounds and null end depths must stay in the flat output.
 
     Routes through :func:`baselode.drill.data.load_structures`.
 
