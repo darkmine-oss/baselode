@@ -67,7 +67,7 @@ def test_priority_and_numeric_text_contracts():
                 [{'name':'a','target':'lithology','priority':priority}], ['lithology'])
     source['value'] = 12.0
     with pytest.raises(ValueError, match='text or null'):
-        baselode.datamodel.attributes.promote_attributes(parent, source, [], ['lithology'])
+        baselode.datamodel.attributes.promote_attributes(parent, source, [{'name':'a','target':'lithology','priority':1}], ['lithology'])
 
 
 def test_scalar_metadata_and_conflict_source_namespaces():
@@ -112,3 +112,16 @@ def test_reserved_fields_natural_text_ids_and_date_validation():
     source=attrs([[1,1,'a','X','not a date']])
     with pytest.raises(ValueError,match='Invalid modified_date'):
         baselode.datamodel.attributes.promote_attributes(parent,source,mapping,['lithology'])
+
+
+def test_fractional_dates_unicode_ids_and_numeric_extras():
+    parent=pd.DataFrame({'parent_id':[1]})
+    source=attrs([[1,'X1²','a','X','2020-01-01T10:00:00.123456789Z'],
+                  [1,'X2','a','Y','2020-01-01T10:00:00.5Z'],
+                  [1,'X3','rare',12.5,123]])
+    result=baselode.datamodel.attributes.promote_attributes(parent,source,
+        [{'name':'a','target':'lithology','priority':1}],['lithology'])
+    assert result.loc[0,'lithology']=='Y'
+    extra=json.loads(result.loc[0,'attributes_extra'])
+    assert extra['rare']==12.5
+    assert len(extra['_attribute_records'])==3
