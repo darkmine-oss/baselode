@@ -117,7 +117,6 @@ GSWA_RAW_TO_BASELODE_INTERVAL = {
 GSWA_STRUCTURE_ATTR_TO_BASELODE = {
     "Dip": DIP,
     "DipDrn": AZIMUTH,
-    "Dip_Direction": AZIMUTH,
     "DipDir_Calc": AZIMUTH,
     "DipDirect_calc": AZIMUTH,
     "Dip_Calc": DIP,
@@ -128,11 +127,6 @@ GSWA_STRUCTURE_ATTR_TO_BASELODE = {
     "beta_2": BETA,
     "Description": COMMENTS,
     "StructComment": COMMENTS,
-    "Comments": COMMENTS,
-    "Structure_Type": "structure_type",
-    "Structure_Origin": "structure_origin",
-    "Origin_Reliability": "origin_reliability",
-    "Weathering": "weathering",
 }
 
 
