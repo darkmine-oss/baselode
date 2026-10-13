@@ -13,3 +13,5 @@ Mapped attribute values must be text or null; unmapped values may use any suppor
 Expansion output names are reserved. Numeric attribute IDs sort numerically; text IDs use natural numeric-segment ordering, with original text as a final tie-break. Mixed numeric/text or other ID types are rejected. Modification dates for mapped candidates must be explicit ISO calendar date/time text (basic or extended) or date/timestamp scalars, or null; numeric epoch values and unparseable dates are rejected with the offending record ID. Unmapped modification metadata is retained without being interpreted for ranking.
 
 Date-only or timestamp strings must include the full calendar date. Relative tokens and partial dates are rejected so candidate ordering never depends on the execution clock.
+
+Mapped dates must fit pandas nanosecond ranking precision (approximately years 1677–2262). Dates outside that range are rejected with their source record ID, consistently across pandas versions. Original unmapped metadata remains evidence and is not ranked.

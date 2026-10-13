@@ -134,3 +134,12 @@ def test_relative_modification_dates_are_not_clock_dependent():
         with pytest.raises(ValueError,match='Invalid modified_date'):
             baselode.datamodel.attributes.promote_attributes(parent,source,
                 [{'name':'a','target':'lithology','priority':1}],['lithology'])
+
+
+def test_out_of_range_rank_dates_identify_source_record():
+    parent=pd.DataFrame({'parent_id':[1]})
+    for text in ('1500-01-01','9999-12-31'):
+        source=attrs([[1,42,'a','X',text]])
+        with pytest.raises(ValueError,match='Invalid modified_date for attribute 42'):
+            baselode.datamodel.attributes.promote_attributes(parent,source,
+                [{'name':'a','target':'lithology','priority':1}],['lithology'])
