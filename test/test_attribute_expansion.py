@@ -1,0 +1,58 @@
+# Copyright (C) 2026 Darkmine Pty Ltd
+
+import json
+import pandas as pd
+import pytest
+import baselode.datamodel.attributes
+
+
+def attrs(rows):
+    return pd.DataFrame(rows, columns=['parent_id','attribute_id','name','value','modified_date'])
+
+
+def test_rank_conflict_and_lossless_records():
+    parent = pd.DataFrame({'id':[3,1], 'from':[5.,2.], 'to':[1.,4.]})
+    source = attrs([[1,1,'Lith Code','A','2020-01-01'],[1,2,'lith_code','B','2021-01-01'],
+                    [1,3,'other-name',None,None],[1,4,'Other Name',' raw ',None]])
+    result = baselode.datamodel.attributes.promote_attributes(parent,source,
+        [{'name':'lith code','target':'lithology','priority':1}],['lithology'],parent_key='id')
+    assert result['id'].tolist() == [3,1]
+    assert result['from'].tolist() == [5.,2.]
+    assert result.loc[1,'lithology'] == 'B'
+    assert result.loc[1,'attribute_clash_count'] == 1
+    extra = json.loads(result.loc[1,'attributes_extra'])
+    assert set(extra['other_name']) == {None,' raw '}
+    assert len(extra['_attribute_records']) == 4
+    assert extra['_conflicts']['lithology'][0]['selected'] is True
+    assert extra['_conflicts']['lithology'][1]['value'] == 'A'
+
+
+def test_blank_does_not_mask_lower_priority_value():
+    source = attrs([[1,1,'preferred','  ',None],[1,2,'fallback',' SSD ',None]])
+    mapping = [{'name':'preferred','target':'lithology','priority':0},
+               {'name':'fallback','target':'lithology','priority':1}]
+    result = baselode.datamodel.attributes.promote_attributes(pd.DataFrame({'parent_id':[1]}),source,mapping,['lithology'])
+    assert result.loc[0,'lithology'] == 'SSD'
+    assert json.loads(result.loc[0,'attributes_extra'])['_attribute_records'][0]['value'] == '  '
+
+
+def test_unknown_targets_normalized_map_collisions_and_orphans_fail():
+    parent = pd.DataFrame({'parent_id':[1]})
+    source = attrs([[1,1,'a','x',None]])
+    with pytest.raises(ValueError,match='no output column'):
+        baselode.datamodel.attributes.promote_attributes(parent,source,[{'name':'a','target':'missing','priority':1}],['lithology'])
+    with pytest.raises(ValueError,match='Ambiguous'):
+        baselode.datamodel.attributes.promote_attributes(parent,source,
+            [{'name':'A B','target':'lithology','priority':1},{'name':'a-b','target':'lithology','priority':2}],['lithology'])
+    source.loc[0,'parent_id']=2
+    with pytest.raises(ValueError,match='orphan'):
+        baselode.datamodel.attributes.promote_attributes(parent,source,[],['lithology'])
+
+
+def test_empty_attributes_and_parquet_roundtrip(tmp_path):
+    parent=pd.DataFrame({'parent_id':[1]})
+    result=baselode.datamodel.attributes.promote_attributes(parent,attrs([]),[],['lithology'])
+    result.to_parquet(tmp_path/'one.parquet')
+    loaded=pd.read_parquet(tmp_path/'one.parquet')
+    assert json.loads(loaded.loc[0,'attributes_extra']) == {}
+    assert pd.isna(loaded.loc[0,'lithology'])
