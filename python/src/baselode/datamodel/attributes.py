@@ -2,7 +2,12 @@
 # Copyright (C) 2026 Darkmine Pty Ltd
 
 """Promote explicit long-form attributes while retaining source evidence."""
+import base64
+import datetime
+import decimal
 import json
+import math
+import numbers
 import re
 
 import pandas as pd
@@ -16,14 +21,28 @@ def normalize_attribute_name(value):
     return re.sub(r'[^A-Za-z0-9]+', '_', value).strip('_').lower()
 
 
-def _json_value(value):
+def json_scalar(value):
+    """Encode scalar evidence; dates use ISO text and non-JSON types use tags.
+
+    Missing values become null. Decimal, bytes and infinite floats retain
+    their exact representation in objects with __type__ and value keys.
+    Unsupported scalar types are rejected instead of silently stringified.
+    """
+    if hasattr(value, 'item'):
+        value = value.item()
     if pd.isna(value):
         return None
-    if isinstance(value, pd.Timestamp):
+    if isinstance(value, (datetime.date, datetime.datetime, pd.Timestamp)):
         return value.isoformat()
-    if hasattr(value, 'item'):
-        return value.item()
-    return value
+    if isinstance(value, decimal.Decimal):
+        return {'__type__': 'decimal', 'value': str(value)}
+    if isinstance(value, bytes):
+        return {'__type__': 'bytes', 'value': base64.b64encode(value).decode('ascii')}
+    if isinstance(value, float) and math.isinf(value):
+        return {'__type__': 'float', 'value': str(value)}
+    if isinstance(value, (str, int, float, bool)):
+        return value
+    raise ValueError(f'Unsupported scalar metadata type: {type(value).__name__}')
 
 
 def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_id'):
@@ -35,7 +54,9 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
         Unique, non-null parent keys. Existing columns are preserved.
     attributes : pandas.DataFrame
         Long-form records with parent_id, attribute_id, name, value and
-        optional modified_date. Additional scalar columns are retained.
+        optional modified_date. Values must be text or null: numeric columns
+        must be converted explicitly before DataFrame coercion can erase
+        source formatting. Additional supported scalar metadata is retained.
     mapping : list of dict
         Explicit name, target and integer priority entries. Lower priority
         wins, followed by newest modification and lowest attribute ID.
@@ -70,6 +91,8 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
     added = set(fields) | {'attributes_extra', 'attribute_clash_count'}
     if added & set(parents.columns):
         raise ValueError('Attribute expansion would overwrite parent columns')
+    if not attributes['value'].map(lambda v: pd.isna(v) or isinstance(v, str)).all():
+        raise ValueError('Attribute values must be text or null; preserve numeric source formatting explicitly')
     mappings = {}
     for item in mapping:
         key = normalize_attribute_name(item['name'])
@@ -77,7 +100,10 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
             raise ValueError(f'Ambiguous or blank mapping name: {item["name"]}')
         if item['target'] not in fields:
             raise ValueError(f'Mapping target has no output column: {item["target"]}')
-        mappings[key] = (item['target'], int(item['priority']))
+        priority = item['priority']
+        if isinstance(priority, bool) or not isinstance(priority, numbers.Integral):
+            raise ValueError('Mapping priority must be an integer')
+        mappings[key] = (item['target'], int(priority))
     output = parents.copy()
     for field in fields:
         output[field] = pd.Series([None] * len(output), index=output.index, dtype='string')
@@ -88,7 +114,7 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
     for parent_id, source_records in groups.items():
         extras, candidates, records = {}, {}, []
         for original in source_records:
-            record = {k: _json_value(v) for k, v in original.items()}
+            record = {k: json_scalar(v) for k, v in original.items()}
             records.append(record)
             name = normalize_attribute_name(record['name'])
             raw_value = record['value']
@@ -98,7 +124,7 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
                 target, priority = mappings[name]
                 modified = record.get('modified_date')
                 timestamp = pd.to_datetime(modified, utc=True) if modified is not None else pd.NaT
-                candidates.setdefault(target, []).append({**record, 'attribute_value': value,
+                candidates.setdefault(target, []).append({'source_record': record, 'attribute_value': value,
                     'priority': priority, '_time': timestamp})
             else:
                 extras.setdefault(name, []).append(raw_value)
@@ -110,11 +136,11 @@ def promote_attributes(parents, attributes, mapping, fields, parent_key='parent_
         promoted, conflicts = {}, {}
         for field, choices in candidates.items():
             choices.sort(key=lambda c: (c['priority'], pd.isna(c['_time']),
-                         -c['_time'].value if pd.notna(c['_time']) else 0, c['attribute_id']))
+                         -c['_time'].value if pd.notna(c['_time']) else 0, c['source_record']['attribute_id']))
             usable = [c for c in choices if c['attribute_value'] is not None]
             winner = usable[0] if usable else None
             promoted[field] = winner['attribute_value'] if winner else None
-            different_names = len({c['name'] for c in choices}) > 1
+            different_names = len({c['source_record']['name'] for c in choices}) > 1
             different_values = len({c['attribute_value'] for c in choices if c['attribute_value'] is not None}) > 1
             if len(choices) > 1 and (different_names or different_values):
                 conflicts[field] = [{k:v for k,v in c.items() if k != '_time'} |

@@ -24,7 +24,7 @@ def test_rank_conflict_and_lossless_records():
     assert set(extra['other_name']) == {None,' raw '}
     assert len(extra['_attribute_records']) == 4
     assert extra['_conflicts']['lithology'][0]['selected'] is True
-    assert extra['_conflicts']['lithology'][1]['value'] == 'A'
+    assert extra['_conflicts']['lithology'][1]['source_record']['value'] == 'A'
 
 
 def test_blank_does_not_mask_lower_priority_value():
@@ -56,3 +56,40 @@ def test_empty_attributes_and_parquet_roundtrip(tmp_path):
     loaded=pd.read_parquet(tmp_path/'one.parquet')
     assert json.loads(loaded.loc[0,'attributes_extra']) == {}
     assert pd.isna(loaded.loc[0,'lithology'])
+
+
+def test_priority_and_numeric_text_contracts():
+    parent = pd.DataFrame({'parent_id': [1]})
+    source = attrs([[1, 1, 'a', '12', None]])
+    for priority in (1.5, True, '1'):
+        with pytest.raises(ValueError, match='integer'):
+            baselode.datamodel.attributes.promote_attributes(parent, source,
+                [{'name':'a','target':'lithology','priority':priority}], ['lithology'])
+    source['value'] = 12.0
+    with pytest.raises(ValueError, match='text or null'):
+        baselode.datamodel.attributes.promote_attributes(parent, source, [], ['lithology'])
+
+
+def test_scalar_metadata_and_conflict_source_namespaces():
+    import datetime
+    import decimal
+    parent = pd.DataFrame({'parent_id':[1]})
+    source = attrs([[1,1,'a','X',None],[1,2,'b','Y',None]])
+    source['priority'] = 'source priority'
+    source['selected'] = 'source selected'
+    source['_time'] = 'source time'
+    source['date_metadata'] = datetime.date(2020,1,2)
+    source['decimal_metadata'] = decimal.Decimal('0.1234567890123456789')
+    source['bytes_metadata'] = b'abc'
+    source['infinite_metadata'] = float('inf')
+    result = baselode.datamodel.attributes.promote_attributes(parent, source,
+        [{'name':'a','target':'lithology','priority':1},{'name':'b','target':'lithology','priority':2}], ['lithology'])
+    extra = json.loads(result.loc[0,'attributes_extra'])
+    evidence = extra['_conflicts']['lithology'][0]['source_record']
+    assert evidence['priority'] == 'source priority'
+    assert evidence['selected'] == 'source selected'
+    assert evidence['_time'] == 'source time'
+    assert evidence['date_metadata'] == '2020-01-02'
+    assert evidence['decimal_metadata']['value'] == '0.1234567890123456789'
+    assert evidence['bytes_metadata']['value'] == 'YWJj'
+    assert evidence['infinite_metadata']['value'] == 'inf'
