@@ -1814,7 +1814,13 @@ def plot_tadpole_log(df,
     df : pd.DataFrame
         Structural measurements.
     md_col : str
-        Column for measured depth (y-axis).
+        Column for measured depth (y-axis), used exactly as supplied. Preserving
+        GSWA conversion sets ``depth = from``: interval observations plot at
+        their start, with original ``from``/``to`` retained and missing end
+        depths left null. This function does not substitute a midpoint or
+        create end depths. Pass a separately reviewed depth column to change
+        the anchor. Only rows with depth, dip and azimuth are drawn; alpha/beta
+        and descriptor-only records need their own interpretation/display.
     dip_col : str
         Column for dip angle in degrees (x-axis).
     az_col : str
