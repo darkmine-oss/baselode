@@ -1099,3 +1099,24 @@ Camera control helpers operate on a `Baselode3DScene` instance.
 | `emitViewChangeIfNeeded(scene)` | Fire a view-change event if the camera moved |
 
 **Constants:** `FOV_MIN_DEG`, `FOV_MAX_DEG`
+
+## Local X/Y plan view
+
+`createPlanView(container, options)` creates a Canvas plan view for points in a local coordinate frame. It has no geographic CRS, basemap, tile requests or plotting-library dependency. X and Y retain equal scale, with increasing Y upward.
+
+```javascript
+import { createPlanView } from 'baselode';
+
+const view = createPlanView(container, {
+  xProp: 'x', yProp: 'y', idProp: 'sample_id', groupProp: 'group', unit: 'm',
+  colors: { samples: '#1a1c1c' },
+});
+view.setPoints([{ x: 120, y: -80, sample_id: 'S1', group: 'samples' }]);
+view.fitToData();
+// On unmount:
+view.destroy();
+```
+
+Drag or use arrow keys to pan. Use the wheel, +/− buttons or keys to zoom; wheel zoom preserves the coordinate under the pointer. Home, double-click and Fit restore the data extent. Hover shows point identifiers and coordinates. A scale bar and group legend retain spatial context. Point rendering uses Canvas for dense datasets.
+
+`setPoints(rows, {fit: true})` replaces observations and reports excluded null, blank or nonfinite coordinates through `getView().excludedCount`. Coordinate strings are accepted when numeric. `resize()` supports hidden/revealed hosts; `getView()` reports the viewport and point count. `destroy()` removes owned DOM, events and resize observers. Host colours, font, point radius and optional `onPointClick`/`onViewChange` callbacks are configurable. The math helpers `fitPlanView`, `planToScreen`, `screenToPlan`, `zoomPlanView` and `panPlanView` are also exported.
