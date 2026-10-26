@@ -361,6 +361,7 @@ export {
 } from './viz/analyticsViz.js';
 
 export { buildScatterPlotConfig } from './viz/scatterViz.js';
+export { PlanView, createPlanView, fitPlanView, planToScreen, screenToPlan, zoomPlanView, panPlanView } from './viz/planView.js';
 export { buildHistogramPlotConfig } from './viz/histogramViz.js';
 export { buildBoxPlotConfig } from './viz/boxPlotViz.js';
 export { buildViolinPlotConfig } from './viz/violinPlotViz.js';
