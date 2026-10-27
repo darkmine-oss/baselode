@@ -15,7 +15,7 @@
     "react-router-dom": "^6.20.0",
     "three": "^0.162.0",
     "three-viewport-gizmo": "^2.2.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

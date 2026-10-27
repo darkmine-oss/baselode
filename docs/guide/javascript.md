@@ -845,6 +845,9 @@ names and return the documented JSON result.
 npm install baselode @assistant-ui/react @assistant-ui/react-ai-sdk zod
 ```
 
+Baselode requires `zod` 4.6.6 or later as a peer dependency (earlier
+releases are affected by GHSA-mrhx-c7xc-m3w5).
+
 `baselode/assistant-ui` and `baselode/tool-ui` are client entries. Import them
 from a client component and import the stylesheet once. Server-only code should
 use the SSR-safe `baselode/tool-ui/contracts` entry.
