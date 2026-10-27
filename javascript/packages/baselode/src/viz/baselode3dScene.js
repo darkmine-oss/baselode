@@ -70,6 +70,7 @@ import {
   pickScene,
 } from './sceneClickHandler.js';
 import { syncSelectables } from './sceneSelectables.js';
+import { registerMeshObject, unregisterMeshObject, clearMeshObjects, setMeshObjectColor } from './meshObjects.js';
 import {
   addRasterOverlay as _addRasterOverlay,
   removeRasterOverlay as _removeRasterOverlay,
@@ -144,6 +145,8 @@ class Baselode3DScene {
     this.pointer = new THREE.Vector2();
     this.drillholeClickHandler = null;
     this.blockClickHandler = null;
+    this.meshClickHandler = null;
+    this.meshObjects = new Map();
     this.hoverHandler = null;
     this.emptyClickHandler = null;
     this.escapeHandler = null;
@@ -374,6 +377,8 @@ class Baselode3DScene {
     }
     this.viewChangeHandler = null;
     this.hoverHandler = null;
+    this.meshClickHandler = null;
+    clearMeshObjects(this);
     _clearBlocks(this);
     _clearDrillholes(this);
     _clearStripLogs(this);
@@ -475,6 +480,19 @@ class Baselode3DScene {
 
   setBlockClickHandler(handler) {
     this.blockClickHandler = typeof handler === 'function' ? handler : null;
+  }
+
+  /** Register an externally owned mesh group; see meshObjects.js for ownership. */
+  registerMeshObject(id, object, options) { return registerMeshObject(this, id, object, options); }
+  unregisterMeshObject(id) { return unregisterMeshObject(this, id); }
+  clearMeshObjects() { clearMeshObjects(this); }
+  setMeshObjectColor(id, color) { return setMeshObjectColor(this, id, color); }
+  setMeshClickHandler(handler) { this.meshClickHandler = typeof handler === 'function' ? handler : null; }
+  selectMeshObject(id) {
+    const entry = id == null ? null : this.meshObjects.get(id);
+    if (id != null && !entry) throw new Error(`Unknown mesh object: ${id}`);
+    _setSelectedDrillhole(this, null);
+    applySelection(this, entry?.object || null);
   }
 
   /** Called with hover info ({ type, x, y, z, holeId?, md? } or null) as the pointer moves. */
@@ -840,6 +858,7 @@ class Baselode3DScene {
         hover = { type: hit.type, x: hit.point.x, y: hit.point.y, z: hit.point.z };
         if (hit.type === 'drillhole') { hover.holeId = hit.holeId; hover.md = hit.md; hover.project = hit.project; }
         if (hit.type === 'block') hover.block = hit.block;
+        if (hit.type === 'mesh') { hover.meshId = hit.id; hover.name = hit.name; }
       } else {
         const elevation = this.anchors.gridInfo?.elevation ?? this.lastBounds?.maxZ;
         if (Number.isFinite(elevation)) {

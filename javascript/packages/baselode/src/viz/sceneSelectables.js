@@ -18,5 +18,6 @@ export function syncSelectables(sceneCtx) {
     ...sceneCtx.blocks,
     ...sceneCtx.drillMeshes.filter((m) => !m?.userData?.isDrillholeTubes),
     ...sceneCtx.structuralMeshes,
+    ...[...(sceneCtx.meshObjects?.values() || [])].map(entry => entry.object),
   ];
 }

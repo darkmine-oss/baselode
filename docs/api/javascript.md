@@ -1120,3 +1120,22 @@ view.destroy();
 Drag or use arrow keys to pan. Use the wheel, +/− buttons or keys to zoom; wheel zoom preserves the coordinate under the pointer. Home, double-click and Fit restore the data extent. Hover shows point identifiers and coordinates. A scale bar and group legend retain spatial context. Point rendering uses Canvas for dense datasets.
 
 `setPoints(rows, {fit: true})` replaces observations and reports excluded null, blank or nonfinite coordinates through `getView().excludedCount`. Coordinate strings are accepted when numeric. `resize()` supports hidden/revealed hosts; `getView()` reports the viewport and point count. `destroy()` removes owned DOM, events and resize observers. Host colours, font, point radius and optional `onPointClick`/`onViewChange` callbacks are configurable. The math helpers `fitPlanView`, `planToScreen`, `screenToPlan`, `zoomPlanView` and `panPlanView` are also exported.
+
+## Imported mesh selection and colour
+
+`Baselode3DScene` can register externally loaded Three.js mesh groups. Registration participates in nearest-hit picking alongside drilling, blocks and other scene layers. Hidden meshes and meshes below hidden parents are excluded. Imported geometry and transforms remain unchanged.
+
+```js
+scene.scene.add(group);
+scene.registerMeshObject('surface-1', group, { name: 'Surface 1' });
+scene.setMeshClickHandler(({ id, name, point }) => showMeshProperties(id, name, point));
+scene.selectMeshObject('surface-1');
+scene.setMeshObjectColor('surface-1', '#4477aa');
+// Remove registration before disposing caller-owned resources.
+scene.unregisterMeshObject('surface-1');
+group.removeFromParent();
+```
+
+`registerMeshObject(id, object, {name})` requires a unique ID and a mesh or group containing mesh materials. Registered roots must not overlap. It clones materials so a colour change cannot alter another object sharing the original material. `setMeshObjectColor(id, '#rrggbb')` sets a uniform display colour, disables vertex colouring and retains opacity. `selectMeshObject(null)` clears selection; mesh clicks report the registered root, hit mesh, ID, name, point and distance.
+
+`unregisterMeshObject(id)` clears an affected selection, restores original material references and disposes the cloned materials. `clearMeshObjects()` and scene disposal unregister every mesh. The caller retains ownership of geometry, original materials and parent membership, and must dispose those resources separately. Registrations survive drillhole-layer rebuilds.

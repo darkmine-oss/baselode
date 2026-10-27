@@ -2,6 +2,7 @@
  * Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
+import { pickMeshObject } from './meshObjects.js';
 import { applySelection } from './selectionGlow.js';
 import { getBlockHighlightMesh } from './blockModelScene.js';
 import { pickDrillhole, setSelectedDrillhole } from './drillholeScene.js';
@@ -70,7 +71,7 @@ export function primeRaycasterFromEvent(sceneCtx, event) {
 
 /**
  * Nearest hit across every pickable layer: blocks, structural discs,
- * drillholes, terrain and raster overlays.
+ * drillholes, terrain, raster overlays and registered mesh objects.
  * @param {object} sceneCtx
  * @returns {{type: string, point: THREE.Vector3, distance: number, [key: string]: any}|null}
  */
@@ -105,14 +106,16 @@ export function pickScene(sceneCtx) {
       if (hit) candidates.push({ type: 'raster', point: hit.point, distance: hit.distance, object: hit.object });
     }
   }
+  const mesh = pickMeshObject(sceneCtx, raycaster);
+  if (mesh) candidates.push(mesh);
   if (!candidates.length) return null;
   candidates.sort((a, b) => a.distance - b.distance);
   return candidates[0];
 }
 
 /**
- * Register a click listener on the renderer canvas. Handles block →
- * structural → drillhole priority. Stores the listener reference in
+ * Register a click listener on the renderer canvas. Selects the nearest
+ * hit across the registered scene layers. Stores the listener reference in
  * `sceneCtx.handleCanvasClick` for later removal in `dispose()`.
  *
  * @param {object} sceneCtx - Baselode3DScene instance
@@ -126,23 +129,30 @@ export function attachCanvasClickHandler(sceneCtx) {
     if (sceneCtx._suppressClick) { sceneCtx._suppressClick = false; return; }
     if (!primeRaycasterFromEvent(sceneCtx, event)) return;
 
-    // Outline glow for blocks / structures
-    updateSelectionFromPointer(sceneCtx);
-
     const hit = pickScene(sceneCtx);
     if (!hit) {
+      applySelection(sceneCtx, null);
       setSelectedDrillhole(sceneCtx, null);
       sceneCtx.emptyClickHandler?.();
       return;
     }
 
+    if (hit.type === 'mesh') {
+      setSelectedDrillhole(sceneCtx, null);
+      applySelection(sceneCtx, hit.object);
+      sceneCtx.meshClickHandler?.(hit);
+      return;
+    }
+
     if (hit.type === 'block') {
+      applySelection(sceneCtx, hit.block ? getBlockHighlightMesh(sceneCtx, hit.block, hit.object.userData._offset) : hit.object);
       setSelectedDrillhole(sceneCtx, null);
       if (hit.block && sceneCtx.blockClickHandler) sceneCtx.blockClickHandler(hit.block);
       return;
     }
 
     if (hit.type === 'structure') {
+      applySelection(sceneCtx, hit.object);
       setSelectedDrillhole(sceneCtx, null);
       if (sceneCtx.drillholeClickHandler) {
         const { object, point, distance, type, ...userData } = hit;
@@ -151,6 +161,7 @@ export function attachCanvasClickHandler(sceneCtx) {
       return;
     }
 
+    applySelection(sceneCtx, null);
     if (hit.type === 'drillhole') {
       setSelectedDrillhole(sceneCtx, hit.holeId);
       if (sceneCtx.drillholeClickHandler) {
