@@ -1159,3 +1159,11 @@ group.removeFromParent();
 Wireframe edges use a darker version of the surface colour and follow surface opacity. They do not intercept selection. Hiding a selected mesh or setting its opacity to zero clears its outline. All display setters require a registered ID and throw for unknown IDs.
 
 The host controls scene membership and must call `setSceneBounds` after adding, removing or changing the visibility of content. Include the bounds of other visible layers in that union. Bounds use mesh geometry bounding boxes and world transforms; recompute geometry bounding boxes after editing vertex positions. Display controls change only the current scene, not source files.
+
+## Large drilling scenes
+
+`Baselode3DScene({hoverPicking: false})` disables pointer-move raycasting while retaining click selection, orbit targeting and double-click focus. This is useful for hosts without hover inspection controls; the default remains enabled.
+
+Pass `labels: false` to `setDrillholes` to avoid creating one canvas/texture per hole. Labels and collar drop lines are now allocated when enabled and disposed when disabled through `setDrillholeAnnotations`. Collar markers remain available for single-point holes. Collar picking rejects circles outside the cursor ray before applying the standard triangle test, retaining exact nearest-hit results.
+
+Hole colours and interval samples use packed two-dimensional textures constrained by `renderer.capabilities.maxTextureSize`. Packing retains the original hole/sample order, depth resolution, filter flags and colour-transition layouts. It avoids using hole count as a single texture dimension. Shader addressing uses row/column coordinates to retain integer precision for large datasets. A colour view that exceeds the total device texture capacity raises an explicit error; colour changes retain the previous working layer on validation failure.

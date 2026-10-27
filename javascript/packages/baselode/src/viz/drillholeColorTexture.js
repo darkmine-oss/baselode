@@ -158,7 +158,10 @@ export function buildDrillholeColorLayer(holesMeta, options = {}) {
     return layer;
   }
 
-  const data = new Float32Array(width * height).fill(-1);
+  // Pack consecutive hole rows side by side when the GPU cannot hold one
+  // row per hole. Keep the same linear order for CPU colour/line lookups.
+  layer.textureLayout = drillholeTextureLayout(width, height, options.maxTextureSize ?? Math.max(width, height));
+  const data = new Float32Array(layer.textureLayout.width * layer.textureLayout.height).fill(-1);
   layer.intervalData = data;
   const intervalsFor = makeIntervalResolver(options.intervalsByHole);
 
@@ -273,14 +276,33 @@ export function buildDrillholeColorLayer(holesMeta, options = {}) {
   return layer;
 }
 
-/**
- * Create the GPU texture for a colour layer's interval data.
- * @param {object} layer - from buildDrillholeColorLayer
- * @returns {THREE.DataTexture|null}
- */
-export function createIntervalTexture(layer) {
+/** Layout retains every depth sample and stays within the hardware dimensions. */
+export function drillholeTextureLayout(depthTexels, holeCount, maxTextureSize = 4096) {
+  const width = Math.max(1, Math.floor(depthTexels));
+  const count = Math.max(1, Math.floor(holeCount));
+  const limit = Math.floor(maxTextureSize);
+  const columns = Math.max(1, Math.ceil(count / limit));
+  const height = Math.ceil(count / columns);
+  if (![width, count, limit].every(Number.isFinite) || limit < 1 || columns * width > limit || height > limit) {
+    throw new RangeError(`Drillhole colour data exceed this device's ${limit}-pixel texture limit at ${width} depth samples per hole.`);
+  }
+  return { columns, rows: height, depthTexels: width, width: columns * width, height };
+}
+
+function paddedTextureData(data, size, usedLength = data.length) {
+  if (data.length === size) return data;
+  const padded = new data.constructor(size);
+  padded.set(data.subarray(0, usedLength));
+  return padded;
+}
+
+/** Create the interval texture using the renderer's maximum texture dimension. */
+export function createIntervalTexture(layer, maxTextureSize = 4096) {
   if (!layer?.intervalData) return null;
-  const tex = new THREE.DataTexture(layer.intervalData, layer.width, layer.height, THREE.RedFormat, THREE.FloatType);
+  const layout = drillholeTextureLayout(layer.width, layer.height, maxTextureSize);
+  const data = paddedTextureData(layer.intervalData, layout.width * layout.height, layer.width * layer.height);
+  const tex = new THREE.DataTexture(data, layout.width, layout.height, THREE.RedFormat, THREE.FloatType);
+  tex.userData.layout = layout;
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
   tex.wrapS = THREE.ClampToEdgeWrapping;
@@ -338,8 +360,12 @@ export function buildHoleTextureData(holesMeta, opts = {}) {
  * @param {Float32Array} data - from buildHoleTextureData
  * @param {number} count - hole count
  */
-export function createHoleTexture(data, count) {
-  const tex = new THREE.DataTexture(data, Math.max(1, count), 1, THREE.RGBAFormat, THREE.FloatType);
+export function createHoleTexture(data, count, maxTextureSize = 4096) {
+  const width = Math.min(Math.max(1, count), maxTextureSize);
+  const height = Math.ceil(Math.max(1, count) / width);
+  if (height > maxTextureSize) throw new RangeError("Hole colours exceed this device's texture capacity.");
+  const packed = paddedTextureData(data, width * height * 4);
+  const tex = new THREE.DataTexture(packed, width, height, THREE.RGBAFormat, THREE.FloatType);
   tex.magFilter = THREE.NearestFilter;
   tex.minFilter = THREE.NearestFilter;
   tex.wrapS = THREE.ClampToEdgeWrapping;

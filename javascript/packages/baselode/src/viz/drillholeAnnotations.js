@@ -64,8 +64,41 @@ export function buildCollarMarkers(holesMeta, singlePointHoles = [], opts = {}) 
   disc.renderOrder = 3;
   disc.userData.collarEntries = entries;
   disc.userData.isCollarDiscs = true;
+  disc.raycast = collarDiscRaycast(disc);
   group.add(ring, disc);
   return group;
+}
+
+/** Reject discs outside the ray before testing their triangles. Marker instances
+ * are horizontal circles; parent transforms are handled by the local ray.
+ * Read the actual float32 instance positions so the test matches rendering.
+ */
+function collarDiscRaycast(disc) {
+  const inverse = new THREE.Matrix4(), instance = new THREE.Matrix4();
+  const ray = new THREE.Ray();
+  const proxy = new THREE.Mesh(disc.geometry, disc.material);
+  const candidates = [];
+  return function raycast(raycaster, hits) {
+    ray.copy(raycaster.ray).applyMatrix4(inverse.copy(this.matrixWorld).invert());
+    if (ray.direction.z === 0) return;
+    const matrices = this.instanceMatrix.array;
+    proxy.geometry = this.geometry; proxy.material = this.material;
+    for (let i = 0; i < this.count; i++) {
+      const offset = i * 16;
+      const distance = (matrices[offset + 14] - ray.origin.z) / ray.direction.z;
+      if (distance < 0) continue;
+      const dx = ray.origin.x + distance * ray.direction.x - matrices[offset + 12];
+      const dy = ray.origin.y + distance * ray.direction.y - matrices[offset + 13];
+      const radius = matrices[offset];
+      if (dx * dx + dy * dy > radius * radius) continue;
+      instance.fromArray(matrices, offset);
+      proxy.matrixWorld.multiplyMatrices(this.matrixWorld, instance);
+      candidates.length = 0;
+      // Retain exact triangle hits, near/far limits and front/back behaviour.
+      THREE.Mesh.prototype.raycast.call(proxy, raycaster, candidates);
+      for (const hit of candidates) { hit.object = this; hit.instanceId = i; hits.push(hit); }
+    }
+  };
 }
 
 /**

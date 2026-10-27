@@ -122,6 +122,7 @@ class Baselode3DScene {
       extentBox: Boolean(options.extentBox),
       pivotIndicator: options.pivotIndicator !== false,
       keyboard: options.keyboard !== false,
+      hoverPicking: options.hoverPicking !== false,
       accent: options.accent ?? ACCENT,
       gizmoSize: Number.isFinite(options.gizmoSize) && options.gizmoSize > 0 ? options.gizmoSize : 132,
     };
@@ -868,6 +869,7 @@ class Baselode3DScene {
       focusOnPoint(this, hit.point, { distance, animate: true });
     });
     this._listen(canvas, 'pointermove', (e) => {
+      if (!this.options.hoverPicking) return;
       const now = nowMs();
       if (now - this._hoverStampMs < HOVER_THROTTLE_MS) return;
       this._hoverStampMs = now;

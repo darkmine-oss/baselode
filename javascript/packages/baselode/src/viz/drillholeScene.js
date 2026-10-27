@@ -266,8 +266,10 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
   uniforms.uHoleCount.value = Math.max(1, built.holes.length);
   if (sceneCtx._ghostColor) uniforms.uGhostColor.value.copy(sceneCtx._ghostColor);
 
-  const holeTexData = buildHoleTextureData(built.holes, {});
-  const holeTexture = createHoleTexture(holeTexData, built.holes.length);
+  const maxTextureSize = sceneCtx.renderer?.capabilities?.maxTextureSize || 4096;
+  const holeTexture = createHoleTexture(buildHoleTextureData(built.holes, {}), built.holes.length, maxTextureSize);
+  const holeTexData = holeTexture.image.data;
+  uniforms.uHoleTexSize.value.set(holeTexture.image.width, holeTexture.image.height);
   uniforms.uHoleTex.value = holeTexture;
 
   const material = createDrillholeTubeMaterial(uniforms);
@@ -301,6 +303,7 @@ export function setDrillholes(sceneCtx, holes, options = {}) {
     colorOptions: null,
     textures: { interval: null, ramp: null, prevInterval: null, prevRamp: null, hole: holeTexture },
     holeTexData,
+    maxTextureSize,
     visibleIds: null,
     selectedIndex: -1,
     crossfade: null,
@@ -494,7 +497,7 @@ export function setDrillholeAnnotations(sceneCtx, flags = {}) {
   if (flags.collars !== undefined) layer.show.collars = Boolean(flags.collars);
   if (flags.dropLines !== undefined) layer.show.dropLines = Boolean(flags.dropLines);
   if (layer.markers) layer.markers.visible = layer.show.collars;
-  if (layer.dropLines) layer.dropLines.visible = layer.show.dropLines;
+  syncOptionalAnnotations(sceneCtx);
 }
 
 /**
@@ -532,12 +535,28 @@ export function rebuildDrillholeAnnotations(sceneCtx) {
   const origin = layer.origin;
   layer.markers = buildCollarMarkers(layer.holes, layer.singlePointHoles, { radius: layer.radius * 2.6, dark, origin });
   layer.markers.visible = layer.show.collars;
-  layer.labels = buildHoleLabels(layer.holes, layer.singlePointHoles, { lift: layer.radius * 5, dark, origin });
-  layer.labels.visible = layer.show.labels;
-  layer.dropLines = buildCollarDropLines(layer.holes, layer.singlePointHoles, layer.datumZ, { dark, origin });
-  if (layer.dropLines) layer.dropLines.visible = layer.show.dropLines;
-  layer.group.add(layer.markers, layer.labels);
-  if (layer.dropLines) layer.group.add(layer.dropLines);
+  layer.labels = null;
+  layer.dropLines = null;
+  layer.group.add(layer.markers);
+  syncOptionalAnnotations(sceneCtx);
+}
+
+function syncOptionalAnnotations(sceneCtx) {
+  const layer = sceneCtx.drillholeLayer;
+  const dark = Boolean(sceneCtx.isDarkBackground), origin = layer.origin;
+  for (const key of ['labels', 'dropLines']) {
+    if (!layer.show[key] && layer[key]) {
+      layer.group.remove(layer[key]); disposeAnnotationGroup(layer[key]); layer[key] = null;
+    }
+  }
+  if (layer.show.labels && !layer.labels) {
+    layer.labels = buildHoleLabels(layer.holes, layer.singlePointHoles, { lift: layer.radius * 5, dark, origin });
+    layer.group.add(layer.labels);
+  }
+  if (layer.show.dropLines && !layer.dropLines) {
+    layer.dropLines = buildCollarDropLines(layer.holes, layer.singlePointHoles, layer.datumZ, { dark, origin });
+    if (layer.dropLines) layer.group.add(layer.dropLines);
+  }
 }
 
 /**
@@ -735,8 +754,12 @@ function applyColorOptions(sceneCtx, opts, { crossfade }) {
     categoryColorMap: opts.categoryColorMap,
     categoryOrder: opts.categoryOrder || undefined,
     depthTexels: opts.depthTexels || undefined,
+    maxTextureSize: layer.maxTextureSize,
   });
 
+  // Validate and allocate before replacing a working colour layer.
+  const interval = createIntervalTexture(colorLayer, layer.maxTextureSize);
+  const ramp = createRampTexture(colorLayer);
   const u = layer.uniforms;
   const t = layer.textures;
   if (crossfade && (t.interval || u.uMode.value !== 0)) {
@@ -746,6 +769,7 @@ function applyColorOptions(sceneCtx, opts, { crossfade }) {
     u.uIntervalTexPrev.value = t.prevInterval;
     u.uRampTexPrev.value = t.prevRamp;
     u.uModePrev.value = u.uMode.value;
+    u.uIntervalLayoutPrev.value.copy(u.uIntervalLayout.value);
     u.uMix.value = 0;
     layer.crossfade = { start: nowMs(), duration: COLOR_CROSSFADE_MS };
   } else {
@@ -754,8 +778,10 @@ function applyColorOptions(sceneCtx, opts, { crossfade }) {
     u.uMix.value = 1;
     layer.crossfade = null;
   }
-  t.interval = createIntervalTexture(colorLayer);
-  t.ramp = createRampTexture(colorLayer);
+  t.interval = interval;
+  t.ramp = ramp;
+  const layout = interval?.userData.layout;
+  u.uIntervalLayout.value.set(layout?.columns || 1, layout?.rows || 1, layout?.depthTexels || 1);
   u.uIntervalTex.value = t.interval;
   u.uRampTex.value = t.ramp;
   u.uMode.value = mode === 'none' ? 0 : 1;

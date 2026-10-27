@@ -17,6 +17,9 @@ export function createDrillholeUniforms() {
     uRampTexPrev: { value: null },
     uHoleTex: { value: null },
     uHoleCount: { value: 1 },
+    uHoleTexSize: { value: new THREE.Vector2(1, 1) },
+    uIntervalLayout: { value: new THREE.Vector3(1, 1, 1) },
+    uIntervalLayoutPrev: { value: new THREE.Vector3(1, 1, 1) },
     uMode: { value: 0 },          // 0 = per-hole base colour, 1 = interval lookup
     uModePrev: { value: 0 },
     uMix: { value: 1 },           // crossfade 0 → 1 from previous to current layer
@@ -54,7 +57,7 @@ export function createDrillholeTubeMaterial(uniforms, opts = {}) {
   });
   material.envMapIntensity = opts.envMapIntensity ?? 0.7;
   material.userData.uniforms = uniforms;
-  material.customProgramCacheKey = () => 'baselode-drillhole-tube-v1';
+  material.customProgramCacheKey = () => 'baselode-drillhole-tube-v2';
 
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -93,6 +96,9 @@ export function createDrillholeTubeMaterial(uniforms, opts = {}) {
         uniform sampler2D uRampTexPrev;
         uniform sampler2D uHoleTex;
         uniform float uHoleCount;
+        uniform vec2 uHoleTexSize;
+        uniform vec3 uIntervalLayout;
+        uniform vec3 uIntervalLayoutPrev;
         uniform float uMode;
         uniform float uModePrev;
         uniform float uMix;
@@ -103,19 +109,23 @@ export function createDrillholeTubeMaterial(uniforms, opts = {}) {
         varying float vHole;
         varying float vMdNorm;
 
-        vec3 baselodeLayerColor(sampler2D intervals, sampler2D ramp, float mode, vec3 base, vec2 uv) {
+        vec3 baselodeLayerColor(sampler2D intervals, sampler2D ramp, float mode, vec3 base, vec3 layout) {
           if (mode < 0.5) return base;
+          // Work in packed row/column coordinates rather than a large linear
+          // index, which would lose float precision above 16 million samples.
+          float sampleIndex = min(floor(clamp(vMdNorm, 0.0, 1.0) * layout.z), layout.z - 1.0);
+          vec2 uv = vec2((mod(vHole, layout.x) * layout.z + sampleIndex + 0.5) / (layout.x * layout.z),
+            (floor(vHole / layout.x) + 0.5) / layout.y);
           float t = texture2D(intervals, uv).r;
           if (t < 0.0) return uNoDataColor;
           return texture2D(ramp, vec2(t, 0.5)).rgb;
         }`)
       .replace('vec4 diffuseColor = vec4( diffuse, opacity );', `
-        float baselodeRow = (vHole + 0.5) / uHoleCount;
-        vec4 baselodeHole = texture2D(uHoleTex, vec2(baselodeRow, 0.5));
-        vec2 baselodeUv = vec2(clamp(vMdNorm, 0.0, 1.0), baselodeRow);
-        vec3 baselodeColor = baselodeLayerColor(uIntervalTex, uRampTex, uMode, baselodeHole.rgb, baselodeUv);
+        vec2 holeUv = (vec2(mod(vHole, uHoleTexSize.x), floor(vHole / uHoleTexSize.x)) + 0.5) / uHoleTexSize;
+        vec4 baselodeHole = texture2D(uHoleTex, holeUv);
+        vec3 baselodeColor = baselodeLayerColor(uIntervalTex, uRampTex, uMode, baselodeHole.rgb, uIntervalLayout);
         if (uMix < 0.999) {
-          vec3 prev = baselodeLayerColor(uIntervalTexPrev, uRampTexPrev, uModePrev, baselodeHole.rgb, baselodeUv);
+          vec3 prev = baselodeLayerColor(uIntervalTexPrev, uRampTexPrev, uModePrev, baselodeHole.rgb, uIntervalLayoutPrev);
           baselodeColor = mix(prev, baselodeColor, uMix);
         }
         if (baselodeHole.a < 0.5) baselodeColor = mix(uGhostColor, baselodeColor, uGhostMix);
