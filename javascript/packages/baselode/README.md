@@ -81,6 +81,9 @@ scatter plots, histograms, box plots, violin plots, and ternary plots.
 npm install baselode @assistant-ui/react zod
 ```
 
+Baselode requires `zod` 4.6.6 or later as a peer dependency (earlier
+releases are affected by GHSA-mrhx-c7xc-m3w5).
+
 Register the renderer toolkit under the same names used by your backend tools:
 
 ```jsx
