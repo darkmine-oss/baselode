@@ -70,7 +70,8 @@ import {
   pickScene,
 } from './sceneClickHandler.js';
 import { syncSelectables } from './sceneSelectables.js';
-import { registerMeshObject, unregisterMeshObject, clearMeshObjects, setMeshObjectColor } from './meshObjects.js';
+import { registerMeshObject, unregisterMeshObject, clearMeshObjects, setMeshObjectColor,
+  setMeshObjectVisibility, setMeshObjectOpacity, setMeshObjectWireframe, getMeshObjectStyle, getMeshObjectsBounds } from './meshObjects.js';
 import {
   addRasterOverlay as _addRasterOverlay,
   removeRasterOverlay as _removeRasterOverlay,
@@ -487,12 +488,18 @@ class Baselode3DScene {
   unregisterMeshObject(id) { return unregisterMeshObject(this, id); }
   clearMeshObjects() { clearMeshObjects(this); }
   setMeshObjectColor(id, color) { return setMeshObjectColor(this, id, color); }
+  setMeshObjectVisibility(id, visible) { setMeshObjectVisibility(this, id, visible); }
+  setMeshObjectOpacity(id, opacity) { setMeshObjectOpacity(this, id, opacity); }
+  setMeshObjectWireframe(id, visible) { setMeshObjectWireframe(this, id, visible); }
+  getMeshObjectStyle(id) { return getMeshObjectStyle(this, id); }
+  getMeshObjectsBounds(options) { return getMeshObjectsBounds(this, options); }
   setMeshClickHandler(handler) { this.meshClickHandler = typeof handler === 'function' ? handler : null; }
   selectMeshObject(id) {
     const entry = id == null ? null : this.meshObjects.get(id);
     if (id != null && !entry) throw new Error(`Unknown mesh object: ${id}`);
     _setSelectedDrillhole(this, null);
-    applySelection(this, entry?.object || null);
+    const style = entry && getMeshObjectStyle(this, id);
+    applySelection(this, style?.visible && style.opacity !== 0 ? entry.object : null);
   }
 
   /** Called with hover info ({ type, x, y, z, holeId?, md? } or null) as the pointer moves. */
@@ -639,7 +646,21 @@ class Baselode3DScene {
     if (this.anchors.grid) this.anchors.grid.visible = this.anchorVisibility.grid;
   }
 
+  /** Supply combined visible-content bounds for camera fitting and scene anchors. */
+  setSceneBounds(bounds) {
+    if (bounds != null) {
+      const keys = ['minX', 'maxX', 'minY', 'maxY', 'minZ', 'maxZ'];
+      if (!keys.every(key => Number.isFinite(bounds[key]))
+        || ['X', 'Y', 'Z'].some(axis => bounds[`min${axis}`] > bounds[`max${axis}`])) {
+        throw new Error('Scene bounds must be finite ordered minima and maxima');
+      }
+      this.lastBounds = Object.fromEntries(keys.map(key => [key, bounds[key]]));
+    } else this.lastBounds = null;
+    this._syncAnchors();
+  }
+
   setExtentBoxVisible(visible) {
+    this._syncAnchors();
     this.anchorVisibility.extent = Boolean(visible);
     if (this.anchors.extent) this.anchors.extent.visible = this.anchorVisibility.extent;
   }
@@ -946,7 +967,7 @@ class Baselode3DScene {
   _syncAnchors() {
     if (!this.scene) return;
     const b = this.lastBounds;
-    const key = b ? [b.minX, b.maxX, b.minY, b.maxY, b.minZ, b.maxZ].map((v) => v.toFixed(2)).join('|') : '';
+    const key = b ? [b.minX, b.maxX, b.minY, b.maxY, b.minZ, b.maxZ].join('|') : '';
     if (key === this.anchors.boundsKey) return;
     this.anchors.boundsKey = key;
     this._rebuildAnchors();

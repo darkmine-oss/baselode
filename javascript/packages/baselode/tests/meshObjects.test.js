@@ -1,7 +1,8 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd — SPDX-License-Identifier: GPL-3.0-or-later */
 import { describe, expect, it, vi } from 'vitest';
 import * as THREE from 'three';
-import { registerMeshObject, unregisterMeshObject, clearMeshObjects, setMeshObjectColor, pickMeshObject } from '../src/viz/meshObjects.js';
+import { registerMeshObject, unregisterMeshObject, clearMeshObjects, setMeshObjectColor, pickMeshObject, setMeshObjectVisibility, setMeshObjectOpacity,
+  setMeshObjectWireframe, getMeshObjectStyle, getMeshObjectsBounds } from '../src/viz/meshObjects.js';
 import { syncSelectables } from '../src/viz/sceneSelectables.js';
 import { attachCanvasClickHandler, pickScene } from '../src/viz/sceneClickHandler.js';
 
@@ -96,5 +97,89 @@ describe('registered mesh objects', () => {
     ctx.handleCanvasClick({ button: 0, clientX: 0, clientY: 0 });
     expect(ctx.emptyClickHandler).toHaveBeenCalledOnce();
     expect(ctx._outlinePass.selectedObjects).toEqual([]);
+  });
+});
+
+describe('mesh display controls', () => {
+  it('hides and shows without unloading, clears the outline, and restores original visibility on removal', () => {
+    const ctx = context(), root = group(); registerMeshObject(ctx, 'a', root);
+    ctx._selectedObject = root; ctx._outlinePass.selectedObjects = [root];
+    setMeshObjectVisibility(ctx, 'a', false);
+    expect(pickScene(ctx)).toBe(null); expect(ctx.meshObjects.size).toBe(1);
+    expect(ctx._outlinePass.selectedObjects).toEqual([]);
+    expect(getMeshObjectsBounds(ctx)).toBe(null);
+    setMeshObjectVisibility(ctx, 'a', true);
+    expect(pickScene(ctx).id).toBe('a');
+    setMeshObjectVisibility(ctx, 'a', false);
+    unregisterMeshObject(ctx, 'a'); expect(root.visible).toBe(true);
+  });
+  it('updates opacity and depth writing without changing source materials', () => {
+    const ctx = context(), root = group(), original = root.children[0].material;
+    registerMeshObject(ctx, 'a', root);
+    setMeshObjectOpacity(ctx, 'a', 0.25);
+    expect(root.children[0].material).toMatchObject({ opacity: 0.25, transparent: true, depthWrite: false });
+    expect(original.opacity).toBe(0.6);
+    expect(getMeshObjectStyle(ctx, 'a')).toEqual({ visible: true, opacity: 0.25, wireframe: false });
+    setMeshObjectOpacity(ctx, 'a', 1);
+    expect(root.children[0].material).toMatchObject({ opacity: 1, transparent: false, depthWrite: true });
+  });
+  it('does not pick or bound fully transparent geometry', () => {
+    const ctx = context(), root = group(); registerMeshObject(ctx, 'a', root);
+    ctx._selectedObject = root; ctx._outlinePass.selectedObjects = [root];
+    setMeshObjectOpacity(ctx, 'a', 0);
+    expect(pickScene(ctx)).toBe(null); expect(getMeshObjectsBounds(ctx)).toBe(null);
+    expect(getMeshObjectsBounds(ctx, { visibleOnly: false })).not.toBe(null);
+    expect(ctx._outlinePass.selectedObjects).toEqual([]);
+    setMeshObjectOpacity(ctx, 'a', 1); expect(pickScene(ctx).id).toBe('a');
+  });
+  it('rejects opacity outside [0, 1] without changing display state', () => {
+    const ctx = context(), root = group(); registerMeshObject(ctx, 'a', root);
+    for (const value of [-0.1, 1.1, NaN, Infinity, '0.5']) expect(() => setMeshObjectOpacity(ctx, 'a', value)).toThrow(/between 0 and 1/);
+    expect(getMeshObjectStyle(ctx, 'a').opacity).toBe(0.6);
+  });
+  it.each([true, false])('includes the internal triangle edge for indexed=%s and retains the filled surface', indexed => {
+    const ctx = context(), geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute([0,0,0, 1,0,0, 1,1,0, 0,1,0], 3));
+    geometry.setIndex([0,1,2, 0,2,3]);
+    const source = indexed ? geometry : geometry.toNonIndexed();
+    const mesh = new THREE.Mesh(source, new THREE.MeshStandardMaterial());
+    const before = Array.from(source.attributes.position.array);
+    registerMeshObject(ctx, 'a', mesh);
+    expect(mesh.children).toHaveLength(0);
+    setMeshObjectWireframe(ctx, 'a', true);
+    const lines = mesh.children[0];
+    expect(lines.isLineSegments).toBe(true);
+    expect(lines.geometry.attributes.position.count).toBe(10);
+    expect(mesh.material.wireframe).toBe(false);
+    expect(mesh.material.polygonOffset).toBe(true);
+    expect(Array.from(source.attributes.position.array)).toEqual(before);
+    setMeshObjectWireframe(ctx, 'a', false);
+    expect(lines.visible).toBe(false); expect(mesh.material.polygonOffset).toBe(false);
+    setMeshObjectWireframe(ctx, 'a', true);
+    expect(mesh.children).toEqual([lines]); expect(lines.visible).toBe(true);
+  });
+  it('updates overlay colour and opacity and disposes only owned edge resources', () => {
+    const ctx = context(), root = group(), mesh = root.children[0]; registerMeshObject(ctx, 'a', root);
+    const sourceDispose = vi.spyOn(mesh.geometry, 'dispose');
+    setMeshObjectWireframe(ctx, 'a', true);
+    const lines = mesh.children[0];
+    const edgeDispose = vi.spyOn(lines.geometry, 'dispose'), materialDispose = vi.spyOn(lines.material, 'dispose');
+    setMeshObjectColor(ctx, 'a', '#66aaff');
+    expect(lines.material.color.equals(new THREE.Color('#66aaff').multiplyScalar(0.45))).toBe(true);
+    setMeshObjectOpacity(ctx, 'a', 0); expect(lines.visible).toBe(false);
+    setMeshObjectOpacity(ctx, 'a', 0.3); expect(lines.visible).toBe(true); expect(lines.material.opacity).toBe(0.3);
+    unregisterMeshObject(ctx, 'a');
+    expect(mesh.children).toHaveLength(0); expect(edgeDispose).toHaveBeenCalledOnce();
+    expect(materialDispose).toHaveBeenCalledOnce(); expect(sourceDispose).not.toHaveBeenCalled();
+  });
+  it('uses world transforms and visible submeshes for bounds without including the overlay twice', () => {
+    const ctx = context(), root = group(5); root.position.x = 10; root.position.y = 20;
+    root.children[0].scale.set(2, 3, 4);
+    registerMeshObject(ctx, 'a', root);
+    const expected = { minX: 8, maxX: 12, minY: 17, maxY: 23, minZ: 1, maxZ: 9 };
+    expect(getMeshObjectsBounds(ctx)).toEqual(expected);
+    setMeshObjectWireframe(ctx, 'a', true); expect(getMeshObjectsBounds(ctx)).toEqual(expected);
+    root.children[0].visible = false; expect(getMeshObjectsBounds(ctx)).toBe(null);
+    expect(getMeshObjectsBounds(ctx, { visibleOnly: false })).toEqual(expected);
   });
 });

@@ -1121,9 +1121,9 @@ Drag or use arrow keys to pan. Use the wheel, +/− buttons or keys to zoom; whe
 
 `setPoints(rows, {fit: true})` replaces observations and reports excluded null, blank or nonfinite coordinates through `getView().excludedCount`. Coordinate strings are accepted when numeric. `resize()` supports hidden/revealed hosts; `getView()` reports the viewport and point count. `destroy()` removes owned DOM, events and resize observers. Host colours, font, point radius and optional `onPointClick`/`onViewChange` callbacks are configurable. The math helpers `fitPlanView`, `planToScreen`, `screenToPlan`, `zoomPlanView` and `panPlanView` are also exported.
 
-## Imported mesh selection and colour
+## Imported mesh selection and display
 
-`Baselode3DScene` can register externally loaded Three.js mesh groups. Registration participates in nearest-hit picking alongside drilling, blocks and other scene layers. Hidden meshes and meshes below hidden parents are excluded. Imported geometry and transforms remain unchanged.
+`Baselode3DScene` can register externally loaded Three.js mesh groups. Registration participates in nearest-hit picking alongside drilling, blocks and other scene layers. Hidden meshes, meshes below hidden parents and faces with invisible or zero-opacity materials are excluded. Imported geometry and transforms remain unchanged.
 
 ```js
 scene.scene.add(group);
@@ -1131,6 +1131,12 @@ scene.registerMeshObject('surface-1', group, { name: 'Surface 1' });
 scene.setMeshClickHandler(({ id, name, point }) => showMeshProperties(id, name, point));
 scene.selectMeshObject('surface-1');
 scene.setMeshObjectColor('surface-1', '#4477aa');
+scene.setMeshObjectOpacity('surface-1', 0.6);
+scene.setMeshObjectWireframe('surface-1', true);
+scene.setMeshObjectVisibility('surface-1', true);
+// For a mesh-only scene; combine these bounds with other layers as needed.
+scene.setSceneBounds(scene.getMeshObjectsBounds());
+scene.setExtentBoxVisible(true);
 // Remove registration before disposing caller-owned resources.
 scene.unregisterMeshObject('surface-1');
 group.removeFromParent();
@@ -1138,4 +1144,18 @@ group.removeFromParent();
 
 `registerMeshObject(id, object, {name})` requires a unique ID and a mesh or group containing mesh materials. Registered roots must not overlap. It clones materials so a colour change cannot alter another object sharing the original material. `setMeshObjectColor(id, '#rrggbb')` sets a uniform display colour, disables vertex colouring and retains opacity. `selectMeshObject(null)` clears selection; mesh clicks report the registered root, hit mesh, ID, name, point and distance.
 
-`unregisterMeshObject(id)` clears an affected selection, restores original material references and disposes the cloned materials. `clearMeshObjects()` and scene disposal unregister every mesh. The caller retains ownership of geometry, original materials and parent membership, and must dispose those resources separately. Registrations survive drillhole-layer rebuilds.
+`unregisterMeshObject(id)` clears an affected selection, restores original material references and root visibility, and disposes cloned materials and wireframe resources. `clearMeshObjects()` and scene disposal unregister every mesh. The caller retains ownership of geometry, original materials and parent membership, and must dispose those resources separately. Registrations survive drillhole-layer rebuilds.
+
+| Method | Behaviour |
+| --- | --- |
+| `setMeshObjectVisibility(id, visible)` | Hide or show without unloading; hidden objects remain editable by ID. |
+| `setMeshObjectOpacity(id, opacity)` | Set all registered materials to a finite value in `[0, 1]`; invalid values throw. Translucent materials use blending without depth writes; fully opaque materials write depth. |
+| `setMeshObjectWireframe(id, enabled)` | Overlay all triangle edges on the filled surface, including coplanar edges. Geometry is created on first use, retained while disabled and disposed on unregister. There is no triangle-count cutoff. |
+| `getMeshObjectStyle(id)` | Return `{visible, opacity, wireframe}`. Visibility is the registered root's setting; mixed original material opacities return `null`. |
+| `getMeshObjectsBounds({visibleOnly: true})` | Return world-coordinate `{minX, maxX, minY, maxY, minZ, maxZ}`, or `null` for an empty extent. Hidden and zero-opacity meshes are excluded by default. Pass `visibleOnly: false` to include them. |
+| `setSceneBounds(bounds)` | Set combined content bounds for camera fitting, the ground grid and extent box. Requires finite, ordered minima/maxima; `null` clears the bounds and anchors. |
+| `setExtentBoxVisible(visible)` | Toggle the existing labelled extent box. The visibility setting persists through bounds changes. |
+
+Wireframe edges use a darker version of the surface colour and follow surface opacity. They do not intercept selection. Hiding a selected mesh or setting its opacity to zero clears its outline. All display setters require a registered ID and throw for unknown IDs.
+
+The host controls scene membership and must call `setSceneBounds` after adding, removing or changing the visibility of content. Include the bounds of other visible layers in that union. Bounds use mesh geometry bounding boxes and world transforms; recompute geometry bounding boxes after editing vertex positions. Display controls change only the current scene, not source files.
