@@ -8,20 +8,29 @@ import {
   geophysicsRasterRange,
   getGeophysicsRasterBand,
 } from '../data/geophysicsRaster.js';
+import {
+  createGeophysicsStretch,
+  geophysicsScaleColor,
+  isGeophysicsValue,
+  sortedPercentile,
+} from './geophysicsColorScales.js';
 
-const PALETTES = Object.freeze({
-  viridis: [[68, 1, 84], [59, 82, 139], [33, 145, 140], [94, 201, 98], [253, 231, 37]],
-  terrain: [[30, 60, 35], [88, 125, 55], [191, 171, 105], [238, 233, 196], [255, 255, 255]],
-  grayscale: [[0, 0, 0], [255, 255, 255]],
-  magnetic: [[21, 32, 90], [37, 105, 172], [242, 235, 199], [205, 81, 56], [91, 24, 48]],
+export { GEOPHYSICS_PALETTES } from './geophysicsColorScales.js';
+
+export const DEFAULT_GEOPHYSICS_HILLSHADE = Object.freeze({
+  enabled: false,
+  azimuth: 315,
+  altitude: 45,
+  strength: 0.65,
+  zFactor: 'auto',
 });
 
-export const GEOPHYSICS_PALETTES = Object.freeze(Object.keys(PALETTES));
-
 /**
- * Resolve an ordered low/high range for rendering.  Values outside the range
- * are clipped, rather than discarded, which is the conventional raster
- * display meaning of low/high pass controls.
+ * Resolve an ordered low/high range in data units. Values outside the range
+ * take the end colours.
+ *
+ * Kept for callers of the original API; new code should pass
+ * `stretch: { mode: 'absolute', min, max }` to {@link renderGeophysicsRaster}.
  */
 export function normalizeGeophysicsClipRange(raster, clipRange = null, band = 1) {
   const range = geophysicsRasterRange(raster, band);
@@ -37,64 +46,132 @@ export function normalizeGeophysicsClipRange(raster, clipRange = null, band = 1)
   return [low, high];
 }
 
+function asRaster(raster) {
+  return raster?.bandCount ? raster : createGeophysicsRaster(raster);
+}
+
+function cellSize(raster) {
+  const [a, , , , e] = raster.transform;
+  return [Math.abs(a) || 1, Math.abs(e) || 1];
+}
+
+function gradients(band, nodata, cellX, cellY, zFactor = 1) {
+  const height = band.length;
+  const width = band[0].length;
+  const at = (row, column, fallback) => {
+    const value = band[Math.max(0, Math.min(height - 1, row))][Math.max(0, Math.min(width - 1, column))];
+    return isGeophysicsValue(value, nodata) ? value : fallback;
+  };
+  return band.map((values, row) => values.map((value, column) => {
+    if (!isGeophysicsValue(value, nodata)) return null;
+    // Edge and gap neighbours fall back to the centre value.
+    const dzdx = (at(row, column + 1, value) - at(row, column - 1, value)) / (2 * cellX);
+    const dzdy = (at(row + 1, column, value) - at(row - 1, column, value)) / (2 * cellY);
+    return [dzdx * zFactor, dzdy * zFactor];
+  }));
+}
+
 /**
- * Compute an illuminated-relief factor for one band. Azimuth is degrees
- * clockwise from north; altitude is degrees above the horizon.
+ * Automatic vertical exaggeration: scales the 95th-percentile gradient to a
+ * 45° slope so relief is comparable whatever the data units (nT, mGal, m).
+ * Matches Python's `baselode.geophysics.hillshade_z_factor`.
+ *
+ * @param {object} raster
+ * @param {number} [band=1]
+ * @returns {number}
+ */
+export function geophysicsHillshadeZFactor(raster, band = 1) {
+  const normalized = asRaster(raster);
+  const [cellX, cellY] = cellSize(normalized);
+  const magnitudes = [];
+  for (const row of gradients(getGeophysicsRasterBand(normalized, band), normalized.nodata, cellX, cellY)) {
+    for (const gradient of row) if (gradient) magnitudes.push(Math.hypot(gradient[0], gradient[1]));
+  }
+  if (magnitudes.length === 0) return 1;
+  const reference = sortedPercentile(Float64Array.from(magnitudes).sort(), 95);
+  return reference > 0 ? 1 / reference : 1;
+}
+
+/**
+ * Compute an illumination grid (0..1) for one band. Azimuth is degrees
+ * clockwise from north; altitude is degrees above the horizon; `zFactor` is
+ * a vertical exaggeration or `'auto'`. Missing cells are NaN.
+ *
+ * @param {object} raster
+ * @param {{band?: number, azimuth?: number, altitude?: number, zFactor?: number|'auto'}} [options]
+ * @returns {number[][]}
  */
 export function geophysicsHillshade(raster, options = {}) {
-  const normalized = raster?.bandCount ? raster : createGeophysicsRaster(raster);
-  const band = getGeophysicsRasterBand(normalized, options.band ?? 1);
-  const azimuth = Number(options.azimuth ?? 315);
-  const altitude = Number(options.altitude ?? 45);
-  const [a, , , , e] = normalized.transform;
-  const cellX = Math.abs(a) || 1;
-  const cellY = Math.abs(e) || 1;
+  const normalized = asRaster(raster);
+  const bandIndex = options.band ?? 1;
+  const azimuth = Number(options.azimuth ?? DEFAULT_GEOPHYSICS_HILLSHADE.azimuth);
+  const altitude = Number(options.altitude ?? DEFAULT_GEOPHYSICS_HILLSHADE.altitude);
+  if (!(altitude > 0 && altitude <= 90)) throw new RangeError('altitude must be greater than 0 and at most 90 degrees.');
+  const requested = options.zFactor ?? DEFAULT_GEOPHYSICS_HILLSHADE.zFactor;
+  const zFactor = requested === 'auto' ? geophysicsHillshadeZFactor(normalized, bandIndex) : Number(requested);
+  if (!(zFactor > 0)) throw new RangeError("zFactor must be positive or 'auto'.");
+  const [cellX, cellY] = cellSize(normalized);
   const zenith = (90 - altitude) * Math.PI / 180;
   const azimuthRadians = (360 - azimuth + 90) * Math.PI / 180;
-  const output = band.map((row, rowIndex) => row.map((value, columnIndex) => {
-    if (!isRenderable(value, normalized.nodata)) return 0;
-    const left = neighbour(band, rowIndex, columnIndex - 1, value, normalized.nodata);
-    const right = neighbour(band, rowIndex, columnIndex + 1, value, normalized.nodata);
-    const up = neighbour(band, rowIndex - 1, columnIndex, value, normalized.nodata);
-    const down = neighbour(band, rowIndex + 1, columnIndex, value, normalized.nodata);
-    const dzdx = (right - left) / (2 * cellX);
-    const dzdy = (down - up) / (2 * cellY);
+  const band = getGeophysicsRasterBand(normalized, bandIndex);
+  return gradients(band, normalized.nodata, cellX, cellY, zFactor).map((row) => row.map((gradient) => {
+    if (!gradient) return NaN;
+    const [dzdx, dzdy] = gradient;
     const slope = Math.atan(Math.hypot(dzdx, dzdy));
     const aspect = Math.atan2(dzdy, -dzdx);
     const intensity = Math.cos(zenith) * Math.cos(slope)
       + Math.sin(zenith) * Math.sin(slope) * Math.cos(azimuthRadians - aspect);
     return Math.max(0, Math.min(1, intensity));
   }));
-  return output;
 }
 
 /**
- * Convert a numeric raster band into Canvas ImageData-compatible RGBA bytes.
+ * Convert one raster band into Canvas ImageData-compatible RGBA bytes.
+ *
+ * @param {object} raster
+ * @param {object} [options]
+ * @param {number} [options.band=1]
+ * @param {string} [options.palette='viridis']
+ * @param {boolean} [options.reversePalette=false]
+ * @param {object} [options.stretch] - `{mode: 'relative', low, high}` (default 2/98),
+ *   `{mode: 'absolute', min, max}` or `{mode: 'equalize'}`.
+ * @param {[number, number]} [options.clipRange] - Legacy absolute range; used when
+ *   `stretch` is absent.
+ * @param {object} [options.hillshade] - `{enabled, azimuth, altitude, strength, zFactor}`.
+ * @returns {{data: Uint8ClampedArray, width: number, height: number, range: [number, number],
+ *   scale: object, zFactor: number|null}}
+ *   `range` is the data values at the ends of the colour scale; `scale` maps
+ *   values to colour positions and back (for colour bars).
  */
 export function renderGeophysicsRaster(raster, options = {}) {
-  const normalized = raster?.bandCount ? raster : createGeophysicsRaster(raster);
+  const normalized = asRaster(raster);
   const bandIndex = options.band ?? 1;
   const band = getGeophysicsRasterBand(normalized, bandIndex);
-  const palette = PALETTES[options.palette ?? 'viridis'];
-  if (!palette) throw new RangeError(`Unknown geophysics palette: ${options.palette}`);
-  const range = normalizeGeophysicsClipRange(normalized, options.clipRange, bandIndex);
-  const hillshadeOptions = options.hillshade ?? {};
-  const shade = hillshadeOptions.enabled
-    ? geophysicsHillshade(normalized, { ...hillshadeOptions, band: bandIndex })
-    : null;
-  const strength = Math.max(0, Math.min(1, Number(hillshadeOptions.strength ?? 0.65)));
+  const palette = options.palette ?? 'viridis';
+  const reverse = Boolean(options.reversePalette);
+  geophysicsScaleColor(palette, 0);
+  let stretch = options.stretch;
+  if (!stretch && options.clipRange) {
+    const [min, max] = normalizeGeophysicsClipRange(normalized, options.clipRange, bandIndex);
+    stretch = { mode: 'absolute', min, max };
+  }
+  const scale = createGeophysicsStretch(band.flat(), stretch, normalized.nodata);
+  const hillshade = { ...DEFAULT_GEOPHYSICS_HILLSHADE, ...(options.hillshade ?? {}) };
+  let zFactor = null;
+  let shade = null;
+  if (hillshade.enabled) {
+    zFactor = hillshade.zFactor === 'auto' ? geophysicsHillshadeZFactor(normalized, bandIndex) : Number(hillshade.zFactor);
+    shade = geophysicsHillshade(normalized, { ...hillshade, zFactor, band: bandIndex });
+  }
+  const strength = Math.max(0, Math.min(1, Number(hillshade.strength)));
   const pixels = new Uint8ClampedArray(normalized.width * normalized.height * 4);
 
   for (let row = 0; row < normalized.height; row += 1) {
     for (let column = 0; column < normalized.width; column += 1) {
       const offset = (row * normalized.width + column) * 4;
-      const value = band[row][column];
-      if (!isRenderable(value, normalized.nodata)) {
-        pixels[offset + 3] = 0;
-        continue;
-      }
-      const ratio = Math.max(0, Math.min(1, (value - range[0]) / (range[1] - range[0] || 1)));
-      const color = interpolatePalette(palette, ratio);
+      const ratio = scale.toRatio(band[row][column]);
+      if (Number.isNaN(ratio)) continue;
+      const color = geophysicsScaleColor(palette, ratio, reverse);
       const illumination = shade ? (1 - strength) + strength * shade[row][column] : 1;
       pixels[offset] = color[0] * illumination;
       pixels[offset + 1] = color[1] * illumination;
@@ -103,22 +180,12 @@ export function renderGeophysicsRaster(raster, options = {}) {
     }
   }
 
-  return { data: pixels, width: normalized.width, height: normalized.height, range };
-}
-
-function isRenderable(value, nodata) {
-  return Number.isFinite(value) && value !== nodata;
-}
-
-function neighbour(band, row, column, fallback, nodata) {
-  const value = band[Math.max(0, Math.min(band.length - 1, row))][Math.max(0, Math.min(band[0].length - 1, column))];
-  return isRenderable(value, nodata) ? value : fallback;
-}
-
-function interpolatePalette(palette, ratio) {
-  const position = ratio * (palette.length - 1);
-  const lower = Math.floor(position);
-  const upper = Math.min(palette.length - 1, lower + 1);
-  const portion = position - lower;
-  return palette[lower].map((channel, index) => Math.round(channel + (palette[upper][index] - channel) * portion));
+  return {
+    data: pixels,
+    width: normalized.width,
+    height: normalized.height,
+    range: scale.limits,
+    scale,
+    zFactor,
+  };
 }

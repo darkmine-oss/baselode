@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { z } from 'zod';
+import geophysicsScales from '../data/geophysics_color_scales.json';
 
 const PrimitiveJsonSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const JsonObjectSchema = z.record(z.string(), z.unknown());
@@ -139,6 +140,16 @@ const RasterTransformSchema = z.tuple([
   z.number(), z.number(), z.number(), z.number(), z.number(), z.number(),
 ]);
 
+const GeophysicsStretchSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('relative'),
+    low: z.number().min(0).max(100).optional(),
+    high: z.number().min(0).max(100).optional(),
+  }),
+  z.object({ mode: z.literal('absolute'), min: z.number(), max: z.number() }),
+  z.object({ mode: z.literal('equalize') }),
+]);
+
 export const SerializableBaselodeGeophysicsRasterSchema = z.object({
   id: z.string().min(1),
   title: z.string().optional(),
@@ -151,13 +162,18 @@ export const SerializableBaselodeGeophysicsRasterSchema = z.object({
     bandNames: z.array(z.string()).optional(),
     metadata: JsonObjectSchema.optional(),
   }),
-  palette: z.enum(['viridis', 'terrain', 'grayscale', 'magnetic']).optional(),
+  band: z.number().int().min(1).optional(),
+  units: z.string().optional(),
+  palette: z.enum(Object.keys(geophysicsScales.scales)).optional(),
+  reversePalette: z.boolean().optional(),
+  stretch: GeophysicsStretchSchema.optional(),
   clipRange: z.tuple([z.number(), z.number()]).optional(),
   hillshade: z.object({
     enabled: z.boolean().optional(),
     azimuth: z.number().min(0).max(360).optional(),
-    altitude: z.number().min(1).max(90).optional(),
+    altitude: z.number().gt(0).max(90).optional(),
     strength: z.number().min(0).max(1).optional(),
+    zFactor: z.union([z.number().positive(), z.literal('auto')]).optional(),
   }).optional(),
   height: z.number().positive().max(1200).optional(),
   showControls: z.boolean().optional(),

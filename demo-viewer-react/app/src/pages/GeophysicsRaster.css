@@ -68,3 +68,4 @@
   .geophysics-raster-page__header { display: grid; }
   .geophysics-raster-page__body { grid-template-columns: 1fr; }
 }
+.geophysics-raster-page__subheading { margin: 20px 0 8px; font-size: 15px; }

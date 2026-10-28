@@ -5,18 +5,29 @@
 
 import { GeophysicsRasterViewer } from '../viz/GeophysicsRasterViewer.jsx';
 
-/** Render a serializable geophysics raster result in assistant and app UIs. */
+/**
+ * Render a serializable geophysics raster result in assistant and app UIs.
+ *
+ * Chat-first defaults: a static image with colour bar, raster summary and
+ * cursor read-out. Set `showControls` to expose palette, stretch and
+ * hillshade controls.
+ */
 export function BaselodeGeophysicsRasterToolUI({
   title,
   subtitle,
   raster,
+  band = 1,
+  units,
   palette,
+  reversePalette,
+  stretch,
   clipRange,
   hillshade,
-  height = 420,
-  showControls = true,
+  height = 360,
+  showControls = false,
   onViewChange,
 }) {
+  const view = { palette, reversePalette, stretch, clipRange, hillshade };
   return (
     <section className="baselode-tool-geophysics-raster">
       {(title || subtitle) && <header className="baselode-tool-geophysics-raster__header">
@@ -25,11 +36,10 @@ export function BaselodeGeophysicsRasterToolUI({
       </header>}
       <GeophysicsRasterViewer
         raster={raster}
-        {...(onViewChange ? {
-          value: { palette, clipRange, hillshade },
-          onViewChange,
-        } : {})}
-        defaultView={{ palette, clipRange, hillshade }}
+        band={band}
+        units={units}
+        {...(onViewChange ? { value: view, onViewChange } : {})}
+        defaultView={view}
         height={height}
         showControls={showControls}
       />

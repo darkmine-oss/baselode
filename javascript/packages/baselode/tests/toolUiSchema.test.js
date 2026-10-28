@@ -30,6 +30,28 @@ describe('Tool UI serializable schemas', () => {
     expect(parsed.raster.data[0][1][1]).toBeNull();
   });
 
+  it('parses geophysics stretches, units and vertical exaggeration', () => {
+    const base = { id: 'tmi', raster: { data: [[[1, 2]]] } };
+    for (const stretch of [
+      { mode: 'relative', low: 1, high: 99 },
+      { mode: 'absolute', min: -100, max: 300 },
+      { mode: 'equalize' },
+    ]) {
+      expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch })).not.toBeNull();
+    }
+    const parsed = safeParseSerializableBaselodeGeophysicsRaster({
+      ...base,
+      units: 'nT',
+      palette: 'turbo',
+      reversePalette: true,
+      hillshade: { enabled: true, zFactor: 'auto' },
+    });
+    expect(parsed.units).toBe('nT');
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, palette: 'jet' })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch: { mode: 'absolute', min: 1 } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, hillshade: { zFactor: 0 } })).toBeNull();
+  });
+
   it('parses a valid strip-log payload and applies track defaults', () => {
     const parsed = safeParseSerializableBaselodeStripLog({
       id: 'strip-log-BLDD001',

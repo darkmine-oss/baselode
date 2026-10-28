@@ -5,6 +5,8 @@
 
 import { useMemo, useState } from 'react';
 import { GeophysicsRasterViewer, loadGeoTiff } from 'baselode';
+import { BaselodeGeophysicsRasterToolUI } from 'baselode/tool-ui';
+import 'baselode/tool-ui/style.css';
 import './GeophysicsRaster.css';
 
 const FORESTANIA_SAMPLE_RASTER = createSyntheticMagnetics();
@@ -35,13 +37,21 @@ function createSyntheticMagnetics() {
   };
 }
 
+const SAMPLE_VIEW = Object.freeze({
+  palette: 'magnetic',
+  stretch: { mode: 'equalize' },
+  hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.55, zFactor: 'auto' },
+});
+
+const DEFAULT_FILE_VIEW = Object.freeze({
+  palette: 'turbo',
+  stretch: { mode: 'relative', low: 2, high: 98 },
+  hillshade: { enabled: false, azimuth: 315, altitude: 45, strength: 0.65, zFactor: 'auto' },
+});
+
 function GeophysicsRaster() {
   const [raster, setRaster] = useState(FORESTANIA_SAMPLE_RASTER);
-  const [view, setView] = useState({
-    palette: 'magnetic',
-    clipRange: [-700, 700],
-    hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.55 },
-  });
+  const [view, setView] = useState(SAMPLE_VIEW);
   const [sourceLabel, setSourceLabel] = useState('Synthetic TMI over the GSWA Forrestania sample area');
   const [error, setError] = useState('');
   const metadata = useMemo(() => raster.metadata ?? {}, [raster]);
@@ -54,11 +64,7 @@ function GeophysicsRaster() {
       const loaded = await loadGeoTiff(file);
       setRaster(loaded);
       setSourceLabel(file.name);
-      setView({
-        palette: 'magnetic',
-        clipRange: null,
-        hillshade: { enabled: false, azimuth: 315, altitude: 45, strength: 0.65 },
-      });
+      setView(DEFAULT_FILE_VIEW);
     } catch (loadError) {
       setError(`Could not read ${file.name}: ${loadError.message}`);
     }
@@ -68,11 +74,7 @@ function GeophysicsRaster() {
     setRaster(FORESTANIA_SAMPLE_RASTER);
     setSourceLabel('Synthetic TMI over the GSWA Forrestania sample area');
     setError('');
-    setView({
-      palette: 'magnetic',
-      clipRange: [-700, 700],
-      hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.55 },
-    });
+    setView(SAMPLE_VIEW);
   };
 
   return (
@@ -82,7 +84,7 @@ function GeophysicsRaster() {
           <h1>Geophysics Raster</h1>
           <p>
             A reusable 2D raster view for magnetics, radiometrics, gravity, and other gridded geophysics.
-            Change the colour map, display clip, and hillshade controls below.
+            Change the colour scale, relative/absolute/equalised stretch, and hillshade controls below.
           </p>
         </div>
         <div className="geophysics-raster-page__actions">
@@ -96,7 +98,15 @@ function GeophysicsRaster() {
 
       <div className="geophysics-raster-page__body">
         <section className="geophysics-raster-page__viewer">
-          <GeophysicsRasterViewer raster={raster} value={view} onViewChange={setView} height={560} />
+          <GeophysicsRasterViewer raster={raster} units={metadata.units} value={view} onViewChange={setView} height={560} />
+          <h2 className="geophysics-raster-page__subheading">In-chat Tool UI preview</h2>
+          <BaselodeGeophysicsRasterToolUI
+            title={raster.bandNames?.[0] || 'Raster'}
+            subtitle={sourceLabel}
+            raster={raster}
+            units={metadata.units}
+            {...view}
+          />
         </section>
         <aside className="geophysics-raster-page__info">
           <h2>Raster source</h2>
@@ -108,8 +118,9 @@ function GeophysicsRaster() {
           </dl>
           <p>
             This initial sample is synthetic but geographically aligned with the demo drillhole area.
-            A browser can open GeoTIFF/COG directly. ERS files are loaded with Python
-            <code> baselode.geophysics.load_raster()</code> and transferred as a raster payload.
+            A browser can open GeoTIFF/COG directly. ERS files load natively with Python
+            <code> baselode.geophysics.load_raster()</code>, which also applies wavelength filters,
+            and <code>to_tool_ui_payload()</code> sends a chat-sized result to the viewer.
           </p>
           {error && <p className="geophysics-raster-page__error">{error}</p>}
         </aside>

@@ -156,18 +156,48 @@ export interface BaselodeGeophysicsRasterResult {
     bandNames?: string[];
     metadata?: BaselodeJsonObject;
   };
-  palette?: 'viridis' | 'terrain' | 'grayscale' | 'magnetic';
+  /** One-based band to display. */
+  band?: number;
+  /** Value units shown on the colour bar, e.g. 'nT'. */
+  units?: string;
+  palette?: BaselodeGeophysicsPalette;
+  reversePalette?: boolean;
+  stretch?: BaselodeGeophysicsStretch;
+  /** Legacy absolute range; prefer `stretch: { mode: 'absolute', min, max }`. */
   clipRange?: [number, number];
-  hillshade?: { enabled?: boolean; azimuth?: number; altitude?: number; strength?: number };
+  hillshade?: BaselodeGeophysicsHillshade;
   height?: number;
   showControls?: boolean;
 }
 
+export type BaselodeGeophysicsPalette =
+  | 'viridis' | 'magma' | 'inferno' | 'plasma' | 'cividis' | 'turbo'
+  | 'diverging' | 'rainbow' | 'magnetic' | 'terrain' | 'grayscale';
+
+export type BaselodeGeophysicsStretch =
+  | { mode: 'relative'; low?: number; high?: number }
+  | { mode: 'absolute'; min: number; max: number }
+  | { mode: 'equalize' };
+
+export interface BaselodeGeophysicsHillshade {
+  enabled?: boolean;
+  /** Degrees clockwise from north. */
+  azimuth?: number;
+  /** Degrees above the horizon. */
+  altitude?: number;
+  /** 0 (flat colour) to 1 (full shading). */
+  strength?: number;
+  /** Vertical exaggeration, or 'auto' to scale the 95th-percentile gradient to 45°. */
+  zFactor?: number | 'auto';
+}
+
 export interface BaselodeGeophysicsRasterCallbacks {
   onViewChange?: (view: {
-    palette?: BaselodeGeophysicsRasterResult['palette'];
-    clipRange?: [number, number] | null;
-    hillshade?: BaselodeGeophysicsRasterResult['hillshade'];
+    palette?: BaselodeGeophysicsPalette;
+    reversePalette?: boolean;
+    stretch?: BaselodeGeophysicsStretch;
+    clipRange?: [number, number];
+    hillshade?: BaselodeGeophysicsHillshade;
   }) => void;
 }
 

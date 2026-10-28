@@ -1396,22 +1396,35 @@ group.children.forEach((mesh) => {
 
 For numeric grids such as magnetics, radiometrics, gravity, and conductivity,
 use `GeophysicsRasterViewer`. It renders a portable bands-first payload to a
-Canvas and exposes colour map, display clipping, and optional illuminated
-relief controls. Pass `value` and `onViewChange` to own the controls from your
-application, or omit them for the built-in state and controls.
+Canvas with a colour bar, raster summary and cursor read-out, plus controls
+for colour scale, stretch and illuminated relief. Pass `value` and
+`onViewChange` to own the display state from your application, or omit them
+for the built-in state; `showControls={false}` gives a static view.
 
 ```jsx
 import { GeophysicsRasterViewer } from 'baselode';
 
 function Magnetics({ raster }) {
   const [view, setView] = useState({
-    palette: 'magnetic',
-    clipRange: [-500, 500],
-    hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.65 },
+    palette: 'turbo',
+    stretch: { mode: 'equalize' },
+    hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.65, zFactor: 'auto' },
   });
-  return <GeophysicsRasterViewer raster={raster} value={view} onViewChange={setView} />;
+  return <GeophysicsRasterViewer raster={raster} units="nT" value={view} onViewChange={setView} />;
 }
 ```
+
+| View field | Values |
+|---|---|
+| `palette` | `viridis`, `magma`, `inferno`, `plasma`, `cividis`, `turbo`, `diverging`, `rainbow`, `magnetic`, `terrain`, `grayscale` |
+| `reversePalette` | `true` runs the scale from high to low |
+| `stretch` | `{ mode: 'relative', low: 2, high: 98 }` (percentiles, default), `{ mode: 'absolute', min, max }` (data units), `{ mode: 'equalize' }` |
+| `hillshade` | `enabled`, `azimuth` (° from north), `altitude` (°), `strength` (0–1), `zFactor` (number or `'auto'`) |
+
+The older `clipRange: [low, high]` is still accepted as an absolute stretch.
+`renderGeophysicsRaster`, `geophysicsHillshade` and `createGeophysicsStretch`
+expose the same rendering without React; they match Python's
+`baselode.geophysics.colourize` and `hillshade` cell for cell.
 
 The payload is compatible with Python's `GeophysicsRaster.to_payload()`:
 
@@ -1434,12 +1447,11 @@ import { loadGeoTiff } from 'baselode';
 const raster = await loadGeoTiff('/data/regional_tmi.tif');
 ```
 
-ERS and other GDAL-only formats should be opened on the Python side with
-`load_raster()` and transferred as this payload. That retains one dependable
-browser format rather than attempting to replicate GDAL's format drivers in
-the client. The Tool UI equivalent is the `geophysics-raster` primitive with
-canonical name `baselode_geophysics_raster`; it sends a `view-change` event
-when the user changes a control.
+Open ERS grids and apply wavelength filters on the Python side, then transfer
+the payload. The Tool UI equivalent is the `geophysics-raster` primitive with
+canonical name `baselode_geophysics_raster`. It defaults to a static,
+chat-sized view (`showControls: false`, height 360). Python's
+`GeophysicsRaster.to_tool_ui_payload()` builds a decimated result for it.
 
 ## Raster Overlays
 
