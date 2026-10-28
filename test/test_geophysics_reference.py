@@ -17,6 +17,7 @@ import json
 import pathlib
 
 import numpy as np
+import pytest
 
 import baselode.geophysics
 
@@ -89,11 +90,33 @@ def build_reference():
     }
 
 
+def _assert_matches(actual, expected, path="reference"):
+    """Compare nested JSON, allowing platform-level floating-point differences.
+
+    A failure names the first differing path; regenerate the fixture if the
+    change is intended (see module docstring).
+    """
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict) and actual.keys() == expected.keys(), path
+        for key in expected:
+            _assert_matches(actual[key], expected[key], f"{path}.{key}")
+    elif isinstance(expected, list):
+        assert isinstance(actual, list) and len(actual) == len(expected), path
+        for index, (left, right) in enumerate(zip(actual, expected)):
+            _assert_matches(left, right, f"{path}[{index}]")
+    elif isinstance(expected, float) or isinstance(actual, float):
+        assert actual is not None and expected is not None, path
+        assert actual == pytest.approx(expected, rel=1e-9, abs=1e-9), path
+    elif ".rgba[" in path and isinstance(expected, int):
+        # A channel can round either side of .5 on another platform.
+        assert abs(actual - expected) <= 1, path
+    else:
+        assert actual == expected, path
+
+
 def test_reference_fixture_is_current():
     expected = json.loads(json.dumps(build_reference()))
-    assert json.loads(FIXTURE_PATH.read_text()) == expected, (
-        "geophysics_reference.json is out of date; regenerate it (see module docstring)"
-    )
+    _assert_matches(json.loads(FIXTURE_PATH.read_text()), expected)
 
 
 if __name__ == "__main__":
