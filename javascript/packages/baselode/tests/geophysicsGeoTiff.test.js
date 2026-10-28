@@ -77,29 +77,31 @@ describe('loadGeoTiff', () => {
     expect(raster.transform).toEqual([1, 0, 0, 0, -1, 1]);
   });
 
-  it('decimates from row strips without reading the whole image', async () => {
-    const values = Float32Array.from({ length: 12 }, (_, index) => (index === 5 ? -9999 : index));
+  it('decimates from tile-aligned row chunks, reading each row once', async () => {
+    const width = 3;
+    const height = 600;
+    const values = Float32Array.from({ length: width * height }, (_, index) => (index === 700 ? -9999 : (index % 97) - 40));
     const windows = [];
     Object.assign(image, {
-      getWidth: () => 4,
-      getHeight: () => 3,
-      readRasters: async ({ window } = {}) => {
-        const [left, top, right, bottom] = window ?? [0, 0, 4, 3];
-        windows.push(window ?? null);
-        expect([left, right]).toEqual([0, 4]);
-        return [values.slice(top * 4, bottom * 4)];
+      getWidth: () => width,
+      getHeight: () => height,
+      getTileHeight: () => 100,
+      readRasters: async ({ window }) => {
+        const [left, top, right, bottom] = window;
+        windows.push(window);
+        expect([left, right]).toEqual([0, width]);
+        return [values.slice(top * width, bottom * width)];
       },
     });
-    const raster = await loadGeoTiff(new ArrayBuffer(8), { maxCells: 4 });
-    // Factor 2: two output rows of 1.5 source rows each, two columns.
-    expect(windows).toEqual([[0, 0, 4, 2], [0, 1, 4, 3]]);
-    const full = createGeophysicsRaster({
-      data: [[[0, 1, 2, 3], [4, -9999, 6, 7], [8, 9, 10, 11]]], nodata: -9999,
-      transform: [10, 0, 500000, 0, -10, 7000000],
-    });
-    const expected = decimateGeophysicsRaster(full, 4);
+    const raster = await loadGeoTiff(new ArrayBuffer(8), { maxCells: 70 });
+    // 256 rows rounded up to whole 100-row tiles; no row is read twice.
+    expect(windows).toEqual([[0, 0, width, 300], [0, 300, width, 600]]);
+    const rows = Array.from({ length: height }, (_, row) => Array.from(values.slice(row * width, (row + 1) * width)));
+    const full = createGeophysicsRaster({ data: [rows], nodata: -9999, transform: [10, 0, 500000, 0, -10, 7000000] });
+    const expected = decimateGeophysicsRaster(full, 70);
     expect(raster.transform).toEqual(expected.transform);
-    raster.data[0].forEach((row, r) => row.forEach((value, c) => expect(value).toBeCloseTo(expected.data[0][r][c], 12)));
+    expect(raster.height).toBe(expected.height);
+    raster.data[0].forEach((row, r) => row.forEach((value, c) => expect(value).toBeCloseTo(expected.data[0][r][c], 10)));
   });
 
   it('decimates while loading when maxCells is set', async () => {

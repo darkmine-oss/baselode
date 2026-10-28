@@ -178,47 +178,70 @@ function isValidCell(value, sentinel) {
  * their overlap (matches Python's `_axis_area_sums`).
  */
 function areaMeanRows(cellAt, width, height, rows, columns, sentinel) {
-  const buffers = { totals: new Float64Array(width), weights: new Float64Array(width) };
-  return Array.from({ length: rows }, (_, output) => areaMeanRow(
-    cellAt, (output * height) / rows, ((output + 1) * height) / rows, width, columns, sentinel, buffers,
-  ));
+  const accumulator = createAreaMeanAccumulator(width, height, rows, columns, sentinel);
+  for (let row = 0; row < height; row += 1) {
+    const offset = row * width;
+    accumulator.addRow(row, (column) => cellAt(offset + column));
+  }
+  return accumulator.finish();
 }
 
 /**
- * One output row: the area-weighted mean of source rows `start..end`
- * (fractional) over `columns` equal cells. `buffers` are reused width-sized
- * accumulators, so memory stays proportional to one source row.
+ * Streaming area-weighted block mean. Source rows are added in order with
+ * `addRow(row, cellAt)`; each contributes to the (at most two) output rows it
+ * overlaps, and an output row is reduced across columns as soon as it is
+ * complete. Memory is two source-width accumulators plus the output.
  */
-function areaMeanRow(cellAt, start, end, width, columns, sentinel, { totals, weights }) {
-  totals.fill(0);
-  weights.fill(0);
-  for (let row = Math.floor(start); row < Math.ceil(end); row += 1) {
-    const overlap = Math.min(end, row + 1) - Math.max(start, row);
-    if (overlap <= 0) continue;
-    const offset = row * width;
-    for (let column = 0; column < width; column += 1) {
-      const value = cellAt(offset + column);
-      if (!isValidCell(value, sentinel)) continue;
-      totals[column] += overlap * value;
-      weights[column] += overlap;
+function createAreaMeanAccumulator(width, height, rows, columns, sentinel) {
+  const buffers = [0, 1].map(() => ({ totals: new Float64Array(width), weights: new Float64Array(width) }));
+  const result = [];
+  const finishOutput = () => {
+    const { totals, weights } = buffers[result.length % 2];
+    const values = new Array(columns);
+    for (let output = 0; output < columns; output += 1) {
+      const left = (output * width) / columns;
+      const right = ((output + 1) * width) / columns;
+      let total = 0;
+      let weight = 0;
+      for (let source = Math.floor(left); source < Math.min(Math.ceil(right), width); source += 1) {
+        const overlap = Math.min(right, source + 1) - Math.max(left, source);
+        if (overlap <= 0) continue;
+        total += overlap * totals[source];
+        weight += overlap * weights[source];
+      }
+      values[output] = weight > 1e-12 ? total / weight : null;
     }
-  }
-  const values = new Array(columns);
-  for (let output = 0; output < columns; output += 1) {
-    const left = (output * width) / columns;
-    const right = ((output + 1) * width) / columns;
-    let total = 0;
-    let weight = 0;
-    for (let source = Math.floor(left); source < Math.min(Math.ceil(right), width); source += 1) {
-      const overlap = Math.min(right, source + 1) - Math.max(left, source);
-      if (overlap <= 0) continue;
-      total += overlap * totals[source];
-      weight += overlap * weights[source];
-    }
-    values[output] = weight > 1e-12 ? total / weight : null;
-  }
-  return values;
+    totals.fill(0);
+    weights.fill(0);
+    result.push(values);
+  };
+  return {
+    addRow(row, cellAt) {
+      const first = Math.floor((row * rows) / height);
+      while (result.length < first) finishOutput();
+      for (let output = first; output < rows; output += 1) {
+        const start = (output * height) / rows;
+        if (start >= row + 1) break;
+        const overlap = Math.min((output + 1) * height / rows, row + 1) - Math.max(start, row);
+        if (overlap <= 0) continue;
+        const { totals, weights } = buffers[output % 2];
+        for (let column = 0; column < width; column += 1) {
+          const value = cellAt(column);
+          if (!isValidCell(value, sentinel)) continue;
+          totals[column] += overlap * value;
+          weights[column] += overlap;
+        }
+      }
+    },
+    finish() {
+      while (result.length < rows) finishOutput();
+      return result;
+    },
+  };
 }
+
+/** Minimum rows per GeoTIFF read while decimating (rounded up to whole tiles). */
+const GEOTIFF_CHUNK_ROWS = 256;
 
 /**
  * Load a GeoTIFF or Cloud-Optimized GeoTIFF in browser or Node applications.
@@ -269,27 +292,25 @@ export async function loadGeoTiff(source, options = {}) {
       bandNames: bandNames(values.length),
     });
   }
-  // Read one strip of source rows per output row, so a large image is never
-  // held at full resolution.
+  // Stream tile-aligned row chunks (each source block is decoded once) into
+  // the area-mean accumulators, so a large image is never held in full.
   const shape = decimationShape(width, height, maxCells);
-  const buffers = { totals: new Float64Array(width), weights: new Float64Array(width) };
-  let data = null;
-  for (let output = 0; output < shape.rows; output += 1) {
-    const start = (output * height) / shape.rows;
-    const end = ((output + 1) * height) / shape.rows;
-    const top = Math.floor(start);
-    const strip = await image.readRasters({
-      samples: options.samples,
-      interleave: false,
-      window: [0, top, width, Math.min(Math.ceil(end), height)],
-    });
-    const sentinel = geoTiffNoData(image.getGDALNoData(), strip);
-    data ??= Array.from(strip, () => []);
-    strip.forEach((band, index) => {
-      const cellAt = (cell) => band[cell - top * width];
-      data[index].push(areaMeanRow(cellAt, start, end, width, shape.columns, sentinel, buffers));
+  const tileHeight = Math.max(1, image.getTileHeight?.() ?? 1);
+  const chunkRows = Math.ceil(GEOTIFF_CHUNK_ROWS / tileHeight) * tileHeight;
+  let accumulators = null;
+  for (let top = 0; top < height; top += chunkRows) {
+    const bottom = Math.min(height, top + chunkRows);
+    const chunk = await image.readRasters({ samples: options.samples, interleave: false, window: [0, top, width, bottom] });
+    const sentinel = geoTiffNoData(image.getGDALNoData(), chunk);
+    accumulators ??= Array.from(chunk, () => createAreaMeanAccumulator(width, height, shape.rows, shape.columns, sentinel));
+    chunk.forEach((band, index) => {
+      for (let row = top; row < bottom; row += 1) {
+        const offset = (row - top) * width;
+        accumulators[index].addRow(row, (column) => band[offset + column]);
+      }
     });
   }
+  const data = accumulators.map((accumulator) => accumulator.finish());
   return decimatedRaster(data, { ...payload, bandNames: bandNames(data.length) }, { width, height, ...shape });
 }
 
