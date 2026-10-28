@@ -149,20 +149,25 @@ class GeophysicsRaster:
 
     @property
     def cell_size(self):
-        """Return ``(x_size, y_size)`` as positive values, or ``None``.
+        """Return ``(column_spacing, row_spacing)`` as positive values, or ``None``.
+
+        For a rotated grid these are the distances between adjacent cell
+        centres along the column and row directions.
 
         Raises
         ------
         ValueError
-            If the transform is rotated or sheared, where a single cell size
-            is not defined.
+            If the transform is sheared (column and row axes not
+            perpendicular), where a cell is not rectangular.
         """
         if self.transform is None:
             return None
         a, b, _, d, e, _ = self.transform
-        if b != 0 or d != 0:
-            raise ValueError("cell size is undefined for a rotated or sheared transform")
-        return abs(a), abs(e)
+        column_spacing = math.hypot(a, d)
+        row_spacing = math.hypot(b, e)
+        if abs(a * b + d * e) > 1e-9 * column_spacing * row_spacing:
+            raise ValueError("cell size is undefined for a sheared transform")
+        return column_spacing, row_spacing
 
     def band(self, index=1):
         """Return one band using GDAL's one-based band numbering.
@@ -276,15 +281,20 @@ class GeophysicsRaster:
         -------
         dict
             ``data`` (nested ``[band][row][column]`` lists with ``None`` for
-            missing cells), ``transform``, ``crs``, ``nodata``, ``bandNames``
-            and ``metadata``.
+            missing cells, including cells equal to ``nodata``),
+            ``transform``, ``crs``, ``nodata`` (always ``None``, as sentinel
+            cells are already ``None``), ``bandNames`` and ``metadata``.
         """
+        values = self.data.astype(float)
+        if self.nodata is not None and math.isfinite(self.nodata):
+            # Mark sentinel cells missing before rounding can change them.
+            values = np.where(values == self.nodata, np.nan, values)
         return {
-            "data": _json_values(self.data, significant_digits),
+            "data": _json_values(values, significant_digits),
             "transform": self.transform,
             "crs": self.crs,
-            # NaN nodata markers are not valid JSON.
-            "nodata": self.nodata if self.nodata is None or math.isfinite(self.nodata) else None,
+            # Sentinel cells are already null, and a NaN marker is not JSON.
+            "nodata": None,
             "bandNames": list(self.band_names),
             "metadata": self.metadata,
         }

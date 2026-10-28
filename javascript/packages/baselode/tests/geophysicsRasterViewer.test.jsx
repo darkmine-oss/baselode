@@ -60,6 +60,16 @@ describe('geophysics raster viewer', () => {
     expect(textOf(renderer.root)).toContain('Absolute range');
   });
 
+  it('keeps Tool UI controls working when onViewChange only reports events', async () => {
+    const events = [];
+    const renderer = await render(
+      <BaselodeGeophysicsRasterToolUI raster={raster} showControls onViewChange={(view) => events.push(view)} />,
+    );
+    await act(async () => renderer.root.findAllByType('select')[1].props.onChange({ target: { value: 'equalize' } }));
+    expect(events.at(-1).stretch).toEqual({ mode: 'equalize' });
+    expect(textOf(renderer.root)).toContain('Histogram equalised');
+  });
+
   it('opens a valid absolute range for a constant raster', async () => {
     const views = [];
     const renderer = await render(

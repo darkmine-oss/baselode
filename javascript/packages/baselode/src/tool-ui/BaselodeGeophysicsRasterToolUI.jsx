@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { useState } from 'react';
 import { GeophysicsRasterViewer } from '../viz/GeophysicsRasterViewer.jsx';
 
 /**
@@ -27,7 +28,21 @@ export function BaselodeGeophysicsRasterToolUI({
   showControls = false,
   onViewChange,
 }) {
-  const view = { palette, reversePalette, stretch, clipRange, hillshade };
+  const propsView = { palette, reversePalette, stretch, clipRange, hillshade };
+  const propsKey = JSON.stringify(propsView);
+  // The Tool UI owns the display state so controls work even when
+  // `onViewChange` only reports events (as the assistant adapter does).
+  // A new tool result with different display props resets it.
+  const [view, setView] = useState(propsView);
+  const [seenKey, setSeenKey] = useState(propsKey);
+  if (seenKey !== propsKey) {
+    setSeenKey(propsKey);
+    setView(propsView);
+  }
+  const handleViewChange = (next) => {
+    setView(next);
+    onViewChange?.(next);
+  };
   return (
     <section className="baselode-tool-geophysics-raster">
       {(title || subtitle) && <header className="baselode-tool-geophysics-raster__header">
@@ -35,14 +50,11 @@ export function BaselodeGeophysicsRasterToolUI({
         {subtitle && <p>{subtitle}</p>}
       </header>}
       <GeophysicsRasterViewer
-        // Without a callback the viewer owns its state; remount when the
-        // result's display props change so they are not ignored.
-        key={onViewChange ? undefined : JSON.stringify(view)}
         raster={raster}
         band={band}
         units={units}
-        {...(onViewChange ? { value: view, onViewChange } : {})}
-        defaultView={view}
+        value={view}
+        onViewChange={handleViewChange}
         height={height}
         showControls={showControls}
       />

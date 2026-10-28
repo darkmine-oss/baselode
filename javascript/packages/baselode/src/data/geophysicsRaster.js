@@ -107,22 +107,45 @@ export async function loadGeoTiff(source, options = {}) {
   const image = await tiff.getImage();
   const values = await image.readRasters({ samples: options.samples, interleave: false });
   const data = Array.from(values, (band) => typedBandToRows(band, image.getWidth()));
-  const origin = image.getOrigin();
-  const resolution = image.getResolution();
-  const transform = origin && resolution
-    ? [resolution[0], 0, origin[0], 0, -Math.abs(resolution[1]), origin[1]]
-    : undefined;
-  const fileDirectory = image.getFileDirectory();
   const names = Array.from(values, (_, index) => `band_${index + 1}`);
 
   return createGeophysicsRaster({
     data,
-    transform,
-    crs: image.getGeoKeys()?.ProjectedCSTypeGeoKey ?? image.getGeoKeys()?.GeographicTypeGeoKey ?? null,
-    nodata: parseNoData(fileDirectory.GDAL_NODATA),
+    transform: geoTiffTransform(image),
+    crs: geoTiffCrs(image.getGeoKeys()),
+    // getGDALNoData strips the tag's NUL terminator; Number('-9999\0') is NaN.
+    nodata: parseNoData(image.getGDALNoData()),
     bandNames: names,
     metadata: { driver: 'GeoTIFF', width: image.getWidth(), height: image.getHeight() },
   });
+}
+
+/**
+ * Return the GDAL affine transform of a GeoTIFF image, or undefined when it is
+ * not georeferenced. A ModelTransformation tag supplies the full (possibly
+ * rotated) matrix; otherwise the tie point and pixel scale give a
+ * north-up (or south-up) grid.
+ */
+function geoTiffTransform(image) {
+  const matrix = image.getFileDirectory().ModelTransformation;
+  if (matrix) {
+    const [a, b, , c, d, e, , f] = matrix;
+    return [a, b, c, d, e, f];
+  }
+  try {
+    const [originX, originY] = image.getOrigin();
+    // getResolution's Y is already negative for north-up images.
+    const [resolutionX, resolutionY] = image.getResolution();
+    return [resolutionX, 0, originX, 0, resolutionY, originY];
+  } catch {
+    return undefined;
+  }
+}
+
+function geoTiffCrs(geoKeys) {
+  const code = geoKeys?.ProjectedCSTypeGeoKey ?? geoKeys?.GeographicTypeGeoKey;
+  // 32767 is GeoTIFF's "user-defined" marker, not an EPSG code.
+  return Number.isInteger(code) && code !== 32767 ? `EPSG:${code}` : null;
 }
 
 function normalizeRasterData(value) {

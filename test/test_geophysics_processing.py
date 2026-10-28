@@ -192,6 +192,22 @@ def test_decimate_block_averages_ignoring_missing_cells():
     assert raster.decimate(max_cells=36) is raster
 
 
+def test_payload_marks_long_nodata_sentinels_missing_before_rounding():
+    sentinel = float(np.finfo(np.float32).min)
+    raster = baselode.geophysics.GeophysicsRaster(np.array([[1.25, sentinel]], dtype=np.float32), nodata=sentinel)
+    payload = raster.to_tool_ui_payload()["raster"]
+    assert payload["data"] == [[[1.25, None]]]
+    assert payload["nodata"] is None
+
+
+def test_cell_size_handles_rotation_and_rejects_shear():
+    rotated = baselode.geophysics.GeophysicsRaster([[1, 2], [3, 4]], transform=(8, 6, 0, 6, -8, 0))
+    assert rotated.cell_size == pytest.approx((10.0, 10.0))
+    sheared = baselode.geophysics.GeophysicsRaster([[1]], transform=(10, 5, 0, 0, -10, 0))
+    with pytest.raises(ValueError, match="sheared"):
+        sheared.cell_size
+
+
 def test_payloads_are_strict_json_with_nan_nodata():
     raster = baselode.geophysics.GeophysicsRaster([[1.0, np.nan]], nodata=float("nan"))
     assert raster.to_payload()["nodata"] is None

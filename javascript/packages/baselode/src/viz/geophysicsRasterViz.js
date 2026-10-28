@@ -51,8 +51,10 @@ function asRaster(raster) {
 }
 
 function cellSize(raster) {
-  const [a, , , , e] = raster.transform;
-  return [Math.abs(a) || 1, Math.abs(e) || 1];
+  // Spacing along the column and row directions, which also holds for a
+  // rotated grid (matches Python's GeophysicsRaster.cell_size).
+  const [a, b, , d, e] = raster.transform;
+  return [Math.hypot(a, d) || 1, Math.hypot(b, e) || 1];
 }
 
 function gradients(band, nodata, cellX, cellY, zFactor = 1) {
