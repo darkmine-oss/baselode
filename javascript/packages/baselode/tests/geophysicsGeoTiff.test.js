@@ -14,13 +14,14 @@ vi.mock('geotiff', () => ({
 
 const { loadGeoTiff } = await import('../src/data/geophysicsRaster.js');
 
-function setImage({ fileDirectory = {}, origin = [500000, 7000000], resolution = [10, -10], noData = -9999, geoKeys = {} } = {}) {
+const TIE_POINT = [0, 0, 0, 500000, 7000000, 0];
+
+function setImage({ fileDirectory = { ModelTiepoint: TIE_POINT }, resolution = [10, -10], noData = -9999, geoKeys = {} } = {}) {
   Object.assign(image, {
     getWidth: () => 2,
     getHeight: () => 1,
     readRasters: async () => [Float32Array.from([1, -9999])],
     getFileDirectory: () => fileDirectory,
-    getOrigin: () => origin,
     getResolution: () => resolution,
     getGDALNoData: () => noData,
     getGeoKeys: () => ({ ProjectedCSTypeGeoKey: 28351, ...geoKeys }),
@@ -47,6 +48,11 @@ describe('loadGeoTiff', () => {
     expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([8, 6, 500000, 6, -8, 7000000]);
   });
 
+  it('places pixel (0, 0) from a tie point on another pixel', async () => {
+    setImage({ fileDirectory: { ModelTiepoint: [5, 7, 0, 500000, 7000000, 0] } });
+    expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([10, 0, 499950, 0, -10, 7000070]);
+  });
+
   it('shifts PixelIsPoint tie points to cell corners, as GDAL does', async () => {
     setImage({ geoKeys: { GTRasterTypeGeoKey: 2 } });
     expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([10, 0, 499995, 0, -10, 7000005]);
@@ -59,7 +65,7 @@ describe('loadGeoTiff', () => {
 
   it('leaves an unreferenced TIFF on the default pixel grid', async () => {
     setImage();
-    image.getOrigin = () => { throw new Error('The image does not have an affine transformation.'); };
+    image.getResolution = () => { throw new Error('The image does not have an affine transformation.'); };
     const raster = await loadGeoTiff(new ArrayBuffer(8));
     expect(raster.transform).toEqual([1, 0, 0, 0, -1, 1]);
   });

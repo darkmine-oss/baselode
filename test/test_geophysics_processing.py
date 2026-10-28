@@ -215,6 +215,13 @@ def test_payloads_are_strict_json_with_nan_nodata():
     json.dumps(raster.to_tool_ui_payload(), allow_nan=False)
 
 
+def test_decimate_long_thin_raster_without_large_temporaries():
+    raster = baselode.geophysics.GeophysicsRaster(np.arange(100_000, dtype=float).reshape(1, 100_000))
+    small = raster.decimate(max_cells=1)
+    assert small.data.shape == (1, 1, 1)
+    assert small.data[0, 0, 0] == pytest.approx(49_999.5)
+
+
 def test_tool_ui_payload_is_compact_and_describes_display():
     rng = np.random.default_rng(1)
     raster = baselode.geophysics.GeophysicsRaster(

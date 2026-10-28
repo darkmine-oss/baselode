@@ -134,14 +134,19 @@ function geoTiffTransform(image, geoKeys) {
     const [a, b, , c, d, e, , f] = matrix;
     transform = [a, b, c, d, e, f];
   } else {
+    const tiePoint = image.getFileDirectory().ModelTiepoint;
+    let resolution;
     try {
-      const [originX, originY] = image.getOrigin();
       // getResolution's Y is already negative for north-up images.
-      const [resolutionX, resolutionY] = image.getResolution();
-      transform = [resolutionX, 0, originX, 0, resolutionY, originY];
+      resolution = image.getResolution();
     } catch {
       return undefined;
     }
+    if (!tiePoint || tiePoint.length < 6) return undefined;
+    // The tie point maps raster (i, j) to map (x, y); it need not be pixel (0, 0).
+    const [i, j, , x, y] = tiePoint;
+    const [resolutionX, resolutionY] = resolution;
+    transform = [resolutionX, 0, x - i * resolutionX, 0, resolutionY, y - j * resolutionY];
   }
   if (geoKeys?.GTRasterTypeGeoKey === 2) {
     const [a, b, c, d, e, f] = transform;

@@ -244,17 +244,20 @@ class GeophysicsRaster:
         factor = math.ceil(math.sqrt(cells / max_cells))
         while math.ceil(self.height / factor) * math.ceil(self.width / factor) > max_cells:
             factor += 1
-        rows = math.ceil(self.height / factor)
-        columns = math.ceil(self.width / factor)
         values = self.data.astype(float)
         if self.nodata is not None:
             values = np.where(values == self.nodata, np.nan, values)
-        padded = np.full((self.band_count, rows * factor, columns * factor), np.nan)
-        padded[:, :self.height, :self.width] = values
-        blocks = padded.reshape(self.band_count, rows, factor, columns, factor)
-        valid = np.isfinite(blocks)
-        counts = valid.sum(axis=(2, 4))
-        totals = np.where(valid, blocks, 0.0).sum(axis=(2, 4))
+        valid = np.isfinite(values)
+        row_starts = np.arange(0, self.height, factor)
+        column_starts = np.arange(0, self.width, factor)
+
+        def block_sum(array):
+            # reduceat handles the partial last block without padding, so
+            # temporary storage stays bounded by the input size.
+            return np.add.reduceat(np.add.reduceat(array, row_starts, axis=1), column_starts, axis=2)
+
+        totals = block_sum(np.where(valid, values, 0.0))
+        counts = block_sum(valid.astype(np.int64))
         means = np.full(totals.shape, np.nan)
         np.divide(totals, counts, out=means, where=counts > 0)
         transform = None

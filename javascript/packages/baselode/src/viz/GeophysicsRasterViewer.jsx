@@ -10,6 +10,7 @@ import {
   DEFAULT_GEOPHYSICS_STRETCH,
   GEOPHYSICS_PALETTES,
   geophysicsColorGradient,
+  normalizeGeophysicsStretch,
 } from './geophysicsColorScales.js';
 import { DEFAULT_GEOPHYSICS_HILLSHADE, renderGeophysicsRaster } from './geophysicsRasterViz.js';
 import './GeophysicsRasterViewer.css';
@@ -30,7 +31,9 @@ export function resolveGeophysicsView(view = {}) {
   return {
     palette: view.palette ?? DEFAULT_VIEW.palette,
     reversePalette: Boolean(view.reversePalette),
-    stretch,
+    // Fill partial stretches ({ mode: 'relative' }) so controls and legend
+    // see the same limits as the renderer.
+    stretch: normalizeGeophysicsStretch(stretch),
     hillshade: { ...DEFAULT_VIEW.hillshade, ...(view.hillshade ?? {}) },
   };
 }

@@ -34,6 +34,7 @@ describe('geophysics raster viewer', () => {
   it('resolves legacy clip ranges and fills defaults', () => {
     expect(resolveGeophysicsView({ clipRange: [1, 5] }).stretch).toEqual({ mode: 'absolute', min: 1, max: 5 });
     expect(resolveGeophysicsView().hillshade).toMatchObject({ enabled: false, zFactor: 'auto' });
+    expect(resolveGeophysicsView({ stretch: { mode: 'relative' } }).stretch).toEqual({ mode: 'relative', low: 2, high: 98 });
   });
 
   it('renders a static chat view with colour bar and raster summary by default', async () => {
