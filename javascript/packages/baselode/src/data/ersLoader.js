@@ -244,15 +244,15 @@ export function readErs(headerText, data, options = {}) {
 /**
  * Load an ERS dataset from its header and data file.
  *
- * @param {string|URL|Blob|ArrayBuffer} header - Header text, or a URL, file
- *   or bytes holding it.
+ * @param {string|URL|Blob|ArrayBuffer} header - Header text (anything
+ *   containing `DatasetHeader Begin`), or a URL, file or bytes holding it.
  * @param {string|URL|Blob|ArrayBuffer|ArrayBufferView} data - The data file
  *   (the header name without `.ers`) as a URL, file, or bytes.
  * @param {object} [options] - See {@link readErs}.
  * @returns {Promise<object>}
  */
 export async function loadErs(header, data, options = {}) {
-  const headerText = typeof header === 'string'
+  const headerText = typeof header === 'string' && /DatasetHeader\s+Begin/.test(header)
     ? header
     : new TextDecoder('latin1').decode(await toBytes(header));
   const name = options.name ?? (typeof File !== 'undefined' && header instanceof File ? header.name : undefined);

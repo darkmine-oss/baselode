@@ -60,6 +60,23 @@ describe('ERS reader', () => {
       .rejects.toThrow(/tmi\.ers: expected 60 cells/);
   });
 
+  it('fetches string URLs for the header and data', async () => {
+    const files = { '/grids/tmi.ers': ers.header, '/grids/tmi': bytes(ers.data) };
+    const fetched = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      fetched.push(String(url));
+      return new Response(files[url]);
+    };
+    try {
+      const raster = await loadErs('/grids/tmi.ers', '/grids/tmi');
+      expect(fetched).toEqual(['/grids/tmi.ers', '/grids/tmi']);
+      expect(raster.bandNames).toEqual(ers.raster.bandNames);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('rejects malformed, rotated and unsupported headers', () => {
     expect(() => parseErsHeader('Other Begin\nOther End\n')).toThrow(/no DatasetHeader/);
     expect(() => parseErsHeader('DatasetHeader Begin\n')).toThrow(/unclosed/);
