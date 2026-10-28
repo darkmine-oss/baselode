@@ -186,19 +186,15 @@ export function readErs(headerText, data, options = {}) {
   const nodata = nullValue == null || nullValue === '' ? null : Number(nullValue);
   // Compare in the cell precision, as Python compares in the source dtype.
   const sentinel = nodata !== null && cellType.read === 'getFloat32' ? Math.fround(nodata) : nodata;
-  const bands = Array.from({ length: bandCount }, () => new Float64Array(width * height));
   const read = bytes[cellType.read].bind(bytes);
-  // Band-interleaved by line: each line holds every band in turn.
-  for (let row = 0; row < height; row += 1) {
-    for (let band = 0; band < bandCount; band += 1) {
-      const lineStart = offset + ((row * bandCount + band) * width) * cellType.size;
-      const target = bands[band];
-      for (let column = 0; column < width; column += 1) {
-        const value = read(lineStart + column * cellType.size, littleEndian);
-        target[row * width + column] = value === sentinel ? NaN : value;
-      }
-    }
-  }
+  // Band-interleaved by line: each line holds every band in turn. Cells are
+  // read on demand, so decimation never holds a full-resolution copy.
+  const bands = Array.from({ length: bandCount }, (_, band) => (index) => {
+    const row = Math.floor(index / width);
+    const column = index - row * width;
+    const value = read(offset + ((row * bandCount + band) * width + column) * cellType.size, littleEndian);
+    return value === sentinel ? NaN : value;
+  });
 
   const coordinateType = String(space.CoordinateType ?? 'EN').toUpperCase();
   const cellInfo = rasterInfo.CellInfo;
@@ -227,7 +223,7 @@ export function readErs(headerText, data, options = {}) {
     maxCells: options.maxCells,
     transform,
     crs: ersCrs(space.Datum, space.Projection),
-    nodata,
+    nodata: sentinel,
     bandNames,
     metadata: {
       driver: 'ERS',

@@ -101,11 +101,14 @@ export function decimateGeophysicsRaster(raster, maxCells = 160000) {
 }
 
 /**
- * Build a raster from flat, row-major typed bands (as file readers produce),
+ * Build a raster from flat, row-major bands (as file readers produce),
  * decimating first when `maxCells` is set so large grids never become nested
  * arrays at full size.
  *
- * @param {ArrayLike<number>[]} bands - One `width * height` array per band.
+ * @param {Array<ArrayLike<number>|function(number): number>} bands - One
+ *   `width * height` array per band, or a function returning the cell at a
+ *   row-major index (so readers can decimate straight from file bytes). A
+ *   function band's `nodata` must already be in the cell precision.
  * @param {object} options - `width`, `height`, and the `createGeophysicsRaster`
  *   payload fields (`transform`, `crs`, `nodata`, `bandNames`, `metadata`);
  *   optional `maxCells`.
@@ -117,6 +120,7 @@ export function geophysicsRasterFromBands(bands, options) {
   const nodata = parseNoData(options.nodata);
   // Compare sentinels in the source precision (see geoTiffNoData).
   const sentinel = nodata !== null && bands[0] instanceof Float32Array ? Math.fround(nodata) : nodata;
+  const readers = bands.map((band) => (typeof band === 'function' ? band : (index) => band[index]));
   const payload = {
     transform: options.transform,
     crs: options.crs,
@@ -128,14 +132,16 @@ export function geophysicsRasterFromBands(bands, options) {
   if (maxCells == null || width * height <= maxCells) {
     return createGeophysicsRaster({
       ...payload,
-      data: bands.map((band) => typedBandToRows(band, width)),
+      data: bands.map((band, index) => (typeof band === 'function'
+        ? readerToRows(readers[index], width, height)
+        : typedBandToRows(band, width))),
     });
   }
   let factor = Math.ceil(Math.sqrt((width * height) / maxCells));
   while (Math.ceil(height / factor) * Math.ceil(width / factor) > maxCells) factor += 1;
   const rows = Math.ceil(height / factor);
   const columns = Math.ceil(width / factor);
-  const data = bands.map((band) => areaMeanRows(band, width, height, rows, columns, sentinel));
+  const data = readers.map((cellAt) => areaMeanRows(cellAt, width, height, rows, columns, sentinel));
   const transform = payload.transform ?? [1, 0, 0, 0, -1, height];
   const [a, b, c, d, e, f] = transform.map(Number);
   const columnScale = width / columns;
@@ -163,7 +169,7 @@ function isValidCell(value, sentinel) {
  * their overlap (matches Python's `_axis_area_sums`). Rows are reduced in a
  * single pass, so memory stays proportional to one output row band.
  */
-function areaMeanRows(band, width, height, rows, columns, sentinel) {
+function areaMeanRows(cellAt, width, height, rows, columns, sentinel) {
   const rowTotals = new Float64Array(rows * width);
   const rowWeights = new Float64Array(rows * width);
   for (let output = 0; output < rows; output += 1) {
@@ -175,7 +181,7 @@ function areaMeanRows(band, width, height, rows, columns, sentinel) {
       const offset = row * width;
       const target = output * width;
       for (let column = 0; column < width; column += 1) {
-        const value = band[offset + column];
+        const value = cellAt(offset + column);
         if (!isValidCell(value, sentinel)) continue;
         rowTotals[target + column] += overlap * value;
         rowWeights[target + column] += overlap;
@@ -346,6 +352,16 @@ function rasterBounds(transform, width, height) {
     maxX: Math.max(...corners.map(([x]) => x)),
     maxY: Math.max(...corners.map(([, y]) => y)),
   };
+}
+
+function readerToRows(cellAt, width, height) {
+  const rows = [];
+  for (let row = 0; row < height; row += 1) {
+    const cells = new Array(width);
+    for (let column = 0; column < width; column += 1) cells[column] = cellAt(row * width + column);
+    rows.push(cells);
+  }
+  return rows;
 }
 
 function typedBandToRows(values, width) {
