@@ -188,7 +188,7 @@ def test_decimate_block_averages_ignoring_missing_cells():
     assert small.data.shape == (1, 3, 3)
     assert small.transform == (20.0, 0.0, 0.0, 0.0, -20.0, 60.0)
     assert small.data[0, 0, 0] == pytest.approx((1 + 6 + 7) / 3)
-    assert small.metadata["processing"][-1] == {"operation": "decimate", "factor": 2, "method": "block_mean"}
+    assert small.metadata["processing"][-1] == {"operation": "decimate", "factor": 2, "method": "area_mean"}
     assert raster.decimate(max_cells=36) is raster
 
 
@@ -223,6 +223,14 @@ def test_decimate_keeps_the_geographic_footprint_with_partial_blocks():
 
     odd = baselode.geophysics.GeophysicsRaster(np.ones((7, 7)), transform=(10, 0, 0, 0, -10, 70))
     assert odd.decimate(max_cells=16).bounds == pytest.approx(odd.bounds)
+
+
+def test_decimate_weights_cells_split_between_output_cells():
+    # Five columns into three equal cells of 5/3 source columns each.
+    raster = baselode.geophysics.GeophysicsRaster(np.array([[0.0, 1, 2, 3, 4]]), transform=(3, 0, 0, 0, -3, 3))
+    small = raster.decimate(max_cells=3)
+    np.testing.assert_allclose(small.data[0, 0], [(0 + 1 * 2 / 3) / (5 / 3), 2.0, (3 * 2 / 3 + 4) / (5 / 3)])
+    assert small.transform == pytest.approx((5.0, 0, 0, 0, -3.0, 3))
 
 
 def test_decimate_long_thin_raster_without_large_temporaries():

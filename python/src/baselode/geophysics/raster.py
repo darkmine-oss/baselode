@@ -64,6 +64,26 @@ def _json_values(values, significant_digits=None):
     return result.tolist()
 
 
+def _axis_area_sums(array, count, axis):
+    """Sum ``array`` over ``count`` equal-width intervals along ``axis``.
+
+    Cells split by an interval edge contribute in proportion to the overlap.
+    Uses cumulative sums, so memory stays proportional to the input.
+    """
+    length = array.shape[axis]
+    edges = np.linspace(0.0, length, count + 1)
+    whole = np.minimum(np.floor(edges).astype(int), length)
+    fraction = edges - whole
+    cumulative = np.concatenate(
+        [np.zeros_like(np.take(array, [0], axis=axis)), np.cumsum(array, axis=axis)], axis=axis,
+    )
+    partial = np.take(array, np.minimum(whole, length - 1), axis=axis)
+    shape = [1] * array.ndim
+    shape[axis] = count + 1
+    at_edges = np.take(cumulative, whole, axis=axis) + fraction.reshape(shape) * partial
+    return np.diff(at_edges, axis=axis)
+
+
 class GeophysicsRaster:
     """An in-memory, georeferenced geophysics raster.
 
@@ -229,12 +249,12 @@ class GeophysicsRaster:
         Returns
         -------
         GeophysicsRaster
-            ``self`` when already small enough, otherwise a new raster whose
-            cells are the NaN-aware mean of square ``factor x factor`` blocks
-            (the last row and column of blocks may be partial).  Each
-            transform axis is scaled by its own reduction (source cells per
-            output cell), so the raster keeps its geographic footprint; the
-            factor is recorded in ``metadata["processing"]``.  No-data cells (the
+            ``self`` when already small enough, otherwise a new raster of
+            ``ceil(rows / factor) x ceil(columns / factor)`` cells.  Each
+            output cell is the area-weighted, NaN-aware mean of the source
+            cells it covers, and the transform is scaled to match, so the
+            raster keeps its exact geographic footprint.  The factor is
+            recorded in ``metadata["processing"]``.  No-data cells (the
             ``nodata`` value or non-finite) are ignored; all-empty blocks are
             NaN.
         """
@@ -250,31 +270,30 @@ class GeophysicsRaster:
         if self.nodata is not None:
             values = np.where(values == self.nodata, np.nan, values)
         valid = np.isfinite(values)
-        row_starts = np.arange(0, self.height, factor)
-        column_starts = np.arange(0, self.width, factor)
+        rows = math.ceil(self.height / factor)
+        columns = math.ceil(self.width / factor)
 
-        def block_sum(array):
-            # reduceat handles the partial last block without padding, so
-            # temporary storage stays bounded by the input size.
-            return np.add.reduceat(np.add.reduceat(array, row_starts, axis=1), column_starts, axis=2)
+        def area_sums(array):
+            return _axis_area_sums(_axis_area_sums(array, rows, axis=1), columns, axis=2)
 
-        totals = block_sum(np.where(valid, values, 0.0))
-        counts = block_sum(valid.astype(np.int64))
+        # Area-weighted means over equal output cells: each output cell covers
+        # exactly height/rows x width/columns source cells, matching the
+        # scaled transform even when the factor does not divide the grid.
+        totals = area_sums(np.where(valid, values, 0.0))
+        weights = area_sums(valid.astype(float))
         means = np.full(totals.shape, np.nan)
-        np.divide(totals, counts, out=means, where=counts > 0)
+        np.divide(totals, weights, out=means, where=weights > 1e-12)
         transform = None
         if self.transform is not None:
             a, b, c, d, e, f = self.transform
-            # Scale by source cells per output cell rather than the block
-            # factor, so partial last blocks do not enlarge the footprint.
-            column_scale = self.width / means.shape[2]
-            row_scale = self.height / means.shape[1]
+            column_scale = self.width / columns
+            row_scale = self.height / rows
             transform = (a * column_scale, b * row_scale, c, d * column_scale, e * row_scale, f)
         return self.copy_with(
             means,
             transform=transform,
             nodata=None,
-            processing={"operation": "decimate", "factor": factor, "method": "block_mean"},
+            processing={"operation": "decimate", "factor": factor, "method": "area_mean"},
         )
 
     def to_payload(self, significant_digits=None):

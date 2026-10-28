@@ -155,7 +155,12 @@ export const SerializableBaselodeGeophysicsRasterSchema = z.object({
   title: z.string().optional(),
   subtitle: z.string().optional(),
   raster: z.object({
-    data: z.array(RasterGridSchema).min(1),
+    data: z.array(RasterGridSchema).min(1).refine(
+      // Every band must share one rectangular shape, as the renderer requires.
+      (bands) => bands.every((band) => band.length === bands[0].length
+        && band.every((row) => row.length === bands[0][0].length)),
+      { message: 'Raster bands must share one rectangular row/column shape.' },
+    ),
     transform: RasterTransformSchema.nullable().optional(),
     crs: z.union([z.string(), z.number()]).nullable().optional(),
     nodata: z.number().nullable().optional(),

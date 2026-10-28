@@ -50,6 +50,8 @@ describe('Tool UI serializable schemas', () => {
     expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, palette: 'jet' })).toBeNull();
     expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch: { mode: 'absolute', min: 1 } })).toBeNull();
     expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, hillshade: { zFactor: 0 } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, raster: { data: [[[1, 2], [3]]] } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, raster: { data: [[[1, 2]], [[1, 2], [3, 4]]] } })).toBeNull();
     // Python's to_tool_ui_payload() sends null for an unreferenced raster.
     expect(safeParseSerializableBaselodeGeophysicsRaster({
       ...base, raster: { data: [[[1, 2]]], transform: null, nodata: null },
