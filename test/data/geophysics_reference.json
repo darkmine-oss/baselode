@@ -776,5 +776,255 @@
     255
    ]
   }
+ ],
+ "ers": [
+  {
+   "name": "float32_msb_two_band_mga",
+   "header": "DatasetHeader Begin\n\tVersion\t= \"7.0\"\n\tDataType\t= Raster\n\tByteOrder\t= MSBFirst\n\tCoordinateSpace Begin\n\t\tDatum\t= \"GDA94\"\n\t\tProjection\t= \"MGA51\"\n\t\tCoordinateType\t= EN\n\t\tRotation\t= 0:0:0.0\n\tCoordinateSpace End\n\tRasterInfo Begin\n\t\tCellType\t= IEEE4ByteReal\n\t\tNullCellValue\t= -99999\n\t\tCellInfo Begin\n\t\t\tXdimension\t= 50\n\t\t\tYdimension\t= 40\n\t\tCellInfo End\n\t\tNrOfLines\t= 5\n\t\tNrOfCellsPerLine\t= 6\n\t\tRegistrationCellX\t= 1\n\t\tRegistrationCellY\t= 2\n\t\tRegistrationCoord Begin\n\t\t\tEastings\t= 500050\n\t\t\tNorthings\t= 6999920\n\t\tRegistrationCoord End\n\t\tNrOfBands\t= 2\n\t\tBandId Begin\n\t\t\tValue\t= \"TMI\"\n\t\t\tUnits\t= \"nT\"\n\t\tBandId End\n\t\tBandId Begin\n\t\t\tValue\t= \"Bouguer\"\n\t\t\tUnits\t= \"mGal\"\n\t\tBandId End\n\tRasterInfo End\nDatasetHeader End\n",
+   "data": "wUgAAD/w/ntBS+f0QYtmGEFsdnhAroiEAAAAAD6AAAA/AAAAP0AAAD+AAAA/oAAAwQgAAEC8P5/Hw0+AQatmGEGWOzxBF0RCP8AAAD/gAABAAAAAQBAAAEAgAABAMAAAwJAAAEEeH89BpfP6QctmGEG2OzxBV0RCQEAAAEBQAABAYAAAQHAAAECAAABAiAAAvwAAAEFeH89BxfP6QetmGEHWOzxBi6IhQJAAAECYAABAoAAAQKgAAECwAABAuAAAQGAAAEGPD+hB5fP6QgWzDEH2OzxBq6IhQMAAAEDIAABA0AAAQNgAAEDgAADHw0+A",
+   "nodata": -99999.0,
+   "raster": {
+    "data": [
+     [
+      [
+       -12.5,
+       1.8827661275863647,
+       12.744129180908203,
+       17.424850463867188,
+       14.778923034667969,
+       5.454164505004883
+      ],
+      [
+       -8.5,
+       5.882766246795654,
+       null,
+       21.424850463867188,
+       18.77892303466797,
+       9.454164505004883
+      ],
+      [
+       -4.5,
+       9.882765769958496,
+       20.744129180908203,
+       25.424850463867188,
+       22.77892303466797,
+       13.454164505004883
+      ],
+      [
+       -0.5,
+       13.882765769958496,
+       24.744129180908203,
+       29.424850463867188,
+       26.77892303466797,
+       17.454164505004883
+      ],
+      [
+       3.5,
+       17.882766723632812,
+       28.744129180908203,
+       33.42485046386719,
+       30.77892303466797,
+       21.454164505004883
+      ]
+     ],
+     [
+      [
+       0.0,
+       0.25,
+       0.5,
+       0.75,
+       1.0,
+       1.25
+      ],
+      [
+       1.5,
+       1.75,
+       2.0,
+       2.25,
+       2.5,
+       2.75
+      ],
+      [
+       3.0,
+       3.25,
+       3.5,
+       3.75,
+       4.0,
+       4.25
+      ],
+      [
+       4.5,
+       4.75,
+       5.0,
+       5.25,
+       5.5,
+       5.75
+      ],
+      [
+       6.0,
+       6.25,
+       6.5,
+       6.75,
+       7.0,
+       null
+      ]
+     ]
+    ],
+    "transform": [
+     50.0,
+     0.0,
+     500000.0,
+     0.0,
+     -40.0,
+     7000000.0
+    ],
+    "crs": "EPSG:28351",
+    "nodata": null,
+    "bandNames": [
+     "TMI",
+     "Bouguer"
+    ],
+    "metadata": {
+     "driver": "ERS",
+     "datum": "GDA94",
+     "projection": "MGA51",
+     "coordinate_type": "EN",
+     "cell_type": "IEEE4ByteReal",
+     "units": [
+      "nT",
+      "mGal"
+     ]
+    }
+   },
+   "decimated6": {
+    "data": [
+     [
+      [
+       1.9343244662651649,
+       15.752646001180013
+      ],
+      [
+       13.508965110778808,
+       25.352646001180013
+      ]
+     ],
+     [
+      [
+       1.45,
+       2.2
+      ],
+      [
+       5.05,
+       5.576923076923077
+      ]
+     ]
+    ],
+    "transform": [
+     150.0,
+     0.0,
+     500000.0,
+     0.0,
+     -100.0,
+     7000000.0
+    ]
+   }
+  },
+  {
+   "name": "int16_lsb_geodetic",
+   "header": "DatasetHeader Begin\n\tVersion\t= \"7.0\"\n\tDataType\t= Raster\n\tByteOrder\t= LSBFirst\n\tCoordinateSpace Begin\n\t\tDatum\t= \"GDA2020\"\n\t\tProjection\t= \"GEODETIC\"\n\t\tCoordinateType\t= LL\n\t\tRotation\t= 0:0:0.0\n\tCoordinateSpace End\n\tRasterInfo Begin\n\t\tCellType\t= Signed16BitInteger\n\t\tNullCellValue\t= -32768\n\t\tCellInfo Begin\n\t\t\tXdimension\t= 0.0025\n\t\t\tYdimension\t= 0.0025\n\t\tCellInfo End\n\t\tNrOfLines\t= 5\n\t\tNrOfCellsPerLine\t= 6\n\t\tRegistrationCellX\t= 1\n\t\tRegistrationCellY\t= 2\n\t\tRegistrationCoord Begin\n\t\t\tLongitude\t= 121:30:0.0\n\t\t\tLatitude\t= -30:15:0.0\n\t\tRegistrationCoord End\n\t\tNrOfBands\t= 1\n\t\tBandId Begin\n\t\t\tValue\t= \"Elevation\"\n\t\t\tUnits\t= \"m\"\n\t\tBandId End\n\tRasterInfo End\nDatasetHeader End\n",
+   "data": "AIDv//L/9f/4//v//v8BAAQABwAKAA0AEAATABYAGQAcAB8AIgAlACgAKwAuADEANAA3ADoAPQBAAEMA",
+   "nodata": -32768.0,
+   "raster": {
+    "data": [
+     [
+      [
+       null,
+       -17.0,
+       -14.0,
+       -11.0,
+       -8.0,
+       -5.0
+      ],
+      [
+       -2.0,
+       1.0,
+       4.0,
+       7.0,
+       10.0,
+       13.0
+      ],
+      [
+       16.0,
+       19.0,
+       22.0,
+       25.0,
+       28.0,
+       31.0
+      ],
+      [
+       34.0,
+       37.0,
+       40.0,
+       43.0,
+       46.0,
+       49.0
+      ],
+      [
+       52.0,
+       55.0,
+       58.0,
+       61.0,
+       64.0,
+       67.0
+      ]
+     ]
+    ],
+    "transform": [
+     0.0025,
+     0.0,
+     121.4975,
+     0.0,
+     -0.0025,
+     -30.245
+    ],
+    "crs": "EPSG:7844",
+    "nodata": null,
+    "bandNames": [
+     "Elevation"
+    ],
+    "metadata": {
+     "driver": "ERS",
+     "datum": "GDA2020",
+     "projection": "GEODETIC",
+     "coordinate_type": "LL",
+     "cell_type": "Signed16BitInteger",
+     "units": [
+      "m"
+     ]
+    }
+   },
+   "decimated6": {
+    "data": [
+     [
+      [
+       0.07692307692307693,
+       6.4
+      ],
+      [
+       40.6,
+       49.6
+      ]
+     ]
+    ],
+    "transform": [
+     0.0075,
+     0.0,
+     121.4975,
+     0.0,
+     -0.00625,
+     -30.245
+    ]
+   }
+  }
  ]
 }

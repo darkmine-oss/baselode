@@ -76,4 +76,12 @@ describe('loadGeoTiff', () => {
     const raster = await loadGeoTiff(new ArrayBuffer(8));
     expect(raster.transform).toEqual([1, 0, 0, 0, -1, 1]);
   });
+
+  it('decimates while loading when maxCells is set', async () => {
+    const raster = await loadGeoTiff(new ArrayBuffer(8), { maxCells: 1 });
+    // The nodata cell is ignored and the cell doubles in width.
+    expect(raster.data).toEqual([[[1]]]);
+    expect(raster.nodata).toBeNull();
+    expect(raster.transform).toEqual([20, 0, 500000, 0, -10, 7000000]);
+  });
 });

@@ -265,7 +265,10 @@ export {
   getGeophysicsRasterBand,
   geophysicsRasterRange,
   loadGeoTiff,
+  decimateGeophysicsRaster,
+  geophysicsRasterFromBands,
 } from './data/geophysicsRaster.js';
+export { parseErsHeader, ersCrs, readErs, loadErs } from './data/ersLoader.js';
 
 export {
   interpolateTrace,

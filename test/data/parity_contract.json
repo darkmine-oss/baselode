@@ -509,6 +509,11 @@
       "name": "geophysics_raster",
       "jsExports": [
         "createGeophysicsRaster",
+        "decimateGeophysicsRaster",
+        "parseErsHeader",
+        "ersCrs",
+        "readErs",
+        "loadErs",
         "GEOPHYSICS_COLOR_SCALES",
         "createGeophysicsStretch",
         "geophysicsHillshade",
@@ -518,6 +523,9 @@
       ],
       "pythonSymbols": [
         ["baselode.geophysics", "GeophysicsRaster"],
+        ["baselode.geophysics", "read_ers"],
+        ["baselode.geophysics.ers", "parse_ers_header"],
+        ["baselode.geophysics.ers", "ers_crs"],
         ["baselode.geophysics", "COLOUR_SCALES"],
         ["baselode.geophysics", "stretch_values"],
         ["baselode.geophysics", "hillshade"],
