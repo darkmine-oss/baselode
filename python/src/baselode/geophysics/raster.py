@@ -266,10 +266,8 @@ class GeophysicsRaster:
         factor = math.ceil(math.sqrt(cells / max_cells))
         while math.ceil(self.height / factor) * math.ceil(self.width / factor) > max_cells:
             factor += 1
-        values = self.data.astype(float)
-        if self.nodata is not None:
-            values = np.where(values == self.nodata, np.nan, values)
-        valid = np.isfinite(values)
+        valid = baselode.geophysics.colour_scales.valid_mask(self.data, self.nodata)
+        values = np.where(valid, self.data.astype(float), np.nan)
         rows = math.ceil(self.height / factor)
         columns = math.ceil(self.width / factor)
 
@@ -313,10 +311,10 @@ class GeophysicsRaster:
             ``transform``, ``crs``, ``nodata`` (always ``None``, as sentinel
             cells are already ``None``), ``bandNames`` and ``metadata``.
         """
-        values = self.data.astype(float)
-        if self.nodata is not None and math.isfinite(self.nodata):
-            # Mark sentinel cells missing before rounding can change them.
-            values = np.where(values == self.nodata, np.nan, values)
+        # Mark sentinel cells missing (in the source dtype) before promotion
+        # or rounding can change them.
+        valid = baselode.geophysics.colour_scales.valid_mask(self.data, self.nodata)
+        values = np.where(valid, self.data.astype(float), np.nan)
         return {
             "data": _json_values(values, significant_digits),
             "transform": self.transform,

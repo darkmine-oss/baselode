@@ -82,12 +82,36 @@ def validate_stretch(stretch):
     return {"mode": mode}
 
 
-def _finite_values(values, nodata):
-    array = np.asarray(values, dtype=float)
+def valid_mask(values, nodata=None):
+    """Return a boolean mask of cells holding measurements.
+
+    Cells are missing when non-finite or equal to ``nodata``.  The comparison
+    is made in the array's own dtype: a float32 sentinel such as ``-1e32``
+    no longer equals the float64 ``nodata`` once promoted.
+
+    Parameters
+    ----------
+    values : array-like
+    nodata : float, optional
+
+    Returns
+    -------
+    numpy.ndarray
+        ``bool`` array of the same shape.
+    """
+    array = np.asarray(values)
+    if array.dtype.kind not in "fiu":
+        array = array.astype(float)
     valid = np.isfinite(array)
     if nodata is not None:
-        valid &= array != nodata
-    return array, valid
+        marker = np.asarray(nodata).astype(array.dtype) if array.dtype.kind == "f" else nodata
+        valid &= array != marker
+    return valid
+
+
+def _finite_values(values, nodata):
+    valid = valid_mask(values, nodata)
+    return np.asarray(values, dtype=float), valid
 
 
 def stretch_values(values, stretch=None, nodata=None):

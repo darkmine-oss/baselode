@@ -22,15 +22,16 @@ import math
 
 import numpy as np
 
+import baselode.geophysics.colour_scales
+
 
 FILTER_METHODS = ("gaussian", "butterworth")
 
 
-def _valid_mask(values, nodata):
-    valid = np.isfinite(values)
-    if nodata is not None:
-        valid &= values != nodata
-    return valid
+def _band_values(values, nodata):
+    """Return ``(float values, valid mask)``, masking in the source dtype."""
+    valid = baselode.geophysics.colour_scales.valid_mask(values, nodata)
+    return values.astype(float), valid
 
 
 def _cell_size(raster):
@@ -99,8 +100,7 @@ def hillshade_z_factor(raster, band=1):
     float
         Positive vertical exaggeration; 1.0 for a flat grid.
     """
-    values = raster.band(band).astype(float)
-    valid = _valid_mask(values, raster.nodata)
+    values, valid = _band_values(raster.band(band), raster.nodata)
     east, north = _map_gradients(raster, values, valid)
     magnitude = np.hypot(east, north)[valid]
     if magnitude.size == 0:
@@ -139,8 +139,7 @@ def hillshade(raster, azimuth=315.0, altitude=45.0, z_factor="auto", band=1):
     z_factor = float(z_factor)
     if not z_factor > 0:
         raise ValueError("z_factor must be positive or 'auto'")
-    values = raster.band(band).astype(float)
-    valid = _valid_mask(values, raster.nodata)
+    values, valid = _band_values(raster.band(band), raster.nodata)
     east, north = _map_gradients(raster, values, valid)
     # Horn/ESRI convention: dz/dy is measured southwards.
     dzdx = east * z_factor
@@ -178,8 +177,7 @@ def _apply_filter(raster, response, keep_trend, longest_wavelength, step, detren
     cell_x, cell_y = _cell_size(raster)
     output = np.full(raster.data.shape, np.nan)
     for index in range(raster.band_count):
-        values = raster.data[index].astype(float)
-        valid = _valid_mask(values, raster.nodata)
+        values, valid = _band_values(raster.data[index], raster.nodata)
         if not valid.any():
             continue
         rows, columns = np.indices(values.shape)

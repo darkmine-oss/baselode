@@ -63,6 +63,13 @@ describe('loadGeoTiff', () => {
     expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([8, 6, 499993, 6, -8, 7000001]);
   });
 
+  it('matches a float32 sentinel that is not exact in float32', async () => {
+    setImage({ noData: -1e32 });
+    image.readRasters = async () => [Float32Array.from([1, -1e32])];
+    const raster = await loadGeoTiff(new ArrayBuffer(8));
+    expect(raster.data[0][0][1]).toBe(raster.nodata);
+  });
+
   it('leaves an unreferenced TIFF on the default pixel grid', async () => {
     setImage();
     image.getResolution = () => { throw new Error('The image does not have an affine transformation.'); };

@@ -200,6 +200,17 @@ def test_payload_marks_long_nodata_sentinels_missing_before_rounding():
     assert payload["nodata"] is None
 
 
+def test_float32_sentinels_not_exact_in_float32_stay_missing():
+    data = np.array([[1.0, -1e32], [1.0, 1.0]], dtype=np.float32)
+    raster = baselode.geophysics.GeophysicsRaster(data, transform=(1, 0, 0, 0, -1, 2), nodata=-1e32)
+    assert raster.to_payload()["data"][0][0] == [1.0, None]
+    assert raster.decimate(max_cells=1).data[0, 0, 0] == pytest.approx(1.0)
+    assert np.isnan(baselode.geophysics.hillshade(raster, z_factor=1)[0, 1])
+    assert np.isnan(baselode.geophysics.low_pass(raster, 5).data[0, 0, 1])
+    ratios, _ = baselode.geophysics.stretch_values(data, nodata=-1e32)
+    assert np.isnan(ratios[0, 1])
+
+
 def test_cell_size_handles_rotation_and_rejects_shear():
     rotated = baselode.geophysics.GeophysicsRaster([[1, 2], [3, 4]], transform=(8, 6, 0, 6, -8, 0))
     assert rotated.cell_size == pytest.approx((10.0, 10.0))

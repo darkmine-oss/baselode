@@ -113,8 +113,7 @@ export async function loadGeoTiff(source, options = {}) {
     data,
     transform: geoTiffTransform(image, image.getGeoKeys()),
     crs: geoTiffCrs(image.getGeoKeys()),
-    // getGDALNoData strips the tag's NUL terminator; Number('-9999\0') is NaN.
-    nodata: parseNoData(image.getGDALNoData()),
+    nodata: geoTiffNoData(image.getGDALNoData(), values),
     bandNames: names,
     metadata: { driver: 'GeoTIFF', width: image.getWidth(), height: image.getHeight() },
   });
@@ -153,6 +152,14 @@ function geoTiffTransform(image, geoKeys) {
     transform = [a, b, c - (a + b) / 2, d, e, f - (d + e) / 2];
   }
   return transform;
+}
+
+function geoTiffNoData(raw, bands) {
+  // getGDALNoData strips the tag's NUL terminator; Number('-9999\0') is NaN.
+  const nodata = parseNoData(raw);
+  // Float32 cells widen exactly, but a sentinel like -1e32 is not exact in
+  // float32; round it the same way so it still matches the cells.
+  return nodata !== null && bands[0] instanceof Float32Array ? Math.fround(nodata) : nodata;
 }
 
 function geoTiffCrs(geoKeys) {
