@@ -4,6 +4,7 @@
  */
 
 import { Baselode3DSceneToolUI } from './Baselode3DSceneToolUI.jsx';
+import { BaselodeGeophysicsRasterToolUI } from './BaselodeGeophysicsRasterToolUI.jsx';
 import { BaselodeBoxPlotToolUI } from './BaselodeBoxPlotToolUI.jsx';
 import { BaselodeHistogramPlotToolUI } from './BaselodeHistogramPlotToolUI.jsx';
 import { BaselodeScatterPlotToolUI } from './BaselodeScatterPlotToolUI.jsx';
@@ -35,6 +36,10 @@ export const BASELODE_TOOL_UI_CONTRACTS = Object.freeze({
   [BASELODE_TOOL_UI_KINDS.SCENE_3D]: contract(
     BASELODE_TOOL_UI_KINDS.SCENE_3D,
     Baselode3DSceneToolUI,
+  ),
+  [BASELODE_TOOL_UI_KINDS.GEOPHYSICS_RASTER]: contract(
+    BASELODE_TOOL_UI_KINDS.GEOPHYSICS_RASTER,
+    BaselodeGeophysicsRasterToolUI,
   ),
   [BASELODE_TOOL_UI_KINDS.SCATTER_PLOT]: contract(
     BASELODE_TOOL_UI_KINDS.SCATTER_PLOT,

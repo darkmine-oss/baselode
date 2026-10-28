@@ -31,7 +31,7 @@ for (const clientEntry of ['dist/tool-ui.js', 'dist/assistant-ui.js']) {
 }
 
 const contracts = await import(pathToFileURL(resolve(root, 'dist/tool-ui-contracts.js')));
-assert.equal(Object.keys(contracts.BASELODE_TOOL_UI_SCHEMA_CONTRACTS).length, 7);
+assert.equal(Object.keys(contracts.BASELODE_TOOL_UI_SCHEMA_CONTRACTS).length, 8);
 
 const extentModule = await import(pathToFileURL(resolve(root, 'dist/extent.js')));
 const extent = extentModule.Extent.fromBbox([118, -32, 120, -30]);

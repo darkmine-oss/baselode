@@ -7,10 +7,60 @@ import { describe, expect, it } from 'vitest';
 
 import {
   safeParseSerializableBaselode3DScene,
+  safeParseSerializableBaselodeGeophysicsRaster,
   safeParseSerializableBaselodeStripLog,
 } from '../src/tool-ui/schema.js';
 
 describe('Tool UI serializable schemas', () => {
+  it('parses a geophysics raster viewer payload', () => {
+    const parsed = safeParseSerializableBaselodeGeophysicsRaster({
+      id: 'magnetics-1',
+      title: 'TMI magnetics',
+      raster: {
+        data: [[[1, 2], [3, null]]],
+        transform: [10, 0, 500000, 0, -10, 7000000],
+        crs: 'EPSG:28351',
+        bandNames: ['tmi'],
+      },
+      palette: 'magnetic',
+      clipRange: [1, 3],
+      hillshade: { enabled: true, azimuth: 315, altitude: 45, strength: 0.7 },
+    });
+    expect(parsed).not.toBeNull();
+    expect(parsed.raster.data[0][1][1]).toBeNull();
+  });
+
+  it('parses geophysics stretches, units and vertical exaggeration', () => {
+    const base = { id: 'tmi', raster: { data: [[[1, 2]]] } };
+    for (const stretch of [
+      { mode: 'relative', low: 1, high: 99 },
+      { mode: 'absolute', min: -100, max: 300 },
+      { mode: 'equalize' },
+    ]) {
+      expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch })).not.toBeNull();
+    }
+    const parsed = safeParseSerializableBaselodeGeophysicsRaster({
+      ...base,
+      units: 'nT',
+      palette: 'turbo',
+      reversePalette: true,
+      hillshade: { enabled: true, zFactor: 'auto' },
+    });
+    expect(parsed.units).toBe('nT');
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, palette: 'jet' })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch: { mode: 'absolute', min: 1 } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, hillshade: { zFactor: 0 } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch: { mode: 'absolute', min: 5, max: 5 } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch: { mode: 'relative', low: 99 } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, stretch: { mode: 'relative', low: 5 } })).not.toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, raster: { data: [[[1, 2], [3]]] } })).toBeNull();
+    expect(safeParseSerializableBaselodeGeophysicsRaster({ ...base, raster: { data: [[[1, 2]], [[1, 2], [3, 4]]] } })).toBeNull();
+    // Python's to_tool_ui_payload() sends null for an unreferenced raster.
+    expect(safeParseSerializableBaselodeGeophysicsRaster({
+      ...base, raster: { data: [[[1, 2]]], transform: null, nodata: null },
+    })).not.toBeNull();
+  });
+
   it('parses a valid strip-log payload and applies track defaults', () => {
     const parsed = safeParseSerializableBaselodeStripLog({
       id: 'strip-log-BLDD001',

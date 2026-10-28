@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 import { z } from 'zod';
+import geophysicsScales from '../data/geophysics_color_scales.json';
 
 const PrimitiveJsonSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
 const JsonObjectSchema = z.record(z.string(), z.unknown());
@@ -128,6 +129,68 @@ export const SerializableBaselode3DSceneSchema = z.object({
 
 export function safeParseSerializableBaselode3DScene(value) {
   const parsed = SerializableBaselode3DSceneSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+// --- Geophysics raster ---------------------------------------------------
+
+const RasterCellSchema = z.number().nullable();
+const RasterGridSchema = z.array(z.array(RasterCellSchema).min(1)).min(1);
+const RasterTransformSchema = z.tuple([
+  z.number(), z.number(), z.number(), z.number(), z.number(), z.number(),
+]);
+
+const GeophysicsStretchSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('relative'),
+    low: z.number().min(0).max(100).optional(),
+    high: z.number().min(0).max(100).optional(),
+  }),
+  z.object({ mode: z.literal('absolute'), min: z.number(), max: z.number() }),
+  z.object({ mode: z.literal('equalize') }),
+]).refine(
+  // Same rule as normalizeGeophysicsStretch, including the 2/98 defaults.
+  (stretch) => (stretch.mode === 'relative' ? (stretch.low ?? 2) < (stretch.high ?? 98)
+    : stretch.mode === 'absolute' ? stretch.min < stretch.max : true),
+  { message: 'Stretch limits must increase (low < high, min < max).' },
+);
+
+export const SerializableBaselodeGeophysicsRasterSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  raster: z.object({
+    data: z.array(RasterGridSchema).min(1).refine(
+      // Every band must share one rectangular shape, as the renderer requires.
+      (bands) => bands.every((band) => band.length === bands[0].length
+        && band.every((row) => row.length === bands[0][0].length)),
+      { message: 'Raster bands must share one rectangular row/column shape.' },
+    ),
+    transform: RasterTransformSchema.nullable().optional(),
+    crs: z.union([z.string(), z.number()]).nullable().optional(),
+    nodata: z.number().nullable().optional(),
+    bandNames: z.array(z.string()).optional(),
+    metadata: JsonObjectSchema.optional(),
+  }),
+  band: z.number().int().min(1).optional(),
+  units: z.string().optional(),
+  palette: z.enum(Object.keys(geophysicsScales.scales)).optional(),
+  reversePalette: z.boolean().optional(),
+  stretch: GeophysicsStretchSchema.optional(),
+  clipRange: z.tuple([z.number(), z.number()]).optional(),
+  hillshade: z.object({
+    enabled: z.boolean().optional(),
+    azimuth: z.number().min(0).max(360).optional(),
+    altitude: z.number().gt(0).max(90).optional(),
+    strength: z.number().min(0).max(1).optional(),
+    zFactor: z.union([z.number().positive(), z.literal('auto')]).optional(),
+  }).optional(),
+  height: z.number().positive().max(1200).optional(),
+  showControls: z.boolean().optional(),
+});
+
+export function safeParseSerializableBaselodeGeophysicsRaster(value) {
+  const parsed = SerializableBaselodeGeophysicsRasterSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
 

@@ -969,6 +969,81 @@ These payloads can be serialised to JSON and consumed by the JavaScript `Baselod
 
 ---
 
+## Geophysics rasters
+
+`baselode.geophysics` provides an in-memory, bands-first raster model for
+magnetics, radiometrics, gravity, conductivity grids, and other gridded
+geophysics. It preserves the numeric cells, GDAL affine transform, CRS,
+no-data value, band names, and source metadata without taking a dependency on
+any inversion package.
+
+ER Mapper `.ers` grids (the usual format for Australian government
+geophysics) load natively. Other formats need Rasterio/GDAL:
+
+```bash
+pip install 'baselode[raster]'   # GeoTIFF/COG, ENVI and other GDAL formats
+```
+
+```python
+import baselode.geophysics
+
+tmi = baselode.geophysics.load_raster('regional_tmi.ers')
+print(tmi.band_names, tmi.crs, tmi.cell_size, tmi.metadata['units'])
+```
+
+Raster arrays are always shaped `(band, row, column)`, matching GDAL/Rasterio.
+The affine transform is `(a, b, c, d, e, f)` where `x = a * column + b * row + c`
+and `y = d * column + e * row + f`.
+
+### Filtering
+
+Separate regional and residual fields with wavelength filters. Cut-offs are in
+CRS units (metres for MGA grids):
+
+```python
+regional = baselode.geophysics.low_pass(tmi, wavelength=5000)
+residual = baselode.geophysics.high_pass(tmi, wavelength=5000)
+targets = baselode.geophysics.band_pass(tmi, long_wavelength=5000, short_wavelength=400,
+                                        method='butterworth', order=4)
+print(residual.metadata['processing'])
+```
+
+### Hillshade and colour
+
+```python
+shade = baselode.geophysics.hillshade(tmi, azimuth=45, altitude=30)  # z_factor='auto'
+rgba = baselode.geophysics.colourize(
+    tmi.band(1), palette='turbo', stretch={'mode': 'equalize'}, nodata=tmi.nodata,
+    shade=shade, shade_strength=0.6,
+)
+```
+
+`stretch` is relative (`{'mode': 'relative', 'low': 2, 'high': 98}`, the
+default), absolute (`{'mode': 'absolute', 'min': -200, 'max': 400}`) or
+histogram-equalised (`{'mode': 'equalize'}`).
+
+### Viewing in chat
+
+`to_tool_ui_payload()` builds a `baselode_geophysics_raster` Tool UI result.
+It keeps one band, block-averages it to a chat-sized grid (160,000 cells by
+default) and leaves the display settings to the browser viewer, which shows a
+static image with a colour bar and cursor read-out:
+
+```python
+result = residual.to_tool_ui_payload(
+    title='TMI residual (5 km high-pass)',
+    palette='turbo',
+    stretch={'mode': 'equalize'},
+    hillshade={'enabled': True, 'azimuth': 45, 'altitude': 30, 'zFactor': 'auto'},
+)
+```
+
+`GeophysicsRaster` does not depend on SimPEG. Its array, transform, CRS, and
+no-data fields are intentionally suitable inputs for a future explicit
+SimPEG mesh/model adapter, while leaving inversion decisions to the caller.
+
+---
+
 ## Using with Jupyter Notebooks
 
 Example notebooks are provided in the repository under [`notebooks/`](https://github.com/darkmine-oss/baselode/tree/main/notebooks):

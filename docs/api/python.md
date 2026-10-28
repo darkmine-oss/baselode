@@ -4,6 +4,106 @@ Complete reference for the `baselode` Python package (v0.1.x).
 
 ---
 
+## baselode.geophysics
+
+```python
+import baselode.geophysics
+```
+
+### GeophysicsRaster
+
+```python
+GeophysicsRaster(data, transform=None, crs=None, nodata=None,
+                 band_names=None, metadata=None)
+```
+
+In-memory geophysics raster. `data` accepts `(row, column)` or `(band, row,
+column)` numeric arrays and is stored as bands-first. `to_payload()` returns
+a JSON-safe object for the JavaScript raster viewer; `from_payload(payload)`
+reconstructs the model.
+
+| Member | Description |
+|---|---|
+| `bounds`, `cell_size` | Extent `(min_x, min_y, max_x, max_y)` and `(x_size, y_size)` from the affine transform |
+| `band(index=1)` | One band, GDAL one-based numbering |
+| `copy_with(data=None, processing=None, **changes)` | Derived raster; appends `processing` to `metadata["processing"]` |
+| `decimate(max_cells=160_000)` | NaN-aware block mean to at most `max_cells` cells per band |
+| `to_tool_ui_payload(title=None, band=1, units=None, palette="viridis", stretch=None, hillshade=None, show_controls=False, max_cells=160_000, ...)` | Chat-sized `baselode_geophysics_raster` Tool UI result: one band, decimated and rounded |
+
+### load_raster
+
+```python
+load_raster(source, bands=None, masked=True, engine=None, **kwargs)
+```
+
+Reads a raster into a `GeophysicsRaster`. ER Mapper `.ers` headers load with
+the native NumPy reader (`read_ers`) on a core install. GeoTIFF/COG, ENVI and
+other GDAL formats use Rasterio and need the optional `raster` extra:
+`pip install 'baselode[raster]'`. `engine="ers"` or `"rasterio"` overrides
+the choice.
+
+### read_ers
+
+```python
+read_ers(path, masked=True)
+```
+
+Native ER Mapper reader: band-interleaved-by-line binary with all integer and
+IEEE real cell types, either byte order, `NullCellValue` as no-data, and
+`RegistrationCoord` / `RegistrationCellX/Y` georeferencing (matching GDAL).
+GDA94, GDA2020, AGD66/84 and WGS84 datum/projection pairs map to `EPSG:`
+codes; `BandId` values become band names and their `Units` are kept in
+`metadata["units"]`. Rotated grids are rejected.
+
+### hillshade / hillshade_z_factor
+
+```python
+hillshade(raster, azimuth=315.0, altitude=45.0, z_factor="auto", band=1)
+hillshade_z_factor(raster, band=1)
+```
+
+Illumination grid in `0..1` (`NaN` where data are missing). Azimuth is degrees
+clockwise from north; altitude is the sun elevation in degrees. `z_factor` is
+the vertical exaggeration; `"auto"` scales the 95th-percentile gradient to a
+45° slope so relief is comparable whatever the data units.
+
+### low_pass / high_pass / band_pass
+
+```python
+low_pass(raster, wavelength, method="gaussian", order=4, detrend=True)
+high_pass(raster, wavelength, method="gaussian", order=4, detrend=True)
+band_pass(raster, long_wavelength, short_wavelength, method="gaussian", order=4, detrend=True)
+```
+
+FFT wavelength filters for every band. Cut-offs are wavelengths in CRS units
+(metres for MGA/UTM grids); the response is 0.5 at the cut-off. `method` is
+`"gaussian"` (no ringing) or `"butterworth"` (sharper, steepness `order`). A
+best-fit plane is removed first (restored by `low_pass` only), gaps are
+mean-filled and the grid mirror-padded; missing cells stay missing. Each step
+is recorded in `metadata["processing"]`.
+
+### Colour scales
+
+```python
+baselode.geophysics.COLOUR_SCALES            # name -> RGB stops
+stretch_values(values, stretch=None, nodata=None)  # -> (ratios, (low, high))
+colourize(values, palette="viridis", stretch=None, reverse=False, nodata=None,
+          shade=None, shade_strength=0.65)    # -> uint8 RGBA
+```
+
+Scales: `viridis`, `magma`, `inferno`, `plasma`, `cividis`, `turbo`,
+`diverging`, `rainbow`, `magnetic`, `terrain`, `grayscale`. Stretches:
+
+| Stretch | Meaning |
+|---|---|
+| `{"mode": "relative", "low": 2, "high": 98}` | Percentile clip (default) |
+| `{"mode": "absolute", "min": -200, "max": 400}` | Fixed limits in data units |
+| `{"mode": "equalize"}` | Histogram equalisation |
+
+The JavaScript renderer uses the same stops and arithmetic.
+
+---
+
 ## baselode.drill.data
 
 Data loading and table normalisation helpers for drillhole datasets.

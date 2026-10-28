@@ -5,6 +5,7 @@ export type BaselodeJsonObject = Record<string, unknown>;
 export type BaselodeToolUiKind =
   | 'strip-log'
   | '3d-scene'
+  | 'geophysics-raster'
   | 'scatter-plot'
   | 'histogram-plot'
   | 'box-plot'
@@ -143,6 +144,66 @@ export interface Baselode3DSceneResult {
   };
 }
 
+export interface BaselodeGeophysicsRasterResult {
+  id: string;
+  title?: string;
+  subtitle?: string;
+  raster: {
+    data: Array<Array<Array<number | null>>>;
+    transform?: [number, number, number, number, number, number] | null;
+    crs?: string | number | null;
+    nodata?: number | null;
+    bandNames?: string[];
+    metadata?: BaselodeJsonObject;
+  };
+  /** One-based band to display. */
+  band?: number;
+  /** Value units shown on the colour bar, e.g. 'nT'. */
+  units?: string;
+  palette?: BaselodeGeophysicsPalette;
+  reversePalette?: boolean;
+  stretch?: BaselodeGeophysicsStretch;
+  /** Legacy absolute range; prefer `stretch: { mode: 'absolute', min, max }`. */
+  clipRange?: [number, number];
+  hillshade?: BaselodeGeophysicsHillshade;
+  height?: number;
+  showControls?: boolean;
+}
+
+export type BaselodeGeophysicsPalette =
+  | 'viridis' | 'magma' | 'inferno' | 'plasma' | 'cividis' | 'turbo'
+  | 'diverging' | 'rainbow' | 'magnetic' | 'terrain' | 'grayscale';
+
+export type BaselodeGeophysicsStretch =
+  | { mode: 'relative'; low?: number; high?: number }
+  | { mode: 'absolute'; min: number; max: number }
+  | { mode: 'equalize' };
+
+export interface BaselodeGeophysicsHillshade {
+  enabled?: boolean;
+  /** Degrees clockwise from north. */
+  azimuth?: number;
+  /** Degrees above the horizon. */
+  altitude?: number;
+  /** 0 (flat colour) to 1 (full shading). */
+  strength?: number;
+  /** Vertical exaggeration, or 'auto' to scale the 95th-percentile gradient to 45°. */
+  zFactor?: number | 'auto';
+}
+
+export interface BaselodeGeophysicsRasterCallbacks {
+  onViewChange?: (view: {
+    palette?: BaselodeGeophysicsPalette;
+    reversePalette?: boolean;
+    stretch?: BaselodeGeophysicsStretch;
+    clipRange?: [number, number];
+    hillshade?: BaselodeGeophysicsHillshade;
+  }) => void;
+}
+
+export type BaselodeGeophysicsRasterToolUiProps =
+  BaselodeGeophysicsRasterResult & BaselodeGeophysicsRasterCallbacks;
+
 export interface BaselodeAnalyticsResultBase {
   id: string;
   title?: string;
@@ -206,6 +267,7 @@ export interface BaselodeTernaryPlotResult extends BaselodeAnalyticsResultBase {
 export interface BaselodeToolUiResultMap {
   'strip-log': BaselodeStripLogResult;
   '3d-scene': Baselode3DSceneResult;
+  'geophysics-raster': BaselodeGeophysicsRasterResult;
   'scatter-plot': BaselodeScatterPlotResult;
   'histogram-plot': BaselodeHistogramPlotResult;
   'box-plot': BaselodeBoxPlotResult;
@@ -215,6 +277,7 @@ export interface BaselodeToolUiResultMap {
 
 export interface BaselodeToolUiPropsMap extends BaselodeToolUiResultMap {
   'strip-log': BaselodeStripLogToolUiProps;
+  'geophysics-raster': BaselodeGeophysicsRasterToolUiProps;
 }
 
 export interface BaselodeToolUiValidationIssue {
@@ -248,6 +311,7 @@ export type BaselodeToolUiSchemaContract<K extends BaselodeToolUiKind = Baselode
 export const BASELODE_TOOL_UI_KINDS: Readonly<{
   STRIP_LOG: 'strip-log';
   SCENE_3D: '3d-scene';
+  GEOPHYSICS_RASTER: 'geophysics-raster';
   SCATTER_PLOT: 'scatter-plot';
   HISTOGRAM_PLOT: 'histogram-plot';
   BOX_PLOT: 'box-plot';
@@ -266,6 +330,7 @@ export const BASELODE_TOOL_UI_SCHEMA_CONTRACTS: {
 export const SerializableBaselodeStripLogTrackSchema: ZodType<BaselodeStripLogTrack>;
 export const SerializableBaselodeStripLogSchema: ZodType<BaselodeStripLogResult>;
 export const SerializableBaselode3DSceneSchema: ZodType<Baselode3DSceneResult>;
+export const SerializableBaselodeGeophysicsRasterSchema: ZodType<BaselodeGeophysicsRasterResult>;
 export const SerializableBaselodeScatterPlotSchema: ZodType<BaselodeScatterPlotResult>;
 export const SerializableBaselodeHistogramPlotSchema: ZodType<BaselodeHistogramPlotResult>;
 export const SerializableBaselodeBoxPlotSchema: ZodType<BaselodeBoxPlotResult>;
@@ -274,6 +339,7 @@ export const SerializableBaselodeTernaryPlotSchema: ZodType<BaselodeTernaryPlotR
 
 export function safeParseSerializableBaselodeStripLog(value: unknown): BaselodeStripLogResult | null;
 export function safeParseSerializableBaselode3DScene(value: unknown): Baselode3DSceneResult | null;
+export function safeParseSerializableBaselodeGeophysicsRaster(value: unknown): BaselodeGeophysicsRasterResult | null;
 export function safeParseSerializableBaselodeScatterPlot(value: unknown): BaselodeScatterPlotResult | null;
 export function safeParseSerializableBaselodeHistogramPlot(value: unknown): BaselodeHistogramPlotResult | null;
 export function safeParseSerializableBaselodeBoxPlot(value: unknown): BaselodeBoxPlotResult | null;
@@ -308,6 +374,7 @@ export function isBaselodeToolUiResultEmpty<K extends BaselodeToolUiKind>(
 
 export const BaselodeStripLogToolUI: ComponentType<BaselodeStripLogToolUiProps>;
 export const Baselode3DSceneToolUI: ComponentType<Baselode3DSceneResult>;
+export const BaselodeGeophysicsRasterToolUI: ComponentType<BaselodeGeophysicsRasterToolUiProps>;
 export const BaselodeScatterPlotToolUI: ComponentType<BaselodeScatterPlotResult>;
 export const BaselodeHistogramPlotToolUI: ComponentType<BaselodeHistogramPlotResult>;
 export const BaselodeBoxPlotToolUI: ComponentType<BaselodeBoxPlotResult>;

@@ -6,6 +6,7 @@
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
     "baselode": "file:../../javascript/packages/baselode",
+    "geotiff": "^2.1.3",
     "maplibre-gl": "^5.16.0",
     "papaparse": "^5.4.1",
     "plotly.js-dist-min": "^2.32.0",

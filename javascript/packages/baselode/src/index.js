@@ -261,6 +261,13 @@ export {
 } from './data/lasLoader.js';
 
 export {
+  createGeophysicsRaster,
+  getGeophysicsRasterBand,
+  geophysicsRasterRange,
+  loadGeoTiff,
+} from './data/geophysicsRaster.js';
+
+export {
   interpolateTrace,
   alphaBetaToNormal,
   computeStructuralPositions
@@ -416,6 +423,27 @@ export {
   setTerrainVisibility,
   getTerrain,
 } from './viz/terrainScene.js';
+
+export {
+  GEOPHYSICS_COLOR_SCALES,
+  GEOPHYSICS_PALETTES,
+  GEOPHYSICS_STRETCH_MODES,
+  DEFAULT_GEOPHYSICS_STRETCH,
+  normalizeGeophysicsStretch,
+  createGeophysicsStretch,
+  geophysicsScaleColor,
+  geophysicsColorGradient,
+} from './viz/geophysicsColorScales.js';
+
+export {
+  DEFAULT_GEOPHYSICS_HILLSHADE,
+  normalizeGeophysicsClipRange,
+  geophysicsHillshade,
+  geophysicsHillshadeZFactor,
+  renderGeophysicsRaster,
+} from './viz/geophysicsRasterViz.js';
+
+export { GeophysicsRasterViewer, resolveGeophysicsView } from './viz/GeophysicsRasterViewer.jsx';
 
 export {
   buildViewSignature,
