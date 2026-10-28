@@ -250,6 +250,11 @@ def to_json_schema(name, model_dict, description=None):
     properties = {}
     for col, py_type in model_dict.items():
         prop = _property_schema(col, py_type, required)
+        # Structural angles describe a plane, not the drillhole survey.
+        if name == "structural_point" and col == DIP:
+            prop["description"] = "Structural plane dip from horizontal (0-90 degrees, positive down); source signs require QAQC"
+        elif name == "structural_point" and col == AZIMUTH:
+            prop["description"] = "Structural plane dip direction, clockwise from north; source north reference must be verified"
         fk = _FOREIGN_KEYS.get(name, {}).get(col)
         if fk:
             target_table, target_col = fk
