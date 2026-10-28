@@ -345,6 +345,8 @@ def test_hillshade_lights_slopes_facing_the_sun():
     east_sun = baselode.geophysics.hillshade(east_rising, azimuth=90, altitude=45, z_factor=1)
     assert west_sun[4, 4] == pytest.approx(1.0)
     assert east_sun[4, 4] == pytest.approx(0.0, abs=1e-12)
+    # Edges use one-sided slopes, so a plane shades evenly to its border.
+    np.testing.assert_allclose(west_sun, 1.0)
 
     # Surface rising to the north faces south.
     north_rising = plane_raster(slope_y=1.0)
@@ -358,7 +360,7 @@ def test_hillshade_auto_z_factor_normalises_units_and_keeps_gaps():
     raster.data[0, 3, 3] = np.nan
     shade = baselode.geophysics.hillshade(raster, azimuth=270, altitude=45)
     assert np.isnan(shade[3, 3])
-    assert shade[4, 4] == pytest.approx(1.0)
+    np.testing.assert_allclose(shade[np.isfinite(shade)], 1.0)
     with pytest.raises(ValueError, match="altitude"):
         baselode.geophysics.hillshade(raster, altitude=0)
 

@@ -42,13 +42,13 @@ def _cell_size(raster):
 
 
 def _neighbours(values, valid):
-    """Return left/right/up/down neighbours, clamped at edges.
+    """Return left/right/up/down neighbours and whether each exists.
 
-    A missing neighbour falls back to the centre value, so slopes next to
-    gaps and edges are one-sided rather than undefined.
+    A neighbour off the grid or missing falls back to the centre value and is
+    marked unavailable, so callers can take one-sided differences.
     """
     padded = np.pad(values, 1, mode="edge")
-    padded_valid = np.pad(valid, 1, mode="edge")
+    padded_valid = np.pad(valid, 1, mode="constant", constant_values=False)
     windows = {
         "left": (slice(1, -1), slice(0, -2)),
         "right": (slice(1, -1), slice(2, None)),
@@ -56,9 +56,16 @@ def _neighbours(values, valid):
         "down": (slice(2, None), slice(1, -1)),
     }
     return {
-        name: np.where(padded_valid[window], padded[window], values)
+        name: (np.where(padded_valid[window], padded[window], values), padded_valid[window])
         for name, window in windows.items()
     }
+
+
+def _difference(near, before, after):
+    """Central difference per cell, or one-sided where a neighbour is missing."""
+    (low, has_low), (high, has_high) = near[before], near[after]
+    spacing = has_low.astype(float) + has_high.astype(float)
+    return np.divide(high - low, spacing, out=np.zeros_like(high), where=spacing > 0)
 
 
 def _map_gradients(raster, values, valid):
@@ -74,8 +81,8 @@ def _map_gradients(raster, values, valid):
         raise ValueError("raster transform is degenerate")
     filled = np.where(valid, values, 0.0)
     near = _neighbours(filled, valid)
-    per_column = (near["right"] - near["left"]) / 2.0
-    per_row = (near["down"] - near["up"]) / 2.0
+    per_column = _difference(near, "left", "right")
+    per_row = _difference(near, "up", "down")
     east = (e * per_column - d * per_row) / determinant
     north = (a * per_row - b * per_column) / determinant
     return east, north
