@@ -14,7 +14,7 @@ vi.mock('geotiff', () => ({
 
 const { loadGeoTiff } = await import('../src/data/geophysicsRaster.js');
 
-function setImage({ fileDirectory = {}, origin = [500000, 7000000], resolution = [10, -10], noData = -9999 } = {}) {
+function setImage({ fileDirectory = {}, origin = [500000, 7000000], resolution = [10, -10], noData = -9999, geoKeys = {} } = {}) {
   Object.assign(image, {
     getWidth: () => 2,
     getHeight: () => 1,
@@ -23,7 +23,7 @@ function setImage({ fileDirectory = {}, origin = [500000, 7000000], resolution =
     getOrigin: () => origin,
     getResolution: () => resolution,
     getGDALNoData: () => noData,
-    getGeoKeys: () => ({ ProjectedCSTypeGeoKey: 28351 }),
+    getGeoKeys: () => ({ ProjectedCSTypeGeoKey: 28351, ...geoKeys }),
   });
 }
 
@@ -45,6 +45,16 @@ describe('loadGeoTiff', () => {
   it('reads a rotated ModelTransformation in full', async () => {
     setImage({ fileDirectory: { ModelTransformation: [8, 6, 0, 500000, 6, -8, 0, 7000000, 0, 0, 0, 0, 0, 0, 0, 1] } });
     expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([8, 6, 500000, 6, -8, 7000000]);
+  });
+
+  it('shifts PixelIsPoint tie points to cell corners, as GDAL does', async () => {
+    setImage({ geoKeys: { GTRasterTypeGeoKey: 2 } });
+    expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([10, 0, 499995, 0, -10, 7000005]);
+    setImage({
+      geoKeys: { GTRasterTypeGeoKey: 2 },
+      fileDirectory: { ModelTransformation: [8, 6, 0, 500000, 6, -8, 0, 7000000, 0, 0, 0, 0, 0, 0, 0, 1] },
+    });
+    expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([8, 6, 499993, 6, -8, 7000001]);
   });
 
   it('leaves an unreferenced TIFF on the default pixel grid', async () => {

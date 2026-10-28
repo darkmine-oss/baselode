@@ -111,7 +111,7 @@ export async function loadGeoTiff(source, options = {}) {
 
   return createGeophysicsRaster({
     data,
-    transform: geoTiffTransform(image),
+    transform: geoTiffTransform(image, image.getGeoKeys()),
     crs: geoTiffCrs(image.getGeoKeys()),
     // getGDALNoData strips the tag's NUL terminator; Number('-9999\0') is NaN.
     nodata: parseNoData(image.getGDALNoData()),
@@ -124,22 +124,30 @@ export async function loadGeoTiff(source, options = {}) {
  * Return the GDAL affine transform of a GeoTIFF image, or undefined when it is
  * not georeferenced. A ModelTransformation tag supplies the full (possibly
  * rotated) matrix; otherwise the tie point and pixel scale give a
- * north-up (or south-up) grid.
+ * north-up (or south-up) grid. PixelIsPoint rasters are shifted half a cell
+ * so the transform addresses cell corners, as GDAL does.
  */
-function geoTiffTransform(image) {
+function geoTiffTransform(image, geoKeys) {
+  let transform;
   const matrix = image.getFileDirectory().ModelTransformation;
   if (matrix) {
     const [a, b, , c, d, e, , f] = matrix;
-    return [a, b, c, d, e, f];
+    transform = [a, b, c, d, e, f];
+  } else {
+    try {
+      const [originX, originY] = image.getOrigin();
+      // getResolution's Y is already negative for north-up images.
+      const [resolutionX, resolutionY] = image.getResolution();
+      transform = [resolutionX, 0, originX, 0, resolutionY, originY];
+    } catch {
+      return undefined;
+    }
   }
-  try {
-    const [originX, originY] = image.getOrigin();
-    // getResolution's Y is already negative for north-up images.
-    const [resolutionX, resolutionY] = image.getResolution();
-    return [resolutionX, 0, originX, 0, resolutionY, originY];
-  } catch {
-    return undefined;
+  if (geoKeys?.GTRasterTypeGeoKey === 2) {
+    const [a, b, c, d, e, f] = transform;
+    transform = [a, b, c - (a + b) / 2, d, e, f - (d + e) / 2];
   }
+  return transform;
 }
 
 function geoTiffCrs(geoKeys) {

@@ -60,12 +60,24 @@ def _neighbours(values, valid):
     }
 
 
-def _gradients(values, valid, cell_x, cell_y):
+def _map_gradients(raster, values, valid):
+    """Return ``(east, north)`` gradients in data units per CRS unit.
+
+    Differences along columns and rows are converted to map axes with the
+    affine transform, so azimuths stay geographic for south-up, west-up and
+    rotated grids.  Unreferenced rasters use unit, north-up cells.
+    """
+    a, b, _, d, e, _ = raster.transform or (1.0, 0.0, 0.0, 0.0, -1.0, 0.0)
+    determinant = a * e - b * d
+    if determinant == 0:
+        raise ValueError("raster transform is degenerate")
     filled = np.where(valid, values, 0.0)
     near = _neighbours(filled, valid)
-    dzdx = (near["right"] - near["left"]) / (2 * cell_x)
-    dzdy = (near["down"] - near["up"]) / (2 * cell_y)
-    return dzdx, dzdy
+    per_column = (near["right"] - near["left"]) / 2.0
+    per_row = (near["down"] - near["up"]) / 2.0
+    east = (e * per_column - d * per_row) / determinant
+    north = (a * per_row - b * per_column) / determinant
+    return east, north
 
 
 def hillshade_z_factor(raster, band=1):
@@ -89,9 +101,8 @@ def hillshade_z_factor(raster, band=1):
     """
     values = raster.band(band).astype(float)
     valid = _valid_mask(values, raster.nodata)
-    cell_x, cell_y = _cell_size(raster)
-    dzdx, dzdy = _gradients(values, valid, cell_x, cell_y)
-    magnitude = np.hypot(dzdx, dzdy)[valid]
+    east, north = _map_gradients(raster, values, valid)
+    magnitude = np.hypot(east, north)[valid]
     if magnitude.size == 0:
         return 1.0
     reference = float(np.percentile(magnitude, 95))
@@ -130,10 +141,10 @@ def hillshade(raster, azimuth=315.0, altitude=45.0, z_factor="auto", band=1):
         raise ValueError("z_factor must be positive or 'auto'")
     values = raster.band(band).astype(float)
     valid = _valid_mask(values, raster.nodata)
-    cell_x, cell_y = _cell_size(raster)
-    dzdx, dzdy = _gradients(values, valid, cell_x, cell_y)
-    dzdx = dzdx * z_factor
-    dzdy = dzdy * z_factor
+    east, north = _map_gradients(raster, values, valid)
+    # Horn/ESRI convention: dz/dy is measured southwards.
+    dzdx = east * z_factor
+    dzdy = -north * z_factor
     zenith = math.radians(90.0 - altitude)
     azimuth_math = math.radians(360.0 - float(azimuth) + 90.0)
     slope = np.arctan(np.hypot(dzdx, dzdy))

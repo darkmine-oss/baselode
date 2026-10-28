@@ -50,16 +50,17 @@ function asRaster(raster) {
   return raster?.bandCount ? raster : createGeophysicsRaster(raster);
 }
 
-function cellSize(raster) {
-  // Spacing along the column and row directions, which also holds for a
-  // rotated grid (matches Python's GeophysicsRaster.cell_size).
-  const [a, b, , d, e] = raster.transform;
-  return [Math.hypot(a, d) || 1, Math.hypot(b, e) || 1];
-}
-
-function gradients(band, nodata, cellX, cellY, zFactor = 1) {
+/**
+ * Per-cell map gradients `[east, north]` of a band, or null for missing
+ * cells. Differences along columns and rows are converted to map axes with
+ * the affine transform, so azimuths stay geographic for south-up, west-up
+ * and rotated grids (matches Python's processing._gradients).
+ */
+function mapGradients(band, nodata, transform, zFactor = 1) {
   const height = band.length;
   const width = band[0].length;
+  const [a, b, , d, e] = transform;
+  const determinant = a * e - b * d;
   const at = (row, column, fallback) => {
     const value = band[Math.max(0, Math.min(height - 1, row))][Math.max(0, Math.min(width - 1, column))];
     return isGeophysicsValue(value, nodata) ? value : fallback;
@@ -67,9 +68,11 @@ function gradients(band, nodata, cellX, cellY, zFactor = 1) {
   return band.map((values, row) => values.map((value, column) => {
     if (!isGeophysicsValue(value, nodata)) return null;
     // Edge and gap neighbours fall back to the centre value.
-    const dzdx = (at(row, column + 1, value) - at(row, column - 1, value)) / (2 * cellX);
-    const dzdy = (at(row + 1, column, value) - at(row - 1, column, value)) / (2 * cellY);
-    return [dzdx * zFactor, dzdy * zFactor];
+    const perColumn = (at(row, column + 1, value) - at(row, column - 1, value)) / 2;
+    const perRow = (at(row + 1, column, value) - at(row - 1, column, value)) / 2;
+    const east = (e * perColumn - d * perRow) / determinant;
+    const north = (a * perRow - b * perColumn) / determinant;
+    return [east * zFactor, north * zFactor];
   }));
 }
 
@@ -84,9 +87,8 @@ function gradients(band, nodata, cellX, cellY, zFactor = 1) {
  */
 export function geophysicsHillshadeZFactor(raster, band = 1) {
   const normalized = asRaster(raster);
-  const [cellX, cellY] = cellSize(normalized);
   const magnitudes = [];
-  for (const row of gradients(getGeophysicsRasterBand(normalized, band), normalized.nodata, cellX, cellY)) {
+  for (const row of mapGradients(getGeophysicsRasterBand(normalized, band), normalized.nodata, normalized.transform)) {
     for (const gradient of row) if (gradient) magnitudes.push(Math.hypot(gradient[0], gradient[1]));
   }
   if (magnitudes.length === 0) return 1;
@@ -112,13 +114,14 @@ export function geophysicsHillshade(raster, options = {}) {
   const requested = options.zFactor ?? DEFAULT_GEOPHYSICS_HILLSHADE.zFactor;
   const zFactor = requested === 'auto' ? geophysicsHillshadeZFactor(normalized, bandIndex) : Number(requested);
   if (!(zFactor > 0)) throw new RangeError("zFactor must be positive or 'auto'.");
-  const [cellX, cellY] = cellSize(normalized);
   const zenith = (90 - altitude) * Math.PI / 180;
   const azimuthRadians = (360 - azimuth + 90) * Math.PI / 180;
   const band = getGeophysicsRasterBand(normalized, bandIndex);
-  return gradients(band, normalized.nodata, cellX, cellY, zFactor).map((row) => row.map((gradient) => {
+  return mapGradients(band, normalized.nodata, normalized.transform, zFactor).map((row) => row.map((gradient) => {
     if (!gradient) return NaN;
-    const [dzdx, dzdy] = gradient;
+    // Horn/ESRI convention: dz/dy is measured southwards.
+    const [dzdx, north] = gradient;
+    const dzdy = -north;
     const slope = Math.atan(Math.hypot(dzdx, dzdy));
     const aspect = Math.atan2(dzdy, -dzdx);
     const intensity = Math.cos(zenith) * Math.cos(slope)

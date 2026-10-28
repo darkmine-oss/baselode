@@ -380,3 +380,22 @@ def test_filters_keep_missing_cells_missing():
     filtered = baselode.geophysics.low_pass(raster, 800)
     assert np.isnan(filtered.data[0, 10:14, 20:30]).all()
     assert np.isfinite(filtered.data[0, 30:, :]).all()
+
+
+@pytest.mark.parametrize(
+    "transform",
+    [
+        (10, 0, 0, 0, -10, 90),   # north-up
+        (10, 0, 0, 0, 10, 0),     # south-up
+        (0, 10, 0, 10, 0, 0),     # rows run east, columns run north
+    ],
+)
+def test_hillshade_azimuth_is_geographic_for_any_grid_orientation(transform):
+    # The surface rises to the east in map coordinates whatever the grid
+    # orientation, so a west sun fully lights it.
+    a, b, c, d, e, f = transform
+    rows, columns = np.indices((9, 9), dtype=float)
+    east = a * columns + b * rows + c
+    raster = baselode.geophysics.GeophysicsRaster(east, transform=transform)
+    west_sun = baselode.geophysics.hillshade(raster, azimuth=270, altitude=45, z_factor=1)
+    assert west_sun[4, 4] == pytest.approx(1.0)

@@ -76,6 +76,17 @@ describe('geophysics raster rendering', () => {
     expect(rendered.data[15]).toBe(0);
   });
 
+  it.each([
+    ['north-up', [10, 0, 0, 0, -10, 90]],
+    ['south-up', [10, 0, 0, 0, 10, 0]],
+    ['transposed', [0, 10, 0, 10, 0, 0]],
+  ])('lights an east-rising %s grid from a west sun', (_, transform) => {
+    const [a, b, c] = transform;
+    const data = Array.from({ length: 9 }, (__, row) => Array.from({ length: 9 }, (___, column) => a * column + b * row + c));
+    const shade = geophysicsHillshade(createGeophysicsRaster({ data, transform }), { azimuth: 270, altitude: 45, zFactor: 1 });
+    expect(shade[4][4]).toBeCloseTo(1, 12);
+  });
+
   it('calculates a bounded hillshade field', () => {
     const shade = geophysicsHillshade(createGeophysicsRaster({ data: [[0, 1], [2, 4]] }));
     expect(shade.flat().every((value) => value >= 0 && value <= 1)).toBe(true);
