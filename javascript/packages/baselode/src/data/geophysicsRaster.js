@@ -80,13 +80,180 @@ export function geophysicsRasterRange(raster, band = 1) {
 }
 
 /**
+ * Block-average a raster so each band has at most `maxCells` cells.
+ * Matches Python's `GeophysicsRaster.decimate`: each output cell is the
+ * area-weighted mean of the valid source cells it covers, and the transform is
+ * scaled so the raster keeps its exact footprint. Missing and nodata cells are
+ * ignored; all-empty output cells are null.
+ *
+ * @param {object} raster
+ * @param {number} [maxCells=160000]
+ * @returns {object} The same raster when already small enough, otherwise a new
+ *   one with `nodata: null` and a `{operation: 'decimate', factor, method:
+ *   'area_mean'}` step appended to `metadata.processing`.
+ */
+export function decimateGeophysicsRaster(raster, maxCells = 160000) {
+  const normalized = raster?.bandCount ? raster : createGeophysicsRaster(raster);
+  if (!(maxCells >= 1)) throw new RangeError('maxCells must be at least 1.');
+  if (normalized.width * normalized.height <= maxCells) return normalized;
+  const bands = normalized.data.map((band) => Float64Array.from(band.flat(), (value) => value ?? NaN));
+  return geophysicsRasterFromBands(bands, { ...normalized, maxCells });
+}
+
+/**
+ * Build a raster from flat, row-major bands (as file readers produce),
+ * decimating first when `maxCells` is set so large grids never become nested
+ * arrays at full size.
+ *
+ * @param {Array<ArrayLike<number>|function(number): number>} bands - One
+ *   `width * height` array per band, or a function returning the cell at a
+ *   row-major index (so readers can decimate straight from file bytes). A
+ *   function band's `nodata` must already be in the cell precision.
+ * @param {object} options - `width`, `height`, and the `createGeophysicsRaster`
+ *   payload fields (`transform`, `crs`, `nodata`, `bandNames`, `metadata`);
+ *   optional `maxCells`.
+ * @returns {object}
+ */
+export function geophysicsRasterFromBands(bands, options) {
+  const { width, height, maxCells } = options;
+  if (maxCells != null && !(maxCells >= 1)) throw new RangeError('maxCells must be at least 1.');
+  const nodata = parseNoData(options.nodata);
+  // Compare sentinels in the source precision (see geoTiffNoData).
+  const sentinel = nodata !== null && bands[0] instanceof Float32Array ? Math.fround(nodata) : nodata;
+  const readers = bands.map((band) => (typeof band === 'function' ? band : (index) => band[index]));
+  const payload = {
+    transform: options.transform,
+    crs: options.crs,
+    // The source-precision sentinel, so widened cells still match it.
+    nodata: sentinel,
+    bandNames: options.bandNames,
+    metadata: options.metadata,
+  };
+  if (maxCells == null || width * height <= maxCells) {
+    return createGeophysicsRaster({
+      ...payload,
+      data: bands.map((band, index) => (typeof band === 'function'
+        ? readerToRows(readers[index], width, height)
+        : typedBandToRows(band, width))),
+    });
+  }
+  const { factor, rows, columns } = decimationShape(width, height, maxCells);
+  const data = readers.map((cellAt) => areaMeanRows(cellAt, width, height, rows, columns, sentinel));
+  return decimatedRaster(data, payload, { width, height, factor, rows, columns });
+}
+
+/** Output shape for block-averaging to at most `maxCells` (as Python). */
+function decimationShape(width, height, maxCells) {
+  let factor = Math.ceil(Math.sqrt((width * height) / maxCells));
+  while (Math.ceil(height / factor) * Math.ceil(width / factor) > maxCells) factor += 1;
+  return { factor, rows: Math.ceil(height / factor), columns: Math.ceil(width / factor) };
+}
+
+/** Wrap decimated rows with the scaled transform and a processing record. */
+function decimatedRaster(data, payload, { width, height, factor, rows, columns }) {
+  const transform = payload.transform ?? [1, 0, 0, 0, -1, height];
+  const [a, b, c, d, e, f] = transform.map(Number);
+  const columnScale = width / columns;
+  const rowScale = height / rows;
+  const metadata = payload.metadata ?? {};
+  return createGeophysicsRaster({
+    ...payload,
+    data,
+    transform: [a * columnScale, b * rowScale, c, d * columnScale, e * rowScale, f],
+    nodata: null,
+    metadata: {
+      ...metadata,
+      processing: [...(metadata.processing ?? []), { operation: 'decimate', factor, method: 'area_mean' }],
+    },
+  });
+}
+
+function isValidCell(value, sentinel) {
+  return value !== null && value !== undefined && Number.isFinite(value) && value !== sentinel;
+}
+
+/**
+ * Area-weighted mean of a row-major band over `rows x columns` equal output
+ * cells. Source cells split by an output edge contribute in proportion to
+ * their overlap (matches Python's `_axis_area_sums`).
+ */
+function areaMeanRows(cellAt, width, height, rows, columns, sentinel) {
+  const accumulator = createAreaMeanAccumulator(width, height, rows, columns, sentinel);
+  for (let row = 0; row < height; row += 1) {
+    const offset = row * width;
+    accumulator.addRow(row, (column) => cellAt(offset + column));
+  }
+  return accumulator.finish();
+}
+
+/**
+ * Streaming area-weighted block mean. Source rows are added in order with
+ * `addRow(row, cellAt)`; each contributes to the (at most two) output rows it
+ * overlaps, and an output row is reduced across columns as soon as it is
+ * complete. Memory is two source-width accumulators plus the output.
+ */
+function createAreaMeanAccumulator(width, height, rows, columns, sentinel) {
+  const buffers = [0, 1].map(() => ({ totals: new Float64Array(width), weights: new Float64Array(width) }));
+  const result = [];
+  const finishOutput = () => {
+    const { totals, weights } = buffers[result.length % 2];
+    const values = new Array(columns);
+    for (let output = 0; output < columns; output += 1) {
+      const left = (output * width) / columns;
+      const right = ((output + 1) * width) / columns;
+      let total = 0;
+      let weight = 0;
+      for (let source = Math.floor(left); source < Math.min(Math.ceil(right), width); source += 1) {
+        const overlap = Math.min(right, source + 1) - Math.max(left, source);
+        if (overlap <= 0) continue;
+        total += overlap * totals[source];
+        weight += overlap * weights[source];
+      }
+      values[output] = weight > 1e-12 ? total / weight : null;
+    }
+    totals.fill(0);
+    weights.fill(0);
+    result.push(values);
+  };
+  return {
+    addRow(row, cellAt) {
+      const first = Math.floor((row * rows) / height);
+      while (result.length < first) finishOutput();
+      for (let output = first; output < rows; output += 1) {
+        const start = (output * height) / rows;
+        if (start >= row + 1) break;
+        const overlap = Math.min((output + 1) * height / rows, row + 1) - Math.max(start, row);
+        if (overlap <= 0) continue;
+        const { totals, weights } = buffers[output % 2];
+        for (let column = 0; column < width; column += 1) {
+          const value = cellAt(column);
+          if (!isValidCell(value, sentinel)) continue;
+          totals[column] += overlap * value;
+          weights[column] += overlap;
+        }
+      }
+    },
+    finish() {
+      while (result.length < rows) finishOutput();
+      return result;
+    },
+  };
+}
+
+/** Minimum rows per GeoTIFF read while decimating (rounded up to whole tiles). */
+const GEOTIFF_CHUNK_ROWS = 256;
+
+/**
  * Load a GeoTIFF or Cloud-Optimized GeoTIFF in browser or Node applications.
- * ERS and other GDAL formats should be opened with Python's `load_raster` and
- * transferred using `GeophysicsRaster.to_payload()`.
+ * For ER Mapper grids use {@link loadErs}; other GDAL formats should be opened
+ * with Python's `load_raster` and transferred using
+ * `GeophysicsRaster.to_payload()`.
  *
  * @param {string|ArrayBuffer|Blob} source
  * @param {object} [options]
  * @param {number[]} [options.samples] - Zero-based TIFF sample indexes.
+ * @param {number} [options.maxCells] - Decimate (area-weighted mean) to at
+ *   most this many cells per band while loading.
  * @returns {Promise<object>}
  */
 export async function loadGeoTiff(source, options = {}) {
@@ -105,18 +272,46 @@ export async function loadGeoTiff(source, options = {}) {
   }
 
   const image = await tiff.getImage();
-  const values = await image.readRasters({ samples: options.samples, interleave: false });
-  const data = Array.from(values, (band) => typedBandToRows(band, image.getWidth()));
-  const names = Array.from(values, (_, index) => `band_${index + 1}`);
-
-  return createGeophysicsRaster({
-    data,
+  const width = image.getWidth();
+  const height = image.getHeight();
+  const { maxCells } = options;
+  if (maxCells != null && !(maxCells >= 1)) throw new RangeError('maxCells must be at least 1.');
+  const payload = {
     transform: geoTiffTransform(image, image.getGeoKeys()),
     crs: geoTiffCrs(image.getGeoKeys()),
-    nodata: geoTiffNoData(image.getGDALNoData(), values),
-    bandNames: names,
-    metadata: { driver: 'GeoTIFF', width: image.getWidth(), height: image.getHeight() },
-  });
+    metadata: { driver: 'GeoTIFF', width, height },
+  };
+  const bandNames = (count) => Array.from({ length: count }, (_, index) => `band_${index + 1}`);
+  if (maxCells == null || width * height <= maxCells) {
+    const values = await image.readRasters({ samples: options.samples, interleave: false });
+    return geophysicsRasterFromBands(Array.from(values), {
+      ...payload,
+      width,
+      height,
+      nodata: geoTiffNoData(image.getGDALNoData(), values),
+      bandNames: bandNames(values.length),
+    });
+  }
+  // Stream tile-aligned row chunks (each source block is decoded once) into
+  // the area-mean accumulators, so a large image is never held in full.
+  const shape = decimationShape(width, height, maxCells);
+  const tileHeight = Math.max(1, image.getTileHeight?.() ?? 1);
+  const chunkRows = Math.ceil(GEOTIFF_CHUNK_ROWS / tileHeight) * tileHeight;
+  let accumulators = null;
+  for (let top = 0; top < height; top += chunkRows) {
+    const bottom = Math.min(height, top + chunkRows);
+    const chunk = await image.readRasters({ samples: options.samples, interleave: false, window: [0, top, width, bottom] });
+    const sentinel = geoTiffNoData(image.getGDALNoData(), chunk);
+    accumulators ??= Array.from(chunk, () => createAreaMeanAccumulator(width, height, shape.rows, shape.columns, sentinel));
+    chunk.forEach((band, index) => {
+      for (let row = top; row < bottom; row += 1) {
+        const offset = (row - top) * width;
+        accumulators[index].addRow(row, (column) => band[offset + column]);
+      }
+    });
+  }
+  const data = accumulators.map((accumulator) => accumulator.finish());
+  return decimatedRaster(data, { ...payload, bandNames: bandNames(data.length) }, { width, height, ...shape });
 }
 
 /**
@@ -220,10 +415,22 @@ function rasterBounds(transform, width, height) {
   };
 }
 
+function readerToRows(cellAt, width, height) {
+  const rows = [];
+  for (let row = 0; row < height; row += 1) {
+    const cells = new Array(width);
+    for (let column = 0; column < width; column += 1) cells[column] = cellAt(row * width + column);
+    rows.push(cells);
+  }
+  return rows;
+}
+
 function typedBandToRows(values, width) {
   const rows = [];
   for (let row = 0; row < values.length / width; row += 1) {
-    rows.push(Array.from(values.slice(row * width, (row + 1) * width)));
+    rows.push(Array.from(values.subarray
+      ? values.subarray(row * width, (row + 1) * width)
+      : values.slice(row * width, (row + 1) * width)));
   }
   return rows;
 }

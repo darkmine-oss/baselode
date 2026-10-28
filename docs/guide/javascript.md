@@ -1439,18 +1439,29 @@ const raster = {
 ```
 
 For files selected in a browser, `loadGeoTiff()` reads GeoTIFF and COG data
-directly (including its georeferencing) using the bundled `geotiff` runtime:
+directly (including its georeferencing) using the bundled `geotiff` runtime,
+and `loadErs()` reads ER Mapper grids from the `.ers` header and its data file
+(the same name without `.ers`). Both take `maxCells` to block-average large
+grids while reading, so a regional survey never becomes a full-size array in
+the browser:
 
 ```js
-import { loadGeoTiff } from 'baselode';
+import { loadErs, loadGeoTiff } from 'baselode';
 
-const raster = await loadGeoTiff('/data/regional_tmi.tif');
+const tmi = await loadGeoTiff('/data/regional_tmi.tif', { maxCells: 2_000_000 });
+// From an <input type="file" multiple> selection:
+const gravity = await loadErs(headerFile, dataFile, { maxCells: 2_000_000 });
 ```
 
-Open ERS grids and apply wavelength filters on the Python side, then transfer
-the payload. The Tool UI equivalent is the `geophysics-raster` primitive with
-canonical name `baselode_geophysics_raster`. It defaults to a static,
-chat-sized view (`showControls: false`, height 360). Python's
+`loadErs` matches Python's `read_ers`: band names and units come from
+`BandId`, `NullCellValue` cells are missing, and GDA94/GDA2020/AGD/WGS84
+datums map to `EPSG:` codes. `decimateGeophysicsRaster(raster, maxCells)`
+gives the same area-weighted mean as Python's `GeophysicsRaster.decimate`.
+
+Apply wavelength filters on the Python side, then transfer the payload. The
+Tool UI equivalent is the `geophysics-raster` primitive with canonical name
+`baselode_geophysics_raster`. It defaults to a static, chat-sized view
+(`showControls: false`, height 360). Python's
 `GeophysicsRaster.to_tool_ui_payload()` builds a decimated result for it.
 
 ## Raster Overlays

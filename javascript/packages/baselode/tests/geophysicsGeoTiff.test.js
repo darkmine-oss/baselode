@@ -12,7 +12,7 @@ vi.mock('geotiff', () => ({
   fromUrl: async () => ({ getImage: async () => image }),
 }));
 
-const { loadGeoTiff } = await import('../src/data/geophysicsRaster.js');
+const { createGeophysicsRaster, decimateGeophysicsRaster, loadGeoTiff } = await import('../src/data/geophysicsRaster.js');
 
 const TIE_POINT = [0, 0, 0, 500000, 7000000, 0];
 
@@ -75,5 +75,40 @@ describe('loadGeoTiff', () => {
     image.getResolution = () => { throw new Error('The image does not have an affine transformation.'); };
     const raster = await loadGeoTiff(new ArrayBuffer(8));
     expect(raster.transform).toEqual([1, 0, 0, 0, -1, 1]);
+  });
+
+  it('decimates from tile-aligned row chunks, reading each row once', async () => {
+    const width = 3;
+    const height = 600;
+    const values = Float32Array.from({ length: width * height }, (_, index) => (index === 700 ? -9999 : (index % 97) - 40));
+    const windows = [];
+    Object.assign(image, {
+      getWidth: () => width,
+      getHeight: () => height,
+      getTileHeight: () => 100,
+      readRasters: async ({ window }) => {
+        const [left, top, right, bottom] = window;
+        windows.push(window);
+        expect([left, right]).toEqual([0, width]);
+        return [values.slice(top * width, bottom * width)];
+      },
+    });
+    const raster = await loadGeoTiff(new ArrayBuffer(8), { maxCells: 70 });
+    // 256 rows rounded up to whole 100-row tiles; no row is read twice.
+    expect(windows).toEqual([[0, 0, width, 300], [0, 300, width, 600]]);
+    const rows = Array.from({ length: height }, (_, row) => Array.from(values.slice(row * width, (row + 1) * width)));
+    const full = createGeophysicsRaster({ data: [rows], nodata: -9999, transform: [10, 0, 500000, 0, -10, 7000000] });
+    const expected = decimateGeophysicsRaster(full, 70);
+    expect(raster.transform).toEqual(expected.transform);
+    expect(raster.height).toBe(expected.height);
+    raster.data[0].forEach((row, r) => row.forEach((value, c) => expect(value).toBeCloseTo(expected.data[0][r][c], 10)));
+  });
+
+  it('decimates while loading when maxCells is set', async () => {
+    const raster = await loadGeoTiff(new ArrayBuffer(8), { maxCells: 1 });
+    // The nodata cell is ignored and the cell doubles in width.
+    expect(raster.data).toEqual([[[1]]]);
+    expect(raster.nodata).toBeNull();
+    expect(raster.transform).toEqual([20, 0, 500000, 0, -10, 7000000]);
   });
 });

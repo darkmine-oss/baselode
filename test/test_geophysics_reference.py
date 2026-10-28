@@ -13,13 +13,16 @@ Regenerate after an intentional change with::
     PYTHONPATH=python/src python test/test_geophysics_reference.py
 """
 
+import base64
 import json
 import pathlib
+import tempfile
 
 import numpy as np
 import pytest
 
 import baselode.geophysics
+import baselode.geophysics.ers
 
 
 FIXTURE_PATH = pathlib.Path(__file__).resolve().parent / "data" / "geophysics_reference.json"
@@ -40,6 +43,103 @@ def _rounded(values):
     result = np.round(array, 10).astype(object)
     result[~np.isfinite(array)] = None
     return result.tolist()
+
+
+ERS_HEADER = """DatasetHeader Begin
+\tVersion\t= "7.0"
+\tDataType\t= Raster
+\tByteOrder\t= {byte_order}
+\tCoordinateSpace Begin
+\t\tDatum\t= "{datum}"
+\t\tProjection\t= "{projection}"
+\t\tCoordinateType\t= {coordinate_type}
+\t\tRotation\t= 0:0:0.0
+\tCoordinateSpace End
+\tRasterInfo Begin
+\t\tCellType\t= {cell_type}
+\t\tNullCellValue\t= {null}
+\t\tCellInfo Begin
+\t\t\tXdimension\t= {cell_x}
+\t\t\tYdimension\t= {cell_y}
+\t\tCellInfo End
+\t\tNrOfLines\t= {rows}
+\t\tNrOfCellsPerLine\t= {columns}
+\t\tRegistrationCellX\t= 1
+\t\tRegistrationCellY\t= 2
+\t\tRegistrationCoord Begin
+{registration}
+\t\tRegistrationCoord End
+\t\tNrOfBands\t= {bands}
+{band_ids}
+\tRasterInfo End
+DatasetHeader End
+"""
+
+
+def _ers_cases():
+    """Small ERS datasets covering byte order, cell types and registration."""
+    rows, columns = np.indices((5, 6), dtype=float)
+    magnetics = 30 * np.sin(columns / 2.0) + 4 * rows - 12.5
+    magnetics[1, 2] = -99999
+    gravity = (rows * 6 + columns) * 0.25
+    gravity[4, 5] = -99999
+    elevation = (rows * 6 + columns) * 3 - 20
+    elevation[0, 0] = -32768
+    bands = [("TMI", "nT"), ("Bouguer", "mGal")]
+    return [
+        {
+            "name": "float32_msb_two_band_mga",
+            "data": np.stack([magnetics, gravity]), "dtype": ">f4",
+            "header": {"byte_order": "MSBFirst", "datum": "GDA94", "projection": "MGA51",
+                       "coordinate_type": "EN", "cell_type": "IEEE4ByteReal", "null": -99999,
+                       "cell_x": 50, "cell_y": 40,
+                       "registration": "\t\t\tEastings\t= 500050\n\t\t\tNorthings\t= 6999920",
+                       "band_ids": bands},
+        },
+        {
+            "name": "int16_lsb_geodetic",
+            "data": elevation[np.newaxis], "dtype": "<i2",
+            "header": {"byte_order": "LSBFirst", "datum": "GDA2020", "projection": "GEODETIC",
+                       "coordinate_type": "LL", "cell_type": "Signed16BitInteger", "null": -32768,
+                       "cell_x": 0.0025, "cell_y": 0.0025,
+                       "registration": "\t\t\tLongitude\t= 121:30:0.0\n\t\t\tLatitude\t= -30:15:0.0",
+                       "band_ids": [("Elevation", "m")]},
+        },
+    ]
+
+
+def _ers_text(case):
+    header = dict(case["header"])
+    data = case["data"]
+    header["band_ids"] = "\n".join(
+        f"\t\tBandId Begin\n\t\t\tValue\t= \"{value}\"\n\t\t\tUnits\t= \"{units}\"\n\t\tBandId End"
+        for value, units in header["band_ids"]
+    )
+    return ERS_HEADER.format(bands=data.shape[0], rows=data.shape[1], columns=data.shape[2], **header)
+
+
+def build_ers_reference():
+    cases = []
+    with tempfile.TemporaryDirectory() as directory:
+        for case in _ers_cases():
+            header_path = pathlib.Path(directory) / f"{case['name']}.ers"
+            header_path.write_text(_ers_text(case))
+            # Band-interleaved by line.
+            binary = case["data"].transpose(1, 0, 2).astype(case["dtype"]).tobytes()
+            header_path.with_suffix("").write_bytes(binary)
+            raster = baselode.geophysics.ers.read_ers(header_path)
+            payload = raster.to_payload()
+            payload["metadata"].pop("source")
+            decimated = raster.decimate(max_cells=6).to_payload()
+            cases.append({
+                "name": case["name"],
+                "header": _ers_text(case),
+                "data": base64.b64encode(binary).decode("ascii"),
+                "nodata": raster.nodata,
+                "raster": payload,
+                "decimated6": {key: decimated[key] for key in ("data", "transform")},
+            })
+    return cases
 
 
 def build_reference():
@@ -87,6 +187,7 @@ def build_reference():
         "hillshade": cases,
         "stretches": stretches,
         "renders": renders,
+        "ers": build_ers_reference(),
     }
 
 
