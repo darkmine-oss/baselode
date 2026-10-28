@@ -504,6 +504,26 @@
       "pythonSymbols": [
         ["baselode.drill.view", "plot_core_photo_log"]
       ]
+    },
+    {
+      "name": "geophysics_raster",
+      "jsExports": [
+        "createGeophysicsRaster",
+        "GEOPHYSICS_COLOR_SCALES",
+        "createGeophysicsStretch",
+        "geophysicsHillshade",
+        "geophysicsHillshadeZFactor",
+        "renderGeophysicsRaster",
+        "GeophysicsRasterViewer"
+      ],
+      "pythonSymbols": [
+        ["baselode.geophysics", "GeophysicsRaster"],
+        ["baselode.geophysics", "COLOUR_SCALES"],
+        ["baselode.geophysics", "stretch_values"],
+        ["baselode.geophysics", "hillshade"],
+        ["baselode.geophysics", "hillshade_z_factor"],
+        ["baselode.geophysics", "colourize"]
+      ]
     }
   ]
 }

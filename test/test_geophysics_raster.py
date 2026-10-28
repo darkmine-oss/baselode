@@ -53,4 +53,4 @@ def test_model_rejects_invalid_dimensions_and_band_access():
 def test_missing_optional_rasterio_has_clear_installation_message(monkeypatch):
     monkeypatch.setattr(baselode.geophysics.raster, "_rasterio", None)
     with pytest.raises(ImportError, match=r"baselode\[raster\]"):
-        baselode.geophysics.raster.load_raster("magnetics.ers")
+        baselode.geophysics.raster.load_raster("magnetics.tif")

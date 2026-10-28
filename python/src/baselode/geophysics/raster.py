@@ -6,12 +6,20 @@
 ``y = d * column + e * row + f``.  North-up rasters normally have a negative
 ``e`` value.
 
-File access is deliberately separate from the model.  Install the optional
-extra with ``pip install 'baselode[raster]'`` to load ER Mapper ERS, GeoTIFF,
-ENVI grids, and every other raster driver available in the installed GDAL.
+File access is deliberately separate from the model.  ER Mapper ``.ers``
+grids load natively with NumPy.  Install the optional extra with
+``pip install 'baselode[raster]'`` to load GeoTIFF, ENVI grids, and every other
+raster driver available in the installed GDAL.
 """
 
+import math
+import pathlib
+import uuid
+
 import numpy as np
+
+import baselode.geophysics.colour_scales
+import baselode.geophysics.ers
 
 try:
     import rasterio as _rasterio
@@ -37,11 +45,22 @@ def _normalise_transform(transform):
         raise ValueError("transform values must be numeric") from error
 
 
-def _json_values(values):
-    """Convert numeric values to JSON-safe scalars, mapping NaN to None."""
-    array = np.asarray(values)
+def _json_values(values, significant_digits=None):
+    """Convert numeric values to JSON-safe scalars, mapping NaN to None.
+
+    ``significant_digits`` rounds each finite value, which keeps in-chat
+    payloads compact without changing the displayed image.
+    """
+    array = np.asarray(values, dtype=float)
+    finite = np.isfinite(array)
+    if significant_digits is not None:
+        magnitude = np.zeros_like(array)
+        nonzero = finite & (array != 0)
+        magnitude[nonzero] = np.floor(np.log10(np.abs(array[nonzero])))
+        scale = 10.0 ** (significant_digits - 1 - magnitude)
+        array = np.where(finite, np.round(array * scale) / scale, array)
     result = array.astype(object)
-    result[~np.isfinite(array)] = None
+    result[~finite] = None
     return result.tolist()
 
 
@@ -128,6 +147,23 @@ class GeophysicsRaster:
         xs, ys = zip(*corners)
         return min(xs), min(ys), max(xs), max(ys)
 
+    @property
+    def cell_size(self):
+        """Return ``(x_size, y_size)`` as positive values, or ``None``.
+
+        Raises
+        ------
+        ValueError
+            If the transform is rotated or sheared, where a single cell size
+            is not defined.
+        """
+        if self.transform is None:
+            return None
+        a, b, _, d, e, _ = self.transform
+        if b != 0 or d != 0:
+            raise ValueError("cell size is undefined for a rotated or sheared transform")
+        return abs(a), abs(e)
+
     def band(self, index=1):
         """Return one band using GDAL's one-based band numbering.
 
@@ -145,16 +181,190 @@ class GeophysicsRaster:
             raise IndexError(f"band index must be between 1 and {self.band_count}")
         return self.data[index - 1]
 
-    def to_payload(self):
-        """Return a JSON-safe payload accepted by Baselode's JavaScript viewer."""
+    def copy_with(self, data=None, processing=None, **changes):
+        """Return a new raster sharing this raster's georeferencing.
+
+        Parameters
+        ----------
+        data : array-like, optional
+            Replacement data with the same row/column shape.  Defaults to a
+            copy of the current data.
+        processing : dict, optional
+            One processing step appended to ``metadata["processing"]`` so
+            derived grids record how they were made.
+        **changes
+            Replacement ``transform``, ``crs``, ``nodata``, ``band_names`` or
+            ``metadata`` values.
+
+        Returns
+        -------
+        GeophysicsRaster
+        """
+        metadata = dict(changes.pop("metadata", self.metadata))
+        if processing is not None:
+            metadata["processing"] = list(metadata.get("processing", [])) + [dict(processing)]
+        return GeophysicsRaster(
+            np.array(self.data, copy=True) if data is None else data,
+            transform=changes.pop("transform", self.transform),
+            crs=changes.pop("crs", self.crs),
+            nodata=changes.pop("nodata", self.nodata),
+            band_names=changes.pop("band_names", self.band_names),
+            metadata=metadata,
+            **changes,
+        )
+
+    def decimate(self, max_cells=160_000):
+        """Block-average the raster so each band has at most ``max_cells`` cells.
+
+        Parameters
+        ----------
+        max_cells : int, optional
+            Upper bound on ``rows * columns`` after decimation.
+
+        Returns
+        -------
+        GeophysicsRaster
+            ``self`` when already small enough, otherwise a new raster whose
+            cells are the NaN-aware mean of square ``factor x factor`` blocks.
+            The transform is scaled to the larger cells and the factor is
+            recorded in ``metadata["processing"]``.  No-data cells (the
+            ``nodata`` value or non-finite) are ignored; all-empty blocks are
+            NaN.
+        """
+        if max_cells < 1:
+            raise ValueError("max_cells must be at least 1")
+        cells = self.height * self.width
+        if cells <= max_cells:
+            return self
+        factor = math.ceil(math.sqrt(cells / max_cells))
+        while math.ceil(self.height / factor) * math.ceil(self.width / factor) > max_cells:
+            factor += 1
+        rows = math.ceil(self.height / factor)
+        columns = math.ceil(self.width / factor)
+        values = self.data.astype(float)
+        if self.nodata is not None:
+            values = np.where(values == self.nodata, np.nan, values)
+        padded = np.full((self.band_count, rows * factor, columns * factor), np.nan)
+        padded[:, :self.height, :self.width] = values
+        blocks = padded.reshape(self.band_count, rows, factor, columns, factor)
+        valid = np.isfinite(blocks)
+        counts = valid.sum(axis=(2, 4))
+        totals = np.where(valid, blocks, 0.0).sum(axis=(2, 4))
+        means = np.full(totals.shape, np.nan)
+        np.divide(totals, counts, out=means, where=counts > 0)
+        transform = None
+        if self.transform is not None:
+            a, b, c, d, e, f = self.transform
+            transform = (a * factor, b * factor, c, d * factor, e * factor, f)
+        return self.copy_with(
+            means,
+            transform=transform,
+            nodata=None,
+            processing={"operation": "decimate", "factor": factor, "method": "block_mean"},
+        )
+
+    def to_payload(self, significant_digits=None):
+        """Return a JSON-safe payload accepted by Baselode's JavaScript viewer.
+
+        Parameters
+        ----------
+        significant_digits : int, optional
+            Round values to this many significant digits.  Default keeps full
+            precision.
+
+        Returns
+        -------
+        dict
+            ``data`` (nested ``[band][row][column]`` lists with ``None`` for
+            missing cells), ``transform``, ``crs``, ``nodata``, ``bandNames``
+            and ``metadata``.
+        """
         return {
-            "data": _json_values(self.data),
+            "data": _json_values(self.data, significant_digits),
             "transform": self.transform,
             "crs": self.crs,
             "nodata": self.nodata,
             "bandNames": list(self.band_names),
             "metadata": self.metadata,
         }
+
+    def to_tool_ui_payload(self, title=None, subtitle=None, band=1, units=None,
+                           palette="viridis", reverse_palette=False, stretch=None,
+                           hillshade=None, show_controls=False, max_cells=160_000,
+                           significant_digits=6, result_id=None):
+        """Return a ``baselode_geophysics_raster`` Tool UI result for chat display.
+
+        The raster is reduced to the requested band, block-averaged to at most
+        ``max_cells`` cells and rounded so the payload stays small enough for
+        an in-chat viewer.  Display options are passed through unchanged; the
+        JavaScript viewer applies them.
+
+        Parameters
+        ----------
+        title, subtitle : str, optional
+            Viewer heading text.
+        band : int, optional
+            One-based band to display.
+        units : str, optional
+            Value units shown on the colour bar.  Defaults to the band units
+            recorded in ``metadata["units"]`` when present.
+        palette : str, optional
+            A name from ``baselode.geophysics.colour_scales.COLOUR_SCALES``.
+        reverse_palette : bool, optional
+            Run the palette from high to low.
+        stretch : dict, optional
+            ``{"mode": "relative", "low": 2, "high": 98}`` (percentile clip,
+            the default), ``{"mode": "absolute", "min": ..., "max": ...}``
+            (data units) or ``{"mode": "equalize"}`` (histogram equalisation).
+        hillshade : dict, optional
+            ``enabled``, ``azimuth`` (degrees clockwise from north),
+            ``altitude`` (degrees above horizon), ``strength`` (0-1) and
+            ``zFactor`` (vertical exaggeration or ``"auto"``).
+        show_controls : bool, optional
+            Show the viewer's display controls.  Default ``False`` gives a
+            static, chat-sized view.
+        max_cells : int, optional
+            Cell budget for the displayed band.
+        significant_digits : int, optional
+            Rounding applied to cell values.
+        result_id : str, optional
+            Stable result identifier.  Defaults to a random UUID.
+
+        Returns
+        -------
+        dict
+            JSON-safe Tool UI result.
+        """
+        if palette not in baselode.geophysics.colour_scales.COLOUR_SCALES:
+            raise ValueError(f"unknown palette {palette!r}")
+        values = self.band(band)
+        band_units = list(self.metadata.get("units") or [])
+        band_unit = band_units[band - 1] if band - 1 < len(band_units) else None
+        if units is None:
+            units = band_unit
+        metadata = dict(self.metadata)
+        if band_units:
+            metadata["units"] = [band_unit]
+        single = self.copy_with(
+            values[np.newaxis, :, :],
+            band_names=[self.band_names[band - 1]],
+            metadata=metadata,
+        ).decimate(max_cells)
+        result = {
+            "id": result_id or str(uuid.uuid4()),
+            "raster": single.to_payload(significant_digits),
+            "palette": palette,
+            "reversePalette": bool(reverse_palette),
+            "stretch": dict(stretch or {"mode": "relative", "low": 2, "high": 98}),
+            "showControls": bool(show_controls),
+        }
+        baselode.geophysics.colour_scales.validate_stretch(result["stretch"])
+        if hillshade is not None:
+            result["hillshade"] = dict(hillshade)
+        for key, value in (("title", title), ("subtitle", subtitle), ("units", units)):
+            if value is not None:
+                result[key] = str(value)
+        return result
 
     @classmethod
     def from_payload(cls, payload):
@@ -171,20 +381,22 @@ class GeophysicsRaster:
         )
 
 
-def load_raster(source, bands=None, masked=True, **kwargs):
-    """Load a GDAL-supported geophysics raster into memory.
+def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
+    """Load a geophysics raster into memory.
 
     Parameters
     ----------
     source : path-like or file-like
-        Raster source accepted by ``rasterio.open``.  ER Mapper ``.ers``,
-        GeoTIFF/COG, ENVI, and other GDAL-supported raster formats are
-        available when their GDAL drivers are installed.
+        ER Mapper ``.ers`` header, or any raster source accepted by
+        ``rasterio.open`` (GeoTIFF/COG, ENVI, and other GDAL formats).
     bands : sequence of int, optional
         One-based GDAL band numbers to read.  Defaults to every band.
     masked : bool, optional
         Replace the dataset mask with ``NaN`` values.  Default ``True`` makes
         no-data handling uniform for rendering and numerical algorithms.
+    engine : {"ers", "rasterio"}, optional
+        Reader to use.  Defaults to the native ``"ers"`` reader for ``.ers``
+        paths and ``"rasterio"`` for everything else.
     **kwargs
         Additional keyword arguments forwarded to ``rasterio.open``.
 
@@ -197,8 +409,28 @@ def load_raster(source, bands=None, masked=True, **kwargs):
     Raises
     ------
     ImportError
-        If the optional Rasterio dependency is not installed.
+        If Rasterio is needed but the optional dependency is not installed.
     """
+    if engine is None:
+        is_ers = isinstance(source, (str, pathlib.PurePath)) and str(source).lower().endswith(".ers")
+        engine = "ers" if is_ers else "rasterio"
+    if engine == "ers":
+        if kwargs:
+            raise TypeError(f"the ERS reader does not accept {sorted(kwargs)}")
+        raster = baselode.geophysics.ers.read_ers(source, masked=masked)
+        if bands is None:
+            return raster
+        indexes = list(bands)
+        return raster.copy_with(
+            np.stack([raster.band(index) for index in indexes]),
+            band_names=[raster.band_names[index - 1] for index in indexes],
+            metadata={
+                **raster.metadata,
+                "units": [raster.metadata["units"][index - 1] for index in indexes],
+            },
+        )
+    if engine != "rasterio":
+        raise ValueError(f"unknown raster engine {engine!r}")
     if _rasterio is None:
         raise ImportError(
             "Raster file support requires rasterio/GDAL. "
