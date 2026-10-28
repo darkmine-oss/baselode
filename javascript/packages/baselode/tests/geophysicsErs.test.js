@@ -9,7 +9,12 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../../../../test/data/geophysics_reference.json';
 import { ersCrs, loadErs, parseErsHeader, readErs } from '../src/data/ersLoader.js';
-import { createGeophysicsRaster, decimateGeophysicsRaster } from '../src/data/geophysicsRaster.js';
+import {
+  createGeophysicsRaster,
+  decimateGeophysicsRaster,
+  geophysicsRasterFromBands,
+  geophysicsRasterRange,
+} from '../src/data/geophysicsRaster.js';
 
 function bytes(base64) {
   return Uint8Array.from(Buffer.from(base64, 'base64'));
@@ -102,6 +107,13 @@ describe('decimateGeophysicsRaster', () => {
     const raster = createGeophysicsRaster({ data: [[1, 2], [3, 4]] });
     expect(decimateGeophysicsRaster(raster, 4)).toBe(raster);
     expect(() => decimateGeophysicsRaster(raster, 0)).toThrow(RangeError);
+  });
+
+  it('keeps float32 sentinels matching when building from typed bands', () => {
+    const band = Float32Array.from([5, -1e32]);
+    const raster = geophysicsRasterFromBands([band], { width: 2, height: 1, nodata: -1e32 });
+    expect(raster.nodata).toBe(Math.fround(-1e32));
+    expect(geophysicsRasterRange(raster)).toEqual([5, 5]);
   });
 
   it('ignores nodata and keeps the footprint', () => {

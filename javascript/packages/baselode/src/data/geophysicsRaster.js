@@ -120,7 +120,8 @@ export function geophysicsRasterFromBands(bands, options) {
   const payload = {
     transform: options.transform,
     crs: options.crs,
-    nodata: options.nodata,
+    // The source-precision sentinel, so widened cells still match it.
+    nodata: sentinel,
     bandNames: options.bandNames,
     metadata: options.metadata,
   };
