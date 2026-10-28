@@ -46,6 +46,14 @@ describe('geophysics raster contract', () => {
 
   it('calculates ranges without null values or nodata', () => {
     expect(geophysicsRasterRange(createGeophysicsRaster(payload))).toEqual([0, 20]);
+    expect(geophysicsRasterRange(createGeophysicsRaster({ data: [[10, null, 20]], nodata: -9999 }))).toEqual([10, 20]);
+  });
+
+  it('keeps a null nodata marker null so zero-valued cells still render', () => {
+    const raster = createGeophysicsRaster({ data: [[0, 0], [0, 0]], nodata: null });
+    expect(raster.nodata).toBeNull();
+    const rendered = renderGeophysicsRaster(raster, { palette: 'grayscale' });
+    expect(Array.from(rendered.data).filter((_, index) => index % 4 === 3)).toEqual([255, 255, 255, 255]);
   });
 });
 

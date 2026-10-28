@@ -156,7 +156,7 @@ export const SerializableBaselodeGeophysicsRasterSchema = z.object({
   subtitle: z.string().optional(),
   raster: z.object({
     data: z.array(RasterGridSchema).min(1),
-    transform: RasterTransformSchema.optional(),
+    transform: RasterTransformSchema.nullable().optional(),
     crs: z.union([z.string(), z.number()]).nullable().optional(),
     nodata: z.number().nullable().optional(),
     bandNames: z.array(z.string()).optional(),

@@ -31,7 +31,7 @@ export function createGeophysicsRaster(payload = {}) {
     bandCount: data.length,
     transform,
     crs: payload.crs ?? null,
-    nodata: Number.isFinite(Number(payload.nodata)) ? Number(payload.nodata) : null,
+    nodata: parseNoData(payload.nodata),
     bandNames: bandNames.map(String),
     metadata: { ...(payload.metadata ?? {}) },
     bounds: rasterBounds(transform, width, height),
@@ -67,6 +67,8 @@ export function geophysicsRasterRange(raster, band = 1) {
   let max = -Infinity;
   for (const row of values) {
     for (const value of row) {
+      // Number(null) is 0, so reject missing cells before coercion.
+      if (value === null || value === undefined) continue;
       const numeric = Number(value);
       if (!Number.isFinite(numeric) || numeric === normalized.nodata) continue;
       min = Math.min(min, numeric);
@@ -184,6 +186,8 @@ function typedBandToRows(values, width) {
 }
 
 function parseNoData(value) {
+  // Python sends null for "no nodata marker"; Number(null) would make it 0.
+  if (value === null || value === undefined || value === '') return null;
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : null;
 }

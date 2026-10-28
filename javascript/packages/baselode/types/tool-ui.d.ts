@@ -150,7 +150,7 @@ export interface BaselodeGeophysicsRasterResult {
   subtitle?: string;
   raster: {
     data: Array<Array<Array<number | null>>>;
-    transform?: [number, number, number, number, number, number];
+    transform?: [number, number, number, number, number, number] | null;
     crs?: string | number | null;
     nodata?: number | null;
     bandNames?: string[];

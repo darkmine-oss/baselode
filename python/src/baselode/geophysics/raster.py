@@ -283,7 +283,8 @@ class GeophysicsRaster:
             "data": _json_values(self.data, significant_digits),
             "transform": self.transform,
             "crs": self.crs,
-            "nodata": self.nodata,
+            # NaN nodata markers are not valid JSON.
+            "nodata": self.nodata if self.nodata is None or math.isfinite(self.nodata) else None,
             "bandNames": list(self.band_names),
             "metadata": self.metadata,
         }

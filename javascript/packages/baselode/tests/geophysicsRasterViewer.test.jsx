@@ -51,6 +51,29 @@ describe('geophysics raster viewer', () => {
       .map((tick) => tick.children[0])).toEqual(['0', '10', '20', '30', '40']);
   });
 
+  it('applies changed display props to an uncontrolled Tool UI', async () => {
+    const renderer = await render(<BaselodeGeophysicsRasterToolUI raster={raster} stretch={{ mode: 'equalize' }} />);
+    expect(textOf(renderer.root)).toContain('Histogram equalised');
+    await act(async () => renderer.update(
+      <BaselodeGeophysicsRasterToolUI raster={raster} stretch={{ mode: 'absolute', min: 0, max: 40 }} />,
+    ));
+    expect(textOf(renderer.root)).toContain('Absolute range');
+  });
+
+  it('opens a valid absolute range for a constant raster', async () => {
+    const views = [];
+    const renderer = await render(
+      <GeophysicsRasterViewer raster={{ data: [[5, 5], [5, 5]] }} value={{}} onViewChange={(view) => views.push(view)} />,
+    );
+    await act(async () => renderer.root.findAllByType('select')[1].props.onChange({ target: { value: 'absolute' } }));
+    const { min, max } = views.at(-1).stretch;
+    expect(min).toBeLessThan(5);
+    expect(max).toBeGreaterThan(5);
+    await act(async () => renderer.update(
+      <GeophysicsRasterViewer raster={{ data: [[5, 5], [5, 5]] }} value={views.at(-1)} onViewChange={() => {}} />,
+    ));
+  });
+
   it('switches stretch mode through the controls', async () => {
     const views = [];
     const renderer = await render(

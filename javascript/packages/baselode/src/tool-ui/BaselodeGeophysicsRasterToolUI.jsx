@@ -35,6 +35,9 @@ export function BaselodeGeophysicsRasterToolUI({
         {subtitle && <p>{subtitle}</p>}
       </header>}
       <GeophysicsRasterViewer
+        // Without a callback the viewer owns its state; remount when the
+        // result's display props change so they are not ignored.
+        key={onViewChange ? undefined : JSON.stringify(view)}
         raster={raster}
         band={band}
         units={units}

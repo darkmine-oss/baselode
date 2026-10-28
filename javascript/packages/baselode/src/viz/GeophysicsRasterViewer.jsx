@@ -129,9 +129,19 @@ export function GeophysicsRasterViewer({
     stretch: { ...resolveGeophysicsView(current).stretch, ...patch },
   }));
   const setStretchMode = (mode) => {
-    if (mode === 'absolute') setView({ stretch: { mode, min: rendered.range[0], max: rendered.range[1] } });
-    else if (mode === 'relative') setView({ stretch: DEFAULT_GEOPHYSICS_STRETCH });
-    else setView({ stretch: { mode } });
+    if (mode === 'absolute') {
+      let [min, max] = rendered.range;
+      if (!(min < max)) {
+        // A constant band has no range; open one around its value.
+        const pad = Math.abs(min) * 0.01 || 1;
+        [min, max] = [min - pad, max + pad];
+      }
+      setView({ stretch: { mode, min, max } });
+    } else if (mode === 'relative') {
+      setView({ stretch: DEFAULT_GEOPHYSICS_STRETCH });
+    } else {
+      setView({ stretch: { mode } });
+    }
   };
   const setStretchLimit = (key, raw) => {
     const number = Number(raw);

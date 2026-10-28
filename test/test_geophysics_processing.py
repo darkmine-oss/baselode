@@ -192,6 +192,13 @@ def test_decimate_block_averages_ignoring_missing_cells():
     assert raster.decimate(max_cells=36) is raster
 
 
+def test_payloads_are_strict_json_with_nan_nodata():
+    raster = baselode.geophysics.GeophysicsRaster([[1.0, np.nan]], nodata=float("nan"))
+    assert raster.to_payload()["nodata"] is None
+    json.dumps(raster.to_payload(), allow_nan=False)
+    json.dumps(raster.to_tool_ui_payload(), allow_nan=False)
+
+
 def test_tool_ui_payload_is_compact_and_describes_display():
     rng = np.random.default_rng(1)
     raster = baselode.geophysics.GeophysicsRaster(
