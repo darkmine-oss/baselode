@@ -10,6 +10,7 @@ import {
   DEFAULT_GEOPHYSICS_STRETCH,
   GEOPHYSICS_PALETTES,
   geophysicsColorGradient,
+  isGeophysicsValue,
   normalizeGeophysicsStretch,
 } from './geophysicsColorScales.js';
 import { DEFAULT_GEOPHYSICS_HILLSHADE, renderGeophysicsRaster } from './geophysicsRasterViz.js';
@@ -125,7 +126,8 @@ export function GeophysicsRasterViewer({
     const [a, b, c, d, e, f] = normalizedRaster.transform;
     const x = a * (column + 0.5) + b * (row + 0.5) + c;
     const y = d * (column + 0.5) + e * (row + 0.5) + f;
-    setCursor({ x, y, value: values[row][column] });
+    const value = values[row][column];
+    setCursor({ x, y, value: isGeophysicsValue(value, normalizedRaster.nodata) ? value : null });
   };
 
   const setStretch = (patch) => setView((current) => ({
@@ -191,7 +193,7 @@ export function GeophysicsRasterViewer({
           {showSummary && (
             <p className="baselode-geophysics-raster__summary">
               {cursor
-                ? `${formatValue(cursor.x)}, ${formatValue(cursor.y)} → ${formatValue(cursor.value)}${unitsLabel}`
+                ? `${formatValue(cursor.x)}, ${formatValue(cursor.y)} → ${cursor.value === null ? 'no data' : `${formatValue(cursor.value)}${unitsLabel}`}`
                 : describeRaster(normalizedRaster, band)}
             </p>
           )}

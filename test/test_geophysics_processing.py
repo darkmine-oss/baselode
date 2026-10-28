@@ -215,6 +215,16 @@ def test_payloads_are_strict_json_with_nan_nodata():
     json.dumps(raster.to_tool_ui_payload(), allow_nan=False)
 
 
+def test_decimate_keeps_the_geographic_footprint_with_partial_blocks():
+    raster = baselode.geophysics.GeophysicsRaster(np.ones((1, 1000)), transform=(10, 0, 0, 0, -10, 10))
+    small = raster.decimate(max_cells=10)
+    assert small.data.shape == (1, 1, 10)
+    assert small.bounds == pytest.approx(raster.bounds)
+
+    odd = baselode.geophysics.GeophysicsRaster(np.ones((7, 7)), transform=(10, 0, 0, 0, -10, 70))
+    assert odd.decimate(max_cells=16).bounds == pytest.approx(odd.bounds)
+
+
 def test_decimate_long_thin_raster_without_large_temporaries():
     raster = baselode.geophysics.GeophysicsRaster(np.arange(100_000, dtype=float).reshape(1, 100_000))
     small = raster.decimate(max_cells=1)

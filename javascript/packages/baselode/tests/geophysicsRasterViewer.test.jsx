@@ -85,6 +85,25 @@ describe('geophysics raster viewer', () => {
     ));
   });
 
+  it('reads nodata cells as no data under the cursor', async () => {
+    let renderer;
+    const canvasMock = {
+      getContext: () => null,
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 200, height: 100 }),
+    };
+    await act(async () => {
+      renderer = createTestRenderer(
+        <GeophysicsRasterViewer raster={{ data: [[1, -9999]], nodata: -9999 }} units="nT" showControls={false} />,
+        { createNodeMock: () => canvasMock },
+      );
+    });
+    const canvas = renderer.root.findByType('canvas');
+    await act(async () => canvas.props.onPointerMove({ clientX: 150, clientY: 50 }));
+    expect(textOf(renderer.root)).toContain('→ no data');
+    await act(async () => canvas.props.onPointerMove({ clientX: 50, clientY: 50 }));
+    expect(textOf(renderer.root)).toContain('→ 1 nT');
+  });
+
   it('switches stretch mode through the controls', async () => {
     const views = [];
     const renderer = await render(

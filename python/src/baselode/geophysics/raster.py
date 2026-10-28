@@ -230,9 +230,11 @@ class GeophysicsRaster:
         -------
         GeophysicsRaster
             ``self`` when already small enough, otherwise a new raster whose
-            cells are the NaN-aware mean of square ``factor x factor`` blocks.
-            The transform is scaled to the larger cells and the factor is
-            recorded in ``metadata["processing"]``.  No-data cells (the
+            cells are the NaN-aware mean of square ``factor x factor`` blocks
+            (the last row and column of blocks may be partial).  Each
+            transform axis is scaled by its own reduction (source cells per
+            output cell), so the raster keeps its geographic footprint; the
+            factor is recorded in ``metadata["processing"]``.  No-data cells (the
             ``nodata`` value or non-finite) are ignored; all-empty blocks are
             NaN.
         """
@@ -263,7 +265,11 @@ class GeophysicsRaster:
         transform = None
         if self.transform is not None:
             a, b, c, d, e, f = self.transform
-            transform = (a * factor, b * factor, c, d * factor, e * factor, f)
+            # Scale by source cells per output cell rather than the block
+            # factor, so partial last blocks do not enlarge the footprint.
+            column_scale = self.width / means.shape[2]
+            row_scale = self.height / means.shape[1]
+            transform = (a * column_scale, b * row_scale, c, d * column_scale, e * row_scale, f)
         return self.copy_with(
             means,
             transform=transform,
