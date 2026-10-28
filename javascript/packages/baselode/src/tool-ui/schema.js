@@ -148,7 +148,12 @@ const GeophysicsStretchSchema = z.discriminatedUnion('mode', [
   }),
   z.object({ mode: z.literal('absolute'), min: z.number(), max: z.number() }),
   z.object({ mode: z.literal('equalize') }),
-]);
+]).refine(
+  // Same rule as normalizeGeophysicsStretch, including the 2/98 defaults.
+  (stretch) => (stretch.mode === 'relative' ? (stretch.low ?? 2) < (stretch.high ?? 98)
+    : stretch.mode === 'absolute' ? stretch.min < stretch.max : true),
+  { message: 'Stretch limits must increase (low < high, min < max).' },
+);
 
 export const SerializableBaselodeGeophysicsRasterSchema = z.object({
   id: z.string().min(1),
