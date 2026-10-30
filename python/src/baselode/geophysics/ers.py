@@ -56,17 +56,33 @@ def parse_ers_header(text):
     dict
         ``Name Begin`` / ``Name End`` blocks become nested dictionaries and
         ``key = value`` lines become string values with quotes removed.  A
+        ``key = {`` list (for example a region's ``SubRegion`` vertices) runs
+        to the closing ``}`` and becomes its lines joined by newlines.  A
         repeated block or key (for example ``BandId``) becomes a list.
     """
     root = {}
     stack = [root]
+    list_key = None
+    list_lines = []
     for line_number, raw_line in enumerate(text.splitlines(), start=1):
         line = raw_line.strip()
+        if list_key is not None:
+            if line == "}":
+                _store(stack[-1], list_key, "\n".join(list_lines))
+                list_key = None
+            elif line:
+                list_lines.append(line)
+            continue
         if not line or line.startswith("#"):
             continue
         if "=" in line:
             key, value = line.split("=", 1)
-            _store(stack[-1], key.strip(), value.strip().strip('"'))
+            value = value.strip()
+            if value == "{":
+                list_key = key.strip()
+                list_lines = []
+            else:
+                _store(stack[-1], key.strip(), value.strip('"'))
             continue
         parts = line.split()
         if len(parts) == 2 and parts[1] == "Begin":
@@ -79,11 +95,26 @@ def parse_ers_header(text):
             stack.pop()
         else:
             raise ValueError(f"ERS header line {line_number}: cannot parse '{line}'")
+    if list_key is not None:
+        raise ValueError(f"ERS header ends inside the unclosed '{list_key}' list")
     if len(stack) != 1:
         raise ValueError("ERS header ends inside an unclosed block")
     if "DatasetHeader" not in root:
         raise ValueError("ERS header has no DatasetHeader block")
     return root["DatasetHeader"]
+
+
+def _reject_translated(header, name):
+    # A Translated dataset points at an image in another format, such as an
+    # ECW-compressed colour rendering, rather than raw grid values.
+    if str(header.get("DataSetType", "")).lower() != "translated":
+        return
+    data_file = header.get("DataFile") or ""
+    if data_file.lower().endswith(".ecw"):
+        raise ValueError(
+            f"{name}: {data_file} is a compressed ECW image, not grid values; open the raw .ers grid instead"
+        )
+    raise ValueError(f"{name}: translated ERS datasets ({data_file or 'no DataFile'}) are not supported")
 
 
 def _store(container, key, value):
@@ -184,13 +215,15 @@ def read_ers(path, masked=True):
     Raises
     ------
     ValueError
-        If the header is malformed, describes a non-raster or rotated dataset,
-        uses an unsupported cell type, or the data file is the wrong size.
+        If the header is malformed, describes a non-raster, translated (for
+        example ECW-compressed) or rotated dataset, uses an unsupported cell
+        type, or the data file is the wrong size.
     """
     header_path = pathlib.Path(path)
     header = parse_ers_header(header_path.read_text(encoding="latin-1"))
     if str(header.get("DataType", "Raster")).lower() != "raster":
         raise ValueError(f"{header_path.name}: only ERS raster datasets are supported")
+    _reject_translated(header, header_path.name)
 
     raster_info = header.get("RasterInfo")
     if not isinstance(raster_info, dict):
