@@ -160,6 +160,45 @@ def test_native_ers_selects_bands_and_rejects_bad_files(tmp_path):
         baselode.geophysics.ers.parse_ers_header("DatasetHeader Begin\n")
 
 
+ECW_IMAGE_HEADER = """DatasetHeader Begin
+\tDataFile\t= "survey.ecw"
+\tDataSetType\t= Translated
+\tDataType\t= Raster
+\tRasterInfo Begin
+\t\tCellType\t= Unsigned8BitInteger
+\t\tNrOfLines\t= 4
+\t\tNrOfCellsPerLine\t= 3
+\t\tNrOfBands\t= 4
+\t\tRegionInfo Begin
+\t\t\tType\t\t= Polygon
+\t\t\tSubRegion\t= {
+\t\t\t\t0\t0
+\t\t\t\t0\t2
+\t\t\t}
+\t\tRegionInfo End
+\tRasterInfo End
+DatasetHeader End
+"""
+
+
+def test_ers_header_brace_lists_and_translated_ecw_images(tmp_path):
+    header = baselode.geophysics.ers.parse_ers_header(ECW_IMAGE_HEADER)
+    region = header["RasterInfo"]["RegionInfo"]
+    assert region["SubRegion"] == "0\t0\n0\t2"
+    assert region["Type"] == "Polygon"
+    with pytest.raises(ValueError, match="unclosed 'SubRegion' list"):
+        baselode.geophysics.ers.parse_ers_header(ECW_IMAGE_HEADER.split("}")[0])
+
+    path = tmp_path / "survey.ers"
+    path.write_text(ECW_IMAGE_HEADER)
+    (tmp_path / "survey.ecw").write_bytes(b"\x00" * 48)
+    with pytest.raises(ValueError, match=r"survey\.ers: survey\.ecw is a compressed ECW image, not grid values"):
+        baselode.geophysics.ers.read_ers(path)
+    path.write_text(ECW_IMAGE_HEADER.replace("survey.ecw", "survey.jp2"))
+    with pytest.raises(ValueError, match=r"translated ERS datasets \(survey\.jp2\)"):
+        baselode.geophysics.ers.read_ers(path)
+
+
 @pytest.mark.parametrize(
     ("datum", "projection", "expected"),
     [

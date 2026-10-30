@@ -91,6 +91,38 @@ describe('ERS reader', () => {
     expect(() => readErs(ers.header.replace('IEEE4ByteReal', 'Complex'), data)).toThrow(/unsupported CellType/);
   });
 
+  it('parses brace lists and rejects translated ECW images', () => {
+    const header = [
+      'DatasetHeader Begin',
+      '\tDataFile\t= "survey.ecw"',
+      '\tDataSetType\t= Translated',
+      '\tDataType\t= Raster',
+      '\tRasterInfo Begin',
+      '\t\tCellType\t= Unsigned8BitInteger',
+      '\t\tNrOfLines\t= 4',
+      '\t\tNrOfCellsPerLine\t= 3',
+      '\t\tNrOfBands\t= 4',
+      '\t\tRegionInfo Begin',
+      '\t\t\tType\t\t= Polygon',
+      '\t\t\tSubRegion\t= {',
+      '\t\t\t\t0\t0',
+      '\t\t\t\t0\t2',
+      '\t\t\t}',
+      '\t\tRegionInfo End',
+      '\tRasterInfo End',
+      'DatasetHeader End',
+    ].join('\n');
+    const region = parseErsHeader(header).RasterInfo.RegionInfo;
+    expect(region.SubRegion).toBe('0\t0\n0\t2');
+    expect(region.Type).toBe('Polygon');
+    expect(() => parseErsHeader(header.split('}')[0])).toThrow(/unclosed 'SubRegion' list/);
+    const data = new Uint8Array(48);
+    expect(() => readErs(header, data, { name: 'survey.ers' }))
+      .toThrow(/survey\.ers: survey\.ecw is a compressed ECW image, not grid values/);
+    expect(() => readErs(header.replace('survey.ecw', 'survey.jp2'), data))
+      .toThrow(/translated ERS datasets \(survey\.jp2\)/);
+  });
+
   it('maps datum and projection to EPSG codes', () => {
     expect(ersCrs('GDA94', 'MGA51')).toBe('EPSG:28351');
     expect(ersCrs('GDA2020', 'MGA50')).toBe('EPSG:7850');
