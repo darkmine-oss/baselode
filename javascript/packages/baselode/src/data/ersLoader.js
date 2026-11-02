@@ -38,8 +38,10 @@ const ZONED_PROJECTION = /^(MGA|AMG|NUTM|SUTM)(\d{1,2})$/;
 
 /**
  * Parse ERS header text into nested objects. `Name Begin` / `Name End` blocks
- * become objects and `key = value` lines become strings with quotes removed;
- * a repeated block or key (for example `BandId`) becomes an array.
+ * become objects and `key = value` lines become strings with quotes removed.
+ * A `key = {` list (for example a region's `SubRegion` vertices) runs to the
+ * closing `}` and becomes its lines joined by newlines. A repeated block or
+ * key (for example `BandId`) becomes an array.
  *
  * @param {string} text
  * @returns {object} The `DatasetHeader` block.
@@ -47,13 +49,29 @@ const ZONED_PROJECTION = /^(MGA|AMG|NUTM|SUTM)(\d{1,2})$/;
 export function parseErsHeader(text) {
   const root = {};
   const stack = [root];
+  let listKey = null;
+  let listLines = [];
   String(text).split(/\r?\n/).forEach((rawLine, index) => {
     const line = rawLine.trim();
+    if (listKey !== null) {
+      if (line === '}') {
+        store(stack[stack.length - 1], listKey, listLines.join('\n'));
+        listKey = null;
+      } else if (line) {
+        listLines.push(line);
+      }
+      return;
+    }
     if (!line || line.startsWith('#')) return;
     const equals = line.indexOf('=');
     if (equals >= 0) {
-      const value = line.slice(equals + 1).trim().replace(/^"|"$/g, '');
-      store(stack[stack.length - 1], line.slice(0, equals).trim(), value);
+      const value = line.slice(equals + 1).trim();
+      if (value === '{') {
+        listKey = line.slice(0, equals).trim();
+        listLines = [];
+      } else {
+        store(stack[stack.length - 1], line.slice(0, equals).trim(), value.replace(/^"|"$/g, ''));
+      }
       return;
     }
     const parts = line.split(/\s+/);
@@ -68,9 +86,21 @@ export function parseErsHeader(text) {
       throw new Error(`ERS header line ${index + 1}: cannot parse '${line}'`);
     }
   });
+  if (listKey !== null) throw new Error(`ERS header ends inside the unclosed '${listKey}' list`);
   if (stack.length !== 1) throw new Error('ERS header ends inside an unclosed block');
   if (!('DatasetHeader' in root)) throw new Error('ERS header has no DatasetHeader block');
   return root.DatasetHeader;
+}
+
+// A Translated dataset points at an image in another format, such as an
+// ECW-compressed colour rendering, rather than raw grid values.
+function rejectTranslated(header, name) {
+  if (String(header.DataSetType ?? '').toLowerCase() !== 'translated') return;
+  const dataFile = header.DataFile || '';
+  if (dataFile.toLowerCase().endsWith('.ecw')) {
+    throw new Error(`${name}: ${dataFile} is a compressed ECW image, not grid values; open the raw .ers grid instead`);
+  }
+  throw new Error(`${name}: translated ERS datasets (${dataFile || 'no DataFile'}) are not supported`);
 }
 
 function store(container, key, value) {
@@ -151,6 +181,7 @@ export function readErs(headerText, data, options = {}) {
   if (String(header.DataType ?? 'Raster').toLowerCase() !== 'raster') {
     throw new Error(`${name}: only ERS raster datasets are supported`);
   }
+  rejectTranslated(header, name);
   const rasterInfo = header.RasterInfo;
   if (!rasterInfo || typeof rasterInfo !== 'object' || Array.isArray(rasterInfo)) {
     throw new Error(`${name}: missing RasterInfo block`);
