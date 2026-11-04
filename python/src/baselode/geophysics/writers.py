@@ -110,16 +110,29 @@ def _output_dtype(raster, dtype):
 
 
 def _cells(raster, dtype, null):
-    """Band data in ``dtype`` with missing cells set to ``null``."""
+    """Band data in ``dtype`` with missing cells set to ``null``.
+
+    Raises ``ValueError`` when a missing cell has no null value, a value or
+    the null value does not fit the type, or a real value would be read
+    back as null.
+    """
     valid = baselode.geophysics.colour_scales.valid_mask(raster.data, raster.nodata)
     if not valid.all() and null is None:
         raise ValueError("the raster has missing cells but the output type has no null value; pass nodata")
-    values = np.where(valid, raster.data, null if null is not None else 0)
     if dtype.kind in "iu":
         info = np.iinfo(dtype)
-        if values.min() < info.min or values.max() > info.max or not np.array_equal(values, np.round(values)):
+        if null is not None and (not info.min <= null <= info.max or null != round(null)):
+            raise ValueError(f"nodata {null!r} does not fit {dtype.name} cells")
+        data = raster.data[valid]
+        if data.size and (data.min() < info.min or data.max() > info.max or not np.array_equal(data, np.round(data))):
             raise ValueError(f"values do not fit {dtype.name} cells")
-    return values.astype(dtype)
+    cells = np.where(valid, raster.data, null if null is not None else 0).astype(dtype)
+    if null is not None and np.isfinite(null) and (cells[valid] == np.asarray(null).astype(dtype)).any():
+        raise ValueError(
+            f"the null value {null!r} also occurs as data, so those cells would read back as missing; "
+            "pass a different nodata"
+        )
+    return cells
 
 
 def _null_value(raster, dtype, nodata):

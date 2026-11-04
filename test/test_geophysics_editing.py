@@ -253,3 +253,18 @@ def test_gdal_reads_files_written_by_javascript(name):
         assert dataset.crs.to_epsg() == 28350 and dataset.dtypes == ("float32",)
         assert dataset.units == ("nT",)
         assert np.isnan(dataset.read(1, masked=True).filled(np.nan)[1, 1])
+
+
+def test_writers_refuse_to_turn_data_into_nulls(tmp_path):
+    # The default ERS null must not mask a real -99999 sample.
+    raster = baselode.geophysics.GeophysicsRaster(np.array([[-99999.0, 1.0]]), transform=(1, 0, 0, 0, -1, 1))
+    with pytest.raises(ValueError, match="also occurs as data"):
+        baselode.geophysics.write_ers(raster, tmp_path / "grid.ers")
+    baselode.geophysics.write_ers(raster, tmp_path / "grid.ers", nodata=-1e30)
+    np.testing.assert_array_equal(baselode.geophysics.load_raster(tmp_path / "grid.ers").data, raster.data)
+    # GeoTIFF's default NaN cannot collide.
+    baselode.geophysics.write_geotiff(raster, tmp_path / "grid.tif")
+    # An integer null that does not fit the type is refused, not wrapped.
+    gappy = baselode.geophysics.GeophysicsRaster(np.array([[np.nan, 1.0]]), transform=(1, 0, 0, 0, -1, 1))
+    with pytest.raises(ValueError, match="does not fit uint8"):
+        baselode.geophysics.write_ers(gappy, tmp_path / "grid.ers", dtype="uint8", nodata=-99999)

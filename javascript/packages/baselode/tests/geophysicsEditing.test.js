@@ -192,7 +192,8 @@ describe('writers', () => {
 
   it('refuses what ERS cannot store', () => {
     expect(() => encodeErs(ramp({ transform: [1, 0.1, 0, 0.1, -1, 0] }))).toThrow(/north-up/);
-    expect(() => encodeErs(ramp(), { dtype: 'uint8', nodata: 0 })).not.toThrow();
+    expect(() => encodeErs(ramp(), { dtype: 'uint8', nodata: 255 })).not.toThrow();
+    expect(() => encodeErs(ramp(), { dtype: 'uint8', nodata: 0 })).toThrow(/also occurs as data/);
     expect(() => encodeErs(combineGeophysicsRasters(ramp(), 30, 'multiply'), { dtype: 'uint8' })).toThrow(/fit/);
     const gappy = ramp();
     gappy.data[0][0][0] = null;
@@ -216,6 +217,25 @@ describe('writers', () => {
     back.transform.forEach((value, index) => expect(value).toBeCloseTo(raster.transform[index], 9));
     expect(back.data[0][1][1] === null || back.data[0][1][1] === back.nodata).toBe(true);
     expect(back.data[0][3]).toEqual([30, 31, 32, 33, 34]);
+  });
+
+  it('refuses to turn data into nulls', () => {
+    const sample = createGeophysicsRaster({ data: [[-99999, 1]], transform: [1, 0, 0, 0, -1, 1] });
+    expect(() => encodeErs(sample)).toThrow(/also occurs as data/);
+    expect(readErs(...Object.values(encodeErs(sample, { nodata: -1e30 }))).data[0][0]).toEqual([-99999, 1]);
+    expect(() => encodeGeoTiff(sample)).not.toThrow();
+    const gappy = createGeophysicsRaster({ data: [[null, 1]], transform: [1, 0, 0, 0, -1, 1] });
+    expect(() => encodeErs(gappy, { dtype: 'uint8', nodata: -99999 })).toThrow(/does not fit uint8/);
+    expect(() => encodeGeoTiff(gappy, { dtype: 'int16', nodata: 1.5 })).toThrow(/does not fit int16/);
+  });
+
+  it('writes GDA2020 lat/long as a geographic GeoTIFF', async () => {
+    const raster = ramp({ crs: 'EPSG:7844', transform: [0.0025, 0, 118.1, 0, -0.0025, -27.5] });
+    const { fromArrayBuffer } = await import('geotiff');
+    const keys = (await (await fromArrayBuffer(encodeGeoTiff(raster))).getImage()).getGeoKeys();
+    expect(keys.GTModelTypeGeoKey).toBe(2);
+    expect(keys.GeographicTypeGeoKey).toBe(7844);
+    expect(keys.ProjectedCSTypeGeoKey).toBeUndefined();
   });
 
   it('writes multi-band GeoTIFFs', async () => {

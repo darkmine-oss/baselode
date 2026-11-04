@@ -106,18 +106,38 @@ function nullValue(raster, type, nodata, fallback) {
   return type.float ? fallback : null;
 }
 
-/** One band's cells in the output type, missing cells set to `fill`. */
+function typeName(type) {
+  return Object.keys(CELL_TYPES).find((key) => CELL_TYPES[key] === type);
+}
+
+/**
+ * One band's cells in the output type, missing cells set to `fill`.  Throws
+ * when a missing cell has no null value, a value or the null value does not
+ * fit the type, or a real value would read back as null (as Python).
+ */
 function bandCells(raster, band, type, fill) {
+  if (fill !== null && !type.float && !(Number.isInteger(fill) && fill >= type.min && fill <= type.max)) {
+    throw new RangeError(`nodata ${fill} does not fit ${typeName(type)} cells`);
+  }
+  // The null value as stored, so float32 rounding cannot hide a collision.
+  const stored = fill === null ? null : new type.array([fill])[0];
   const cells = new type.array(raster.width * raster.height);
   raster.data[band].forEach((row, i) => row.forEach((value, j) => {
-    let cell = value;
+    const k = i * raster.width + j;
     if (!isValid(value, raster.nodata)) {
       if (fill === null) throw new RangeError('the raster has missing cells but the output type has no null value; pass nodata');
-      cell = fill;
-    } else if (!type.float && (cell < type.min || cell > type.max || !Number.isInteger(cell))) {
-      throw new RangeError(`values do not fit ${Object.keys(CELL_TYPES).find((key) => CELL_TYPES[key] === type)} cells`);
+      cells[k] = fill;
+      return;
     }
-    cells[i * raster.width + j] = cell;
+    if (!type.float && (value < type.min || value > type.max || !Number.isInteger(value))) {
+      throw new RangeError(`values do not fit ${typeName(type)} cells`);
+    }
+    cells[k] = value;
+    if (stored !== null && cells[k] === stored) {
+      throw new RangeError(
+        `the null value ${fill} also occurs as data, so those cells would read back as missing; pass a different nodata`,
+      );
+    }
   }));
   return cells;
 }
@@ -226,7 +246,11 @@ const ASCII = 2;
 const DOUBLE = 12;
 const TYPE_BYTES = { [SHORT]: 2, [LONG]: 4, [ASCII]: 1, [DOUBLE]: 8 };
 
+// Geographic systems outside EPSG's 4000-4999 block that grids use.
+const GEOGRAPHIC_CODES = new Set([4202, 4203, 4283, 4326, 7844]);
+
 function isGeographic(code) {
+  if (GEOGRAPHIC_CODES.has(code)) return true;
   const definition = proj4.defs(`EPSG:${code}`);
   if (definition) return definition.projName === 'longlat';
   // Unregistered codes: EPSG's geographic 2D systems are numbered 4000-4999.
