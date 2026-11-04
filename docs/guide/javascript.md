@@ -1486,6 +1486,19 @@ are degrees for geographic grids. `readErs` and `loadGeoTiff` record those
 units in `metadata.crs_units` (`'degree'`, `'metre'`, `'foot'`,
 `'us_survey_foot'`, or null when a GeoTIFF does not say).
 
+Large grids take up to a second or so to process. To keep a page responsive,
+run the work in a Web Worker: `baselode/geophysics` exports the raster,
+ERS/GeoTIFF and processing functions without React, Plotly or the DOM.
+
+```js
+// geophysicsWorker.js
+import { createGeophysicsRaster, processGeophysicsRaster } from 'baselode/geophysics';
+
+self.onmessage = ({ data: { raster, operation, options } }) => {
+  self.postMessage(processGeophysicsRaster(createGeophysicsRaster(raster), operation, options));
+};
+```
+
 Apply wavelength filters on the Python side, then transfer the payload. The
 Tool UI equivalent is the `geophysics-raster` primitive with canonical name
 `baselode_geophysics_raster`. It defaults to a static, chat-sized view

@@ -10,6 +10,7 @@ export default defineConfig({
       entry: {
         baselode: resolve(__dirname, 'src/index.js'),
         extent: resolve(__dirname, 'src/extent/Extent.js'),
+        geophysics: resolve(__dirname, 'src/geophysics.js'),
         'tool-ui': resolve(__dirname, 'src/tool-ui/index.js'),
         'tool-ui-contracts': resolve(__dirname, 'src/tool-ui/contracts-entry.js'),
         'assistant-ui': resolve(__dirname, 'src/assistant-ui/index.jsx'),
