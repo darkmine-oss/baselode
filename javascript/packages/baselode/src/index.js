@@ -285,6 +285,14 @@ export {
   processGeophysicsRaster,
 } from './data/geophysicsProcessing.js';
 export { parseErsHeader, ersCrs, readErs, loadErs } from './data/ersLoader.js';
+export {
+  GEOPHYSICS_COMBINE_OPERATIONS,
+  cropGeophysicsRaster,
+  clipGeophysicsRaster,
+  combineGeophysicsRasters,
+  fillGeophysicsGaps,
+} from './data/geophysicsEditing.js';
+export { DEFAULT_ERS_NULL, ersCoordinateSpace, encodeErs, encodeGeoTiff } from './data/geophysicsWriters.js';
 
 export {
   interpolateTrace,

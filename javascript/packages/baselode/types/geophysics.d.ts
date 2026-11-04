@@ -104,3 +104,42 @@ export function processGeophysicsRaster<K extends GeophysicsOperation>(
   operation: K,
   options?: GeophysicsOperationOptions[K],
 ): GeophysicsRaster;
+
+export type GeophysicsCombineOperation = 'add' | 'subtract' | 'multiply' | 'divide';
+export const GEOPHYSICS_COMBINE_OPERATIONS: readonly GeophysicsCombineOperation[];
+export type GeophysicsPolygon =
+  | Array<[number, number]>
+  | Array<Array<[number, number]>>
+  | { type: 'Polygon'; coordinates: number[][][] }
+  | { type: 'MultiPolygon'; coordinates: number[][][][] }
+  | { type: 'Feature'; geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: unknown } };
+export function cropGeophysicsRaster(
+  raster: GeophysicsRasterInput,
+  bounds: [number, number, number, number],
+): GeophysicsRaster;
+export function clipGeophysicsRaster(
+  raster: GeophysicsRasterInput,
+  polygon: GeophysicsPolygon,
+  options?: { crop?: boolean },
+): GeophysicsRaster;
+export function combineGeophysicsRasters(
+  left: GeophysicsRasterInput,
+  right: GeophysicsRasterInput | number,
+  operation: GeophysicsCombineOperation,
+): GeophysicsRaster;
+export function fillGeophysicsGaps(
+  raster: GeophysicsRasterInput,
+  options?: { maxDistance?: number | null; iterations?: number },
+): GeophysicsRaster;
+
+export type GeophysicsCellType = 'float32' | 'float64' | 'uint8' | 'int8' | 'uint16' | 'int16' | 'uint32' | 'int32';
+export const DEFAULT_ERS_NULL: number;
+export function ersCoordinateSpace(crs: string | number | null | undefined): [string, string, string];
+export function encodeErs(
+  raster: GeophysicsRasterInput,
+  options?: { name?: string; dtype?: GeophysicsCellType; nodata?: number },
+): { header: string; data: ArrayBuffer };
+export function encodeGeoTiff(
+  raster: GeophysicsRasterInput,
+  options?: { dtype?: GeophysicsCellType; nodata?: number },
+): ArrayBuffer;

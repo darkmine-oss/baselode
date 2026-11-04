@@ -2,6 +2,22 @@
 
 ---
 
+## Unreleased
+**Saving and editing geophysics grids (TRK-520)**
+
+- Write grids: Python `write_ers`, `write_geotiff` and `save_raster` (by extension), and JS `encodeErs` and `encodeGeoTiff` for saving from the browser.
+  - ERS writing needs only NumPy and maps GDA94, GDA2020, AGD66/84 and WGS84 systems to ERS datums and projections.
+  - JS writes its own float GeoTIFFs, because geotiff.js's writer stores only 8-bit samples.
+  - Files from either language read back with `load_raster`, `readErs` / `loadGeoTiff` and GDAL. Committed JS-written fixtures are checked with GDAL in the Python tests.
+- Edit grids:
+  - `crop` to a box and `clip` to a polygon (with holes; GeoJSON or Shapely);
+  - `combine` aligned grids or a grid and a number, for residuals (`combine(tmi, regional, "subtract")`) and scaling. It refuses grids on different cell layouts or CRSs;
+  - `fill_gaps` fills dropouts with a smooth surface that honours the data, optionally only within `max_distance` cells of data.
+  - JS: `cropGeophysicsRaster`, `clipGeophysicsRaster`, `combineGeophysicsRasters` and `fillGeophysicsGaps`, checked cell for cell against Python with the shared fixture.
+- Each step is recorded in `metadata["processing"]`.
+
+---
+
 ## v0.1.68
 **Geophysics enhancements (TRK-513)**
 

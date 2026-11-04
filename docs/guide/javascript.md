@@ -1499,6 +1499,24 @@ self.onmessage = ({ data: { raster, operation, options } }) => {
 };
 ```
 
+Crop, clip, combine and gap-fill grids in the browser too, and save the
+result as ER Mapper or GeoTIFF:
+
+```js
+import {
+  combineGeophysicsRasters, cropGeophysicsRaster, encodeErs, encodeGeoTiff,
+  fillGeophysicsGaps, geophysicsUpwardContinuation,
+} from 'baselode';
+
+const regional = geophysicsUpwardContinuation(tmi, { height: 1000 });
+const residual = combineGeophysicsRasters(tmi, regional, 'subtract');
+const area = cropGeophysicsRaster(residual, [402000, 6488000, 418000, 6502000]);
+const filled = fillGeophysicsGaps(area, { maxDistance: 5 });
+
+const tiff = new Blob([encodeGeoTiff(filled)], { type: 'image/tiff' });
+const { header, data } = encodeErs(filled, { name: 'residual.ers' }); // save as residual.ers + residual
+```
+
 Apply wavelength filters on the Python side, then transfer the payload. The
 Tool UI equivalent is the `geophysics-raster` primitive with canonical name
 `baselode_geophysics_raster`. It defaults to a static, chat-sized view

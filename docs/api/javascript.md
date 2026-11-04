@@ -1205,6 +1205,30 @@ Every function returns a new raster and appends a step to `metadata.processing`.
 
 The JavaScript and Python implementations share one FFT design and are tested against a common fixture, so they agree cell for cell.
 
+### Editing
+
+| Function | Description |
+|---|---|
+| `cropGeophysicsRaster(raster, [minX, minY, maxX, maxY])` | The whole cells that overlap the box. Values and `nodata` are unchanged. |
+| `clipGeophysicsRaster(raster, polygon, { crop = true })` | Cells whose centres lie outside the polygon become `null`. Takes one ring of `[x, y]` points, a list of rings (inner rings cut holes), or a GeoJSON `Polygon`, `MultiPolygon` or `Feature`. |
+| `combineGeophysicsRasters(left, right, operation)` | `'add'`, `'subtract'`, `'multiply'` or `'divide'` (`GEOPHYSICS_COMBINE_OPERATIONS`) with a number or a raster on the same grid. `combineGeophysicsRasters(tmi, regional, 'subtract')` gives a residual. |
+| `fillGeophysicsGaps(raster, { maxDistance = null, iterations = 100 })` | Fills missing cells with a smooth surface that joins the data. `maxDistance` limits filling to cells within that many cells of data. |
+
+These follow Python's `crop`, `clip`, `combine` and `fill_gaps` and are checked
+against the same fixture. Each one appends a step to `metadata.processing`.
+
+### Writing
+
+| Function | Description |
+|---|---|
+| `encodeErs(raster, { name, dtype = 'float32', nodata })` | `{ header, data }`: the `.ers` header text and the data file's `ArrayBuffer`. Save the data beside the header, named as the header without `.ers`. Requires a north-up grid. |
+| `encodeGeoTiff(raster, { dtype = 'float32', nodata })` | An uncompressed GeoTIFF `ArrayBuffer` with the CRS (when it is an EPSG code), transform, nodata, band names and units |
+| `ersCoordinateSpace(crs)` | `[datum, projection, coordinateType]` for an ERS header, for example `['GDA94', 'MGA50', 'EN']` |
+
+Both formats read back with `readErs`, `loadGeoTiff`, Python's `load_raster`
+and GDAL. The ERS bytes match Python's `write_ers`. `dtype` is `'float32'`,
+`'float64'`, `'int8'`, `'uint8'`, `'int16'`, `'uint16'`, `'int32'` or `'uint32'`.
+
 ### Rendering
 
 | Function | Description |

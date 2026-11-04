@@ -19,6 +19,14 @@ export {
 } from './data/geophysicsRaster.js';
 export { parseErsHeader, ersCrs, readErs, loadErs } from './data/ersLoader.js';
 export {
+  GEOPHYSICS_COMBINE_OPERATIONS,
+  cropGeophysicsRaster,
+  clipGeophysicsRaster,
+  combineGeophysicsRasters,
+  fillGeophysicsGaps,
+} from './data/geophysicsEditing.js';
+export { DEFAULT_ERS_NULL, ersCoordinateSpace, encodeErs, encodeGeoTiff } from './data/geophysicsWriters.js';
+export {
   GEOPHYSICS_FILTER_METHODS,
   GEOPHYSICS_OPERATIONS,
   MIN_RTP_INCLINATION,

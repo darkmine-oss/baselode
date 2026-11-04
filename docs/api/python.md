@@ -119,6 +119,47 @@ north) for the survey, from its report or an IGRF model. It does not model
 remanence and raises `ValueError` within 15° of the magnetic equator, where it
 is unstable; use `analytic_signal` there.
 
+### Cropping, clipping, combining and filling gaps
+
+```python
+crop(raster, bounds)                          # (min_x, min_y, max_x, max_y)
+clip(raster, polygon, crop=True)
+combine(left, right, operation)               # "add", "subtract", "multiply", "divide"
+fill_gaps(raster, max_distance=None, iterations=100)
+```
+
+Each returns a new `GeophysicsRaster` and records the step in
+`metadata["processing"]`. Coordinates are in the raster's CRS.
+
+| Function | Result |
+| --- | --- |
+| `crop` | The whole cells that overlap the box, so the result can reach up to a cell beyond it. Values and `nodata` are unchanged. |
+| `clip` | Cells whose centres lie outside the polygon become `NaN`. Takes one ring of `(x, y)` points, a list of rings (inner rings cut holes), a GeoJSON `Polygon`, `MultiPolygon` or `Feature`, or a Shapely geometry. With `crop=True` (the default) the grid is also cut to the polygon's bounding box. |
+| `combine` | Cell-by-cell arithmetic with a number or a raster on the same grid (same shape, transform and CRS); a one-band raster applies to every band. `combine(tmi, regional, "subtract")` gives a residual. A cell is `NaN` when either input is missing or it is divided by zero. Rasters on different grids raise `ValueError`; resample one first. |
+| `fill_gaps` | Fills missing cells with a smooth surface that joins the data without steps: block means from coarser and coarser levels, then `iterations` relaxation passes towards a harmonic surface. Data cells never change. `max_distance` limits filling to cells within that many cells of data (diagonal steps count as one); the default fills every gap, including areas outside the survey. |
+
+Missing cells in results are `NaN` with `nodata` cleared, except `crop`, which
+keeps the original values.
+
+### Writing grids
+
+```python
+write_ers(raster, path, dtype=None, nodata=None)     # -> (header_path, data_path)
+write_geotiff(raster, path, dtype=None, nodata=None, compress="deflate")
+save_raster(raster, path, **kwargs)                  # by extension: .ers, .tif, .tiff
+```
+
+Both round-trip through `load_raster`. Float grids are written as `float32`
+unless `dtype="float64"`. Missing cells get `nodata`, or the raster's own
+`nodata`. When neither is set, ERS uses `-99999` and GeoTIFF uses `NaN`.
+
+- **ERS** needs only NumPy. It writes the header and its data file (the same
+  path without `.ers`), and requires a north-up grid. The CRS is written as an
+  ERS datum and projection when it is a GDA94, GDA2020, AGD66/84 or WGS84
+  system. Any other CRS is written as `RAW`.
+- **GeoTIFF** needs the `raster` extra. Band names are kept as band
+  descriptions and units as band units.
+
 ### Colour scales
 
 ```python
