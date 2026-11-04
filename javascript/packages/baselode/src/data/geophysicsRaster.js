@@ -249,7 +249,7 @@ const GEOTIFF_CHUNK_ROWS = 256;
  * with Python's `load_raster` and transferred using
  * `GeophysicsRaster.to_payload()`.
  *
- * @param {string|ArrayBuffer|Blob} source
+ * @param {string|URL|Blob|ArrayBuffer|ArrayBufferView} source
  * @param {object} [options]
  * @param {number[]} [options.samples] - Zero-based TIFF sample indexes.
  * @param {number} [options.maxCells] - Decimate (area-weighted mean) to at
@@ -264,11 +264,15 @@ export async function loadGeoTiff(source, options = {}) {
   if (typeof source === 'string' || source instanceof URL) {
     tiff = await fromUrl(source);
   } else {
-    const buffer = typeof Blob !== 'undefined' && source instanceof Blob
+    let buffer = typeof Blob !== 'undefined' && source instanceof Blob
       ? await source.arrayBuffer()
       : source;
+    // A typed array or Node Buffer may view part of a larger buffer.
+    if (ArrayBuffer.isView(buffer)) {
+      buffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    }
     if (!(buffer instanceof ArrayBuffer)) {
-      throw new TypeError('GeoTIFF source must be a URL, ArrayBuffer, or Blob.');
+      throw new TypeError('GeoTIFF source must be a URL, Blob, ArrayBuffer, or typed array.');
     }
     tiff = await fromArrayBuffer(buffer);
   }

@@ -6,9 +6,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const image = {};
+const received = [];
 
 vi.mock('geotiff', () => ({
-  fromArrayBuffer: async () => ({ getImage: async () => image }),
+  fromArrayBuffer: async (buffer) => {
+    received.push(buffer);
+    return { getImage: async () => image };
+  },
   fromUrl: async () => ({ getImage: async () => image }),
 }));
 
@@ -47,6 +51,13 @@ describe('loadGeoTiff', () => {
     expect(await units()).toBe('us_survey_foot');
     setImage({ geoKeys: { GTModelTypeGeoKey: 2, GeographicTypeGeoKey: 4283, ProjectedCSTypeGeoKey: undefined } });
     expect(await units()).toBe('degree');
+  });
+
+  it('accepts the bytes a typed array views', async () => {
+    const whole = Uint8Array.from([0, 1, 2, 3, 4, 5]);
+    await loadGeoTiff(whole.subarray(2, 5));
+    expect(Array.from(new Uint8Array(received.at(-1)))).toEqual([2, 3, 4]);
+    await expect(loadGeoTiff(42)).rejects.toThrow(/typed array/);
   });
 
   it('keeps a south-up grid south-up', async () => {
