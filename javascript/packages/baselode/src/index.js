@@ -268,6 +268,22 @@ export {
   decimateGeophysicsRaster,
   geophysicsRasterFromBands,
 } from './data/geophysicsRaster.js';
+export {
+  GEOPHYSICS_FILTER_METHODS,
+  GEOPHYSICS_OPERATIONS,
+  MIN_RTP_INCLINATION,
+  geophysicsLowPass,
+  geophysicsHighPass,
+  geophysicsBandPass,
+  geophysicsVerticalDerivative,
+  geophysicsHorizontalDerivative,
+  geophysicsTotalHorizontalDerivative,
+  geophysicsTiltDerivative,
+  geophysicsAnalyticSignal,
+  geophysicsUpwardContinuation,
+  geophysicsReduceToPole,
+  processGeophysicsRaster,
+} from './data/geophysicsProcessing.js';
 export { parseErsHeader, ersCrs, readErs, loadErs } from './data/ersLoader.js';
 
 export {

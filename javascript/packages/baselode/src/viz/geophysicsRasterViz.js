@@ -8,10 +8,10 @@ import {
   geophysicsRasterRange,
   getGeophysicsRasterBand,
 } from '../data/geophysicsRaster.js';
+import { geophysicsMapGradients as mapGradients } from '../data/geophysicsProcessing.js';
 import {
   createGeophysicsStretch,
   geophysicsScaleColor,
-  isGeophysicsValue,
   sortedPercentile,
 } from './geophysicsColorScales.js';
 
@@ -48,38 +48,6 @@ export function normalizeGeophysicsClipRange(raster, clipRange = null, band = 1)
 
 function asRaster(raster) {
   return raster?.bandCount ? raster : createGeophysicsRaster(raster);
-}
-
-/**
- * Per-cell map gradients `[east, north]` of a band, or null for missing
- * cells. Differences along columns and rows are converted to map axes with
- * the affine transform, so azimuths stay geographic for south-up, west-up
- * and rotated grids (matches Python's processing._gradients).
- */
-function mapGradients(band, nodata, transform, zFactor = 1) {
-  const height = band.length;
-  const width = band[0].length;
-  const [a, b, , d, e] = transform;
-  const determinant = a * e - b * d;
-  const at = (row, column) => {
-    if (row < 0 || column < 0 || row >= height || column >= width) return null;
-    const value = band[row][column];
-    return isGeophysicsValue(value, nodata) ? value : null;
-  };
-  // Central difference, or one-sided where a neighbour is off the grid or
-  // missing (matches Python's processing._difference).
-  const difference = (centre, low, high) => {
-    const spacing = (low === null ? 0 : 1) + (high === null ? 0 : 1);
-    return spacing ? ((high ?? centre) - (low ?? centre)) / spacing : 0;
-  };
-  return band.map((values, row) => values.map((value, column) => {
-    if (!isGeophysicsValue(value, nodata)) return null;
-    const perColumn = difference(value, at(row, column - 1), at(row, column + 1));
-    const perRow = difference(value, at(row - 1, column), at(row + 1, column));
-    const east = (e * perColumn - d * perRow) / determinant;
-    const north = (a * perRow - b * perColumn) / determinant;
-    return [east * zFactor, north * zFactor];
-  }));
 }
 
 /**

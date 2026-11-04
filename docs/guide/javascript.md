@@ -1458,6 +1458,32 @@ const gravity = await loadErs(headerFile, dataFile, { maxCells: 2_000_000 });
 datums map to `EPSG:` codes. `decimateGeophysicsRaster(raster, maxCells)`
 gives the same area-weighted mean as Python's `GeophysicsRaster.decimate`.
 
+The same filters and enhancements as Python run in the browser and match it
+cell for cell. Each returns a new raster with the step appended to
+`metadata.processing`:
+
+```js
+import { geophysicsReduceToPole, geophysicsTiltDerivative, processGeophysicsRaster } from 'baselode';
+
+const rtp = geophysicsReduceToPole(raster, { inclination: -55.2, declination: 1.4 });
+const tilt = geophysicsTiltDerivative(rtp);
+const regional = processGeophysicsRaster(raster, 'upward_continuation', { height: 500 });
+```
+
+| Function | Options |
+| --- | --- |
+| `geophysicsLowPass`, `geophysicsHighPass` | `wavelength`, `method` (`'gaussian'`/`'butterworth'`), `order`, `detrend` |
+| `geophysicsBandPass` | `longWavelength`, `shortWavelength`, `method`, `order`, `detrend` |
+| `geophysicsVerticalDerivative` | `order` (1 for 1VD, 2 for 2VD) |
+| `geophysicsHorizontalDerivative` | `direction` (`'east'`/`'north'`) |
+| `geophysicsTotalHorizontalDerivative`, `geophysicsTiltDerivative`, `geophysicsAnalyticSignal` | none |
+| `geophysicsUpwardContinuation` | `height` |
+| `geophysicsReduceToPole` | `inclination`, `declination` (degrees) |
+
+`processGeophysicsRaster(raster, operation, options)` applies one by its
+Python name (`GEOPHYSICS_OPERATIONS`). Distances are in CRS units, so they
+are degrees for geographic grids.
+
 Apply wavelength filters on the Python side, then transfer the payload. The
 Tool UI equivalent is the `geophysics-raster` primitive with canonical name
 `baselode_geophysics_raster`. It defaults to a static, chat-sized view

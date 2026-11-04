@@ -2,20 +2,35 @@
 
 # Copyright (C) 2026 Darkmine Pty Ltd
 
-"""Hillshading and wavelength filtering for geophysics rasters.
+"""Hillshading, wavelength filters and potential-field enhancements.
 
-Filters work in the 2-D Fourier domain with NumPy only.  Cut-offs are
-wavelengths in the raster's CRS units (metres for MGA/UTM grids, degrees for
-geographic grids).  Each filter's response is 0.5 at its cut-off wavelength:
+Fourier-domain operations use NumPy only.  Distances (cut-off wavelengths,
+continuation heights) are in the raster's CRS units: metres for MGA/UTM
+grids, degrees for geographic grids.  Derivatives are per CRS unit.
+
+Wavelength filters have a response of 0.5 at their cut-off:
 
 - ``low_pass`` keeps long wavelengths (regional field).
 - ``high_pass`` keeps short wavelengths (residual / near-surface detail).
 - ``band_pass`` keeps wavelengths between two cut-offs.
 
-Before the transform each band has a best-fit plane removed, missing cells
-set to that plane, and the grid mirror-padded to reduce edge ringing.  Missing
-cells stay missing in the output.  Mean-filling gaps is simple and honest but
-can leave halos around large holes; grid the data first when gaps are large.
+Potential-field enhancements:
+
+- ``vertical_derivative`` (1VD, 2VD) sharpens shallow sources.
+- ``horizontal_derivative`` and ``total_horizontal_derivative`` peak over
+  contacts and edges.
+- ``tilt_derivative`` balances strong and weak anomalies; zero over edges.
+- ``analytic_signal`` peaks over magnetic sources whatever the
+  magnetisation direction.
+- ``upward_continuation`` smooths the field as if measured higher up,
+  separating regional from local sources.
+- ``reduce_to_pole`` moves magnetic anomalies over their sources.
+
+Before a Fourier transform each band has a best-fit plane removed, missing
+cells set to that plane, and the grid mirror-padded to a power-of-two size to
+reduce edge ringing.  Missing cells stay missing in the output.  Plane-filling
+gaps is simple and honest but can leave halos around large holes; grid the
+data first when gaps are large.
 """
 
 import math
@@ -180,38 +195,114 @@ def _check_filter(method, order, *wavelengths):
             raise ValueError("cut-off wavelengths must be positive")
 
 
-def _apply_filter(raster, response, keep_trend, longest_wavelength, step, detrend):
+def _fft_size(size):
+    """Return the smallest power of two that is at least ``size``."""
+    return 1 << max(0, (size - 1).bit_length())
+
+
+def _symmetric_indices(size, before, total):
+    """Source indices that mirror-pad an axis of ``size`` cells.
+
+    The axis is extended ``before`` cells at the start and to ``total`` cells
+    overall, repeating edge cells (NumPy's ``symmetric`` mode) as far as
+    needed.
+    """
+    period = 2 * size
+    offsets = np.mod(np.arange(total) - before, period)
+    return np.where(offsets < size, offsets, period - 1 - offsets)
+
+
+def _pad_cells(length, spacing, size):
+    """Cells of padding for one axis: one ``length`` (default half the axis)."""
+    cells = size // 2 if length is None else math.ceil(length / spacing)
+    return min(max(8, cells), size)
+
+
+def _map_wavenumbers(raster, shape):
+    """Return ``(east, north)`` wavenumbers, in cycles per CRS unit.
+
+    Index-domain frequencies are converted with the inverse transpose of the
+    affine transform, so directional operators stay geographic for south-up
+    and rotated grids.
+    """
+    a, b, _, d, e, _ = raster.transform
+    determinant = a * e - b * d
+    if determinant == 0:
+        raise ValueError("raster transform is degenerate")
+    per_column, per_row = np.meshgrid(np.fft.fftfreq(shape[1]), np.fft.fftfreq(shape[0]))
+    east = (e * per_column - d * per_row) / determinant
+    north = (a * per_row - b * per_column) / determinant
+    return east, north
+
+
+def _plane(values, valid):
+    """Best-fit plane over valid cells, fitted in centred cell indices.
+
+    A plane in cell indices is the same surface as a plane in map
+    coordinates, and centring keeps the fit well conditioned.  Returns
+    ``None`` when the valid cells lie on one line and define no plane.
+    """
+    rows, columns = np.indices(values.shape, dtype=float)
+    rows -= (values.shape[0] - 1) / 2.0
+    columns -= (values.shape[1] - 1) / 2.0
+    design = np.column_stack([columns[valid], rows[valid], np.ones(int(valid.sum()))])
+    coefficients, _, rank, _ = np.linalg.lstsq(design, values[valid], rcond=None)
+    if rank < 3:
+        return None
+    return coefficients[0] * columns + coefficients[1] * rows + coefficients[2]
+
+
+def _fourier_bands(raster, response, keep_trend=False, pad_length=None, detrend=True):
+    """Apply a Fourier-domain ``response`` to every band.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+    response : callable
+        ``response(east, north)`` returning the (real or complex) multiplier
+        for wavenumber grids in cycles per CRS unit.
+    keep_trend : bool, optional
+        Add the removed plane (or mean) back after filtering.
+    pad_length : float, optional
+        Mirror padding in CRS units on each side; default half the grid.
+    detrend : bool, optional
+        Remove a best-fit plane rather than the mean before the transform.
+
+    Returns
+    -------
+    numpy.ndarray
+        Float ``(band, row, column)`` array with ``NaN`` for missing cells.
+    """
     cell_x, cell_y = _cell_size(raster)
+    rows, columns = raster.data.shape[1:]
+    pad_rows = _pad_cells(pad_length, cell_y, rows)
+    pad_columns = _pad_cells(pad_length, cell_x, columns)
+    row_index = _symmetric_indices(rows, pad_rows, _fft_size(rows + 2 * pad_rows))
+    column_index = _symmetric_indices(columns, pad_columns, _fft_size(columns + 2 * pad_columns))
+    multiplier = response(*_map_wavenumbers(raster, (row_index.size, column_index.size)))
     output = np.full(raster.data.shape, np.nan)
     for index in range(raster.band_count):
         values, valid = _band_values(raster.data[index], raster.nodata)
         if not valid.any():
             continue
-        rows, columns = np.indices(values.shape)
-        if detrend and valid.sum() >= 3:
-            design = np.column_stack([
-                columns[valid] * cell_x,
-                rows[valid] * cell_y,
-                np.ones(valid.sum()),
-            ])
-            coefficients = np.linalg.lstsq(design, values[valid], rcond=None)[0]
-            trend = coefficients[0] * columns * cell_x + coefficients[1] * rows * cell_y + coefficients[2]
-        else:
+        trend = _plane(values, valid) if detrend else None
+        if trend is None:
             trend = np.full(values.shape, values[valid].mean())
         residual = np.where(valid, values - trend, 0.0)
-
-        # Pad by one cut-off wavelength, capped at the grid size.
-        pad_rows = min(max(8, math.ceil(longest_wavelength / cell_y)), values.shape[0])
-        pad_columns = min(max(8, math.ceil(longest_wavelength / cell_x)), values.shape[1])
-        padded = np.pad(residual, ((pad_rows, pad_rows), (pad_columns, pad_columns)), mode="symmetric")
-        wavenumber_y = np.fft.fftfreq(padded.shape[0], d=cell_y)
-        wavenumber_x = np.fft.fftfreq(padded.shape[1], d=cell_x)
-        wavenumber = np.hypot(*np.meshgrid(wavenumber_x, wavenumber_y))
-        filtered = np.real(np.fft.ifft2(np.fft.fft2(padded) * response(wavenumber)))
-        filtered = filtered[pad_rows:pad_rows + values.shape[0], pad_columns:pad_columns + values.shape[1]]
+        padded = residual[np.ix_(row_index, column_index)]
+        filtered = np.real(np.fft.ifft2(np.fft.fft2(padded) * multiplier))
+        filtered = filtered[pad_rows:pad_rows + rows, pad_columns:pad_columns + columns]
         if keep_trend:
             filtered = filtered + trend
         output[index] = np.where(valid, filtered, np.nan)
+    return output
+
+
+def _apply_filter(raster, response, keep_trend, longest_wavelength, step, detrend):
+    output = _fourier_bands(
+        raster, lambda east, north: response(np.hypot(east, north)),
+        keep_trend=keep_trend, pad_length=longest_wavelength, detrend=detrend,
+    )
     return raster.copy_with(output, nodata=None, processing={**step, "detrend": bool(detrend)})
 
 
@@ -320,4 +411,249 @@ def band_pass(raster, long_wavelength, short_wavelength, method="gaussian", orde
             "order": order,
         },
         detrend=detrend,
+    )
+
+
+# --- potential-field enhancements ---------------------------------------------
+
+
+def _vertical_derivative_bands(raster, order):
+    return _fourier_bands(
+        raster,
+        lambda east, north: (2.0 * math.pi * np.hypot(east, north)) ** order,
+    )
+
+
+def _gradient_bands(raster):
+    """Return ``(east, north)`` arrays of map gradients for every band."""
+    east = np.full(raster.data.shape, np.nan)
+    north = np.full(raster.data.shape, np.nan)
+    for index in range(raster.band_count):
+        values, valid = _band_values(raster.data[index], raster.nodata)
+        band_east, band_north = _map_gradients(raster, values, valid)
+        east[index] = np.where(valid, band_east, np.nan)
+        north[index] = np.where(valid, band_north, np.nan)
+    return east, north
+
+
+def vertical_derivative(raster, order=1):
+    """Vertical derivative of every band (1VD, 2VD, ...).
+
+    Computed in the Fourier domain by multiplying by ``(2 pi |k|) ** order``.
+    Each derivative sharpens shallow sources and suppresses regional trends;
+    the second derivative also amplifies noise.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+        A georeferenced raster.
+    order : int, optional
+        Derivative order, 1 (default) or higher.
+
+    Returns
+    -------
+    GeophysicsRaster
+        Data units per CRS unit to the power ``order``, positive over the
+        peaks of positive anomalies.
+    """
+    if not (isinstance(order, int) and order >= 1):
+        raise ValueError("order must be a positive integer")
+    output = _vertical_derivative_bands(raster, order)
+    return raster.copy_with(output, nodata=None, processing={"operation": "vertical_derivative", "order": order})
+
+
+def horizontal_derivative(raster, direction="east"):
+    """Horizontal derivative of every band along a map direction.
+
+    Uses central differences (one-sided at edges and gaps) converted to map
+    axes, so ``"east"`` and ``"north"`` stay geographic on any grid
+    orientation.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+    direction : {"east", "north"}, optional
+
+    Returns
+    -------
+    GeophysicsRaster
+        Data units per CRS unit.
+    """
+    if direction not in ("east", "north"):
+        raise ValueError(f"direction must be 'east' or 'north', not {direction!r}")
+    east, north = _gradient_bands(raster)
+    return raster.copy_with(
+        east if direction == "east" else north,
+        nodata=None,
+        processing={"operation": "horizontal_derivative", "direction": direction},
+    )
+
+
+def total_horizontal_derivative(raster):
+    """Magnitude of the horizontal gradient of every band.
+
+    Peaks over steep gradients, which for gravity and reduced-to-pole
+    magnetics lie over the edges of sources.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+
+    Returns
+    -------
+    GeophysicsRaster
+        Non-negative data units per CRS unit.
+    """
+    east, north = _gradient_bands(raster)
+    return raster.copy_with(
+        np.hypot(east, north), nodata=None, processing={"operation": "total_horizontal_derivative"},
+    )
+
+
+def tilt_derivative(raster):
+    """Tilt derivative: the angle between vertical and horizontal gradients.
+
+    ``atan2(1VD, THD)`` ranges from -90 to 90 degrees whatever the anomaly
+    amplitude, so weak and strong sources show equally.  It is positive over
+    sources, zero near their edges and negative outside.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+        A georeferenced raster.
+
+    Returns
+    -------
+    GeophysicsRaster
+        Degrees.
+    """
+    vertical = _vertical_derivative_bands(raster, 1)
+    east, north = _gradient_bands(raster)
+    return raster.copy_with(
+        np.degrees(np.arctan2(vertical, np.hypot(east, north))),
+        nodata=None,
+        processing={"operation": "tilt_derivative"},
+    )
+
+
+def analytic_signal(raster):
+    """Analytic signal amplitude (total gradient) of every band.
+
+    ``sqrt(dx**2 + dy**2 + dz**2)`` peaks over magnetic sources largely
+    independently of the magnetisation direction, so it is useful where
+    remanence or low latitudes make reduction to the pole unreliable.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+        A georeferenced raster.
+
+    Returns
+    -------
+    GeophysicsRaster
+        Non-negative data units per CRS unit.
+    """
+    vertical = _vertical_derivative_bands(raster, 1)
+    east, north = _gradient_bands(raster)
+    return raster.copy_with(
+        np.sqrt(east ** 2 + north ** 2 + vertical ** 2),
+        nodata=None,
+        processing={"operation": "analytic_signal"},
+    )
+
+
+def upward_continuation(raster, height):
+    """Continue every band upward, as if measured ``height`` higher.
+
+    Multiplies by ``exp(-2 pi |k| height)`` in the Fourier domain.  Short
+    wavelengths from shallow sources fade faster than long ones, so the
+    result emphasises deeper, regional sources.  The removed plane is
+    restored.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+        A georeferenced raster.
+    height : float
+        Positive continuation distance in CRS units.
+
+    Returns
+    -------
+    GeophysicsRaster
+        Same units as the input.
+    """
+    height = float(height)
+    if not (np.isfinite(height) and height > 0):
+        raise ValueError("height must be positive")
+    output = _fourier_bands(
+        raster,
+        lambda east, north: np.exp(-2.0 * math.pi * np.hypot(east, north) * height),
+        keep_trend=True,
+    )
+    return raster.copy_with(output, nodata=None, processing={"operation": "upward_continuation", "height": height})
+
+
+MIN_RTP_INCLINATION = 15.0
+
+
+def reduce_to_pole(raster, inclination, declination):
+    """Reduce total magnetic intensity to the pole.
+
+    Recomputes the anomaly as if the field and the (induced) magnetisation
+    were vertical, which moves anomalies over their sources and makes them
+    symmetric.  The operator is ``|k|**2 / (sin(I) |k| + i cos(I) (sin(D)
+    k_east + cos(D) k_north))**2``.  Remanent magnetisation is not modelled.
+
+    Parameters
+    ----------
+    raster : GeophysicsRaster
+        A georeferenced total magnetic intensity grid.
+    inclination : float
+        Geomagnetic field inclination in degrees, positive downwards
+        (negative in the southern hemisphere).  Take it, with the
+        declination, from the survey report or an IGRF model for the survey
+        date and location.
+    declination : float
+        Geomagnetic field declination in degrees east of true north.
+
+    Returns
+    -------
+    GeophysicsRaster
+        Same units as the input.  The removed plane is restored.
+
+    Raises
+    ------
+    ValueError
+        If ``abs(inclination)`` is below 15 degrees, where the operator
+        amplifies noise along the declination direction without bound.
+    """
+    inclination = float(inclination)
+    declination = float(declination)
+    if not (np.isfinite(inclination) and abs(inclination) <= 90):
+        raise ValueError("inclination must be between -90 and 90 degrees")
+    if not np.isfinite(declination):
+        raise ValueError("declination must be finite")
+    if abs(inclination) < MIN_RTP_INCLINATION:
+        raise ValueError(
+            f"reduction to the pole is unstable for inclinations within {MIN_RTP_INCLINATION:g} degrees of "
+            "the magnetic equator; use the analytic signal instead"
+        )
+    sin_i = math.sin(math.radians(inclination))
+    cos_i = math.cos(math.radians(inclination))
+    east_cosine = cos_i * math.sin(math.radians(declination))
+    north_cosine = cos_i * math.cos(math.radians(declination))
+
+    def response(east, north):
+        magnitude = np.hypot(east, north)
+        theta = sin_i * magnitude + 1j * (east_cosine * east + north_cosine * north)
+        result = np.ones(magnitude.shape, dtype=complex)
+        nonzero = magnitude > 0
+        result[nonzero] = magnitude[nonzero] ** 2 / theta[nonzero] ** 2
+        return result
+
+    output = _fourier_bands(raster, response, keep_trend=True)
+    return raster.copy_with(
+        output,
+        nodata=None,
+        processing={"operation": "reduce_to_pole", "inclination": inclination, "declination": declination},
     )
