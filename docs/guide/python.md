@@ -70,6 +70,8 @@ Notes:
 - `None` and `NaN` values are skipped — the per-row dict only contains values that are actually present.
 - Bundling is idempotent. If the input already has an `extra` column, new extras are merged with the existing dict (existing values win on conflict).
 
+To promote selected long-form attribute records to named columns and keep the remainder in JSON, see [Attribute promotion](/guide/attribute-expansion).
+
 ### Column mapping
 
 Loaders apply a default column-mapping table to handle common naming variations (`HoleID`, `Hole_Id`, `holeid`, etc.).  You can override or extend this with a `source_column_map` dict:
@@ -242,7 +244,7 @@ Linear interpolation per coordinate.  `depths` accepts a scalar (broadcast to ev
 
 ---
 
-## DrillholeSet — the composition root
+## DrillholeSet — the composition root {#drillholeset-the-composition-root}
 
 `DrillholeSet` bundles the collar + survey table plus N named interval tables into one object, so you can call `db.validate()` / `db.desurvey()` / `db.composite(...)` / `db.to_omf(...)` instead of threading three separate DataFrames through every function.  No new algorithmic logic — every method delegates to the existing function-based API.
 
@@ -849,6 +851,8 @@ Tadpole plots (`view.plot_tadpole_log`) and categorical point logs (`view.plot_p
 ```python
 view.plot_drillhole_trace(structures, "defect", chart_type="point-log")
 ```
+
+See [Structural observations](/guide/structural-observations) for how plane orientations and plotting depth are interpreted.
 
 ### Plotly templates
 

@@ -328,7 +328,7 @@ Linear interpolation per coordinate.  Mirrors the Python `interpolate_trajectory
 
 ---
 
-## DrillholeSet — the composition root
+## DrillholeSet — the composition root {#drillholeset-the-composition-root}
 
 `DrillholeSet` bundles collar + survey + N named interval tables into one object, mirroring the Python class.  Methods delegate to the existing function-based API.
 
@@ -672,7 +672,7 @@ const classification = classifyColumns(rows);
 
 ### 2D strip log (Plotly)
 
-![2D multi-track strip logs](/screenshots/v0.1.5-striplogs.png)
+![2D multi-track strip logs](/screenshots/v0.1.68-striplogs.png)
 
 ```js
 import { buildIntervalPoints, buildPlotConfig, getChartOptions, defaultChartType } from 'baselode';
@@ -1218,8 +1218,8 @@ const colour = getEqualRangeColor(scale, 2.5);  // '#...'
 ### Baselode3DScene
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:1rem">
-  <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
-  <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-3d-drillholes.png" alt="3D drillhole viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
 </div>
 
 `Baselode3DScene` is a thin orchestrator that owns the WebGL context and delegates rendering to domain-specific modules (`drillholeScene`, `blockModelScene`, `structuralScene`).  Use it directly or through the pre-built React wrapper.
@@ -1654,6 +1654,30 @@ export default function MapScene({ holes }) {
   return <div ref={containerRef} style={{ width: '100%', height: '100vh' }} />;
 }
 ```
+
+---
+
+## Terrain Surface
+
+`createTerrainSurface` turns an elevation grid into a mesh under the drillholes. It is useful for showing collars against topography or a DEM window around a project. Baselode does no reprojection, so the grid and bounds must already be in the same projected or local units as the rest of the scene.
+
+```js
+import { createTerrainSurface } from 'baselode';
+
+const terrain = createTerrainSurface({
+  grid: { width: 200, height: 160, elevations, nodata: -9999 }, // row 0 = north edge
+  bounds: { minX: 500000, minY: 6900000, maxX: 510000, maxY: 6908000 },
+  skirt: true,      // display-only wall around the outer edge
+  opacity: 0.8,
+});
+
+if (!terrain.empty) scene.setTerrain(terrain);
+scene.setTerrainOpacity(0.5);
+scene.setTerrainVisible(false);
+scene.clearTerrain();
+```
+
+Missing data shows as holes in the mesh. Baselode never interpolates elevations across them. Vertical exaggeration is applied only when you pass `verticalExaggeration`. Large grids are decimated to `vertexBudget` vertices (300 by default) along the longest side. The full option list is in the [API reference](/api/javascript#terrain-surface).
 
 ---
 

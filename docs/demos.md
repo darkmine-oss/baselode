@@ -40,23 +40,36 @@ The React demo is the primary showcase for the `baselode` JavaScript library.
 | `/strip-log-gallery` | **Strip-log gallery** — Canonical examples for every supported track type, also used by the [visual baseline catalogue](/strip-log-gallery). |
 | `/block-model` | **Block models** — 3D merged-mesh block model viewer with per-property colour mapping and opacity control. |
 | `/polygon-blocks` | **Polygon Blocks** — 3D viewer for polygonal grade blocks loaded from a JSON grade-block set.  Click a block to see its attributes; selected block edges are highlighted. |
+| `/core-photo` | **Core photos**: zoomable core-tray photo viewer with linked or independent hole comparison. See the [Core Photo Viewer guide](/guide/core-photo-viewer). |
+| `/analytics` | **Analytics plots**: scatter, histogram, box, violin and ternary panels over the GSWA assay sample. |
+| `/idw-volume` | **IDW volume**: GPU ray-marched inverse-distance interpolation of a synthetic dataset, with live power, radius, threshold and slice-plane controls. |
+| `/geophysics-raster` | **Geophysics raster**: `GeophysicsRasterViewer` with colour scale, stretch and hillshade controls, plus the chat-sized Tool UI preview. Opens a local GeoTIFF or COG. |
+| `/chat-helpers` | **Chat helpers**: a mock assistant conversation rendering each Baselode Tool UI from structured tool results. |
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1.5rem 0">
   <figure style="margin:0">
-    <img src="/screenshots/v0.1.5-map.png" alt="Map page — collar locations with strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <img src="/screenshots/v0.1.68-map.png" alt="Map page — collar locations with strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
     <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">Map — collar locations</figcaption>
   </figure>
   <figure style="margin:0">
-    <img src="/screenshots/v0.1.5-striplogs.png" alt="2D strip log page" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <img src="/screenshots/v0.1.68-striplogs.png" alt="2D strip log page" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
     <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">2D strip logs</figcaption>
   </figure>
   <figure style="margin:0">
-    <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <img src="/screenshots/v0.1.68-3d-drillholes.png" alt="3D drillhole viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
     <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">3D drillhole viewer</figcaption>
   </figure>
   <figure style="margin:0">
-    <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <img src="/screenshots/v0.1.68-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
     <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">3D block model viewer</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <img src="/screenshots/v0.1.68-geophysics.png" alt="Geophysics raster page" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">Geophysics raster viewer (GSWA Bouguer gravity, CC BY 4.0)</figcaption>
+  </figure>
+  <figure style="margin:0">
+    <img src="/screenshots/v0.1.68-idw-volume.png" alt="3D IDW interpolation volume" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+    <figcaption style="text-align:center;font-size:0.85em;color:#64748b;margin-top:6px">3D IDW interpolation volume</figcaption>
   </figure>
 </div>
 

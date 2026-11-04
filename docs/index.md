@@ -32,7 +32,13 @@ features:
     details: Multi-track Plotly strip logs for numeric, categorical, structural (tadpole), and free-text comment columns. Depth increases downward, matching industry convention.
   - icon: 🧊
     title: 3D Scene
-    details: Three.js-powered 3D viewer renders desurveyed hole traces and structural disc markers. Fully embeddable as a standalone HTML page or as a React component.
+    details: Three.js-powered 3D viewer for desurveyed hole traces, structural discs, block models, IDW grade volumes, terrain surfaces and raster overlays, with section and slab clipping. Embed it as a React component or a standalone HTML page.
+  - icon: 🧱
+    title: Block Models & Compositing
+    details: Validate, slice and report block models, including sub-blocks and grade-tonnage curves. Composite assay intervals by length, domain boundary or true thickness, and QC the source tables first.
+  - icon: 🧲
+    title: Geophysics Grids
+    details: Load ER Mapper and GeoTIFF grids. Apply low-, high- and band-pass filters, derivatives, tilt, analytic signal, upward continuation and reduction to the pole, then render with perceptual colour scales and hillshade. Results match between Python and JavaScript.
   - icon: 🐍🟨
     title: Python & JavaScript
     details: Feature-parity across both languages. Use Python in Jupyter notebooks, Dash apps, or analytics pipelines. Use JavaScript/React in web dashboards or Node.js workflows.
@@ -62,13 +68,15 @@ npm install baselode      # JavaScript
 
 ## Screenshots
 
-<p style="font-size:0.9em;color:#64748b;margin-bottom:0.75rem">Screenshots from <a href="/demos">demo-viewer-react</a>.</p>
+<p style="font-size:0.9em;color:#64748b;margin-bottom:0.75rem">Screenshots from <a href="/demos">demo-viewer-react</a> v0.1.68. Gravity grid: Peak Hill–Collier Bouguer anomaly, Geological Survey of Western Australia (CC BY 4.0).</p>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:1rem">
-  <img src="/screenshots/v0.1.5-map.png" alt="Collar map with strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
-  <img src="/screenshots/v0.1.5-striplogs.png" alt="2D multi-track strip logs" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
-  <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer with assay colouring" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
-  <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-map.png" alt="Collar map with nickel strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-striplogs.png" alt="2D multi-track strip logs" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-3d-drillholes.png" alt="3D drillhole viewer with assay colouring" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-geophysics.png" alt="Geophysics grid viewer with hillshade (GSWA Peak Hill–Collier Bouguer gravity)" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-idw-volume.png" alt="3D IDW interpolation volume" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
 </div>
 
 <p style="font-size:0.8em;color:#94a3b8;margin-top:2rem">These docs are primarily written with AI. Please notify the maintainer if inaccuracies exist.</p>
