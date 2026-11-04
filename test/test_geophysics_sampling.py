@@ -198,3 +198,16 @@ def test_float32_nodata_is_compared_in_the_band_dtype():
     assert np.isnan(baselode.geophysics.sample_points(raster, 1.5, 1.5, method="nearest"))
     assert np.isnan(baselode.geophysics.sample_points(raster, 1.0, 1.0))
     assert baselode.geophysics.sample_points(raster, 0.5, 0.5) == 3
+
+
+@pytest.mark.parametrize("dtype", ["Float64", "Int64"])
+def test_sample_table_keeps_missing_nullable_coordinates_missing(dtype):
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.array([[1.0, 2.0], [3.0, 4.0]]), transform=(10, 0, 0, 0, -10, 20),
+    )
+    table = pd.DataFrame({
+        "easting": pd.array([5, None, 15], dtype=dtype),
+        "northing": pd.array([15, 15, None], dtype=dtype),
+    })
+    sampled = baselode.geophysics.sample_table(raster, table, method="nearest")
+    np.testing.assert_array_equal(sampled["band_1"], [1.0, np.nan, np.nan])

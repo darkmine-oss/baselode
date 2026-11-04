@@ -212,8 +212,8 @@ def sample_table(raster, table, x_col="easting", y_col="northing", column=None,
             raise KeyError(f"table has no {name!r} column")
     values = sample_points(
         raster,
-        pd.to_numeric(table[x_col], errors="coerce").to_numpy(dtype=float),
-        pd.to_numeric(table[y_col], errors="coerce").to_numpy(dtype=float),
+        pd.to_numeric(table[x_col], errors="coerce").to_numpy(dtype=float, na_value=np.nan),
+        pd.to_numeric(table[y_col], errors="coerce").to_numpy(dtype=float, na_value=np.nan),
         band=band, method=method, crs=crs,
     )
     output = table.copy()
