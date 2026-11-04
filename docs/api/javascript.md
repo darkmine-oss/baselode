@@ -1213,6 +1213,7 @@ The JavaScript and Python implementations share one FFT design and are tested ag
 | `sampleGeophysicsRows(raster, rows, { xField, yField, field, band, method, crs })` | Copies of row objects (collars, samples, trace stations) with a sampled field. `xField` and `yField` default to `easting` and `northing`; `field` defaults to the band name. |
 | `sampleGeophysicsProfile(raster, vertices, { spacing, band, method, crs })` | `{ distance, x, y, value }` stations along a polyline. `x` and `y` stay in the line's CRS. |
 | `geophysicsProfileStations(vertices, spacing)` | The stations alone: every `spacing` units through bends, always including the last vertex |
+| `transformCrsPoints(sourceCrs, targetCrs, points)` | Reproject `[x, y]` pairs with the same definitions, for example to lay out a profile line in metres before sampling. Non-finite pairs come back as `[NaN, NaN]`. |
 
 `method` is `'bilinear'` (default) or `'nearest'` (`GEOPHYSICS_SAMPLING_METHODS`). Bilinear interpolates between the four surrounding cell centres and uses the edge cells as they are within half a cell of the grid edge. Points outside the grid, and bilinear samples that would draw on a missing cell, return `null`.
 

@@ -292,6 +292,8 @@ export {
   sampleGeophysicsProfile,
   geophysicsProfileStations,
 } from './data/geophysicsSampling.js';
+// Reprojects points with the same CRS definitions sampling uses.
+export { transformPoints as transformCrsPoints } from './extent/crs.js';
 
 export {
   interpolateTrace,

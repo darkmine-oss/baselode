@@ -534,7 +534,8 @@
         "sampleGeophysicsRaster",
         "sampleGeophysicsRows",
         "sampleGeophysicsProfile",
-        "geophysicsProfileStations"
+        "geophysicsProfileStations",
+        "transformCrsPoints"
       ],
       "pythonSymbols": [
         ["baselode.geophysics", "GeophysicsRaster"],

@@ -166,8 +166,15 @@ describe('geophysicsProfileStations', () => {
 // The main entry's exports are checked by test/test_parity_contract.py.
 it('is exported from the worker-safe entry', () => {
   for (const entry of [geophysicsEntry]) {
-    for (const name of ['sampleGeophysicsRaster', 'sampleGeophysicsRows', 'sampleGeophysicsProfile', 'geophysicsProfileStations', 'GEOPHYSICS_SAMPLING_METHODS']) {
+    for (const name of ['sampleGeophysicsRaster', 'sampleGeophysicsRows', 'sampleGeophysicsProfile', 'geophysicsProfileStations', 'GEOPHYSICS_SAMPLING_METHODS', 'transformCrsPoints']) {
       expect(entry[name], name).toBeDefined();
     }
   }
+});
+
+it('exports the CRS transform used for sampling', () => {
+  const [[x, y]] = geophysicsEntry.transformCrsPoints('EPSG:4283', 'EPSG:28350', [[117, -27]]);
+  expect(x).toBeCloseTo(500000, 3);
+  expect(y).toBeCloseTo(7013564.758, 2); // pyproj: 7013564.7575
+  expect(geophysicsEntry.transformCrsPoints(4326, 'EPSG:4326', [[1, 2]])).toEqual([[1, 2]]);
 });

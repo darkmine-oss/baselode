@@ -130,3 +130,9 @@ export function sampleGeophysicsProfile(
   vertices: GeophysicsPoint[],
   options: GeophysicsSamplingOptions & { spacing: number },
 ): Array<GeophysicsProfileStation & { value: number | null }>;
+/** Reproject [x, y] pairs; non-finite pairs come back as [NaN, NaN]. */
+export function transformCrsPoints(
+  sourceCrs: string | number,
+  targetCrs: string | number,
+  points: Array<[number, number]>,
+): Array<[number, number]>;
