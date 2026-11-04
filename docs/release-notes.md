@@ -2,7 +2,7 @@
 
 ---
 
-## Unreleased
+## v0.1.70
 **Sampling geophysics grids at drill data (TRK-519)**
 
 - New `sample_points`, `sample_table`, `sample_profile` and `profile_stations` in `baselode.geophysics`, and JS `sampleGeophysicsRaster`, `sampleGeophysicsRows`, `sampleGeophysicsProfile` and `geophysicsProfileStations`.  Read grid values at collars, surface samples, desurveyed trace stations or along a section line, by bilinear or nearest-cell interpolation.  Points off the grid or next to a gap give `NaN` / `null`, never an invented value.
