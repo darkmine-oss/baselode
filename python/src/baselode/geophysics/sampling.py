@@ -27,10 +27,12 @@ import baselode.geophysics.colour_scales
 
 SAMPLING_METHODS = ("bilinear", "nearest")
 
-# Interpolation weights below this are treated as zero, so a point exactly on
-# a cell centre does not depend on (or become missing because of) a
-# neighbouring cell.
-_WEIGHT_EPSILON = 1e-12
+# Pixel positions within this fraction of a cell of a cell centre or grid
+# edge snap to it.  Inverting the affine transform at projected coordinates
+# (around 1e7 m) leaves rounding errors of about 1e-10 cells, which would
+# otherwise make a point on a cell centre depend on (and become missing
+# because of) a neighbouring cell, or fall just outside the grid.
+_PIXEL_TOLERANCE = 1e-7
 
 
 def _check_method(method):
@@ -53,6 +55,12 @@ def _reproject(x, y, crs, raster):
         return x, y
     transformer = pyproj.Transformer.from_crs(source, target, always_xy=True)
     return transformer.transform(x, y)
+
+
+def _snap(fraction):
+    """Snap interpolation fractions within the tolerance of 0 or 1."""
+    fraction = np.where(fraction < _PIXEL_TOLERANCE, 0.0, fraction)
+    return np.where(fraction > 1 - _PIXEL_TOLERANCE, 1.0, fraction)
 
 
 def _pixel_coordinates(raster, x, y):
@@ -121,7 +129,8 @@ def sample_points(raster, x, y, band=1, method="bilinear", crs=None):
     result = np.full(column.shape, np.nan)
     inside = (
         np.isfinite(column) & np.isfinite(row)
-        & (column >= 0) & (column <= width) & (row >= 0) & (row <= height)
+        & (column >= -_PIXEL_TOLERANCE) & (column <= width + _PIXEL_TOLERANCE)
+        & (row >= -_PIXEL_TOLERANCE) & (row <= height + _PIXEL_TOLERANCE)
     )
     if not inside.any():
         return result.reshape(shape)
@@ -129,8 +138,8 @@ def sample_points(raster, x, y, band=1, method="bilinear", crs=None):
     column = column[inside]
     row = row[inside]
     if method == "nearest":
-        j = np.minimum(np.floor(column).astype(int), width - 1)
-        i = np.minimum(np.floor(row).astype(int), height - 1)
+        j = np.clip(np.floor(column).astype(int), 0, width - 1)
+        i = np.clip(np.floor(row).astype(int), 0, height - 1)
         sampled = np.where(valid[i, j], values[i, j], np.nan)
     else:
         u = np.clip(column - 0.5, 0, width - 1)
@@ -139,8 +148,8 @@ def sample_points(raster, x, y, band=1, method="bilinear", crs=None):
         i0 = np.floor(v).astype(int)
         j1 = np.minimum(j0 + 1, width - 1)
         i1 = np.minimum(i0 + 1, height - 1)
-        tx = u - j0
-        ty = v - i0
+        tx = _snap(u - j0)
+        ty = _snap(v - i0)
         total = np.zeros(column.shape)
         missing = np.zeros(column.shape, dtype=bool)
         for i, j, weight in (
@@ -149,7 +158,7 @@ def sample_points(raster, x, y, band=1, method="bilinear", crs=None):
             (i1, j0, (1 - tx) * ty),
             (i1, j1, tx * ty),
         ):
-            used = weight > _WEIGHT_EPSILON
+            used = weight > 0
             missing |= used & ~valid[i, j]
             total += np.where(used & valid[i, j], weight * np.where(valid[i, j], values[i, j], 0.0), 0.0)
         sampled = np.where(missing, np.nan, total)

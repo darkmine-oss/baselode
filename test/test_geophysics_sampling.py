@@ -170,3 +170,23 @@ def test_sample_profile_across_the_grid():
     profile = baselode.geophysics.sample_profile(raster, [start, end], 10, column="tmi")
     assert list(profile.columns) == ["distance", "x", "y", "tmi"]
     np.testing.assert_allclose(profile["tmi"], [10, 11, 12, 13])
+
+
+def test_cell_centres_survive_affine_rounding_on_rotated_grids():
+    # A 30 degree rotation at projected coordinates maps the first cell centre
+    # back to about (0.50000000002, 0.49999999996); it must still use only
+    # that cell rather than its missing neighbours.
+    angle = np.radians(30)
+    a, b = 10 * np.cos(angle), 10 * np.sin(angle)
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.array([[7.0, np.nan], [np.nan, np.nan]]), transform=(a, b, 500000, b, -a, 7000030),
+    )
+    x = a * 0.5 + b * 0.5 + 500000
+    y = b * 0.5 - a * 0.5 + 7000030
+    assert baselode.geophysics.sample_points(raster, x, y) == 7
+    corner_x = a * 2 + b * 2 + 500000
+    corner_y = b * 2 - a * 2 + 7000030
+    assert np.isnan(baselode.geophysics.sample_points(raster, corner_x, corner_y))
+    ramp = _ramp().copy_with(transform=(a, b, 500000, b, -a, 7000030))
+    far_corner = (a * 4 + b * 3 + 500000, b * 4 - a * 3 + 7000030)
+    assert baselode.geophysics.sample_points(ramp, *far_corner) == pytest.approx(23)

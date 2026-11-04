@@ -90,6 +90,24 @@ describe('sampleGeophysicsRaster', () => {
     expectValues(sampleGeophysicsRaster(rotated, [point]), [10 * 1.1 + 1.75]);
   });
 
+  it('keeps cell centres intact despite affine rounding on rotated grids', () => {
+    const angle = Math.PI / 6;
+    const a = 10 * Math.cos(angle);
+    const b = 10 * Math.sin(angle);
+    const transform = [a, b, 500000, b, -a, 7000030];
+    const at = (column, row) => [a * column + b * row + 500000, b * column - a * row + 7000030];
+    const gappy = createGeophysicsRaster({ data: [[7, null], [null, null]], transform });
+    expect(sampleGeophysicsRaster(gappy, [at(0.5, 0.5), at(2, 2)])).toEqual([7, null]);
+    expectValues(sampleGeophysicsRaster(ramp({ transform }), [at(4, 3)]), [23]);
+  });
+
+  it('treats missing coordinates as missing rather than zero', () => {
+    const origin = createGeophysicsRaster({ data: [[5, 6], [7, 8]], transform: [1, 0, -1, 0, -1, 1] });
+    expect(sampleGeophysicsRaster(origin, [[0, 0]])).toEqual([6.5]);
+    expect(sampleGeophysicsRaster(origin, [[null, null], { x: null, y: null }, ['', ''], [false, 0]]))
+      .toEqual([null, null, null, null]);
+  });
+
   it('reprojects points given in another CRS', () => {
     const points = [xy(1.3, 0.8), xy(2.6, 2.1)];
     const lonLat = transformPoints('EPSG:28350', 'EPSG:4283', points);

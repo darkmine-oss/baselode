@@ -12,9 +12,18 @@ import { normaliseCrs, transformPoints } from '../extent/crs.js';
 
 export const GEOPHYSICS_SAMPLING_METHODS = Object.freeze(['bilinear', 'nearest']);
 
-// Interpolation weights below this are treated as zero, so a point exactly on
-// a cell centre does not depend on a neighbouring cell.
-const WEIGHT_EPSILON = 1e-12;
+// Pixel positions within this fraction of a cell of a cell centre or grid
+// edge snap to it.  Inverting the affine transform at projected coordinates
+// (around 1e7 m) leaves rounding errors of about 1e-10 cells, which would
+// otherwise make a point on a cell centre depend on (and become missing
+// because of) a neighbouring cell, or fall just outside the grid.
+const PIXEL_TOLERANCE = 1e-7;
+
+function snap(fraction) {
+  if (fraction < PIXEL_TOLERANCE) return 0;
+  if (fraction > 1 - PIXEL_TOLERANCE) return 1;
+  return fraction;
+}
 
 function asRaster(raster) {
   return raster?.bandCount ? raster : createGeophysicsRaster(raster);
@@ -26,9 +35,14 @@ function checkMethod(method) {
   }
 }
 
+function toNumber(value) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return NaN;
+  return Number(value);
+}
+
 function toPair(point) {
-  if (Array.isArray(point)) return [Number(point[0]), Number(point[1])];
-  if (point && typeof point === 'object') return [Number(point.x), Number(point.y)];
+  if (Array.isArray(point)) return [toNumber(point[0]), toNumber(point[1])];
+  if (point && typeof point === 'object') return [toNumber(point.x), toNumber(point.y)];
   return [NaN, NaN];
 }
 
@@ -83,10 +97,13 @@ export function sampleGeophysicsRaster(raster, points, { band = 1, method = 'bil
     const dy = y - f;
     const column = (e * dx - b * dy) / determinant;
     const row = (-d * dx + a * dy) / determinant;
-    if (!(column >= 0 && column <= width && row >= 0 && row <= height)) return null;
+    if (!(column >= -PIXEL_TOLERANCE && column <= width + PIXEL_TOLERANCE
+      && row >= -PIXEL_TOLERANCE && row <= height + PIXEL_TOLERANCE)) return null;
 
     if (method === 'nearest') {
-      const value = values[Math.min(Math.floor(row), height - 1)][Math.min(Math.floor(column), width - 1)];
+      const i = Math.min(Math.max(Math.floor(row), 0), height - 1);
+      const j = Math.min(Math.max(Math.floor(column), 0), width - 1);
+      const value = values[i][j];
       return isValid(value, nodata) ? value : null;
     }
 
@@ -96,8 +113,8 @@ export function sampleGeophysicsRaster(raster, points, { band = 1, method = 'bil
     const i0 = Math.floor(v);
     const j1 = Math.min(j0 + 1, width - 1);
     const i1 = Math.min(i0 + 1, height - 1);
-    const tx = u - j0;
-    const ty = v - i0;
+    const tx = snap(u - j0);
+    const ty = snap(v - i0);
     let total = 0;
     for (const [i, j, weight] of [
       [i0, j0, (1 - tx) * (1 - ty)],
@@ -105,7 +122,7 @@ export function sampleGeophysicsRaster(raster, points, { band = 1, method = 'bil
       [i1, j0, (1 - tx) * ty],
       [i1, j1, tx * ty],
     ]) {
-      if (weight <= WEIGHT_EPSILON) continue;
+      if (weight <= 0) continue;
       const value = values[i][j];
       if (!isValid(value, nodata)) return null;
       total += weight * value;
@@ -140,11 +157,6 @@ export function sampleGeophysicsRows(raster, rows, {
     { band, method, crs },
   );
   return rows.map((row, index) => ({ ...row, [name]: values[index] }));
-}
-
-function toNumber(value) {
-  if (value === null || value === undefined || value === '') return NaN;
-  return Number(value);
 }
 
 /**
