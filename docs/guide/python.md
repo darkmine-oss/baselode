@@ -205,14 +205,17 @@ import baselode.drill.desurvey as desurvey
 
 Every trace starts at the collar (`md = 0`).  When a hole's first survey station sits below the collar, that station's orientation is extended straight up to `md = 0` — the convention Vulcan and Surpac use — so a hole with a single station at 135 m yields a full 135 m trace rather than a single point.
 
-### desurvey_holes
+### Desurveying holes
+
+Each method has its own function: `minimum_curvature_desurvey`,
+`tangential_desurvey`, `balanced_tangential_desurvey` and
+`midpoint_tangential_desurvey`.
 
 ```python
-traces = desurvey.desurvey_holes(
+traces = desurvey.minimum_curvature_desurvey(
     collars,
     surveys,
     step=1.0,                       # output step size in metres
-    method="minimum_curvature"      # desurveying method
 )
 # Returns a pandas.DataFrame with columns: hole_id, md, easting, northing, elevation, azimuth, dip
 ```
@@ -1023,6 +1026,40 @@ edges = baselode.geophysics.total_horizontal_derivative(rtp)
 tilt = baselode.geophysics.tilt_derivative(rtp)                   # degrees
 sources = baselode.geophysics.analytic_signal(tmi)
 deeper = baselode.geophysics.upward_continuation(tmi, height=500)  # CRS units
+```
+
+### Sampling grids at drillholes
+
+Read grid values at collars, surface samples or desurveyed trace stations to
+compare geophysics with assays. Pass `crs` when the points are in a different
+coordinate system from the grid; GSWA grids are often GDA94 lat/long while
+collars are in MGA:
+
+```python
+import baselode.drill.data
+import baselode.drill.desurvey
+
+bouguer = baselode.geophysics.load_raster('Peak_Hill-Collier_Bouguer.ers')   # EPSG:4283
+collars = baselode.drill.data.load_collars('collars.csv')                    # MGA zone 50
+
+collars = baselode.geophysics.sample_table(bouguer, collars, column='bouguer', crs='EPSG:28350')
+
+traces = baselode.drill.desurvey.minimum_curvature_desurvey(collars, surveys)
+traces = baselode.geophysics.sample_table(bouguer, traces, column='bouguer', crs='EPSG:28350')
+```
+
+`method='bilinear'` (the default) interpolates between cell centres;
+`method='nearest'` takes the containing cell. Points off the grid, or next to
+a gap, come back as `NaN` instead of an invented value.
+
+Sample along a section line with `sample_profile`. Stations are spaced in the
+line's units, so give its vertices in a projected CRS:
+
+```python
+profile = baselode.geophysics.sample_profile(
+    bouguer, [(452000, 7150000), (461500, 7153200)], spacing=50, crs='EPSG:28350',
+)
+profile.plot(x='distance', y='value')
 ```
 
 ### Hillshade and colour

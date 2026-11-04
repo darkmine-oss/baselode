@@ -4,79 +4,16 @@
  */
 
 import proj4 from 'proj4';
+import { describeCrs, normaliseCrs as normaliseSharedCrs } from './crs.js';
 
 export const DEFAULT_EXTENT_CRS = 'EPSG:4326';
 
-const EPSG_PATTERN = /^epsg\s*:\s*(\d+)$/i;
-const BARE_EPSG_PATTERN = /^\d+$/;
-
-function registerAustralianCrsDefinitions() {
-  if (!proj4.defs('EPSG:4283')) {
-    proj4.defs(
-      'EPSG:4283',
-      '+proj=longlat +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +no_defs +type=crs',
-    );
-  }
-  for (let zone = 49; zone <= 58; zone += 1) {
-    const code = `EPSG:${28300 + zone}`;
-    if (!proj4.defs(code)) {
-      proj4.defs(
-        code,
-        `+proj=utm +zone=${zone} +south +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs +type=crs`,
-      );
-    }
-  }
-}
-
-registerAustralianCrsDefinitions();
-
 function describe(value) {
-  if (typeof value === 'string') return JSON.stringify(value);
-  return String(value);
+  return describeCrs(value);
 }
 
 function normaliseCrs(crs) {
-  if (crs === null || crs === undefined) {
-    throw new TypeError(
-      "Extent requires a CRS. Pass crs: 'EPSG:4326' (default), an EPSG number, or a proj/WKT definition.",
-    );
-  }
-
-  let normalized;
-  if (typeof crs === 'number') {
-    if (!Number.isSafeInteger(crs) || crs <= 0) {
-      throw new TypeError(`Invalid CRS ${describe(crs)}: EPSG numbers must be positive integers.`);
-    }
-    normalized = `EPSG:${crs}`;
-  } else if (typeof crs === 'string') {
-    const trimmed = crs.trim();
-    if (!trimmed) {
-      throw new TypeError('Invalid CRS "": CRS definitions must not be empty.');
-    }
-    const epsgMatch = trimmed.match(EPSG_PATTERN);
-    if (epsgMatch) {
-      normalized = `EPSG:${Number(epsgMatch[1])}`;
-    } else if (BARE_EPSG_PATTERN.test(trimmed)) {
-      normalized = `EPSG:${Number(trimmed)}`;
-    } else {
-      normalized = trimmed;
-    }
-  } else {
-    throw new TypeError(
-      `Invalid CRS ${describe(crs)}: pass an EPSG string/number or a proj/WKT definition.`,
-    );
-  }
-
-  try {
-    proj4(normalized);
-  } catch (error) {
-    const detail = error?.message ? `: ${error.message}` : '';
-    throw new TypeError(
-      `Invalid CRS ${describe(crs)}${detail}. The definition is not registered or supported by proj4.`,
-      { cause: error },
-    );
-  }
-  return normalized;
+  return normaliseSharedCrs(crs, 'Extent');
 }
 
 function finiteNumber(value, name) {

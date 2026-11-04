@@ -530,7 +530,11 @@
         "geophysicsAnalyticSignal",
         "geophysicsUpwardContinuation",
         "geophysicsReduceToPole",
-        "processGeophysicsRaster"
+        "processGeophysicsRaster",
+        "sampleGeophysicsRaster",
+        "sampleGeophysicsRows",
+        "sampleGeophysicsProfile",
+        "geophysicsProfileStations"
       ],
       "pythonSymbols": [
         ["baselode.geophysics", "GeophysicsRaster"],
@@ -551,7 +555,11 @@
         ["baselode.geophysics", "tilt_derivative"],
         ["baselode.geophysics", "analytic_signal"],
         ["baselode.geophysics", "upward_continuation"],
-        ["baselode.geophysics", "reduce_to_pole"]
+        ["baselode.geophysics", "reduce_to_pole"],
+        ["baselode.geophysics", "sample_points"],
+        ["baselode.geophysics", "sample_table"],
+        ["baselode.geophysics", "sample_profile"],
+        ["baselode.geophysics", "profile_stations"]
       ]
     }
   ]
