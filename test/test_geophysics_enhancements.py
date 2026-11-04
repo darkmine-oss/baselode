@@ -95,6 +95,11 @@ def test_tilt_is_positive_over_a_source_and_negative_away_from_it():
     assert tilt[47 + 15, 47] < 0
 
 
+def test_tilt_of_a_flat_field_is_zero_not_rounding_noise():
+    flat = baselode.geophysics.GeophysicsRaster(np.full((8, 8), 50000.0), transform=(10, 0, 0, 0, -10, 0))
+    np.testing.assert_array_equal(baselode.geophysics.tilt_derivative(flat).band(1), 0.0)
+
+
 def test_analytic_signal_is_the_total_gradient():
     raster = raster_of(gaussian_bump())
     signal = baselode.geophysics.analytic_signal(raster).band(1)

@@ -498,21 +498,47 @@ export function geophysicsTotalHorizontalDerivative(raster) {
   return derivedRaster(normalized, totalHorizontalBands(normalized), { operation: 'total_horizontal_derivative' });
 }
 
+const GRADIENT_RELATIVE_TOLERANCE = 1e-10;
+
 /**
- * Tilt derivative `atan2(1VD, THD)` in degrees (-90..90). Matches Python's
- * `baselode.geophysics.tilt_derivative`.
+ * Per-band gradient below which values are rounding error: the largest
+ * absolute cell value over the smallest cell spacing (matches Python's
+ * processing._gradient_tolerance).
+ */
+function gradientTolerances(raster) {
+  const smallestCell = Math.min(...cellSize(raster.transform));
+  return raster.data.map((band) => {
+    let largest = 0;
+    for (const row of band) {
+      for (const value of row) {
+        if (isGeophysicsValue(value, raster.nodata)) largest = Math.max(largest, Math.abs(value));
+      }
+    }
+    return (GRADIENT_RELATIVE_TOLERANCE * largest) / smallestCell;
+  });
+}
+
+/**
+ * Tilt derivative `atan2(1VD, THD)` in degrees (-90..90). Gradients too
+ * small to distinguish from rounding error count as zero, so a flat field
+ * has zero tilt. Matches Python's `baselode.geophysics.tilt_derivative`.
  *
  * @param {object} raster
  * @returns {object}
  */
 export function geophysicsTiltDerivative(raster) {
   const normalized = asRaster(raster);
-  const bands = combineBands(
-    normalized,
-    verticalDerivativeBands(normalized, 1),
-    totalHorizontalBands(normalized),
-    (vertical, horizontal) => (Math.atan2(vertical, horizontal) * 180) / Math.PI,
-  );
+  const tolerances = gradientTolerances(normalized);
+  const vertical = verticalDerivativeBands(normalized, 1);
+  const horizontal = totalHorizontalBands(normalized);
+  const bands = vertical.map((band, bandIndex) => band.map((row, rowIndex) => row.map((value, column) => {
+    const across = horizontal[bandIndex][rowIndex][column];
+    if (value === null || across === null) return null;
+    const tolerance = tolerances[bandIndex];
+    const up = Math.abs(value) < tolerance ? 0 : value;
+    const flat = across < tolerance ? 0 : across;
+    return (Math.atan2(up, flat) * 180) / Math.PI;
+  })));
   return derivedRaster(normalized, bands, { operation: 'tilt_derivative' });
 }
 

@@ -436,6 +436,24 @@ def _gradient_bands(raster):
     return east, north
 
 
+GRADIENT_RELATIVE_TOLERANCE = 1e-10
+
+
+def _gradient_tolerance(raster):
+    """Per-band gradient below which values are rounding error.
+
+    Scaled by the largest absolute cell value over the smallest cell
+    spacing, so it follows both the data units and the CRS units.
+    """
+    smallest_cell = min(_cell_size(raster))
+    tolerances = []
+    for index in range(raster.band_count):
+        values, valid = _band_values(raster.data[index], raster.nodata)
+        largest = float(np.abs(values[valid]).max()) if valid.any() else 0.0
+        tolerances.append(GRADIENT_RELATIVE_TOLERANCE * largest / smallest_cell)
+    return np.array(tolerances)
+
+
 def vertical_derivative(raster, order=1):
     """Vertical derivative of every band (1VD, 2VD, ...).
 
@@ -515,7 +533,9 @@ def tilt_derivative(raster):
 
     ``atan2(1VD, THD)`` ranges from -90 to 90 degrees whatever the anomaly
     amplitude, so weak and strong sources show equally.  It is positive over
-    sources, zero near their edges and negative outside.
+    sources, zero near their edges and negative outside.  Gradients too small
+    to distinguish from rounding error count as zero, so a flat field has zero
+    tilt rather than noise at +/-90 degrees.
 
     Parameters
     ----------
@@ -529,8 +549,12 @@ def tilt_derivative(raster):
     """
     vertical = _vertical_derivative_bands(raster, 1)
     east, north = _gradient_bands(raster)
+    horizontal = np.hypot(east, north)
+    tolerance = _gradient_tolerance(raster)[:, None, None]
+    vertical = np.where(np.abs(vertical) < tolerance, 0.0, vertical)
+    horizontal = np.where(horizontal < tolerance, 0.0, horizontal)
     return raster.copy_with(
-        np.degrees(np.arctan2(vertical, np.hypot(east, north))),
+        np.degrees(np.arctan2(vertical, horizontal)),
         nodata=None,
         processing={"operation": "tilt_derivative"},
     )

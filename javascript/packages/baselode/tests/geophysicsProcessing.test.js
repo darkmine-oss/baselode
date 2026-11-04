@@ -14,6 +14,7 @@ import {
   fftSize,
   geophysicsAnalyticSignal,
   geophysicsReduceToPole,
+  geophysicsTiltDerivative,
   geophysicsTotalHorizontalDerivative,
   geophysicsUpwardContinuation,
   geophysicsVerticalDerivative,
@@ -96,6 +97,11 @@ describe('geophysics enhancements', () => {
     expect(Math.abs(column - 32)).toBeLessThanOrEqual(1);
     expect(argmax(tmi)).not.toEqual([row, column]);
     expect(() => geophysicsReduceToPole(rasterOf(tmi), { inclination: -10, declination: 0 })).toThrow(/unstable/);
+  });
+
+  it('gives a flat field zero tilt rather than rounding noise', () => {
+    const flat = createGeophysicsRaster({ data: grid(8, 8, () => 50000), transform: [10, 0, 0, 0, -10, 0] });
+    expect(geophysicsTiltDerivative(flat).data[0].flat()).toEqual(Array(64).fill(0));
   });
 
   it('keeps gaps missing and the analytic signal at least the horizontal gradient', () => {
