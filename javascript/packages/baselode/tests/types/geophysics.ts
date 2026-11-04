@@ -1,0 +1,19 @@
+import {
+  GEOPHYSICS_OPERATIONS,
+  createGeophysicsRaster,
+  geophysicsReduceToPole,
+  processGeophysicsRaster,
+  type GeophysicsRaster,
+} from 'baselode/geophysics';
+
+const raster: GeophysicsRaster = createGeophysicsRaster({ data: [[1, 2], [3, null]], transform: [10, 0, 0, 0, -10, 0] });
+const reduced: GeophysicsRaster = geophysicsReduceToPole(raster, { inclination: -55, declination: 1 });
+const continued = processGeophysicsRaster(reduced, 'upward_continuation', { height: 100 });
+const units: string | null | undefined = continued.metadata.crs_units;
+const operations: readonly string[] = GEOPHYSICS_OPERATIONS;
+
+// @ts-expect-error upward continuation needs a height
+processGeophysicsRaster(raster, 'upward_continuation', { order: 1 });
+
+void units;
+void operations;

@@ -6,9 +6,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const image = {};
+const received = [];
 
 vi.mock('geotiff', () => ({
-  fromArrayBuffer: async () => ({ getImage: async () => image }),
+  fromArrayBuffer: async (buffer) => {
+    received.push(buffer);
+    return { getImage: async () => image };
+  },
   fromUrl: async () => ({ getImage: async () => image }),
 }));
 
@@ -36,6 +40,24 @@ describe('loadGeoTiff', () => {
     expect(raster.nodata).toBe(-9999);
     expect(raster.crs).toBe('EPSG:28351');
     expect(raster.transform).toEqual([10, 0, 500000, 0, -10, 7000000]);
+  });
+
+  it('records coordinate units from the GeoTIFF keys', async () => {
+    const units = async (geoKeys) => (await loadGeoTiff(new ArrayBuffer(8))).metadata.crs_units;
+    expect(await units()).toBeNull();
+    setImage({ geoKeys: { GTModelTypeGeoKey: 1, ProjLinearUnitsGeoKey: 9001 } });
+    expect(await units()).toBe('metre');
+    setImage({ geoKeys: { GTModelTypeGeoKey: 1, ProjLinearUnitsGeoKey: 9003 } });
+    expect(await units()).toBe('us_survey_foot');
+    setImage({ geoKeys: { GTModelTypeGeoKey: 2, GeographicTypeGeoKey: 4283, ProjectedCSTypeGeoKey: undefined } });
+    expect(await units()).toBe('degree');
+  });
+
+  it('accepts the bytes a typed array views', async () => {
+    const whole = Uint8Array.from([0, 1, 2, 3, 4, 5]);
+    await loadGeoTiff(whole.subarray(2, 5));
+    expect(Array.from(new Uint8Array(received.at(-1)))).toEqual([2, 3, 4]);
+    await expect(loadGeoTiff(42)).rejects.toThrow(/typed array/);
   });
 
   it('keeps a south-up grid south-up', async () => {

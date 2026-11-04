@@ -26,6 +26,10 @@
       "types": "./types/extent.d.ts",
       "import": "./dist/extent.js"
     },
+    "./geophysics": {
+      "types": "./types/geophysics.d.ts",
+      "import": "./dist/geophysics.js"
+    },
     "./style.css": "./dist/style.css",
     "./tool-ui": {
       "types": "./types/tool-ui.d.ts",

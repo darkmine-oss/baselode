@@ -42,6 +42,11 @@ other GDAL formats use Rasterio and need the optional `raster` extra:
 `pip install 'baselode[raster]'`. `engine="ers"` or `"rasterio"` overrides
 the choice.
 
+`metadata["crs_units"]` records the coordinate units — `"degree"`, `"metre"`,
+`"foot"` or `"us_survey_foot"`, or `None` when the source does not say — so
+callers can express distances (filter wavelengths, continuation heights) in
+the grid's units.
+
 ### read_ers
 
 ```python
@@ -79,8 +84,40 @@ FFT wavelength filters for every band. Cut-offs are wavelengths in CRS units
 (metres for MGA/UTM grids); the response is 0.5 at the cut-off. `method` is
 `"gaussian"` (no ringing) or `"butterworth"` (sharper, steepness `order`). A
 best-fit plane is removed first (restored by `low_pass` only), gaps are
-mean-filled and the grid mirror-padded; missing cells stay missing. Each step
-is recorded in `metadata["processing"]`.
+filled from that plane and the grid mirror-padded to a power-of-two size;
+missing cells stay missing. Each step is recorded in `metadata["processing"]`.
+
+### Potential-field enhancements
+
+```python
+vertical_derivative(raster, order=1)
+horizontal_derivative(raster, direction="east")      # or "north"
+total_horizontal_derivative(raster)
+tilt_derivative(raster)
+analytic_signal(raster)
+upward_continuation(raster, height)
+reduce_to_pole(raster, inclination, declination)
+```
+
+Standard magnetic and gravity enhancements for every band, returning a new
+`GeophysicsRaster` with the step recorded in `metadata["processing"]`.
+Distances are in CRS units and derivatives are per CRS unit.
+
+| Function | Result |
+| --- | --- |
+| `vertical_derivative` | 1VD (`order=1`), 2VD (`order=2`), ... via the Fourier domain; sharpens shallow sources |
+| `horizontal_derivative` | Gradient along map east or north (central differences, any grid orientation) |
+| `total_horizontal_derivative` | Horizontal gradient magnitude (THD); peaks over contacts and edges |
+| `tilt_derivative` | `atan2(1VD, THD)` in degrees, -90 to 90; positive over sources, zero near edges |
+| `analytic_signal` | `sqrt(dx² + dy² + dz²)`; peaks over magnetic sources whatever the magnetisation direction |
+| `upward_continuation` | Field as if measured `height` higher; emphasises deeper, regional sources |
+| `reduce_to_pole` | TMI as if the field and induced magnetisation were vertical; anomalies move over their sources |
+
+`reduce_to_pole` takes the geomagnetic inclination (degrees, positive down,
+negative in the southern hemisphere) and declination (degrees east of true
+north) for the survey, from its report or an IGRF model. It does not model
+remanence and raises `ValueError` within 15° of the magnetic equator, where it
+is unstable; use `analytic_signal` there.
 
 ### Colour scales
 

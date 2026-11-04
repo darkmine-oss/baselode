@@ -21,6 +21,13 @@ hillshade_z_factor = geophysics_processing.hillshade_z_factor
 low_pass = geophysics_processing.low_pass
 high_pass = geophysics_processing.high_pass
 band_pass = geophysics_processing.band_pass
+vertical_derivative = geophysics_processing.vertical_derivative
+horizontal_derivative = geophysics_processing.horizontal_derivative
+total_horizontal_derivative = geophysics_processing.total_horizontal_derivative
+tilt_derivative = geophysics_processing.tilt_derivative
+analytic_signal = geophysics_processing.analytic_signal
+upward_continuation = geophysics_processing.upward_continuation
+reduce_to_pole = geophysics_processing.reduce_to_pole
 COLOUR_SCALES = geophysics_colour_scales.COLOUR_SCALES
 stretch_values = geophysics_colour_scales.stretch_values
 colourize = geophysics_colour_scales.colourize
@@ -34,6 +41,13 @@ __all__ = [
     "low_pass",
     "high_pass",
     "band_pass",
+    "vertical_derivative",
+    "horizontal_derivative",
+    "total_horizontal_derivative",
+    "tilt_derivative",
+    "analytic_signal",
+    "upward_continuation",
+    "reduce_to_pole",
     "COLOUR_SCALES",
     "stretch_values",
     "colourize",

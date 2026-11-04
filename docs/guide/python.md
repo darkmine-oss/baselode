@@ -1008,6 +1008,19 @@ targets = baselode.geophysics.band_pass(tmi, long_wavelength=5000, short_wavelen
 print(residual.metadata['processing'])
 ```
 
+Standard potential-field enhancements return new rasters too. Reduce TMI to
+the pole with the survey's field inclination and declination before taking
+derivatives:
+
+```python
+rtp = baselode.geophysics.reduce_to_pole(tmi, inclination=-55.2, declination=1.4)
+first_vd = baselode.geophysics.vertical_derivative(rtp)            # order=2 for 2VD
+edges = baselode.geophysics.total_horizontal_derivative(rtp)
+tilt = baselode.geophysics.tilt_derivative(rtp)                   # degrees
+sources = baselode.geophysics.analytic_signal(tmi)
+deeper = baselode.geophysics.upward_continuation(tmi, height=500)  # CRS units
+```
+
 ### Hillshade and colour
 
 ```python

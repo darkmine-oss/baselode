@@ -2,7 +2,8 @@
 
 # Copyright (C) 2026 Darkmine Pty Ltd
 
-"""Cross-language reference for geophysics hillshade, stretch and colour.
+"""Cross-language reference for geophysics hillshade, stretch, colour,
+filters and enhancements.
 
 ``test/data/geophysics_reference.json`` holds Python outputs for a small grid.
 This test keeps the file current; ``javascript/packages/baselode/tests/
@@ -142,6 +143,62 @@ def build_ers_reference():
     return cases
 
 
+def _processing_grid():
+    rows, columns = np.indices((14, 11), dtype=float)
+    values = (
+        30 * np.sin(columns / 1.7) * np.cos(rows / 2.3)
+        + 80 * np.exp(-((rows - 6) ** 2 + (columns - 4) ** 2) / 6.0)
+        + 0.8 * rows - 0.5 * columns + 1000
+    )
+    values[3, 8] = np.nan
+    values[10, 2] = -99999
+    return baselode.geophysics.GeophysicsRaster(
+        values, transform=(50, 0, 400000, 0, -50, 6500000), nodata=-99999,
+    )
+
+
+# (name, JS operation, JS options, Python call)
+PROCESSING_CASES = (
+    ("low_pass", "low_pass", {"wavelength": 300},
+     lambda r: baselode.geophysics.low_pass(r, 300)),
+    ("high_pass_butterworth", "high_pass", {"wavelength": 250, "method": "butterworth", "order": 2},
+     lambda r: baselode.geophysics.high_pass(r, 250, method="butterworth", order=2)),
+    ("band_pass_no_detrend", "band_pass", {"longWavelength": 600, "shortWavelength": 150, "detrend": False},
+     lambda r: baselode.geophysics.band_pass(r, 600, 150, detrend=False)),
+    ("vertical_derivative", "vertical_derivative", {},
+     lambda r: baselode.geophysics.vertical_derivative(r)),
+    ("second_vertical_derivative", "vertical_derivative", {"order": 2},
+     lambda r: baselode.geophysics.vertical_derivative(r, order=2)),
+    ("derivative_north", "horizontal_derivative", {"direction": "north"},
+     lambda r: baselode.geophysics.horizontal_derivative(r, "north")),
+    ("total_horizontal_derivative", "total_horizontal_derivative", {},
+     baselode.geophysics.total_horizontal_derivative),
+    ("tilt_derivative", "tilt_derivative", {},
+     baselode.geophysics.tilt_derivative),
+    ("analytic_signal", "analytic_signal", {},
+     baselode.geophysics.analytic_signal),
+    ("upward_continuation", "upward_continuation", {"height": 120},
+     lambda r: baselode.geophysics.upward_continuation(r, 120)),
+    ("reduce_to_pole", "reduce_to_pole", {"inclination": -55, "declination": 3},
+     lambda r: baselode.geophysics.reduce_to_pole(r, -55, 3)),
+)
+
+
+def build_processing_reference():
+    raster = _processing_grid()
+    cases = []
+    for name, operation, options, function in PROCESSING_CASES:
+        result = function(raster)
+        cases.append({
+            "name": name,
+            "operation": operation,
+            "options": options,
+            "data": _rounded(result.data),
+            "step": result.metadata["processing"][-1],
+        })
+    return {"raster": raster.to_payload(), "cases": cases}
+
+
 def build_reference():
     raster = _grid()
     cases = []
@@ -188,6 +245,7 @@ def build_reference():
         "stretches": stretches,
         "renders": renders,
         "ers": build_ers_reference(),
+        "processing": build_processing_reference(),
     }
 
 

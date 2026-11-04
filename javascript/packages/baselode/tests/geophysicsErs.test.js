@@ -91,6 +91,17 @@ describe('ERS reader', () => {
     expect(() => readErs(ers.header.replace('IEEE4ByteReal', 'Complex'), data)).toThrow(/unsupported CellType/);
   });
 
+  it('registers ER Mapper LATLONG grids like LL ones', () => {
+    const [geodetic] = fixture.ers.filter((testCase) => testCase.header.includes('CoordinateType\t= LL'));
+    const data = bytes(geodetic.data);
+    const ll = readErs(geodetic.header, data);
+    const latlong = readErs(geodetic.header.replace('CoordinateType\t= LL', 'CoordinateType\t= LATLONG'), data);
+    expect(ll.transform).toEqual(geodetic.raster.transform);
+    expect(latlong.transform).toEqual(ll.transform);
+    expect([ll.metadata.crs_units, latlong.metadata.crs_units]).toEqual(['degree', 'degree']);
+    expect(readErs(ers.header, bytes(ers.data)).metadata.crs_units).toBe('metre');
+  });
+
   it('parses brace lists and rejects translated ECW images', () => {
     const header = [
       'DatasetHeader Begin',

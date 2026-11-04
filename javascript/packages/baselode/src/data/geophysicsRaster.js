@@ -249,12 +249,14 @@ const GEOTIFF_CHUNK_ROWS = 256;
  * with Python's `load_raster` and transferred using
  * `GeophysicsRaster.to_payload()`.
  *
- * @param {string|ArrayBuffer|Blob} source
+ * @param {string|URL|Blob|ArrayBuffer|ArrayBufferView} source
  * @param {object} [options]
  * @param {number[]} [options.samples] - Zero-based TIFF sample indexes.
  * @param {number} [options.maxCells] - Decimate (area-weighted mean) to at
  *   most this many cells per band while loading.
- * @returns {Promise<object>}
+ * @returns {Promise<object>} `metadata.crs_units` is `'degree'` for a
+ *   geographic model, the stated projected unit (`'metre'`, `'foot'`,
+ *   `'us_survey_foot'`), or null when the file does not say.
  */
 export async function loadGeoTiff(source, options = {}) {
   const { fromArrayBuffer, fromUrl } = await import('geotiff');
@@ -262,11 +264,15 @@ export async function loadGeoTiff(source, options = {}) {
   if (typeof source === 'string' || source instanceof URL) {
     tiff = await fromUrl(source);
   } else {
-    const buffer = typeof Blob !== 'undefined' && source instanceof Blob
+    let buffer = typeof Blob !== 'undefined' && source instanceof Blob
       ? await source.arrayBuffer()
       : source;
+    // A typed array or Node Buffer may view part of a larger buffer.
+    if (ArrayBuffer.isView(buffer)) {
+      buffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    }
     if (!(buffer instanceof ArrayBuffer)) {
-      throw new TypeError('GeoTIFF source must be a URL, ArrayBuffer, or Blob.');
+      throw new TypeError('GeoTIFF source must be a URL, Blob, ArrayBuffer, or typed array.');
     }
     tiff = await fromArrayBuffer(buffer);
   }
@@ -279,7 +285,7 @@ export async function loadGeoTiff(source, options = {}) {
   const payload = {
     transform: geoTiffTransform(image, image.getGeoKeys()),
     crs: geoTiffCrs(image.getGeoKeys()),
-    metadata: { driver: 'GeoTIFF', width, height },
+    metadata: { driver: 'GeoTIFF', width, height, crs_units: geoTiffCrsUnits(image.getGeoKeys()) },
   };
   const bandNames = (count) => Array.from({ length: count }, (_, index) => `band_${index + 1}`);
   if (maxCells == null || width * height <= maxCells) {
@@ -355,6 +361,18 @@ function geoTiffNoData(raw, bands) {
   // Float32 cells widen exactly, but a sentinel like -1e32 is not exact in
   // float32; round it the same way so it still matches the cells.
   return nodata !== null && bands[0] instanceof Float32Array ? Math.fround(nodata) : nodata;
+}
+
+// GeoTIFF linear unit codes (EPSG unit-of-measure numbers).
+const GEOTIFF_LINEAR_UNITS = { 9001: 'metre', 9002: 'foot', 9003: 'us_survey_foot' };
+
+/**
+ * Coordinate units from the GeoTIFF keys: `'degree'` for a geographic
+ * model, the projected linear unit when stated, otherwise null.
+ */
+function geoTiffCrsUnits(geoKeys) {
+  if (geoKeys?.GTModelTypeGeoKey === 2) return 'degree';
+  return GEOTIFF_LINEAR_UNITS[geoKeys?.ProjLinearUnitsGeoKey] ?? null;
 }
 
 function geoTiffCrs(geoKeys) {

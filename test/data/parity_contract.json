@@ -519,7 +519,18 @@
         "geophysicsHillshade",
         "geophysicsHillshadeZFactor",
         "renderGeophysicsRaster",
-        "GeophysicsRasterViewer"
+        "GeophysicsRasterViewer",
+        "geophysicsLowPass",
+        "geophysicsHighPass",
+        "geophysicsBandPass",
+        "geophysicsVerticalDerivative",
+        "geophysicsHorizontalDerivative",
+        "geophysicsTotalHorizontalDerivative",
+        "geophysicsTiltDerivative",
+        "geophysicsAnalyticSignal",
+        "geophysicsUpwardContinuation",
+        "geophysicsReduceToPole",
+        "processGeophysicsRaster"
       ],
       "pythonSymbols": [
         ["baselode.geophysics", "GeophysicsRaster"],
@@ -530,7 +541,17 @@
         ["baselode.geophysics", "stretch_values"],
         ["baselode.geophysics", "hillshade"],
         ["baselode.geophysics", "hillshade_z_factor"],
-        ["baselode.geophysics", "colourize"]
+        ["baselode.geophysics", "colourize"],
+        ["baselode.geophysics", "low_pass"],
+        ["baselode.geophysics", "high_pass"],
+        ["baselode.geophysics", "band_pass"],
+        ["baselode.geophysics", "vertical_derivative"],
+        ["baselode.geophysics", "horizontal_derivative"],
+        ["baselode.geophysics", "total_horizontal_derivative"],
+        ["baselode.geophysics", "tilt_derivative"],
+        ["baselode.geophysics", "analytic_signal"],
+        ["baselode.geophysics", "upward_continuation"],
+        ["baselode.geophysics", "reduce_to_pole"]
       ]
     }
   ]
