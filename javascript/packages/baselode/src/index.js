@@ -285,6 +285,15 @@ export {
   processGeophysicsRaster,
 } from './data/geophysicsProcessing.js';
 export { parseErsHeader, ersCrs, readErs, loadErs } from './data/ersLoader.js';
+export {
+  GEOPHYSICS_SAMPLING_METHODS,
+  sampleGeophysicsRaster,
+  sampleGeophysicsRows,
+  sampleGeophysicsProfile,
+  geophysicsProfileStations,
+} from './data/geophysicsSampling.js';
+// Reprojects points with the same CRS definitions sampling uses.
+export { transformPoints as transformCrsPoints } from './extent/crs.js';
 
 export {
   interpolateTrace,

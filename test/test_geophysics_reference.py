@@ -2,7 +2,7 @@
 
 # Copyright (C) 2026 Darkmine Pty Ltd
 
-"""Cross-language reference for geophysics hillshade, stretch, colour,
+"""Cross-language reference for geophysics hillshade, stretch, colour, sampling,
 filters and enhancements.
 
 ``test/data/geophysics_reference.json`` holds Python outputs for a small grid.
@@ -20,6 +20,7 @@ import pathlib
 import tempfile
 
 import numpy as np
+import pyproj
 import pytest
 
 import baselode.geophysics
@@ -199,6 +200,38 @@ def build_processing_reference():
     return {"raster": raster.to_payload(), "cases": cases}
 
 
+def build_sampling_reference():
+    raster = _processing_grid().copy_with(crs="EPSG:28350")
+    a, _, c, _, e, f = raster.transform
+    rng = np.random.default_rng(519)
+    columns = np.concatenate([rng.uniform(-0.5, raster.width + 0.5, 40), [0, 0.5, raster.width, 8.5, 8.0, 2.5]])
+    rows = np.concatenate([rng.uniform(-0.5, raster.height + 0.5, 40), [0, 0.5, raster.height, 3.5, 3.2, 10.5]])
+    points = np.round(np.column_stack([c + a * columns, f + e * rows]), 6)
+    cases = []
+    for method in baselode.geophysics.SAMPLING_METHODS:
+        values = baselode.geophysics.sample_points(raster, points[:, 0], points[:, 1], method=method)
+        cases.append({"method": method, "crs": None, "points": points.tolist(), "values": _rounded(values)})
+    inner = points[(columns > 0.6) & (columns < raster.width - 0.6) & (rows > 0.6) & (rows < raster.height - 0.6)]
+    lon, lat = pyproj.Transformer.from_crs("EPSG:28350", "EPSG:4283", always_xy=True).transform(inner[:, 0], inner[:, 1])
+    geographic = np.round(np.column_stack([lon, lat]), 12)
+    values = baselode.geophysics.sample_points(raster, geographic[:, 0], geographic[:, 1], crs="EPSG:4283")
+    cases.append({"method": "bilinear", "crs": "EPSG:4283", "points": geographic.tolist(), "values": _rounded(values)})
+    vertices = [[c + 20, f - 30], [c + 400, f - 260], [c + 410, f - 650]]
+    profile = baselode.geophysics.sample_profile(raster, vertices, 35)
+    return {
+        "raster": raster.to_payload(),
+        "cases": cases,
+        "profile": {
+            "vertices": vertices,
+            "spacing": 35,
+            "distance": _rounded(profile["distance"]),
+            "x": _rounded(profile["x"]),
+            "y": _rounded(profile["y"]),
+            "values": _rounded(profile["value"]),
+        },
+    }
+
+
 def build_reference():
     raster = _grid()
     cases = []
@@ -246,6 +279,7 @@ def build_reference():
         "renders": renders,
         "ers": build_ers_reference(),
         "processing": build_processing_reference(),
+        "sampling": build_sampling_reference(),
     }
 
 

@@ -19,6 +19,15 @@ export {
 } from './data/geophysicsRaster.js';
 export { parseErsHeader, ersCrs, readErs, loadErs } from './data/ersLoader.js';
 export {
+  GEOPHYSICS_SAMPLING_METHODS,
+  sampleGeophysicsRaster,
+  sampleGeophysicsRows,
+  sampleGeophysicsProfile,
+  geophysicsProfileStations,
+} from './data/geophysicsSampling.js';
+// Reprojects points with the same CRS definitions sampling uses.
+export { transformPoints as transformCrsPoints } from './extent/crs.js';
+export {
   GEOPHYSICS_FILTER_METHODS,
   GEOPHYSICS_OPERATIONS,
   MIN_RTP_INCLINATION,

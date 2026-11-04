@@ -104,3 +104,35 @@ export function processGeophysicsRaster<K extends GeophysicsOperation>(
   operation: K,
   options?: GeophysicsOperationOptions[K],
 ): GeophysicsRaster;
+
+export type GeophysicsSamplingMethod = 'bilinear' | 'nearest';
+export const GEOPHYSICS_SAMPLING_METHODS: readonly GeophysicsSamplingMethod[];
+export type GeophysicsPoint = [number, number] | { x: number; y: number };
+export interface GeophysicsSamplingOptions {
+  band?: number;
+  method?: GeophysicsSamplingMethod;
+  crs?: string | number;
+}
+export function sampleGeophysicsRaster(
+  raster: GeophysicsRasterInput,
+  points: GeophysicsPoint[],
+  options?: GeophysicsSamplingOptions,
+): Array<number | null>;
+export function sampleGeophysicsRows<T extends object>(
+  raster: GeophysicsRasterInput,
+  rows: T[],
+  options?: GeophysicsSamplingOptions & { xField?: string; yField?: string; field?: string },
+): Array<T & Record<string, number | null>>;
+export interface GeophysicsProfileStation { distance: number; x: number; y: number }
+export function geophysicsProfileStations(vertices: GeophysicsPoint[], spacing: number): GeophysicsProfileStation[];
+export function sampleGeophysicsProfile(
+  raster: GeophysicsRasterInput,
+  vertices: GeophysicsPoint[],
+  options: GeophysicsSamplingOptions & { spacing: number },
+): Array<GeophysicsProfileStation & { value: number | null }>;
+/** Reproject [x, y] pairs; non-finite pairs come back as [NaN, NaN]. */
+export function transformCrsPoints(
+  sourceCrs: string | number,
+  targetCrs: string | number,
+  points: Array<[number, number]>,
+): Array<[number, number]>;
