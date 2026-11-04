@@ -243,6 +243,15 @@ describe('writers', () => {
     expect(() => encodeErs(gappy, { nodata: -1e40 })).toThrow(/too large/);
   });
 
+  it('takes the GeoTIFF model type from what is known about the CRS', async () => {
+    const { fromArrayBuffer } = await import('geotiff');
+    const keysOf = async (raster) => (await (await fromArrayBuffer(encodeGeoTiff(raster))).getImage()).getGeoKeys();
+    // EPSG:4087 is projected (World Equidistant Cylindrical) despite its number.
+    expect((await keysOf(ramp({ crs: 'EPSG:4087', metadata: { crs_units: 'metre' } }))).ProjectedCSTypeGeoKey).toBe(4087);
+    expect((await keysOf(ramp({ crs: 'EPSG:6668', metadata: { crs_units: 'degree' } }))).GeographicTypeGeoKey).toBe(6668);
+    expect(() => encodeGeoTiff(ramp({ crs: 'EPSG:6668' }))).toThrow(/crs_units/);
+  });
+
   it('writes GDA2020 lat/long as a geographic GeoTIFF', async () => {
     const raster = ramp({ crs: 'EPSG:7844', transform: [0.0025, 0, 118.1, 0, -0.0025, -27.5] });
     const { fromArrayBuffer } = await import('geotiff');

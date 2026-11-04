@@ -252,15 +252,23 @@ const ASCII = 2;
 const DOUBLE = 12;
 const TYPE_BYTES = { [SHORT]: 2, [LONG]: 4, [ASCII]: 1, [DOUBLE]: 8 };
 
-// Geographic systems outside EPSG's 4000-4999 block that grids use.
-const GEOGRAPHIC_CODES = new Set([4202, 4203, 4283, 4326, 7844]);
-
-function isGeographic(code) {
-  if (GEOGRAPHIC_CODES.has(code)) return true;
+/**
+ * Whether an EPSG code is geographic (lat/long), from what is known rather
+ * than its number: a proj4 definition, the systems ERS names (see
+ * ersCoordinateSpace), or the raster's own `metadata.crs_units`.
+ */
+function isGeographic(code, raster) {
   const definition = proj4.defs(`EPSG:${code}`);
   if (definition) return definition.projName === 'longlat';
-  // Unregistered codes: EPSG's geographic 2D systems are numbered 4000-4999.
-  return code >= 4000 && code < 5000;
+  if (code in GEODETIC) return true;
+  if (ersCoordinateSpace(code)[2] === 'EN') return false;
+  const units = raster.metadata?.crs_units;
+  if (units === 'degree') return true;
+  if (units === 'metre' || units === 'foot' || units === 'us_survey_foot') return false;
+  throw new RangeError(
+    `cannot tell whether EPSG:${code} is geographic or projected; set metadata.crs_units ('degree' or 'metre') `
+    + 'or register the CRS with proj4.defs',
+  );
 }
 
 function escapeXml(text) {
@@ -304,7 +312,7 @@ export function encodeGeoTiff(raster, { dtype = 'float32', nodata } = {}) {
   const geoKeys = [[1025, 1]]; // GTRasterTypeGeoKey: PixelIsArea
   const code = epsgCode(normalized.crs);
   if (code !== null) {
-    const geographic = isGeographic(code);
+    const geographic = isGeographic(code, normalized);
     geoKeys.push([1024, geographic ? 2 : 1]);
     geoKeys.push([geographic ? 2048 : 3072, code]);
   }

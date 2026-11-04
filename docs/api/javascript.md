@@ -1225,6 +1225,11 @@ against the same fixture. Each one appends a step to `metadata.processing`.
 | `encodeGeoTiff(raster, { dtype = 'float32', nodata })` | An uncompressed GeoTIFF `ArrayBuffer` with the CRS (when it is an EPSG code), transform, nodata, band names and units |
 | `ersCoordinateSpace(crs)` | `[datum, projection, coordinateType]` for an ERS header, for example `['GDA94', 'MGA50', 'EN']` |
 
+`encodeGeoTiff` writes geographic or projected GeoTIFF keys based on what it
+knows about the CRS. It checks a registered proj4 definition first, then the
+Australian and WGS84 systems ERS names, then the raster's `metadata.crs_units`.
+It refuses an EPSG code it cannot classify and asks for `crs_units`.
+
 Both formats read back with `readErs`, `loadGeoTiff`, Python's `load_raster`
 and GDAL. The ERS bytes match Python's `write_ers`. `dtype` is `'float32'`,
 `'float64'`, `'int8'`, `'uint8'`, `'int16'`, `'uint16'`, `'int32'` or `'uint32'`.
