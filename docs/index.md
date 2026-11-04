@@ -68,13 +68,15 @@ npm install baselode      # JavaScript
 
 ## Screenshots
 
-<p style="font-size:0.9em;color:#64748b;margin-bottom:0.75rem">Screenshots from <a href="/demos">demo-viewer-react</a>.</p>
+<p style="font-size:0.9em;color:#64748b;margin-bottom:0.75rem">Screenshots from <a href="/demos">demo-viewer-react</a> v0.1.68. Gravity grid: Peak Hill–Collier Bouguer anomaly, Geological Survey of Western Australia (CC BY 4.0).</p>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:1rem">
-  <img src="/screenshots/v0.1.5-map.png" alt="Collar map with strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
-  <img src="/screenshots/v0.1.5-striplogs.png" alt="2D multi-track strip logs" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
-  <img src="/screenshots/v0.1.5-3d-drillstrings.png" alt="3D drillhole viewer with assay colouring" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
-  <img src="/screenshots/v0.1.5-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-map.png" alt="Collar map with nickel strip-log popup" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-striplogs.png" alt="2D multi-track strip logs" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-3d-drillholes.png" alt="3D drillhole viewer with assay colouring" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-3d-blockmodel.png" alt="3D block model viewer" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-geophysics.png" alt="Geophysics grid viewer with hillshade (GSWA Peak Hill–Collier Bouguer gravity)" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
+  <img src="/screenshots/v0.1.68-idw-volume.png" alt="3D IDW interpolation volume" style="border-radius:8px;border:1px solid #e2e8f0;width:100%" />
 </div>
 
 <p style="font-size:0.8em;color:#94a3b8;margin-top:2rem">These docs are primarily written with AI. Please notify the maintainer if inaccuracies exist.</p>
