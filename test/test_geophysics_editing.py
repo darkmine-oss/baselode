@@ -268,3 +268,13 @@ def test_writers_refuse_to_turn_data_into_nulls(tmp_path):
     gappy = baselode.geophysics.GeophysicsRaster(np.array([[np.nan, 1.0]]), transform=(1, 0, 0, 0, -1, 1))
     with pytest.raises(ValueError, match="does not fit uint8"):
         baselode.geophysics.write_ers(gappy, tmp_path / "grid.ers", dtype="uint8", nodata=-99999)
+
+
+def test_writers_refuse_values_too_large_for_float32(tmp_path):
+    raster = baselode.geophysics.GeophysicsRaster(np.array([[1e40, 1.0]]), transform=(1, 0, 0, 0, -1, 1))
+    with pytest.raises(ValueError, match="float64"):
+        baselode.geophysics.write_ers(raster, tmp_path / "grid.ers")
+    baselode.geophysics.write_ers(raster, tmp_path / "grid.ers", dtype="float64")
+    assert baselode.geophysics.load_raster(tmp_path / "grid.ers").data[0, 0, 0] == 1e40
+    with pytest.raises(ValueError, match="too large"):
+        baselode.geophysics.write_ers(raster.copy_with(np.array([[np.nan, 1.0]])), tmp_path / "grid.ers", nodata=-1e40)

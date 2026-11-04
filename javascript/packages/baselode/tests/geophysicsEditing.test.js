@@ -128,6 +128,12 @@ describe('clipGeophysicsRaster', () => {
     ]);
     expect(clipGeophysicsRaster(ramp(), feature, { crop: false }).width).toBe(5);
     expect(() => clipGeophysicsRaster(ramp(), [[x(0.1), y(0.1)], [x(0.3), y(0.1)], [x(0.2), y(0.3)]])).toThrow(/cell centre/);
+    // More vertices than a function call accepts as arguments.
+    const detailed = Array.from({ length: 200000 }, (_, k) => {
+      const angle = (2 * Math.PI * k) / 200000;
+      return [x(2.5) + 30 * Math.cos(angle), y(2) + 30 * Math.sin(angle)];
+    });
+    expect(clipGeophysicsRaster(ramp(), detailed).metadata.processing.at(-1).inside_cells).toBeGreaterThan(0);
   });
 });
 
@@ -227,6 +233,14 @@ describe('writers', () => {
     const gappy = createGeophysicsRaster({ data: [[null, 1]], transform: [1, 0, 0, 0, -1, 1] });
     expect(() => encodeErs(gappy, { dtype: 'uint8', nodata: -99999 })).toThrow(/does not fit uint8/);
     expect(() => encodeGeoTiff(gappy, { dtype: 'int16', nodata: 1.5 })).toThrow(/does not fit int16/);
+  });
+
+  it('refuses values too large for float32', () => {
+    const big = createGeophysicsRaster({ data: [[1e40, 1]], transform: [1, 0, 0, 0, -1, 1] });
+    expect(() => encodeGeoTiff(big)).toThrow(/float64/);
+    expect(readErs(...Object.values(encodeErs(big, { dtype: 'float64' }))).data[0][0][0]).toBe(1e40);
+    const gappy = createGeophysicsRaster({ data: [[null, 1]], transform: [1, 0, 0, 0, -1, 1] });
+    expect(() => encodeErs(gappy, { nodata: -1e40 })).toThrow(/too large/);
   });
 
   it('writes GDA2020 lat/long as a geographic GeoTIFF', async () => {

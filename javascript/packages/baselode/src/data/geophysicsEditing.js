@@ -176,10 +176,18 @@ export function clipGeophysicsRaster(raster, polygon, { crop = true } = {}) {
   const transform = requireTransform(normalized);
   let window = [0, 0, normalized.width, normalized.height];
   if (crop) {
-    const points = rings.flat();
-    const xs = points.map(([x]) => x);
-    const ys = points.map(([, y]) => y);
-    window = windowFor(normalized, Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys));
+    // A loop rather than Math.min(...points): detailed boundaries can have
+    // more vertices than a call accepts arguments.
+    let [minX, minY, maxX, maxY] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const ring of rings) {
+      for (const [x, y] of ring) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+    window = windowFor(normalized, minX, minY, maxX, maxY);
     if (!window) throw new RangeError('the polygon does not overlap the raster');
   }
   const [columnOffset, rowOffset, columns, rows] = window;

@@ -126,6 +126,13 @@ def _cells(raster, dtype, null):
         data = raster.data[valid]
         if data.size and (data.min() < info.min or data.max() > info.max or not np.array_equal(data, np.round(data))):
             raise ValueError(f"values do not fit {dtype.name} cells")
+    if dtype.kind == "f":
+        largest = float(np.finfo(dtype).max)
+        if null is not None and np.isfinite(null) and abs(null) > largest:
+            raise ValueError(f"nodata {null!r} is too large for {dtype.name} cells")
+        data = raster.data[valid]
+        if data.size and np.abs(data).max() > largest:
+            raise ValueError(f"values are too large for {dtype.name} cells; pass dtype='float64'")
     cells = np.where(valid, raster.data, null if null is not None else 0).astype(dtype)
     if null is not None and np.isfinite(null) and (cells[valid] == np.asarray(null).astype(dtype)).any():
         raise ValueError(

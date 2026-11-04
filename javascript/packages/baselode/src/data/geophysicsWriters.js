@@ -121,6 +121,9 @@ function bandCells(raster, band, type, fill) {
   }
   // The null value as stored, so float32 rounding cannot hide a collision.
   const stored = fill === null ? null : new type.array([fill])[0];
+  if (type.float && Number.isFinite(fill) && !Number.isFinite(stored)) {
+    throw new RangeError(`nodata ${fill} is too large for ${typeName(type)} cells`);
+  }
   const cells = new type.array(raster.width * raster.height);
   raster.data[band].forEach((row, i) => row.forEach((value, j) => {
     const k = i * raster.width + j;
@@ -133,6 +136,9 @@ function bandCells(raster, band, type, fill) {
       throw new RangeError(`values do not fit ${typeName(type)} cells`);
     }
     cells[k] = value;
+    if (type.float && !Number.isFinite(cells[k])) {
+      throw new RangeError(`values are too large for ${typeName(type)} cells; pass dtype: 'float64'`);
+    }
     if (stored !== null && cells[k] === stored) {
       throw new RangeError(
         `the null value ${fill} also occurs as data, so those cells would read back as missing; pass a different nodata`,
