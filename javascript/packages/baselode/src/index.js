@@ -294,6 +294,14 @@ export {
 } from './data/geophysicsSampling.js';
 // Reprojects points with the same CRS definitions sampling uses.
 export { transformPoints as transformCrsPoints } from './extent/crs.js';
+export {
+  GEOPHYSICS_COMBINE_OPERATIONS,
+  cropGeophysicsRaster,
+  clipGeophysicsRaster,
+  combineGeophysicsRasters,
+  fillGeophysicsGaps,
+} from './data/geophysicsEditing.js';
+export { DEFAULT_ERS_NULL, ersCoordinateSpace, encodeErs, encodeGeoTiff } from './data/geophysicsWriters.js';
 
 export {
   interpolateTrace,

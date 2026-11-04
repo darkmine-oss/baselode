@@ -9,10 +9,12 @@ core Baselode dependency.
 # Aliases avoid reading ``baselode.geophysics`` before this package finishes
 # initialising.
 import baselode.geophysics.colour_scales as geophysics_colour_scales
+import baselode.geophysics.editing as geophysics_editing
 import baselode.geophysics.ers as geophysics_ers
 import baselode.geophysics.processing as geophysics_processing
 import baselode.geophysics.raster as geophysics_raster
 import baselode.geophysics.sampling as geophysics_sampling
+import baselode.geophysics.writers as geophysics_writers
 
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
 load_raster = geophysics_raster.load_raster
@@ -37,6 +39,14 @@ SAMPLING_METHODS = geophysics_sampling.SAMPLING_METHODS
 COLOUR_SCALES = geophysics_colour_scales.COLOUR_SCALES
 stretch_values = geophysics_colour_scales.stretch_values
 colourize = geophysics_colour_scales.colourize
+crop = geophysics_editing.crop
+clip = geophysics_editing.clip
+combine = geophysics_editing.combine
+fill_gaps = geophysics_editing.fill_gaps
+COMBINE_OPERATIONS = geophysics_editing.COMBINE_OPERATIONS
+write_ers = geophysics_writers.write_ers
+write_geotiff = geophysics_writers.write_geotiff
+save_raster = geophysics_writers.save_raster
 
 __all__ = [
     "GeophysicsRaster",
@@ -62,4 +72,12 @@ __all__ = [
     "COLOUR_SCALES",
     "stretch_values",
     "colourize",
+    "crop",
+    "clip",
+    "combine",
+    "fill_gaps",
+    "COMBINE_OPERATIONS",
+    "write_ers",
+    "write_geotiff",
+    "save_raster",
 ]

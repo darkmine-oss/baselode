@@ -25,6 +25,7 @@ import pytest
 
 import baselode.geophysics
 import baselode.geophysics.ers
+import baselode.geophysics.writers
 
 
 FIXTURE_PATH = pathlib.Path(__file__).resolve().parent / "data" / "geophysics_reference.json"
@@ -232,6 +233,84 @@ def build_sampling_reference():
     }
 
 
+def _editing_grid():
+    raster = _processing_grid().copy_with(crs="EPSG:28350", band_names=["tmi"], metadata={"units": ["nT"]})
+    raster.data[0, 5:8, 6:9] = np.nan
+    raster.data[0, 13, 0:3] = np.nan
+    return raster
+
+
+def _editing_result(raster):
+    return {
+        "data": _rounded(raster.data),
+        "transform": list(raster.transform),
+        "step": raster.metadata["processing"][-1],
+    }
+
+
+def build_editing_reference():
+    raster = _editing_grid()
+    a, _, c, _, e, f = raster.transform
+    regional = raster.copy_with(
+        np.fromfunction(lambda band, row, column: 990 + 0.6 * row + 0.2 * column, raster.data.shape),
+    )
+    regional.data[0, 0, 4] = np.nan
+    regional.data[0, 9, 9] = 0.0
+    crops = [
+        [c + 1.2 * a, f + 9.5 * e, c + 6.0 * a, f + 2.0 * e],
+        [c - 500, f + 20 * e, c + 3.4 * a, f + 11.7 * e],
+    ]
+    outer = [[c + 0.5 * a, f + 1.2 * e], [c + 10.3 * a, f + 0.7 * e], [c + 9.1 * a, f + 12.6 * e],
+             [c + 1.4 * a, f + 13.3 * e]]
+    hole = [[c + 3.3 * a, f + 4.4 * e], [c + 6.6 * a, f + 4.2 * e], [c + 5.2 * a, f + 9.1 * e]]
+    clips = [
+        {"polygon": [outer, hole], "crop": True},
+        {"polygon": {"type": "Polygon", "coordinates": [outer]}, "crop": False},
+    ]
+    combines = [
+        {"operation": "subtract", "operand": "regional"},
+        {"operation": "divide", "operand": "regional"},
+        {"operation": "multiply", "operand": -2.5},
+    ]
+    fills = [
+        {"maxDistance": None, "iterations": 60},
+        {"maxDistance": 1, "iterations": 15},
+        {"maxDistance": None, "iterations": 0},
+    ]
+    ers_raster = raster.copy_with(raster.data[:, :5, :4], nodata=None)
+    ers_raster.data[0, 1, 1] = np.nan
+    return {
+        "raster": raster.to_payload(),
+        "regional": regional.to_payload(),
+        "crop": [
+            {"bounds": bounds, "result": _editing_result(baselode.geophysics.crop(raster, bounds))}
+            for bounds in crops
+        ],
+        "clip": [
+            {**case, "result": _editing_result(baselode.geophysics.clip(raster, case["polygon"], crop=case["crop"]))}
+            for case in clips
+        ],
+        "combine": [
+            {**case, "result": _editing_result(baselode.geophysics.combine(
+                raster, regional if case["operand"] == "regional" else case["operand"], case["operation"],
+            ))}
+            for case in combines
+        ],
+        "fill": [
+            {**case, "result": _editing_result(baselode.geophysics.fill_gaps(
+                raster, max_distance=case["maxDistance"], iterations=case["iterations"],
+            ))}
+            for case in fills
+        ],
+        "ersWriter": {
+            "raster": ers_raster.to_payload(),
+            "name": "edited.ers",
+            "header": baselode.geophysics.writers.ers_header(ers_raster, "edited.ers"),
+            "data": base64.b64encode(baselode.geophysics.writers.ers_data(ers_raster)).decode("ascii"),
+        },
+    }
+
+
 def build_reference():
     raster = _grid()
     cases = []
@@ -280,6 +359,7 @@ def build_reference():
         "ers": build_ers_reference(),
         "processing": build_processing_reference(),
         "sampling": build_sampling_reference(),
+        "editing": build_editing_reference(),
     }
 
 

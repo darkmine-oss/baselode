@@ -1062,6 +1062,32 @@ profile = baselode.geophysics.sample_profile(
 profile.plot(x='distance', y='value')
 ```
 
+### Residuals, cropping and gaps
+
+Combine grids on the same cell layout, cut them to an area, and fill
+dropouts before Fourier processing:
+
+```python
+regional = baselode.geophysics.upward_continuation(tmi, height=1000)
+residual = baselode.geophysics.combine(tmi, regional, 'subtract')
+
+area = baselode.geophysics.crop(residual, (402000, 6488000, 418000, 6502000))
+tenement = baselode.geophysics.clip(residual, tenement_polygon)  # Shapely, GeoJSON or [(x, y), ...]
+
+filled = baselode.geophysics.fill_gaps(tmi, max_distance=5)  # gaps within 5 cells of data
+first_vd = baselode.geophysics.vertical_derivative(filled)
+```
+
+### Saving grids
+
+```python
+baselode.geophysics.save_raster(residual, 'residual.ers')   # header + data file, NumPy only
+baselode.geophysics.save_raster(residual, 'residual.tif')   # needs baselode[raster]
+```
+
+Each step is recorded in `metadata["processing"]`, so a saved grid can be traced
+back through the operations that made it.
+
 ### Hillshade and colour
 
 ```python

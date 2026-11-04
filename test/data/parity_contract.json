@@ -535,7 +535,14 @@
         "sampleGeophysicsRows",
         "sampleGeophysicsProfile",
         "geophysicsProfileStations",
-        "transformCrsPoints"
+        "transformCrsPoints",
+        "GEOPHYSICS_COMBINE_OPERATIONS",
+        "cropGeophysicsRaster",
+        "clipGeophysicsRaster",
+        "combineGeophysicsRasters",
+        "fillGeophysicsGaps",
+        "encodeErs",
+        "encodeGeoTiff"
       ],
       "pythonSymbols": [
         ["baselode.geophysics", "GeophysicsRaster"],
@@ -560,7 +567,15 @@
         ["baselode.geophysics", "sample_points"],
         ["baselode.geophysics", "sample_table"],
         ["baselode.geophysics", "sample_profile"],
-        ["baselode.geophysics", "profile_stations"]
+        ["baselode.geophysics", "profile_stations"],
+        ["baselode.geophysics", "COMBINE_OPERATIONS"],
+        ["baselode.geophysics", "crop"],
+        ["baselode.geophysics", "clip"],
+        ["baselode.geophysics", "combine"],
+        ["baselode.geophysics", "fill_gaps"],
+        ["baselode.geophysics", "write_ers"],
+        ["baselode.geophysics", "write_geotiff"],
+        ["baselode.geophysics", "save_raster"]
       ]
     }
   ]

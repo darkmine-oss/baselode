@@ -1,0 +1,34 @@
+DatasetHeader Begin
+	Version	= "6.0"
+	Name	= "geophysics_js_written.ers"
+	DataSetType	= ERStorage
+	DataType	= Raster
+	ByteOrder	= LSBFirst
+	CoordinateSpace Begin
+		Datum	= "GDA94"
+		Projection	= "MGA50"
+		CoordinateType	= EN
+		Rotation	= 0:0:0.0
+	CoordinateSpace End
+	RasterInfo Begin
+		CellType	= IEEE4ByteReal
+		NullCellValue	= -99999
+		CellInfo Begin
+			Xdimension	= 50
+			Ydimension	= 50
+		CellInfo End
+		NrOfLines	= 5
+		NrOfCellsPerLine	= 4
+		RegistrationCoord Begin
+			Eastings	= 400000
+			Northings	= 6500000
+		RegistrationCoord End
+		RegistrationCellX	= 0
+		RegistrationCellY	= 0
+		NrOfBands	= 1
+		BandId Begin
+			Value	= "tmi"
+			Units	= "nT"
+		BandId End
+	RasterInfo End
+DatasetHeader End
