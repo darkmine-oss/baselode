@@ -125,11 +125,12 @@ def test_native_ers_matches_gdal_reader(tmp_path):
             assert native.crs == gdal.crs
 
 
-def test_native_ers_geodetic_registration_and_integer_cells(tmp_path):
+@pytest.mark.parametrize("coordinate_type", ["LL", "LATLONG"])
+def test_native_ers_geodetic_registration_and_integer_cells(tmp_path, coordinate_type):
     data = np.array([[[1, 2, 3], [4, -32768, 6]]])
     path = write_ers(
         tmp_path, data, byte_order="LSBFirst", dtype="<i2", cell_type="Signed16BitInteger",
-        null=-32768, projection="GEODETIC", coordinate_type="LL",
+        null=-32768, projection="GEODETIC", coordinate_type=coordinate_type,
         registration="\t\t\tLongitude\t= 120:30:0.0\n\t\t\tLatitude\t= -31:30:0.0",
         registration_cell=(1, 1), cell=(0.01, 0.02),
     )

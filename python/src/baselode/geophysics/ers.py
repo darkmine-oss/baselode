@@ -179,7 +179,8 @@ def ers_crs(datum, projection):
 def _registration(raster_info, coordinate_type):
     # ER Mapper writes ``RegistrationCoord``; some tools write the long form.
     coordinate = raster_info.get("RegistrationCoord") or raster_info.get("RegistrationCoordinate") or {}
-    if coordinate_type == "LL":
+    # ER Mapper headers say ``LATLONG``; GDAL and older tools write ``LL``.
+    if coordinate_type in ("LL", "LATLONG"):
         x, y = coordinate.get("Longitude"), coordinate.get("Latitude")
         x = None if x is None else _parse_dms(x)
         y = None if y is None else _parse_dms(y)

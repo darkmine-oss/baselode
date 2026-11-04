@@ -150,7 +150,8 @@ function registration(rasterInfo, coordinateType) {
   const coordinate = rasterInfo.RegistrationCoord || rasterInfo.RegistrationCoordinate || {};
   let x;
   let y;
-  if (coordinateType === 'LL') {
+  // ER Mapper headers say `LATLONG`; GDAL and older tools write `LL`.
+  if (coordinateType === 'LL' || coordinateType === 'LATLONG') {
     x = coordinate.Longitude == null ? null : parseDms(coordinate.Longitude);
     y = coordinate.Latitude == null ? null : parseDms(coordinate.Latitude);
   } else if (coordinateType === 'RAW') {
