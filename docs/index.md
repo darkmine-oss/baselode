@@ -32,7 +32,13 @@ features:
     details: Multi-track Plotly strip logs for numeric, categorical, structural (tadpole), and free-text comment columns. Depth increases downward, matching industry convention.
   - icon: 🧊
     title: 3D Scene
-    details: Three.js-powered 3D viewer renders desurveyed hole traces and structural disc markers. Fully embeddable as a standalone HTML page or as a React component.
+    details: Three.js-powered 3D viewer for desurveyed hole traces, structural discs, block models, IDW grade volumes, terrain surfaces and raster overlays, with section and slab clipping. Embed it as a React component or a standalone HTML page.
+  - icon: 🧱
+    title: Block Models & Compositing
+    details: Validate, slice and report block models, including sub-blocks and grade-tonnage curves. Composite assay intervals by length, domain boundary or true thickness, and QC the source tables first.
+  - icon: 🧲
+    title: Geophysics Grids
+    details: Load ER Mapper and GeoTIFF grids. Apply low-, high- and band-pass filters, derivatives, tilt, analytic signal, upward continuation and reduction to the pole, then render with perceptual colour scales and hillshade. Results match between Python and JavaScript.
   - icon: 🐍🟨
     title: Python & JavaScript
     details: Feature-parity across both languages. Use Python in Jupyter notebooks, Dash apps, or analytics pipelines. Use JavaScript/React in web dashboards or Node.js workflows.

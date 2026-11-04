@@ -1,5 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": ".vitepress/dist",
-  "installCommand": "npm ci"
+  "installCommand": "npm ci",
+  "cleanUrls": true
 }

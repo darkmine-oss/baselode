@@ -328,7 +328,7 @@ Linear interpolation per coordinate.  Mirrors the Python `interpolate_trajectory
 
 ---
 
-## DrillholeSet — the composition root
+## DrillholeSet — the composition root {#drillholeset-the-composition-root}
 
 `DrillholeSet` bundles collar + survey + N named interval tables into one object, mirroring the Python class.  Methods delegate to the existing function-based API.
 
@@ -1654,6 +1654,30 @@ export default function MapScene({ holes }) {
   return <div ref={containerRef} style={{ width: '100%', height: '100vh' }} />;
 }
 ```
+
+---
+
+## Terrain Surface
+
+`createTerrainSurface` turns an elevation grid into a mesh under the drillholes. It is useful for showing collars against topography or a DEM window around a project. Baselode does no reprojection, so the grid and bounds must already be in the same projected or local units as the rest of the scene.
+
+```js
+import { createTerrainSurface } from 'baselode';
+
+const terrain = createTerrainSurface({
+  grid: { width: 200, height: 160, elevations, nodata: -9999 }, // row 0 = north edge
+  bounds: { minX: 500000, minY: 6900000, maxX: 510000, maxY: 6908000 },
+  skirt: true,      // display-only wall around the outer edge
+  opacity: 0.8,
+});
+
+if (!terrain.empty) scene.setTerrain(terrain);
+scene.setTerrainOpacity(0.5);
+scene.setTerrainVisible(false);
+scene.clearTerrain();
+```
+
+Missing data shows as holes in the mesh. Baselode never interpolates elevations across them. Vertical exaggeration is applied only when you pass `verticalExaggeration`. Large grids are decimated to `vertexBudget` vertices (300 by default) along the longest side. The full option list is in the [API reference](/api/javascript#terrain-surface).
 
 ---
 

@@ -449,7 +449,7 @@ const merged = mergeTables({ assay: assayRows, litho: lithoRows });
 
 ## 3D Interpolation Volumes
 
-GPU-rendered IDW (inverse-distance-weighted) interpolation volumes for visualising how a drilling attribute varies between sample points in 3D.  See the [guide section](/guide/javascript#3d-interpolation-volumes) for an end-to-end example.
+GPU-rendered IDW (inverse-distance-weighted) interpolation volumes for visualising how a drilling attribute varies between sample points in 3D.  See the [guide section](/guide/javascript#_3d-interpolation-volumes) for an end-to-end example.
 
 #### `IDWVolumeLayer(options)`
 
@@ -1076,6 +1076,171 @@ These delegate to the functions above with `sceneCtx = scene`:
 | `scene.getRasterOverlay(id)` | Get layer by id |
 | `scene.listRasterOverlays()` | Get all layers |
 | `scene.clearRasterOverlays()` | Remove all layers |
+
+---
+
+## Terrain Surface
+
+A terrain surface is a height-grid mesh drawn under the drillholes and other layers. The grid and bounds must already be in the scene's projected or local units. This package does no reprojection, so a caller that windows a DEM must reproject the samples and convert NoData cells first.
+
+### `createTerrainSurface(options)`
+
+Build a terrain layer from an elevation grid. Quads with a NoData corner are left out of the mesh, so missing data shows as a real hole. Elevations are never invented. When the grid has no valid cells, the layer comes back with `empty: true` and `mesh: null` instead of throwing.
+
+| Option | Default | Description |
+|---|---|---|
+| `grid` | required | `{ width, height, elevations, nodata }` with flat row-major elevations, or `{ elevations: number[][], nodata }`. Row 0 is the north edge. |
+| `bounds` | required | `{ minX, minY, maxX, maxY }` in scene units |
+| `id` / `name` | auto | Layer identifier and display name |
+| `verticalExaggeration` | `1` | Explicit Z scale. It is only applied when you set it. |
+| `vertexBudget` | `300` | Maximum vertices along the longest grid dimension. Larger grids are decimated by nearest neighbour, so NoData stays NoData. |
+| `skirt` | `false` | Adds a wall around the outer perimeter so the surface doesn't look paper-thin from a low angle. The wall is for display only and is not sampled data. |
+| `skirtDepth` | just below the minimum | Absolute elevation of the skirt base |
+| `opacity` | `1` | Initial opacity, 0–1 |
+| `visible` | `true` | Initial visibility |
+| `renderOrder` | `-1` | THREE.js render order. Terrain draws before other layers. |
+
+```js
+import { Baselode3DScene, createTerrainSurface } from 'baselode';
+
+const terrain = createTerrainSurface({
+  grid: { width: 256, height: 256, elevations: dem, nodata: -9999 },
+  bounds: { minX: 500000, minY: 6900000, maxX: 512800, maxY: 6912800 },
+  skirt: true,
+  opacity: 0.85,
+});
+scene.setTerrain(terrain);
+```
+
+### `Baselode3DScene` — terrain methods
+
+A scene holds at most one terrain surface.
+
+| Method | Description |
+|---|---|
+| `scene.setTerrain(layer)` | Replace the current terrain with `layer` |
+| `scene.clearTerrain()` | Remove and dispose the terrain |
+| `scene.setTerrainOpacity(opacity)` | Update opacity, 0–1 |
+| `scene.setTerrainVisible(visible)` | Show or hide the terrain |
+| `scene.getTerrain()` | Return the current terrain layer, or `null` |
+
+The same operations are exported as functions taking the scene as their first argument: `setTerrain`, `clearTerrain`, `setTerrainOpacity`, `setTerrainVisibility` and `getTerrain`.
+
+---
+
+## Geophysics Rasters
+
+Gridded geophysics (magnetics, gravity, radiometrics and similar) uses a bands-first raster object. Python's `GeophysicsRaster.to_payload()` produces the same shape, so a grid processed in Python can be rendered in JavaScript unchanged. See the [JavaScript guide](/guide/javascript#geophysics-raster-viewer) for a walkthrough.
+
+### Worker-safe entry point
+
+`baselode/geophysics` exports only the loaders and processing functions. It has no React, DOM or THREE.js dependencies, so you can import it inside a Web Worker to keep FFT processing off the UI thread:
+
+```js
+// geophysicsWorker.js
+import { processGeophysicsRaster } from 'baselode/geophysics';
+
+self.onmessage = ({ data }) => {
+  const { raster, operation, options } = data;
+  self.postMessage(processGeophysicsRaster(raster, operation, options));
+};
+```
+
+Everything on that entry point is also exported from the main `baselode` entry.
+
+### Raster object
+
+`createGeophysicsRaster(payload)` normalises a payload into:
+
+| Field | Description |
+|---|---|
+| `data` | Array of bands. Each band is `rows × columns`, with row 0 on the north edge and `null` for NoData. |
+| `width`, `height`, `bandCount` | Grid dimensions |
+| `transform` | Affine transform `[a, b, c, d, e, f]` mapping (column, row) to (x, y) |
+| `crs` | CRS string such as `EPSG:28350`, or `null` |
+| `nodata` | NoData value in the source, or `null` |
+| `bandNames` | One name per band |
+| `metadata` | `units` per band, `crs_units` (`degree`, `metre`, `foot` or `us_survey_foot`), and `processing`, the history of applied operations |
+| `bounds` | `{ minX, minY, maxX, maxY }` computed from the transform |
+
+| Function | Description |
+|---|---|
+| `createGeophysicsRaster(payload)` | Validate and normalise a payload. A single 2-D array is treated as one band. |
+| `getGeophysicsRasterBand(raster, index = 1)` | Return one band (1-based) |
+| `geophysicsRasterRange(raster, band = 1)` | `[min, max]` of the valid cells |
+| `decimateGeophysicsRaster(raster, maxCells = 160000)` | Downsample by area-weighted mean to at most `maxCells` cells per band. Returns the input unchanged when it is already small enough. |
+| `geophysicsRasterFromBands(bands, options)` | Build a raster from flat typed arrays or per-index accessor functions. `options` needs `width` and `height` and can include `maxCells` and the other payload fields. |
+
+### Loaders
+
+| Function | Description |
+|---|---|
+| `loadGeoTiff(source, { maxCells, samples })` | Read a GeoTIFF from a URL, `Blob`, `ArrayBuffer` or typed array. `samples` picks bands. Returns a promise. |
+| `loadErs(header, data, { maxCells, name })` | Read an ER Mapper grid from its `.ers` header and binary data file. Each argument can be a URL, `Blob`, `ArrayBuffer` or typed array. Returns a promise. |
+| `readErs(headerText, data, { maxCells, name })` | Synchronous version taking the header text and data buffer |
+| `parseErsHeader(text)` | Parse an `.ers` header into nested objects, including brace lists such as `RegistrationCoord` |
+| `ersCrs(datum, projection)` | Map an ER Mapper datum/projection pair to an EPSG code, or `null` |
+
+ER Mapper `LATLONG` grids load with `crs_units: 'degree'`. Headers that describe a compressed ECW image rather than a raw grid are rejected with a clear error, because ECW decoding is not supported.
+
+### Processing
+
+Every function returns a new raster and appends a step to `metadata.processing`. Wavelengths and heights are in the grid's own units. Convert metres to degrees yourself when `metadata.crs_units` is `'degree'`. NoData cells stay NoData in the output.
+
+| Function | Options |
+|---|---|
+| `geophysicsLowPass(raster, options)` | `wavelength`, `method` (`'gaussian'` or `'butterworth'`), `order = 4`, `detrend = true` |
+| `geophysicsHighPass(raster, options)` | Same as low-pass |
+| `geophysicsBandPass(raster, options)` | `longWavelength`, `shortWavelength`, `method`, `order`, `detrend` |
+| `geophysicsVerticalDerivative(raster, { order = 1 })` | First or second vertical derivative |
+| `geophysicsHorizontalDerivative(raster, { direction = 'east' })` | `'east'` or `'north'` |
+| `geophysicsTotalHorizontalDerivative(raster)` | — |
+| `geophysicsTiltDerivative(raster)` | Result in radians |
+| `geophysicsAnalyticSignal(raster)` | — |
+| `geophysicsUpwardContinuation(raster, { height })` | Continuation height |
+| `geophysicsReduceToPole(raster, { inclination, declination })` | Degrees. Inclinations shallower than `MIN_RTP_INCLINATION` (15°) are rejected because reduce-to-pole is unstable there. |
+| `processGeophysicsRaster(raster, operation, options)` | Dispatch by name: `low_pass`, `high_pass`, `band_pass`, `vertical_derivative`, `horizontal_derivative`, `total_horizontal_derivative`, `tilt_derivative`, `analytic_signal`, `upward_continuation` or `reduce_to_pole` |
+
+**Constants:** `GEOPHYSICS_OPERATIONS`, `GEOPHYSICS_FILTER_METHODS`, `MIN_RTP_INCLINATION`
+
+The JavaScript and Python implementations share one FFT design and are tested against a common fixture, so they agree cell for cell.
+
+### Rendering
+
+| Function | Description |
+|---|---|
+| `renderGeophysicsRaster(raster, options)` | Colour one band into RGBA pixels. Options: `band = 1`, `palette = 'viridis'`, `reversePalette`, `stretch` and `hillshade`. Returns `{ data, width, height, range, ... }`, ready for `ImageData`. |
+| `geophysicsHillshade(raster, options)` | Illumination grid for `band`, `azimuth`, `altitude` and `zFactor` (a number or `'auto'`) |
+| `geophysicsHillshadeZFactor(raster, band = 1)` | The `'auto'` z-factor. It scales the 95th-percentile gradient to a 45° slope, so relief looks comparable whatever the data units. |
+| `createGeophysicsStretch(values, stretch, nodata)` | Resolve a stretch into `{ limits, toRatio, valueAt }` |
+| `normalizeGeophysicsStretch(stretch)` | Fill defaults for a partial stretch |
+| `geophysicsScaleColor(palette, ratio, reverse)` | `[r, g, b]` for a ratio from 0 to 1 |
+| `geophysicsColorGradient(palette, reverse)` | CSS `linear-gradient` for a colour bar |
+
+Stretch modes (`GEOPHYSICS_STRETCH_MODES`):
+
+- `{ mode: 'relative', low: 2, high: 98 }` sets percentile limits and is the default.
+- `{ mode: 'absolute', min, max }` uses limits in data units.
+- `{ mode: 'equalize' }` applies histogram equalisation.
+
+**Constants:** `GEOPHYSICS_PALETTES`, `GEOPHYSICS_COLOR_SCALES`, `DEFAULT_GEOPHYSICS_STRETCH`, `DEFAULT_GEOPHYSICS_HILLSHADE`
+
+### `<GeophysicsRasterViewer>`
+
+React component that draws a raster on a canvas. It includes a colour bar, a summary, a cursor read-out, and controls for palette, stretch and hillshade.
+
+| Prop | Default | Description |
+|---|---|---|
+| `raster` | required | Raster object or payload |
+| `band` | `1` | Band to display |
+| `units` | — | Label for the colour bar and read-out |
+| `value` / `onViewChange` | — | Controlled view state: `{ palette, reversePalette, stretch, hillshade }` |
+| `defaultView` | — | Initial view when uncontrolled |
+| `showControls`, `showColorbar`, `showSummary`, `showCursorValue` | `true` | Toggle each part of the viewer |
+| `height` | `420` | Canvas height in pixels |
+| `className` | `''` | Extra CSS class |
+
+`resolveGeophysicsView(view)` merges a partial view over the defaults.
 
 ---
 

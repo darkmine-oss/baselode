@@ -4,6 +4,7 @@ export default defineConfig({
   title: 'Baselode',
   description: 'Open-source toolkit for the mineral exploration and mining industries',
   base: '/',
+  cleanUrls: true,
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: '/baselode_logo.png' }]
@@ -21,7 +22,9 @@ export default defineConfig({
         items: [
           { text: 'Python', link: '/guide/python' },
           { text: 'JavaScript', link: '/guide/javascript' },
-          { text: 'Core Photo Viewer', link: '/guide/core-photo-viewer' }
+          { text: 'Core Photo Viewer', link: '/guide/core-photo-viewer' },
+          { text: 'Attribute promotion', link: '/guide/attribute-expansion' },
+          { text: 'Structural observations', link: '/guide/structural-observations' }
         ]
       },
       {
@@ -70,9 +73,13 @@ export default defineConfig({
             { text: 'Database Validation', link: '/guide/python#database-validation' },
             { text: 'OMF interop', link: '/guide/python#omf-interop-open-mining-format' },
             { text: 'Interval Algebra', link: '/guide/python#interval-algebra' },
+            { text: 'Compositing', link: '/guide/python#compositing' },
+            { text: 'Block Models', link: '/guide/python#block-models' },
             { text: 'Visualization', link: '/guide/python#visualization' },
             { text: 'Plotly Templates', link: '/guide/python#plotly-templates' },
-            { text: 'Colour Mapping', link: '/guide/python#colour-mapping' }
+            { text: 'Colour Mapping', link: '/guide/python#colour-mapping' },
+            { text: 'Geophysics Rasters', link: '/guide/python#geophysics-rasters' },
+            { text: 'Jupyter Notebooks', link: '/guide/python#using-with-jupyter-notebooks' }
           ]
         },
         {
@@ -85,11 +92,27 @@ export default defineConfig({
             { text: 'DrillholeSet', link: '/guide/javascript#drillholeset-the-composition-root' },
             { text: 'Database Validation', link: '/guide/javascript#database-validation' },
             { text: 'Interval Algebra', link: '/guide/javascript#interval-algebra' },
+            { text: 'Compositing', link: '/guide/javascript#compositing' },
+            { text: 'Block Models', link: '/guide/javascript#block-models' },
+            { text: '3D Interpolation Volumes', link: '/guide/javascript#_3d-interpolation-volumes' },
+            { text: 'Spatial Extents', link: '/guide/javascript#spatial-extents' },
             { text: 'Visualization', link: '/guide/javascript#visualization' },
+            { text: 'Tool UI', link: '/guide/javascript#tool-ui' },
             { text: 'Plotly Templates', link: '/guide/javascript#plotly-templates' },
             { text: 'Colour Mapping', link: '/guide/javascript#colour-mapping' },
-            { text: '3D Scene', link: '/guide/javascript#3d-scene' },
-            { text: 'Raster Overlays', link: '/guide/javascript#raster-overlays' }
+            { text: '3D Scene', link: '/guide/javascript#_3d-scene' },
+            { text: '3D Sections and Slabs', link: '/guide/javascript#_3d-sections-and-slabs' },
+            { text: 'Geophysics Rasters', link: '/guide/javascript#geophysics-raster-viewer' },
+            { text: 'Raster Overlays', link: '/guide/javascript#raster-overlays' },
+            { text: 'Terrain Surface', link: '/guide/javascript#terrain-surface' }
+          ]
+        },
+        {
+          text: 'Data Topics',
+          collapsed: false,
+          items: [
+            { text: 'Attribute promotion', link: '/guide/attribute-expansion' },
+            { text: 'Structural observations', link: '/guide/structural-observations' }
           ]
         },
         {
@@ -102,7 +125,7 @@ export default defineConfig({
             { text: 'Multiple photo sets', link: '/guide/core-photo-viewer#multiple-photo-sets' },
             { text: 'Multiple datasets for one hole', link: '/guide/core-photo-viewer#multiple-datasets-for-one-hole' },
             { text: 'Comparing multiple holes', link: '/guide/core-photo-viewer#comparing-multiple-holes' },
-            { text: 'Linked pan/zoom', link: '/guide/core-photo-viewer#linked-panzoom-across-independent-viewers' },
+            { text: 'Linked pan/zoom', link: '/guide/core-photo-viewer#linked-pan-zoom-across-independent-viewers' },
             { text: 'Filename conventions', link: '/guide/core-photo-viewer#filename-conventions' },
             { text: 'Local development', link: '/guide/core-photo-viewer#local-development' },
             { text: 'API reference', link: '/guide/core-photo-viewer#full-api-reference' }
