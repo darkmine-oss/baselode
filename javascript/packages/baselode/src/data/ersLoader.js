@@ -263,6 +263,9 @@ export function readErs(headerText, data, options = {}) {
       datum: space.Datum ?? null,
       projection: space.Projection ?? null,
       coordinate_type: coordinateType,
+      // Latitude/longitude registration is in degrees; ERS eastings,
+      // northings and raw coordinates are metres.
+      crs_units: coordinateType === 'LL' || coordinateType === 'LATLONG' ? 'degree' : 'metre',
       cell_type: rasterInfo.CellType,
       units,
     },

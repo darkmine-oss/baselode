@@ -418,6 +418,30 @@ class GeophysicsRaster:
         )
 
 
+_LINEAR_UNITS = {
+    "metre": "metre",
+    "meter": "metre",
+    "m": "metre",
+    "foot": "foot",
+    "ft": "foot",
+    "us survey foot": "us_survey_foot",
+    "us_survey_foot": "us_survey_foot",
+    "us-ft": "us_survey_foot",
+}
+
+
+def _crs_units(crs):
+    """Return a rasterio CRS's coordinate units, or ``None`` when unknown.
+
+    One of ``"degree"``, ``"metre"``, ``"foot"`` or ``"us_survey_foot"``.
+    """
+    if crs is None:
+        return None
+    if crs.is_geographic:
+        return "degree"
+    return _LINEAR_UNITS.get(str(crs.linear_units or "").strip().lower())
+
+
 def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
     """Load a geophysics raster into memory.
 
@@ -441,7 +465,9 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
     -------
     GeophysicsRaster
         Fully loaded raster with affine transform, CRS, no-data value, names,
-        and source metadata.
+        and source metadata.  ``metadata["crs_units"]`` names the coordinate
+        units (``"degree"``, ``"metre"``, ``"foot"``, ``"us_survey_foot"``)
+        or is ``None`` when the CRS does not say.
 
     Raises
     ------
@@ -489,6 +515,7 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
         metadata = {
             "driver": dataset.driver,
             "source": str(dataset.name),
+            "crs_units": _crs_units(dataset.crs),
             "tags": tags,
         }
         return GeophysicsRaster(

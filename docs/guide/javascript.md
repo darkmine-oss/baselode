@@ -1482,7 +1482,9 @@ const regional = processGeophysicsRaster(raster, 'upward_continuation', { height
 
 `processGeophysicsRaster(raster, operation, options)` applies one by its
 Python name (`GEOPHYSICS_OPERATIONS`). Distances are in CRS units, so they
-are degrees for geographic grids.
+are degrees for geographic grids. `readErs` and `loadGeoTiff` record those
+units in `metadata.crs_units` (`'degree'`, `'metre'`, `'foot'`,
+`'us_survey_foot'`, or null when a GeoTIFF does not say).
 
 Apply wavelength filters on the Python side, then transfer the payload. The
 Tool UI equivalent is the `geophysics-raster` primitive with canonical name

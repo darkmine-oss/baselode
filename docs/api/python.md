@@ -42,6 +42,11 @@ other GDAL formats use Rasterio and need the optional `raster` extra:
 `pip install 'baselode[raster]'`. `engine="ers"` or `"rasterio"` overrides
 the choice.
 
+`metadata["crs_units"]` records the coordinate units — `"degree"`, `"metre"`,
+`"foot"` or `"us_survey_foot"`, or `None` when the source does not say — so
+callers can express distances (filter wavelengths, continuation heights) in
+the grid's units.
+
 ### read_ers
 
 ```python

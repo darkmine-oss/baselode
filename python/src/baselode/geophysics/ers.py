@@ -210,8 +210,9 @@ def read_ers(path, masked=True):
     GeophysicsRaster
         Bands in ``(band, row, column)`` order with a GDAL affine transform,
         an ``EPSG:`` CRS where the datum/projection is recognised, the null
-        value as ``nodata``, ``BandId`` values as band names, and band units
-        and raw ERS georeferencing in ``metadata``.
+        value as ``nodata``, ``BandId`` values as band names, and band units,
+        raw ERS georeferencing and the coordinate units (``crs_units``:
+        ``"degree"`` or ``"metre"``) in ``metadata``.
 
     Raises
     ------
@@ -290,6 +291,9 @@ def read_ers(path, masked=True):
         "datum": space.get("Datum"),
         "projection": space.get("Projection"),
         "coordinate_type": coordinate_type,
+        # Latitude/longitude registration is in degrees; ERS eastings,
+        # northings and raw coordinates are metres.
+        "crs_units": "degree" if coordinate_type in ("LL", "LATLONG") else "metre",
         "cell_type": raster_info.get("CellType"),
         "units": units,
     }

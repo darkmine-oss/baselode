@@ -121,6 +121,7 @@ def test_native_ers_matches_gdal_reader(tmp_path):
         np.testing.assert_array_equal(native.data, gdal.data)
         np.testing.assert_allclose(native.transform, gdal.transform)
         assert native.nodata == gdal.nodata
+        assert native.metadata["crs_units"] == gdal.metadata["crs_units"]
         if gdal.crs.startswith("EPSG:"):
             assert native.crs == gdal.crs
 
@@ -138,6 +139,7 @@ def test_native_ers_geodetic_registration_and_integer_cells(tmp_path, coordinate
     raster = baselode.geophysics.load_raster(path)
 
     assert raster.crs == "EPSG:4283"
+    assert raster.metadata["crs_units"] == "degree"
     a, _, c, _, e, f = raster.transform
     assert (a, e) == (0.01, -0.02)
     assert c == pytest.approx(120.5 - 0.01)

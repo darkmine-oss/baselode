@@ -254,7 +254,9 @@ const GEOTIFF_CHUNK_ROWS = 256;
  * @param {number[]} [options.samples] - Zero-based TIFF sample indexes.
  * @param {number} [options.maxCells] - Decimate (area-weighted mean) to at
  *   most this many cells per band while loading.
- * @returns {Promise<object>}
+ * @returns {Promise<object>} `metadata.crs_units` is `'degree'` for a
+ *   geographic model, the stated projected unit (`'metre'`, `'foot'`,
+ *   `'us_survey_foot'`), or null when the file does not say.
  */
 export async function loadGeoTiff(source, options = {}) {
   const { fromArrayBuffer, fromUrl } = await import('geotiff');
@@ -279,7 +281,7 @@ export async function loadGeoTiff(source, options = {}) {
   const payload = {
     transform: geoTiffTransform(image, image.getGeoKeys()),
     crs: geoTiffCrs(image.getGeoKeys()),
-    metadata: { driver: 'GeoTIFF', width, height },
+    metadata: { driver: 'GeoTIFF', width, height, crs_units: geoTiffCrsUnits(image.getGeoKeys()) },
   };
   const bandNames = (count) => Array.from({ length: count }, (_, index) => `band_${index + 1}`);
   if (maxCells == null || width * height <= maxCells) {
@@ -355,6 +357,18 @@ function geoTiffNoData(raw, bands) {
   // Float32 cells widen exactly, but a sentinel like -1e32 is not exact in
   // float32; round it the same way so it still matches the cells.
   return nodata !== null && bands[0] instanceof Float32Array ? Math.fround(nodata) : nodata;
+}
+
+// GeoTIFF linear unit codes (EPSG unit-of-measure numbers).
+const GEOTIFF_LINEAR_UNITS = { 9001: 'metre', 9002: 'foot', 9003: 'us_survey_foot' };
+
+/**
+ * Coordinate units from the GeoTIFF keys: `'degree'` for a geographic
+ * model, the projected linear unit when stated, otherwise null.
+ */
+function geoTiffCrsUnits(geoKeys) {
+  if (geoKeys?.GTModelTypeGeoKey === 2) return 'degree';
+  return GEOTIFF_LINEAR_UNITS[geoKeys?.ProjLinearUnitsGeoKey] ?? null;
 }
 
 function geoTiffCrs(geoKeys) {

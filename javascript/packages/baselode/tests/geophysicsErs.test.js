@@ -98,6 +98,8 @@ describe('ERS reader', () => {
     const latlong = readErs(geodetic.header.replace('CoordinateType\t= LL', 'CoordinateType\t= LATLONG'), data);
     expect(ll.transform).toEqual(geodetic.raster.transform);
     expect(latlong.transform).toEqual(ll.transform);
+    expect([ll.metadata.crs_units, latlong.metadata.crs_units]).toEqual(['degree', 'degree']);
+    expect(readErs(ers.header, bytes(ers.data)).metadata.crs_units).toBe('metre');
   });
 
   it('parses brace lists and rejects translated ECW images', () => {

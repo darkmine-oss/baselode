@@ -889,6 +889,7 @@
      "datum": "GDA94",
      "projection": "MGA51",
      "coordinate_type": "EN",
+     "crs_units": "metre",
      "cell_type": "IEEE4ByteReal",
      "units": [
       "nT",
@@ -997,6 +998,7 @@
      "datum": "GDA2020",
      "projection": "GEODETIC",
      "coordinate_type": "LL",
+     "crs_units": "degree",
      "cell_type": "Signed16BitInteger",
      "units": [
       "m"

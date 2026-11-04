@@ -38,6 +38,17 @@ describe('loadGeoTiff', () => {
     expect(raster.transform).toEqual([10, 0, 500000, 0, -10, 7000000]);
   });
 
+  it('records coordinate units from the GeoTIFF keys', async () => {
+    const units = async (geoKeys) => (await loadGeoTiff(new ArrayBuffer(8))).metadata.crs_units;
+    expect(await units()).toBeNull();
+    setImage({ geoKeys: { GTModelTypeGeoKey: 1, ProjLinearUnitsGeoKey: 9001 } });
+    expect(await units()).toBe('metre');
+    setImage({ geoKeys: { GTModelTypeGeoKey: 1, ProjLinearUnitsGeoKey: 9003 } });
+    expect(await units()).toBe('us_survey_foot');
+    setImage({ geoKeys: { GTModelTypeGeoKey: 2, GeographicTypeGeoKey: 4283, ProjectedCSTypeGeoKey: undefined } });
+    expect(await units()).toBe('degree');
+  });
+
   it('keeps a south-up grid south-up', async () => {
     setImage({ resolution: [10, 10] });
     expect((await loadGeoTiff(new ArrayBuffer(8))).transform).toEqual([10, 0, 500000, 0, 10, 7000000]);
