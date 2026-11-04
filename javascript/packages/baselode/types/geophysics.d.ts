@@ -118,7 +118,7 @@ export function sampleGeophysicsRaster(
   points: GeophysicsPoint[],
   options?: GeophysicsSamplingOptions,
 ): Array<number | null>;
-export function sampleGeophysicsRows<T extends Record<string, unknown>>(
+export function sampleGeophysicsRows<T extends object>(
   raster: GeophysicsRasterInput,
   rows: T[],
   options?: GeophysicsSamplingOptions & { xField?: string; yField?: string; field?: string },
