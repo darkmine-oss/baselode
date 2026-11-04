@@ -208,6 +208,9 @@ describe('writers', () => {
     expect(ersCoordinateSpace('EPSG:7850')).toEqual(['GDA2020', 'MGA50', 'EN']);
     expect(ersCoordinateSpace(4326)).toEqual(['WGS84', 'GEODETIC', 'LATLONG']);
     expect(ersCoordinateSpace('EPSG:3857')).toEqual(['RAW', 'RAW', 'EN']);
+    expect(ersCoordinateSpace(28348)).toEqual(['GDA94', 'MGA48', 'EN']);
+    expect(ersCoordinateSpace(7859)).toEqual(['GDA2020', 'MGA59', 'EN']);
+    expect(ersCoordinateSpace(7845)).toEqual(['RAW', 'RAW', 'EN']);
   });
 
   it.each([
@@ -250,6 +253,11 @@ describe('writers', () => {
     expect((await keysOf(ramp({ crs: 'EPSG:4087', metadata: { crs_units: 'metre' } }))).ProjectedCSTypeGeoKey).toBe(4087);
     expect((await keysOf(ramp({ crs: 'EPSG:6668', metadata: { crs_units: 'degree' } }))).GeographicTypeGeoKey).toBe(6668);
     expect(() => encodeGeoTiff(ramp({ crs: 'EPSG:6668' }))).toThrow(/crs_units/);
+    // Units survive a save, load and save again.
+    const albers = await loadGeoTiff(encodeGeoTiff(ramp({ crs: 'EPSG:3577', metadata: { crs_units: 'metre' } })));
+    expect(albers.metadata.crs_units).toBe('metre');
+    expect(() => encodeGeoTiff(albers)).not.toThrow();
+    expect((await loadGeoTiff(encodeGeoTiff(ramp()))).metadata.crs_units).toBe('metre');
   });
 
   it('writes GDA2020 lat/long as a geographic GeoTIFF', async () => {

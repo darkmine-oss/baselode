@@ -30,13 +30,15 @@ const CELL_TYPES = {
 };
 
 const GEODETIC = { 4283: 'GDA94', 7844: 'GDA2020', 4202: 'AGD66', 4203: 'AGD84', 4326: 'WGS84' };
+// [first EPSG code, last EPSG code, code of zone 0, datum, projection prefix]:
+// the zones EPSG defines for each system (as Python).
 const ZONED = [
-  [28300, 'GDA94', 'MGA'],
-  [7800, 'GDA2020', 'MGA'],
-  [20200, 'AGD66', 'AMG'],
-  [20300, 'AGD84', 'AMG'],
-  [32600, 'WGS84', 'NUTM'],
-  [32700, 'WGS84', 'SUTM'],
+  [28348, 28358, 28300, 'GDA94', 'MGA'],
+  [7846, 7859, 7800, 'GDA2020', 'MGA'],
+  [20248, 20258, 20200, 'AGD66', 'AMG'],
+  [20348, 20358, 20300, 'AGD84', 'AMG'],
+  [32601, 32660, 32600, 'WGS84', 'NUTM'],
+  [32701, 32760, 32700, 'WGS84', 'SUTM'],
 ];
 
 function asRaster(raster) {
@@ -73,11 +75,8 @@ function epsgCode(crs) {
 export function ersCoordinateSpace(crs) {
   const code = epsgCode(crs);
   if (code in GEODETIC) return [GEODETIC[code], 'GEODETIC', 'LATLONG'];
-  for (const [first, datum, prefix] of ZONED) {
-    const zone = (code ?? 0) - first;
-    if (zone >= 1 && zone <= 60 && (prefix === 'NUTM' || prefix === 'SUTM' || (zone >= 49 && zone <= 58))) {
-      return [datum, `${prefix}${zone}`, 'EN'];
-    }
+  for (const [first, last, base, datum, prefix] of ZONED) {
+    if (code !== null && code >= first && code <= last) return [datum, `${prefix}${code - base}`, 'EN'];
   }
   return ['RAW', 'RAW', 'EN'];
 }
@@ -271,6 +270,18 @@ function isGeographic(code, raster) {
   );
 }
 
+const LINEAR_UNIT_CODES = { metre: 9001, foot: 9002, us_survey_foot: 9003 };
+const PROJ4_UNITS = { m: 'metre', ft: 'foot', 'us-ft': 'us_survey_foot' };
+
+/** A projected CRS's linear units, or null when unknown. */
+function projectedUnits(code, raster) {
+  const recorded = raster.metadata?.crs_units;
+  if (recorded in LINEAR_UNIT_CODES) return recorded;
+  const definition = proj4.defs(`EPSG:${code}`);
+  if (definition) return PROJ4_UNITS[definition.units ?? 'm'] ?? null;
+  return ersCoordinateSpace(code)[0] !== 'RAW' ? 'metre' : null;
+}
+
 function escapeXml(text) {
   return String(text).replace(/[<>&"']/g, (character) => `&#${character.charCodeAt(0)};`);
 }
@@ -315,6 +326,9 @@ export function encodeGeoTiff(raster, { dtype = 'float32', nodata } = {}) {
     const geographic = isGeographic(code, normalized);
     geoKeys.push([1024, geographic ? 2 : 1]);
     geoKeys.push([geographic ? 2048 : 3072, code]);
+    // ProjLinearUnitsGeoKey, so readers (loadGeoTiff included) know the units.
+    const unit = geographic ? null : LINEAR_UNIT_CODES[projectedUnits(code, normalized)];
+    if (unit) geoKeys.push([3076, unit]);
   }
   geoKeys.sort(([p], [q]) => p - q);
   const tags = [

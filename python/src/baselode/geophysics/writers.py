@@ -39,14 +39,15 @@ _ERS_CELL_TYPES = {
 }
 
 _GEODETIC = {4283: "GDA94", 7844: "GDA2020", 4202: "AGD66", 4203: "AGD84", 4326: "WGS84"}
-# (first code, datum, projection prefix): zone = code - first code.
+# (first EPSG code, last EPSG code, code of zone 0, datum, projection
+# prefix): the zones EPSG defines for each system.
 _ZONED = (
-    (28300, "GDA94", "MGA"),
-    (7800, "GDA2020", "MGA"),
-    (20200, "AGD66", "AMG"),
-    (20300, "AGD84", "AMG"),
-    (32600, "WGS84", "NUTM"),
-    (32700, "WGS84", "SUTM"),
+    (28348, 28358, 28300, "GDA94", "MGA"),
+    (7846, 7859, 7800, "GDA2020", "MGA"),
+    (20248, 20258, 20200, "AGD66", "AMG"),
+    (20348, 20358, 20300, "AGD84", "AMG"),
+    (32601, 32660, 32600, "WGS84", "NUTM"),
+    (32701, 32760, 32700, "WGS84", "SUTM"),
 )
 
 
@@ -73,10 +74,9 @@ def ers_coordinate_space(crs):
     code = pyproj.CRS.from_user_input(crs).to_epsg()
     if code in _GEODETIC:
         return _GEODETIC[code], "GEODETIC", "LATLONG"
-    for first, datum, prefix in _ZONED:
-        zone = (code or 0) - first
-        if 1 <= zone <= 60 and (prefix in ("NUTM", "SUTM") or 49 <= zone <= 58):
-            return datum, f"{prefix}{zone}", "EN"
+    for first, last, base, datum, prefix in _ZONED:
+        if code is not None and first <= code <= last:
+            return datum, f"{prefix}{code - base}", "EN"
     return "RAW", "RAW", "EN"
 
 

@@ -236,6 +236,10 @@ def test_ers_names_for_crs():
     assert space("EPSG:20351") == ("AGD84", "AMG51", "EN")
     assert space("EPSG:32601") == ("WGS84", "NUTM1", "EN")
     assert space("EPSG:3577") == ("RAW", "RAW", "EN")
+    # Every zone EPSG defines, not only the mainland ones.
+    assert space("EPSG:28348") == ("GDA94", "MGA48", "EN")
+    assert space("EPSG:7859") == ("GDA2020", "MGA59", "EN")
+    assert space("EPSG:7845") == ("RAW", "RAW", "EN")  # GDA2020 / GA LCC
 
 
 DATA_DIR = pathlib.Path(__file__).resolve().parent / "data"
