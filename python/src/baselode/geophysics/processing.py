@@ -213,7 +213,7 @@ def _symmetric_indices(size, before, total):
 
 
 def _pad_cells(length, spacing, size):
-    """Cells of padding for one axis: one ``length`` (default half the axis)."""
+    """Minimum cells of padding each side of an axis: one ``length`` (default half the axis)."""
     cells = size // 2 if length is None else math.ceil(length / spacing)
     return min(max(8, cells), size)
 
@@ -275,10 +275,14 @@ def _fourier_bands(raster, response, keep_trend=False, pad_length=None, detrend=
     """
     cell_x, cell_y = _cell_size(raster)
     rows, columns = raster.data.shape[1:]
-    pad_rows = _pad_cells(pad_length, cell_y, rows)
-    pad_columns = _pad_cells(pad_length, cell_x, columns)
-    row_index = _symmetric_indices(rows, pad_rows, _fft_size(rows + 2 * pad_rows))
-    column_index = _symmetric_indices(columns, pad_columns, _fft_size(columns + 2 * pad_columns))
+    # Round each padded axis up to a power of two and split the padding
+    # evenly, so isotropic operations stay symmetric.
+    padded_rows = _fft_size(rows + 2 * _pad_cells(pad_length, cell_y, rows))
+    padded_columns = _fft_size(columns + 2 * _pad_cells(pad_length, cell_x, columns))
+    pad_rows = (padded_rows - rows) // 2
+    pad_columns = (padded_columns - columns) // 2
+    row_index = _symmetric_indices(rows, pad_rows, padded_rows)
+    column_index = _symmetric_indices(columns, pad_columns, padded_columns)
     multiplier = response(*_map_wavenumbers(raster, (row_index.size, column_index.size)))
     output = np.full(raster.data.shape, np.nan)
     for index in range(raster.band_count):

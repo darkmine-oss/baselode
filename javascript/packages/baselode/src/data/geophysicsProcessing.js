@@ -253,10 +253,14 @@ function solve3(matrix, vector) {
 function fourierBands(raster, response, { keepTrend = false, padLength = null, detrend = true } = {}) {
   const { width: columns, height: rows, transform } = raster;
   const [cellX, cellY] = cellSize(transform);
-  const padRows = padCells(padLength, cellY, rows);
-  const padColumns = padCells(padLength, cellX, columns);
-  const rowIndex = symmetricIndices(rows, padRows, fftSize(rows + 2 * padRows));
-  const columnIndex = symmetricIndices(columns, padColumns, fftSize(columns + 2 * padColumns));
+  // Round each padded axis up to a power of two and split the padding
+  // evenly, so isotropic operations stay symmetric.
+  const totalRows = fftSize(rows + 2 * padCells(padLength, cellY, rows));
+  const totalColumns = fftSize(columns + 2 * padCells(padLength, cellX, columns));
+  const padRows = Math.floor((totalRows - rows) / 2);
+  const padColumns = Math.floor((totalColumns - columns) / 2);
+  const rowIndex = symmetricIndices(rows, padRows, totalRows);
+  const columnIndex = symmetricIndices(columns, padColumns, totalColumns);
   const paddedRows = rowIndex.length;
   const paddedColumns = columnIndex.length;
 

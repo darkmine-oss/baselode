@@ -165,6 +165,20 @@ def test_enhancements_keep_gaps_record_steps_and_validate_inputs():
         baselode.geophysics.vertical_derivative(baselode.geophysics.GeophysicsRaster(gaussian_bump()))
 
 
+def test_fourier_operations_keep_a_symmetric_anomaly_symmetric():
+    rows, columns = np.indices((96, 96), dtype=float)
+    values = np.exp(-((rows - 47.5) ** 2 + (columns - 47.5) ** 2) / (2 * 12.0 ** 2))
+    raster = baselode.geophysics.GeophysicsRaster(values, transform=(1, 0, 0, 0, -1, 96))
+    for result in (
+        baselode.geophysics.upward_continuation(raster, 24),
+        baselode.geophysics.vertical_derivative(raster),
+        baselode.geophysics.low_pass(raster, 20),
+    ):
+        band = result.band(1)
+        np.testing.assert_allclose(band, band[::-1, ::-1], atol=1e-12)
+        np.testing.assert_allclose(band, band.T, atol=1e-12)
+
+
 def test_fourier_padding_mirrors_to_a_power_of_two():
     indices = baselode.geophysics.processing._symmetric_indices(3, 4, 16)
     assert indices.tolist() == [2, 2, 1, 0, 0, 1, 2, 2, 1, 0, 0, 1, 2, 2, 1, 0]
