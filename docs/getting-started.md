@@ -95,7 +95,7 @@ collars = drill.load_collars("collars.csv")
 surveys = drill.load_surveys("surveys.csv")
 assays  = drill.load_assays("assays.csv")
 
-traces = desurvey.desurvey_holes(collars, surveys)
+traces = desurvey.minimum_curvature_desurvey(collars, surveys)
 ```
 
 ### JavaScript — load CSV and desurvey

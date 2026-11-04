@@ -1523,6 +1523,25 @@ Tool UI equivalent is the `geophysics-raster` primitive with canonical name
 (`showControls: false`, height 360). Python's
 `GeophysicsRaster.to_tool_ui_payload()` builds a decimated result for it.
 
+### Sampling grids at drillholes
+
+Read grid values at collars, trace stations or along a section line. Pass `crs` when the points use a different coordinate system from the grid:
+
+```js
+import { sampleGeophysicsRows, sampleGeophysicsProfile } from 'baselode';
+
+// Collars in MGA zone 50 against a GDA94 lat/long Bouguer grid
+const withGravity = sampleGeophysicsRows(raster, collars, { field: 'bouguer', crs: 'EPSG:28350' });
+
+const profile = sampleGeophysicsProfile(raster, [[452000, 7150000], [461500, 7153200]], {
+  spacing: 50,
+  crs: 'EPSG:28350',
+});
+// [{ distance: 0, x: 452000, y: 7150000, value: -612.4 }, ...]
+```
+
+Points off the grid, or next to a gap, come back as `null` instead of an invented value. See the [API reference](/api/javascript#sampling) for the options.
+
 ## Raster Overlays
 
 A raster overlay drapes a georeferenced image (geology map, satellite photo, survey grid, etc.) as a flat plane in the 3D scene.  The image is placed at a specified elevation and bounded to real-world coordinates so it aligns with drillhole traces.

@@ -2,7 +2,7 @@
 
 ---
 
-## Unreleased
+## v0.1.71
 **Saving and editing geophysics grids (TRK-520)**
 
 - Write grids: Python `write_ers`, `write_geotiff` and `save_raster` (by extension), and JS `encodeErs` and `encodeGeoTiff` for saving from the browser.
@@ -15,6 +15,16 @@
   - `fill_gaps` fills dropouts with a smooth surface that honours the data, optionally only within `max_distance` cells of data.
   - JS: `cropGeophysicsRaster`, `clipGeophysicsRaster`, `combineGeophysicsRasters` and `fillGeophysicsGaps`, checked cell for cell against Python with the shared fixture.
 - Each step is recorded in `metadata["processing"]`.
+
+---
+
+## v0.1.70
+**Sampling geophysics grids at drill data (TRK-519)**
+
+- New `sample_points`, `sample_table`, `sample_profile` and `profile_stations` in `baselode.geophysics`, and JS `sampleGeophysicsRaster`, `sampleGeophysicsRows`, `sampleGeophysicsProfile` and `geophysicsProfileStations`.  Read grid values at collars, surface samples, desurveyed trace stations or along a section line, by bilinear or nearest-cell interpolation.  Points off the grid or next to a gap give `NaN` / `null`, never an invented value.
+- Points in a different CRS from the grid are reprojected first (pyproj in Python, proj4 in JS), so MGA collars can be sampled against a GDA94 lat/long grid.  A shared fixture checks Python and JS agree.
+- JS CRS helpers move to a shared module that also registers GDA2020 / MGA2020, AGD66/84 / AMG and WGS84 UTM zones for proj4.  `transformCrsPoints` exposes the same reprojection, for laying out profile lines in a grid's own units.
+- Docs: the Python desurvey pages referred to a `desurvey_holes` function that does not exist; they now show `minimum_curvature_desurvey` and the other per-method functions.  The JS tilt derivative is documented in degrees, as implemented.
 
 ---
 

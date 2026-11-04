@@ -1195,7 +1195,7 @@ Every function returns a new raster and appends a step to `metadata.processing`.
 | `geophysicsVerticalDerivative(raster, { order = 1 })` | First or second vertical derivative |
 | `geophysicsHorizontalDerivative(raster, { direction = 'east' })` | `'east'` or `'north'` |
 | `geophysicsTotalHorizontalDerivative(raster)` | — |
-| `geophysicsTiltDerivative(raster)` | Result in radians |
+| `geophysicsTiltDerivative(raster)` | Result in degrees, -90 to 90 |
 | `geophysicsAnalyticSignal(raster)` | — |
 | `geophysicsUpwardContinuation(raster, { height })` | Continuation height |
 | `geophysicsReduceToPole(raster, { inclination, declination })` | Degrees. Inclinations shallower than `MIN_RTP_INCLINATION` (15°) are rejected because reduce-to-pole is unstable there. |
@@ -1204,6 +1204,22 @@ Every function returns a new raster and appends a step to `metadata.processing`.
 **Constants:** `GEOPHYSICS_OPERATIONS`, `GEOPHYSICS_FILTER_METHODS`, `MIN_RTP_INCLINATION`
 
 The JavaScript and Python implementations share one FFT design and are tested against a common fixture, so they agree cell for cell.
+
+### Sampling
+
+| Function | Description |
+|---|---|
+| `sampleGeophysicsRaster(raster, points, { band, method, crs })` | Values at `[x, y]` or `{ x, y }` points, as `number \| null` |
+| `sampleGeophysicsRows(raster, rows, { xField, yField, field, band, method, crs })` | Copies of row objects (collars, samples, trace stations) with a sampled field. `xField` and `yField` default to `easting` and `northing`; `field` defaults to the band name. |
+| `sampleGeophysicsProfile(raster, vertices, { spacing, band, method, crs })` | `{ distance, x, y, value }` stations along a polyline. `x` and `y` stay in the line's CRS. |
+| `geophysicsProfileStations(vertices, spacing)` | The stations alone: every `spacing` units through bends, always including the last vertex |
+| `transformCrsPoints(sourceCrs, targetCrs, points)` | Reproject `[x, y]` pairs with the same definitions, for example to lay out a profile line in metres before sampling. Non-finite pairs come back as `[NaN, NaN]`. |
+
+`method` is `'bilinear'` (default) or `'nearest'` (`GEOPHYSICS_SAMPLING_METHODS`). Bilinear interpolates between the four surrounding cell centres and uses the edge cells as they are within half a cell of the grid edge. Points outside the grid, and bilinear samples that would draw on a missing cell, return `null`.
+
+`crs` is the coordinate system of the points. When it differs from the raster's CRS the points are reprojected with proj4 before sampling. Built-in definitions cover WGS84, Web Mercator, WGS84 UTM zones, GDA94 and GDA2020 (geographic and MGA zones 49 to 58) and AGD66/84 (AMG zones); register others with `proj4.defs`. GDA94 and GDA2020 are treated as the same datum, a difference of about 1.8 m. Python, which uses pyproj, can apply the exact shift.
+
+The results match Python's `sample_points`, `sample_table` and `sample_profile`, checked against a shared fixture.
 
 ### Editing
 

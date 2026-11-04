@@ -13,6 +13,7 @@ import baselode.geophysics.editing as geophysics_editing
 import baselode.geophysics.ers as geophysics_ers
 import baselode.geophysics.processing as geophysics_processing
 import baselode.geophysics.raster as geophysics_raster
+import baselode.geophysics.sampling as geophysics_sampling
 import baselode.geophysics.writers as geophysics_writers
 
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
@@ -30,6 +31,11 @@ tilt_derivative = geophysics_processing.tilt_derivative
 analytic_signal = geophysics_processing.analytic_signal
 upward_continuation = geophysics_processing.upward_continuation
 reduce_to_pole = geophysics_processing.reduce_to_pole
+sample_points = geophysics_sampling.sample_points
+sample_table = geophysics_sampling.sample_table
+sample_profile = geophysics_sampling.sample_profile
+profile_stations = geophysics_sampling.profile_stations
+SAMPLING_METHODS = geophysics_sampling.SAMPLING_METHODS
 COLOUR_SCALES = geophysics_colour_scales.COLOUR_SCALES
 stretch_values = geophysics_colour_scales.stretch_values
 colourize = geophysics_colour_scales.colourize
@@ -58,6 +64,11 @@ __all__ = [
     "analytic_signal",
     "upward_continuation",
     "reduce_to_pole",
+    "sample_points",
+    "sample_table",
+    "sample_profile",
+    "profile_stations",
+    "SAMPLING_METHODS",
     "COLOUR_SCALES",
     "stretch_values",
     "colourize",

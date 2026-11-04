@@ -119,6 +119,44 @@ north) for the survey, from its report or an IGRF model. It does not model
 remanence and raises `ValueError` within 15° of the magnetic equator, where it
 is unstable; use `analytic_signal` there.
 
+### Sampling grids at points and along lines
+
+```python
+sample_points(raster, x, y, band=1, method="bilinear", crs=None)       # -> ndarray
+sample_table(raster, table, x_col="easting", y_col="northing", column=None,
+             band=1, method="bilinear", crs=None)                     # -> DataFrame copy
+sample_profile(raster, vertices, spacing, band=1, method="bilinear",
+               crs=None, column="value")                              # -> DataFrame
+profile_stations(vertices, spacing)                                   # -> DataFrame
+```
+
+Read grid values at collars, surface samples, desurveyed trace stations or
+along a section line. Cell values sit at cell centres:
+
+| Method | Result |
+|---|---|
+| `"bilinear"` (default) | Interpolates between the four surrounding cell centres. Within half a cell of the grid edge the edge cells are used as they are, without extrapolation. |
+| `"nearest"` | Value of the cell containing the point |
+
+Points outside the grid give `NaN`. So does a bilinear sample that would draw
+on a missing cell: values are never invented across gaps. Points exactly on
+a cell centre use only that cell.
+
+`crs` is the coordinate system of the points (or of the line vertices). When
+it differs from `raster.crs` the points are reprojected with pyproj first,
+so MGA collars can be sampled against a GDA94 lat/long grid. Passing `crs`
+for a raster without a CRS raises `ValueError`.
+
+`sample_table` returns a copy of the table with a new column, named after the
+band unless `column` is given. `profile_stations` spaces stations every
+`spacing` units along the polyline through its bends and always includes the
+last vertex; `sample_profile` returns `distance`, `x`, `y` (in the line's
+CRS) and the value. Space a line in a projected CRS so distances are in
+metres.
+
+JavaScript's `sampleGeophysicsRaster` family returns the same values,
+checked against a shared fixture.
+
 ### Cropping, clipping, combining and filling gaps
 
 ```python
@@ -387,13 +425,18 @@ Desurveying utilities — converts depth-based surveys into 3D spatial coordinat
 import baselode.drill.desurvey as desurvey
 ```
 
-### desurvey_holes
+### minimum_curvature_desurvey and other methods
 
 ```python
-desurvey_holes(collars, surveys, step=1.0, method="minimum_curvature")
+minimum_curvature_desurvey(collars, surveys, step=1.0)
+tangential_desurvey(collars, surveys, step=1.0)
+balanced_tangential_desurvey(collars, surveys, step=1.0)
+midpoint_tangential_desurvey(collars, surveys, step=1.0)
 ```
 
-Desurvey all holes in `collars` using the matching rows in `surveys`.
+Desurvey all holes in `collars` using the matching rows in `surveys`, one
+function per method. Rows missing a hole ID, usable collar coordinates or
+usable survey measurements are ignored.
 
 **Parameters**
 
@@ -402,7 +445,6 @@ Desurvey all holes in `collars` using the matching rows in `surveys`.
 | `collars` | GeoDataFrame | — | Collar table |
 | `surveys` | DataFrame | — | Survey table |
 | `step` | float | `1.0` | Output vertex spacing (metres) |
-| `method` | str | `"minimum_curvature"` | `"minimum_curvature"`, `"tangential"`, `"balanced_tangential"`, or `"midpoint_tangential"` |
 
 Every trace starts at the collar (`md = 0`).  If the first survey station is deeper than the collar, its orientation is extended straight up to `md = 0` (Vulcan / Surpac convention), so single-station holes recorded at depth still produce a full trace.
 
