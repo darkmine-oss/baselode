@@ -36,6 +36,8 @@ def _y(row):
 def test_crop_keeps_whole_cells_that_overlap_the_box():
     raster = _ramp()
     cropped = baselode.geophysics.crop(raster, (_x(1.2), _y(2.5), _x(3.0), _y(0.5)))
+    # An independent window-sized array, not a view of the source.
+    assert cropped.data.base is None and not np.shares_memory(cropped.data, raster.data)
     np.testing.assert_array_equal(cropped.data[0], [[1, 2], [11, 12], [21, 22]])
     assert cropped.transform == (10, 0, _x(1), 0, -10, _y(0))
     step = cropped.metadata["processing"][-1]
@@ -177,17 +179,22 @@ def test_ers_round_trip(tmp_path):
 
 
 @pytest.mark.parametrize("crs, coordinate_type", [
-    ("EPSG:4283", "LATLONG"), ("EPSG:7850", "EN"), ("EPSG:32750", "EN"), (None, "RAW"), ("EPSG:3857", "RAW"),
+    ("EPSG:4283", "LATLONG"), ("EPSG:7850", "EN"), ("EPSG:32750", "EN"), (None, None), ("EPSG:3857", None),
 ])
 def test_ers_coordinate_spaces_round_trip(tmp_path, crs, coordinate_type):
     transform = (0.0025, 0, 118.123456789, 0, -0.0025, -27.5) if coordinate_type == "LATLONG" else (25, 0, 400000, 0, -25, 7000000)
     raster = baselode.geophysics.GeophysicsRaster(np.arange(6.0).reshape(2, 3), transform=transform, crs=crs)
     baselode.geophysics.write_ers(raster, tmp_path / "grid.ers", dtype="float64")
     back = baselode.geophysics.load_raster(tmp_path / "grid.ers")
-    assert back.metadata["coordinate_type"] == coordinate_type
-    assert back.crs == (crs if coordinate_type != "RAW" else None)
+    # Grids without an ERS name are written RAW with eastings and northings.
+    assert back.metadata["coordinate_type"] == (coordinate_type or "EN")
+    assert back.metadata["datum"] == ("RAW" if coordinate_type is None else back.metadata["datum"])
+    assert back.crs == (crs if coordinate_type else None)
     np.testing.assert_allclose(back.transform, transform, rtol=0, atol=1e-9)
     np.testing.assert_array_equal(back.data, raster.data)
+    # GDAL places every one of them too.
+    with rasterio.open(tmp_path / "grid.ers") as dataset:
+        np.testing.assert_allclose(tuple(dataset.transform)[:6], transform, rtol=0, atol=1e-9)
 
 
 def test_ers_rejects_what_it_cannot_store(tmp_path):
@@ -228,7 +235,7 @@ def test_ers_names_for_crs():
     assert space("EPSG:20251") == ("AGD66", "AMG51", "EN")
     assert space("EPSG:20351") == ("AGD84", "AMG51", "EN")
     assert space("EPSG:32601") == ("WGS84", "NUTM1", "EN")
-    assert space("EPSG:3577") == ("RAW", "RAW", "RAW")
+    assert space("EPSG:3577") == ("RAW", "RAW", "EN")
 
 
 DATA_DIR = pathlib.Path(__file__).resolve().parent / "data"

@@ -63,11 +63,13 @@ def ers_coordinate_space(crs):
     -------
     tuple of str
         For example ``("GDA94", "MGA50", "EN")`` or ``("GDA94", "GEODETIC",
-        "LATLONG")``; ``("RAW", "RAW", "RAW")`` when there is no CRS or it
-        has no ERS name (the inverse of :func:`baselode.geophysics.ers.ers_crs`).
+        "LATLONG")``; ``("RAW", "RAW", "EN")`` when there is no CRS or it has
+        no ERS name (the inverse of :func:`baselode.geophysics.ers.ers_crs`).
+        Unnamed grids keep eastings and northings, as GDAL writes them, so
+        GDAL still reads their position.
     """
     if crs is None:
-        return "RAW", "RAW", "RAW"
+        return "RAW", "RAW", "EN"
     code = pyproj.CRS.from_user_input(crs).to_epsg()
     if code in _GEODETIC:
         return _GEODETIC[code], "GEODETIC", "LATLONG"
@@ -75,7 +77,7 @@ def ers_coordinate_space(crs):
         zone = (code or 0) - first
         if 1 <= zone <= 60 and (prefix in ("NUTM", "SUTM") or 49 <= zone <= 58):
             return datum, f"{prefix}{zone}", "EN"
-    return "RAW", "RAW", "RAW"
+    return "RAW", "RAW", "EN"
 
 
 def _north_up(raster):
@@ -161,8 +163,6 @@ def ers_header(raster, name, dtype=None, nodata=None):
     datum, projection, coordinate_type = ers_coordinate_space(raster.crs)
     if coordinate_type == "LATLONG":
         registration = [f"Longitude\t= {_dms(origin_x)}", f"Latitude\t= {_dms(origin_y)}"]
-    elif coordinate_type == "RAW":
-        registration = [f"MetresX\t= {origin_x!r}", f"MetresY\t= {origin_y!r}"]
     else:
         registration = [f"Eastings\t= {origin_x!r}", f"Northings\t= {origin_y!r}"]
     units = list(raster.metadata.get("units") or [])

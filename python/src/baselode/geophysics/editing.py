@@ -78,8 +78,9 @@ def _subset(raster, data, window, processing, **changes):
         a, b, a * column_offset + b * row_offset + c,
         d, e, d * column_offset + e * row_offset + f,
     )
+    # A copy, so the result does not keep the full-size array alive.
     return raster.copy_with(
-        data[:, row_offset:row_offset + rows, column_offset:column_offset + columns],
+        np.array(data[:, row_offset:row_offset + rows, column_offset:column_offset + columns], copy=True),
         transform=transform,
         processing=processing,
         **changes,
@@ -116,7 +117,7 @@ def crop(raster, bounds):
     window = _window(raster, min_x, min_y, max_x, max_y)
     if window is None:
         raise ValueError("bounds do not overlap the raster")
-    return _subset(raster, np.array(raster.data, copy=True), window, {
+    return _subset(raster, raster.data, window, {
         "operation": "crop", "bounds": [min_x, min_y, max_x, max_y], "window": list(window),
     })
 

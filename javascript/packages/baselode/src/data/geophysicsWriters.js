@@ -63,8 +63,9 @@ function epsgCode(crs) {
 
 /**
  * ERS `[datum, projection, coordinateType]` for a CRS: `['GDA94', 'MGA50',
- * 'EN']`, `['GDA94', 'GEODETIC', 'LATLONG']`, or `['RAW', 'RAW', 'RAW']` when
- * there is no CRS or it has no ERS name.  The inverse of `ersCrs`.
+ * 'EN']`, `['GDA94', 'GEODETIC', 'LATLONG']`, or `['RAW', 'RAW', 'EN']` when
+ * there is no CRS or it has no ERS name (eastings and northings, as GDAL
+ * writes them, so GDAL still reads the position).  The inverse of `ersCrs`.
  *
  * @param {string|number|null} crs
  * @returns {[string, string, string]}
@@ -78,7 +79,7 @@ export function ersCoordinateSpace(crs) {
       return [datum, `${prefix}${zone}`, 'EN'];
     }
   }
-  return ['RAW', 'RAW', 'RAW'];
+  return ['RAW', 'RAW', 'EN'];
 }
 
 function cellType(dtype) {
@@ -201,7 +202,6 @@ export function encodeErs(raster, { name = 'grid.ers', dtype = 'float32', nodata
   const [datum, projection, coordinateType] = ersCoordinateSpace(normalized.crs);
   let registration;
   if (coordinateType === 'LATLONG') registration = [`Longitude\t= ${dms(originX)}`, `Latitude\t= ${dms(originY)}`];
-  else if (coordinateType === 'RAW') registration = [`MetresX\t= ${originX}`, `MetresY\t= ${originY}`];
   else registration = [`Eastings\t= ${originX}`, `Northings\t= ${originY}`];
   const units = normalized.metadata?.units ?? [];
   const lines = [
@@ -261,7 +261,7 @@ function isGeographic(code, raster) {
   const definition = proj4.defs(`EPSG:${code}`);
   if (definition) return definition.projName === 'longlat';
   if (code in GEODETIC) return true;
-  if (ersCoordinateSpace(code)[2] === 'EN') return false;
+  if (ersCoordinateSpace(code)[0] !== 'RAW') return false; // an MGA, AMG or UTM zone
   const units = raster.metadata?.crs_units;
   if (units === 'degree') return true;
   if (units === 'metre' || units === 'foot' || units === 'us_survey_foot') return false;

@@ -207,7 +207,7 @@ describe('writers', () => {
     expect(() => encodeErs(ramp(), { dtype: 'complex' })).toThrow(/cannot write/);
     expect(ersCoordinateSpace('EPSG:7850')).toEqual(['GDA2020', 'MGA50', 'EN']);
     expect(ersCoordinateSpace(4326)).toEqual(['WGS84', 'GEODETIC', 'LATLONG']);
-    expect(ersCoordinateSpace('EPSG:3857')).toEqual(['RAW', 'RAW', 'RAW']);
+    expect(ersCoordinateSpace('EPSG:3857')).toEqual(['RAW', 'RAW', 'EN']);
   });
 
   it.each([
