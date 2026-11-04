@@ -122,10 +122,17 @@ def sample_points(raster, x, y, band=1, method="bilinear", crs=None):
     x, y = _reproject(x, y, crs, raster)
     column, row = _pixel_coordinates(raster, np.asarray(x, dtype=float), np.asarray(y, dtype=float))
 
-    values = raster.band(band)
-    valid = baselode.geophysics.colour_scales.valid_mask(values, raster.nodata)
-    values = values.astype(float, copy=False)
-    height, width = values.shape
+    band_values = raster.band(band)
+    height, width = band_values.shape
+
+    def cells(i, j):
+        # Gather only the cells a sample uses, so a few points on a large
+        # grid never copy or scan the whole band.  Validity is checked in
+        # the band's own dtype, as everywhere else in the package.
+        gathered = band_values[i, j]
+        valid = baselode.geophysics.colour_scales.valid_mask(gathered, raster.nodata)
+        return np.where(valid, gathered.astype(float), 0.0), valid
+
     result = np.full(column.shape, np.nan)
     inside = (
         np.isfinite(column) & np.isfinite(row)
@@ -140,7 +147,8 @@ def sample_points(raster, x, y, band=1, method="bilinear", crs=None):
     if method == "nearest":
         j = np.clip(np.floor(column).astype(int), 0, width - 1)
         i = np.clip(np.floor(row).astype(int), 0, height - 1)
-        sampled = np.where(valid[i, j], values[i, j], np.nan)
+        values, valid = cells(i, j)
+        sampled = np.where(valid, values, np.nan)
     else:
         u = np.clip(column - 0.5, 0, width - 1)
         v = np.clip(row - 0.5, 0, height - 1)
@@ -158,9 +166,10 @@ def sample_points(raster, x, y, band=1, method="bilinear", crs=None):
             (i1, j0, (1 - tx) * ty),
             (i1, j1, tx * ty),
         ):
+            values, valid = cells(i, j)
             used = weight > 0
-            missing |= used & ~valid[i, j]
-            total += np.where(used & valid[i, j], weight * np.where(valid[i, j], values[i, j], 0.0), 0.0)
+            missing |= used & ~valid
+            total += np.where(used, weight * values, 0.0)
         sampled = np.where(missing, np.nan, total)
     result[inside] = sampled
     return result.reshape(shape)

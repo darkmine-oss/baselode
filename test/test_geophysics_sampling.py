@@ -190,3 +190,11 @@ def test_cell_centres_survive_affine_rounding_on_rotated_grids():
     ramp = _ramp().copy_with(transform=(a, b, 500000, b, -a, 7000030))
     far_corner = (a * 4 + b * 3 + 500000, b * 4 - a * 3 + 7000030)
     assert baselode.geophysics.sample_points(ramp, *far_corner) == pytest.approx(23)
+
+
+def test_float32_nodata_is_compared_in_the_band_dtype():
+    data = np.array([[1.0, -1e32], [3.0, 4.0]], dtype=np.float32)
+    raster = baselode.geophysics.GeophysicsRaster(data, transform=(1, 0, 0, 0, -1, 2), nodata=-1e32)
+    assert np.isnan(baselode.geophysics.sample_points(raster, 1.5, 1.5, method="nearest"))
+    assert np.isnan(baselode.geophysics.sample_points(raster, 1.0, 1.0))
+    assert baselode.geophysics.sample_points(raster, 0.5, 0.5) == 3
