@@ -33,16 +33,16 @@ describe.each(['ers', 'tif'])('embedded %s provenance', (format) => {
       expect(raster.metadata.processing).toEqual([{ operation: 'horizontal_derivative', direction: 'east' }]);
       expect(raster.metadata.units).toEqual(['nT/m', null]);
       expect(raster.metadata.calibration.note).toBe('café 🧲');
-      expect(raster.metadata.provenance.sources).toEqual(['survey-α.ers']);
-      expect(raster.metadata.provenance.metadata.provenance).toBeUndefined();
-      expect(raster.metadata.provenance.export.dtype).toBe('float32');
+      expect(raster.metadata.baselode_provenance.sources).toEqual(['survey-α.ers']);
+      expect(raster.metadata.baselode_provenance.metadata.baselode_provenance).toBeUndefined();
+      expect(raster.metadata.baselode_provenance.export.dtype).toBe('float32');
     }
     expect(source.metadata.processing).toBeUndefined();
   });
 
   it('supports an explicit legacy opt-out', async () => {
     const result = await roundTrip(sourceGrid(), format, { includeProvenance: false });
-    expect(result.metadata.provenance).toBeUndefined();
+    expect(result.metadata.baselode_provenance).toBeUndefined();
   });
 
   it('retains both input histories', async () => {
@@ -95,10 +95,10 @@ it('does not revive stale fields after a cross-format round trip', async () => {
   const tif = await roundTrip(ers, 'tif', { dtype: 'float64' });
   expect(tif.metadata.cell_type).toBeUndefined();
   expect(tif.metadata.datum).toBeUndefined();
-  expect(tif.metadata.provenance.metadata.cell_type).toBe('IEEE4ByteReal');
+  expect(tif.metadata.baselode_provenance.metadata.cell_type).toBe('IEEE4ByteReal');
   const back = await roundTrip(tif, 'ers');
   expect(back.metadata.width).toBeUndefined();
-  expect(back.metadata.provenance.metadata.width).toBe(2);
+  expect(back.metadata.baselode_provenance.metadata.width).toBe(2);
 });
 
 it('redacts source URL credentials on capture and reading without mutating callers', () => {
@@ -107,7 +107,7 @@ it('redacts source URL credentials on capture and reading without mutating calle
   const encoded = encodeProvenance(metadata, 'GeoTIFF', 'float32');
   const restored = restoreProvenance({}, encoded);
   expect(JSON.stringify(restored)).not.toMatch(/secret|token/);
-  expect(restored.provenance.sources).toEqual(['https://example.com/survey.tif']);
+  expect(restored.baselode_provenance.sources).toEqual(['https://example.com/survey.tif']);
   expect(metadata.source).toBe(source);
   expect(restoreProvenance({ source }, null).source).toBe(source);
 });
@@ -143,7 +143,7 @@ it('supports explicit legacy arithmetic and export with opaque metadata', async 
   const result = combineGeophysicsRasters(left, right, 'add', { includeProvenance: false });
   expect(result.metadata.opaque).toBe(left.metadata.opaque);
   expect(result.metadata.processing.at(-1).lineage_omitted).toBe(true);
-  expect((await roundTrip(result, 'tif', { includeProvenance: false })).metadata.provenance).toBeUndefined();
+  expect((await roundTrip(result, 'tif', { includeProvenance: false })).metadata.baselode_provenance).toBeUndefined();
 });
 
 it.each([
@@ -152,7 +152,7 @@ it.each([
   ['/vsicurl/https://u:p@HOST/α.tif?token=secret#x', '/vsicurl/https://HOST/α.tif'],
 ])('preserves source spelling for %s', (source, expected) => {
   expect(restoreProvenance({ source }, null).source).toBe(source);
-  expect(restoreProvenance({}, encodeProvenance({ source }, 'GeoTIFF', 'float32')).provenance.sources).toEqual([expected]);
+  expect(restoreProvenance({}, encodeProvenance({ source }, 'GeoTIFF', 'float32')).baselode_provenance.sources).toEqual([expected]);
 });
 
 it('keeps JSON booleans distinct from numbers when deduplicating records', () => {
@@ -191,4 +191,12 @@ it('supports an explicit GeoTIFF read opt-out with a marked history gap', async 
   expect(ignored.metadata.provenance_ignored).toBe(true);
   expect(ignored.metadata.processing).toEqual([{ operation: 'provenance_omitted_on_import' }]);
   expect(ignored.data).toEqual(sourceGrid().data);
+});
+
+
+it.each(['ers', 'tif'])('preserves user provenance metadata in %s', async (format) => {
+  const grid = createGeophysicsRaster({ ...sourceGrid(), metadata: { provenance: 'Survey contractor X' } });
+  const result = await roundTrip(combineGeophysicsRasters(grid, grid, 'add'), format);
+  expect(result.metadata.provenance).toBe('Survey contractor X');
+  expect(result.metadata.baselode_provenance.schema).toBe('baselode.geophysics.provenance');
 });

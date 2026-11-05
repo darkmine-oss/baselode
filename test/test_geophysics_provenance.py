@@ -38,13 +38,13 @@ def test_processing_and_sources_survive_repeated_exports(tmp_path, extension):
         assert processed.metadata["calibration"] == source.metadata["calibration"]
         assert processed.metadata["units"] == ["nT/m", None]
         assert processed.metadata["source"] == str(path)
-        manifest = processed.metadata["provenance"]
+        manifest = processed.metadata["baselode_provenance"]
         assert manifest["version"] == 1
         assert manifest["producer"]["library"] == "baselode"
         assert manifest["export"]["dtype"] == "float64"
         assert manifest["sources"][0] == "survey-α.ers"
         assert len(manifest["sources"]) == number + 1
-        assert "provenance" not in manifest["metadata"]
+        assert "baselode_provenance" not in manifest["metadata"]
         assert "BASELODE_PROVENANCE" not in manifest["metadata"].get("tags", {})
         np.testing.assert_array_equal(processed.data, 0.1)
     assert "processing" not in source.metadata
@@ -58,7 +58,7 @@ def test_selected_band_view_records_history_without_overwriting_units(tmp_path, 
     assert selected.metadata["processing"][-1] == {"operation": "select_bands", "bands": [2, 1]}
     assert selected.metadata["units"] == [None, "nT"]
     assert selected.band_names == ("auxiliary", "magnetic")
-    assert selected.metadata["provenance"]["metadata"]["units"] == ["nT", None]
+    assert selected.metadata["baselode_provenance"]["metadata"]["units"] == ["nT", None]
 
 
 def test_multi_input_history_survives_export_without_sharing_mutable_steps(tmp_path):
@@ -111,14 +111,18 @@ def test_explicit_opt_out_still_produces_a_legacy_readable_file(tmp_path, extens
     path = tmp_path / f"legacy.{extension}"
     baselode.geophysics.save_raster(grid, path, include_provenance=False)
     back = baselode.geophysics.load_raster(path)
-    assert "provenance" not in back.metadata
+    assert "baselode_provenance" not in back.metadata
     assert "processing" not in back.metadata
 
 
 def test_python_and_javascript_files_keep_the_same_lineage(tmp_path):
     source = baselode.geophysics.horizontal_derivative(source_grid())
+    # Exceed the historical 32 KB GDAL threshold; copying the TIFF alone
+    # must keep the whole manifest readable from JavaScript.
+    source.metadata["large_note"] = "x" * 500_000
     baselode.geophysics.save_raster(source, tmp_path / "python.ers")
     baselode.geophysics.save_raster(source, tmp_path / "python.tif")
+    assert not (tmp_path / "python.tif.aux.xml").exists()
     writers = (ROOT / "javascript/packages/baselode/src/data/geophysicsWriters.js").as_uri()
     raster = (ROOT / "javascript/packages/baselode/src/data/geophysicsRaster.js").as_uri()
     ers = (ROOT / "javascript/packages/baselode/src/data/ersLoader.js").as_uri()
@@ -134,6 +138,7 @@ for (const extension of ['ers', 'tif']) {{
     : await loadGeoTiff(fs.readFileSync(directory + '/python.tif'));
   if (input.metadata.processing[0].operation !== 'horizontal_derivative') throw Error('lost processing');
   if (input.metadata.calibration.note !== 'café 🧲') throw Error('lost Unicode');
+  if (input.metadata.large_note.length !== 500000) throw Error('lost large embedded manifest');
   if (extension === 'ers') {{
     const result = encodeErs(input, {{ dtype: 'float64' }});
     fs.writeFileSync(directory + '/javascript.ers', result.header, 'latin1');
@@ -146,7 +151,8 @@ for (const extension of ['ers', 'tif']) {{
         result = baselode.geophysics.load_raster(tmp_path / f"javascript.{extension}")
         assert result.metadata["processing"] == source.metadata["processing"]
         assert result.metadata["calibration"] == source.metadata["calibration"]
-        assert result.metadata["provenance"]["producer"]["version"] == "unversioned"
+        assert result.metadata["large_note"] == source.metadata["large_note"]
+        assert result.metadata["baselode_provenance"]["producer"]["version"] == "unversioned"
         assert result.metadata["units"] == ["nT/m", None]
         assert result.band_names == source.band_names
 
@@ -162,11 +168,11 @@ def test_cross_format_metadata_is_historical_not_current(tmp_path):
     converted = baselode.geophysics.load_raster(tif)
     assert "cell_type" not in converted.metadata
     assert "datum" not in converted.metadata
-    assert converted.metadata["provenance"]["metadata"]["cell_type"] == "IEEE4ByteReal"
+    assert converted.metadata["baselode_provenance"]["metadata"]["cell_type"] == "IEEE4ByteReal"
     baselode.geophysics.save_raster(converted, back)
     reread = baselode.geophysics.load_raster(back)
     assert "tags" not in reread.metadata
-    assert "tags" in reread.metadata["provenance"]["metadata"]
+    assert "tags" in reread.metadata["baselode_provenance"]["metadata"]
 
 
 def test_signed_source_references_are_redacted_without_mutating_the_input():
@@ -215,7 +221,7 @@ def test_opaque_metadata_arithmetic_and_export_have_an_explicit_legacy_opt_out(t
     for extension in ["ers", "tif"]:
         path = tmp_path / f"opaque.{extension}"
         baselode.geophysics.save_raster(result, path, include_provenance=False)
-        assert "provenance" not in baselode.geophysics.load_raster(path).metadata
+        assert "baselode_provenance" not in baselode.geophysics.load_raster(path).metadata
 
 
 @pytest.mark.parametrize("extension", ["ers", "tif"])
@@ -236,7 +242,7 @@ def test_numpy_band_indexes_still_allow_a_provenance_export(tmp_path, extension)
 def test_source_reference_redaction_preserves_spelling_and_opaque_names(reference, expected):
     assert baselode.geophysics.provenance.restore({"source": reference}, None)["source"] == reference
     encoded = baselode.geophysics.provenance.encode({"source": reference}, "GeoTIFF", "float32")
-    assert baselode.geophysics.provenance.restore({}, encoded)["provenance"]["sources"] == [expected]
+    assert baselode.geophysics.provenance.restore({}, encoded)["baselode_provenance"]["sources"] == [expected]
 
 
 def test_graph_deduplication_distinguishes_booleans_from_numbers():
@@ -265,3 +271,14 @@ def test_explicit_read_opt_out_recovers_cells_and_marks_the_history_gap(tmp_path
     assert ignored.metadata["provenance_ignored"] is True
     assert [step["operation"] for step in ignored.metadata["processing"]] == ["provenance_omitted_on_import", "select_bands"]
     baselode.geophysics.save_raster(ignored, tmp_path / f"recovered.{extension}")
+
+
+@pytest.mark.parametrize("extension", ["ers", "tif"])
+def test_user_provenance_metadata_is_not_a_reserved_key(tmp_path, extension):
+    grid = source_grid().copy_with(metadata={"provenance": "Survey contractor X"})
+    result = baselode.geophysics.combine(grid, grid, "add")
+    path = tmp_path / f"user-metadata.{extension}"
+    baselode.geophysics.save_raster(result, path)
+    back = baselode.geophysics.load_raster(path)
+    assert back.metadata["provenance"] == "Survey contractor X"
+    assert back.metadata["baselode_provenance"]["schema"] == "baselode.geophysics.provenance"

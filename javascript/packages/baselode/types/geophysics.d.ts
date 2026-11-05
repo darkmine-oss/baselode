@@ -18,7 +18,7 @@ export interface GeophysicsProvenance {
 }
 
 export interface GeophysicsRasterMetadata {
-  provenance?: GeophysicsProvenance;
+  baselode_provenance?: GeophysicsProvenance;
   provenance_ignored?: boolean;
   input_lineage?: Array<{ metadata: Record<string, unknown>; sources: string[] }>;
   units?: Array<string | null>;

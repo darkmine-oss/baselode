@@ -82,7 +82,7 @@ function validate(manifest) {
   if (!manifest || manifest.schema !== SCHEMA) throw new TypeError('invalid Baselode provenance schema');
   if (manifest.version !== 1) throw new TypeError('unsupported Baselode provenance version');
   const { metadata, producer, sources, export: output } = manifest;
-  if (!metadata || Array.isArray(metadata) || typeof metadata !== 'object' || Object.hasOwn(metadata, 'provenance')) {
+  if (!metadata || Array.isArray(metadata) || typeof metadata !== 'object' || Object.hasOwn(metadata, 'baselode_provenance')) {
     throw new TypeError('invalid provenance metadata snapshot');
   }
   if (producer?.library !== 'baselode' || typeof producer.version !== 'string') throw new TypeError('invalid provenance producer');
@@ -93,7 +93,7 @@ function validate(manifest) {
 }
 
 export function inputRecord(metadata) {
-  const { provenance, ...snapshot } = metadata;
+  const { baselode_provenance: provenance, ...snapshot } = metadata;
   jsonValue(snapshot);
   if (snapshot.tags && typeof snapshot.tags === 'object' && !Array.isArray(snapshot.tags)) {
     snapshot.tags = Object.fromEntries(Object.entries(snapshot.tags).filter(([key]) => key !== PROVENANCE_TAG));
@@ -180,7 +180,7 @@ export function restoreProvenance(metadata, encoded, includeProvenance = true) {
     const manifest = redactSources(validate(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))));
     const snapshot = Object.fromEntries(Object.entries(manifest.metadata).filter(([key]) => !READER_FIELDS.has(key)));
     // Keep the live I/O locator in memory; sanitize only persisted references.
-    const restored = { ...snapshot, ...metadata, provenance: manifest };
+    const restored = { ...snapshot, ...metadata, baselode_provenance: manifest };
     if (restored.tags && typeof restored.tags === 'object') {
       restored.tags = Object.fromEntries(Object.entries(restored.tags).filter(([key]) => key !== PROVENANCE_TAG));
     }

@@ -112,7 +112,7 @@ def _validate(manifest):
     metadata = manifest.get("metadata")
     producer = manifest.get("producer")
     export = manifest.get("export")
-    if not isinstance(metadata, dict) or "provenance" in metadata:
+    if not isinstance(metadata, dict) or "baselode_provenance" in metadata:
         raise ValueError("invalid provenance metadata snapshot")
     if not isinstance(producer, dict) or producer.get("library") != "baselode" or not isinstance(producer.get("version"), str):
         raise ValueError("invalid provenance producer")
@@ -127,11 +127,11 @@ def _validate(manifest):
 
 def input_record(metadata):
     """Return an independent metadata/source snapshot for one input."""
-    snapshot = {key: value for key, value in metadata.items() if key != "provenance"}
+    snapshot = {key: value for key, value in metadata.items() if key != "baselode_provenance"}
     _json_value(snapshot)
     if isinstance(snapshot.get("tags"), dict):
         snapshot["tags"] = {key: value for key, value in snapshot["tags"].items() if key != TAG}
-    previous = metadata.get("provenance")
+    previous = metadata.get("baselode_provenance")
     sources = list(_validate(previous)["sources"]) if previous is not None else []
     source = metadata.get("source")
     if source and source not in sources:
@@ -235,7 +235,7 @@ def restore(metadata, encoded, include_provenance=True):
     snapshot = {key: value for key, value in manifest["metadata"].items() if key not in _READER_FIELDS}
     # Current reader.source remains the live I/O locator; only persisted
     # snapshots/references are sanitized, so signed URLs can still reopen.
-    restored = {**snapshot, **metadata, "provenance": manifest}
+    restored = {**snapshot, **metadata, "baselode_provenance": manifest}
     if isinstance(restored.get("tags"), dict):
         restored["tags"] = {key: value for key, value in restored["tags"].items() if key != TAG}
     return restored

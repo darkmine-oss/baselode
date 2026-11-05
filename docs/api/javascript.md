@@ -1216,7 +1216,7 @@ writers' metadata-agnostic default: non-JSON metadata now needs normalization
 or that explicit opt-out. In-memory `combineGeophysicsRasters` accepts a fourth
 options argument `{ includeProvenance: false }` for opaque metadata; the result
 records `lineage_omitted: true`. `readErs` and `loadGeoTiff` restore
-`metadata.processing` and expose the recorded manifest as `metadata.provenance`.
+`metadata.processing` and expose the recorded manifest as `metadata.baselode_provenance`.
 Non-JSON/cyclic/non-finite metadata and malformed or unknown manifest versions
 raise errors. Readers accept `includeProvenance: false` to skip a damaged or
 future manifest explicitly; `metadata.provenance_ignored` and a

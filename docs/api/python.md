@@ -218,7 +218,8 @@ unless `dtype="float64"`. Missing cells get `nodata`, or the raster's own
 
 ERS and GeoTIFF writers embed lineage by default. After loading,
 `raster.metadata["processing"]` contains the recorded steps and
-`raster.metadata["provenance"]` contains the versioned manifest. Set
+`raster.metadata["baselode_provenance"]` contains the versioned manifest. This namespaced key is reserved; ordinary
+`metadata["provenance"]` remains user metadata. Set
 `include_provenance=False` on `save_raster`, `write_ers`, `write_geotiff` or
 `ers_header` to omit it explicitly. Legacy files without a manifest still load.
 
