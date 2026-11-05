@@ -3,6 +3,7 @@
 """Analytical survey-QC outcomes and portable immutable observation records."""
 import copy
 import json
+import math
 import pathlib
 
 import pytest
@@ -252,3 +253,17 @@ def test_shared_context_whitespace_is_normalized_for_unit_interpretation():
     report = baselode.geophysics.qc_observations(payload, {"min_clearance": 20})
     assert report["state"] == "ok" and report["summary"]["distance_units"] == "m"
     assert any(flag["code"] == "low_clearance" for flag in report["flags"])
+
+
+def test_json_normalization_canonicalizes_signed_zero_in_data_and_options():
+    payload = survey(); payload["records"] = payload["records"][:1]
+    for key in ("x", "y", "z", "time", "clearance"): payload["records"][0][key] = -0.0
+    payload["records"][0]["values"]["mag"] = -0.0
+    payload["records"][0]["extra"] = {"raw_zero": -0.0}
+    normalized = baselode.geophysics.create_observations(payload)
+    for key in ("x", "y", "z", "time", "clearance"): assert math.copysign(1, normalized["records"][0][key]) == 1
+    assert math.copysign(1, normalized["records"][0]["values"]["mag"]) == 1
+    assert math.copysign(1, normalized["records"][0]["extra"]["raw_zero"]) == 1
+    report = baselode.geophysics.qc_observations(payload, {"min_clearance": -0.0})
+    assert math.copysign(1, report["parameters"]["min_clearance"]) == 1
+    assert math.copysign(1, payload["records"][0]["x"]) == -1

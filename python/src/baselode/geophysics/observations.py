@@ -63,6 +63,12 @@ def _label(value):
     return isinstance(value, str) and 1 <= len(value) <= 128 and _text(value)
 
 
+def _json_float(value):
+    """Match JSON.stringify's canonical zero (including negative zero)."""
+    number = float(value)
+    return 0 if number == 0 else number
+
+
 def create_observations(payload):
     """Validate and copy a versioned line/station observation payload.
 
@@ -93,7 +99,7 @@ def create_observations(payload):
         baselode.geophysics.provenance._json_value(payload)
         # JSON parsing combines valid UTF-16 surrogate pairs into scalars;
         # UTF-8 encoding then rejects any unpaired surrogate, like the JS API.
-        document = json.loads(json.dumps(payload, ensure_ascii=True, allow_nan=False, separators=(",", ":")))
+        document = json.loads(json.dumps(payload, ensure_ascii=True, allow_nan=False, separators=(",", ":")), parse_float=_json_float)
         encoded = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     except (ValueError, TypeError, RecursionError) as error:
         raise ValueError("observations require finite acyclic JSON and valid Unicode scalar strings") from error
@@ -150,7 +156,7 @@ def _options(options, channels):
     if type(options) is not dict or options.keys() - _DESCRIPTOR["parameters"]["properties"].keys():
         raise ValueError("QC options must be an object with known parameter names")
     baselode.geophysics.provenance._json_value(options)
-    result = {"spike_window": 5, "spike_thresholds": {}, **copy.deepcopy(options)}
+    result = {"spike_window": 5, "spike_thresholds": {}, **json.loads(json.dumps(options, allow_nan=False), parse_float=_json_float)}
     window = result["spike_window"]
     if type(window) not in (int, float) or not _number(window) or window != int(window) or not 3 <= window <= 101 or window % 2 == 0:
         raise ValueError("spike_window must be an odd integer from 3 to 101")

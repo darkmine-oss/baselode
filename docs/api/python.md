@@ -39,7 +39,7 @@ A normalized document has `schema="baselode.geophysics.observations"`, `version=
 `records`, `channels`, `crs`, `crs_units`, `metadata`. The constructor defaults omitted
 schema/version/CRS/metadata. Each record has unique `id`, nullable `x`, `y`, `z`, `time`,
 `clearance`, `line_id`, `station_id`, channel `values`, and JSON-object `extra`.
-Absent nullable fields/readings become null. Unknown record/top-level fields and undeclared
+Absent nullable fields/readings become null. JSON normalization canonicalizes signed zero (`-0`) to `0` in the copied data/options; originals remain untouched. Unknown record/top-level fields and undeclared
 channels are rejected: retain source-specific fields under `extra` or survey `metadata`.
 Time is UTC Unix epoch **seconds**, not milliseconds; all XY values use one declared CRS.
 Z and measured clearance use `metadata.height_units`; `metadata.height_datum` may preserve

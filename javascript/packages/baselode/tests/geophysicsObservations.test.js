@@ -159,3 +159,14 @@ it('uses shared whitespace normalization for declared unit interpretation', () =
   const report = qcGeophysicsObservations(payload, { min_clearance: 20 });
   expect(report.state).toBe('ok'); expect(report.summary.distance_units).toBe('m'); expect(report.flags.some((item) => item.code === 'low_clearance')).toBe(true);
 });
+
+it('canonicalizes signed zeros in copied data/options without changing originals', () => {
+  const payload = survey(); payload.records = payload.records.slice(0, 1);
+  for (const key of ['x', 'y', 'z', 'time', 'clearance']) payload.records[0][key] = -0;
+  payload.records[0].values.mag = -0; payload.records[0].extra = { raw_zero: -0 };
+  const normalized = createGeophysicsObservations(payload);
+  for (const key of ['x', 'y', 'z', 'time', 'clearance']) expect(Object.is(normalized.records[0][key], 0)).toBe(true);
+  expect(Object.is(normalized.records[0].values.mag, 0)).toBe(true); expect(Object.is(normalized.records[0].extra.raw_zero, 0)).toBe(true);
+  expect(Object.is(qcGeophysicsObservations(payload, { min_clearance: -0 }).parameters.min_clearance, 0)).toBe(true);
+  expect(Object.is(payload.records[0].x, -0)).toBe(true);
+});
