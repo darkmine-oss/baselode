@@ -6,6 +6,8 @@
 upward continuation and reduction to the pole."""
 
 import math
+import json
+import pathlib
 
 import numpy as np
 import pytest
@@ -281,3 +283,22 @@ def test_geotiff_band_selection_reorders_units_with_data(tmp_path):
     selected = baselode.geophysics.load_raster(path, bands=[2, 1])
     assert selected.metadata["units"] == ["degree", "nT/m"]
     np.testing.assert_array_equal(selected.data, raster.data[[1, 0]])
+
+
+def test_esri_foot_alias_and_missing_geotiff_band_units(tmp_path):
+    raster = baselode.geophysics.GeophysicsRaster(
+        gaussian_bump((8, 8)), transform=NORTH_UP,
+        metadata={"crs_units": "Foot_US", "units": ["nT"]},
+    )
+    assert baselode.geophysics.horizontal_derivative(raster).metadata["units"] == ["nT/us-ft"]
+    path = tmp_path / "unitless.tif"
+    baselode.geophysics.save_raster(raster.copy_with(metadata={}), path)
+    assert baselode.geophysics.load_raster(path).metadata["units"] == [None]
+
+
+def test_esri_wkt_foot_unit_is_recognised():
+    fixture = json.loads((pathlib.Path(__file__).parent / "data" / "geophysics_foot_crs.json").read_text())
+    raster = baselode.geophysics.GeophysicsRaster(
+        gaussian_bump((8, 8)), transform=NORTH_UP, crs=fixture["crs"], metadata={"units": ["nT"]},
+    )
+    assert baselode.geophysics.horizontal_derivative(raster).metadata["units"] == ["nT/us-ft"]

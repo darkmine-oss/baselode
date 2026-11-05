@@ -48,7 +48,7 @@ FILTER_METHODS = ("gaussian", "butterworth")
 _LINEAR_UNITS = {
     "m": "m", "metre": "m", "meter": "m",
     "ft": "ft", "foot": "ft", "feet": "ft",
-    "us-ft": "us-ft", "us_survey_foot": "us-ft", "us survey foot": "us-ft",
+    "us-ft": "us-ft", "us_survey_foot": "us-ft", "us survey foot": "us-ft", "foot_us": "us-ft", "foot_intl": "ft",
     "km": "km", "kilometre": "km", "kilometer": "km",
 }
 
@@ -61,7 +61,7 @@ def _coordinate_unit(raster):
     such as hillshade do not require this physical-processing contract.
     """
     declared = raster.metadata.get("crs_units")
-    unit = _LINEAR_UNITS.get(str(declared).lower()) if declared else None
+    unit = _LINEAR_UNITS.get(str(declared).strip().lower()) if declared else None
     if declared and unit is None:
         raise ValueError("processing requires linear crs_units (m, ft, us-ft or km)")
     if raster.crs:

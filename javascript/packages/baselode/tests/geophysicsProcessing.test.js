@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import fixture from '../../../../test/data/geophysics_reference.json';
+import footCrs from '../../../../test/data/geophysics_foot_crs.json';
 import { createGeophysicsRaster } from '../src/data/geophysicsRaster.js';
 import {
   GEOPHYSICS_OPERATIONS,
@@ -183,4 +184,30 @@ describe('scientific coordinate and unit contracts', () => {
     expect(east.metadata.units).toEqual(['nT/m']);
     expect(processGeophysicsRaster(east, 'horizontal_derivative').metadata.units).toEqual(['(nT/m)/m']);
   });
+});
+
+it.each(['EPSG:3577', 'EPSG:2193'])('processes %s with explicitly recorded linear units', (crs) => {
+  const raster = createGeophysicsRaster({
+    data: grid(8, 8, (_, c) => 30 * c), transform: NORTH_UP,
+    crs, metadata: { crs_units: 'metre', units: ['nT'] },
+  });
+  expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/m']);
+  expect(processGeophysicsRaster(raster, 'horizontal_derivative').data[0].flat()).toEqual(Array(64).fill(3));
+  expect(() => processGeophysicsRaster({ ...raster, metadata: {} }, 'horizontal_derivative')).toThrow(/explicit linear/);
+});
+
+it('accepts ESRI foot aliases on local grids', () => {
+  const raster = createGeophysicsRaster({
+    data: grid(8, 8, (_, c) => 30 * c), transform: NORTH_UP,
+    metadata: { crs_units: 'Foot_US', units: ['nT'] },
+  });
+  expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/us-ft']);
+});
+
+it('reads linear units from an ESRI Foot_US WKT projection', () => {
+  const raster = createGeophysicsRaster({
+    data: grid(8, 8, (_, c) => 30 * c), transform: NORTH_UP,
+    crs: footCrs.crs, metadata: { units: ['nT'] },
+  });
+  expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/us-ft']);
 });

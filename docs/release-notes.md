@@ -6,6 +6,7 @@
 
 - Derivatives and analytic signal now update per-band units (for example `nT/m`, `nT/m^2`); tilt is labelled `degree`. Unknown local distances use `coordinate_unit`.
 - Scientific filters and enhancements now reject geographic/geocentric CRSs, angular units and conflicting CRS/unit metadata. Reproject geographic data first. Display and sampling remain available. Distances continue to use native linear coordinate units.
+- JavaScript retains processing support for projected GeoTIFF CRSs outside the local proj4 registry when explicit linear coordinate units are available.
 - GeoTIFF readers retain per-band units, including when selecting or decimating bands.
 - Python and JavaScript share regression fixtures for derived units as well as numerical values.
 

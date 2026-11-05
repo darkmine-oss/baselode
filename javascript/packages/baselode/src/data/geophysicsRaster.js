@@ -290,7 +290,7 @@ export async function loadGeoTiff(source, options = {}) {
   const bandMetadata = (count) => ({
     ...payload.metadata,
     units: Array.from({ length: count }, (_, index) => (
-      image.getGDALMetadata?.(options.samples?.[index] ?? index)?.UNITTYPE ?? null
+      image.getGDALMetadata?.(options.samples?.[index] ?? index)?.UNITTYPE || null
     )),
   });
   const bandNames = (count) => Array.from({ length: count }, (_, index) => `band_${index + 1}`);
