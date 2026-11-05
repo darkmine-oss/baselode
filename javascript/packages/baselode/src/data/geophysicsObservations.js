@@ -97,7 +97,7 @@ export function createGeophysicsObservations(payload) {
 function optionsContract(options, channels) {
   const supplied = options ?? {};
   if (!knownKeys(supplied, Object.keys(descriptor.parameters.properties))) throw new TypeError('QC options must be an object with known parameter names');
-  jsonValue(supplied);
+  try { jsonValue(supplied); } catch { throw new TypeError('QC options require finite acyclic JSON'); }
   const result = { spike_window: 5, spike_thresholds: {}, ...clone(supplied) };
   if (!Number.isInteger(result.spike_window) || result.spike_window < 3 || result.spike_window > 101 || result.spike_window % 2 === 0) throw new RangeError('spike_window must be an odd integer from 3 to 101');
   for (const name of ['max_speed', 'max_distance_gap', 'max_time_gap', 'min_clearance']) {

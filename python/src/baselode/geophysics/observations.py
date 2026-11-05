@@ -155,7 +155,10 @@ def _options(options, channels):
         options = {}
     if type(options) is not dict or options.keys() - _DESCRIPTOR["parameters"]["properties"].keys():
         raise ValueError("QC options must be an object with known parameter names")
-    baselode.geophysics.provenance._json_value(options)
+    try:
+        baselode.geophysics.provenance._json_value(options)
+    except (ValueError, TypeError, RecursionError) as error:
+        raise ValueError("QC options require finite acyclic JSON") from error
     result = {"spike_window": 5, "spike_thresholds": {}, **json.loads(json.dumps(options, allow_nan=False), parse_float=_json_float)}
     window = result["spike_window"]
     if type(window) not in (int, float) or not _number(window) or window != int(window) or not 3 <= window <= 101 or window % 2 == 0:

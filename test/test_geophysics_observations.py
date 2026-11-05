@@ -267,3 +267,11 @@ def test_json_normalization_canonicalizes_signed_zero_in_data_and_options():
     report = baselode.geophysics.qc_observations(payload, {"min_clearance": -0.0})
     assert math.copysign(1, report["parameters"]["min_clearance"]) == 1
     assert math.copysign(1, payload["records"][0]["x"]) == -1
+
+
+def test_non_json_options_use_the_qc_contract_message():
+    options = {"spike_thresholds": {}}; options["spike_thresholds"]["cycle"] = options
+    for invalid in ({"max_speed": float("nan")}, options):
+        report = baselode.geophysics.qc_observations(survey(), invalid)
+        assert report["state"] == "rejected"
+        assert report["issues"][0]["message"] == "QC options require finite acyclic JSON"

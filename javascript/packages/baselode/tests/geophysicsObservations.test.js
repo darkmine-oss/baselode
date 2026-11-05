@@ -170,3 +170,11 @@ it('canonicalizes signed zeros in copied data/options without changing originals
   expect(Object.is(qcGeophysicsObservations(payload, { min_clearance: -0 }).parameters.min_clearance, 0)).toBe(true);
   expect(Object.is(payload.records[0].x, -0)).toBe(true);
 });
+
+it('uses QC-specific contract messages for non-JSON options', () => {
+  const options = { spike_thresholds: {} }; options.spike_thresholds.cycle = options;
+  for (const invalid of [{ max_speed: NaN }, options]) {
+    const report = qcGeophysicsObservations(survey(), invalid); expect(report.state).toBe('rejected');
+    expect(report.issues[0].message).toBe('QC options require finite acyclic JSON');
+  }
+});
