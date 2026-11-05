@@ -20,6 +20,7 @@ import pyproj
 
 import baselode.geophysics.colour_scales
 import baselode.geophysics.raster
+import baselode.geophysics.provenance
 
 
 COMBINE_OPERATIONS = ("add", "subtract", "multiply", "divide")
@@ -300,6 +301,11 @@ def combine(left, right, operation):
             result = values / operand
     result = np.where(np.isfinite(result), result, np.nan)
     metadata = dict(left.metadata)
+    if isinstance(right, baselode.geophysics.raster.GeophysicsRaster):
+        inputs = metadata.get("input_lineage", [])
+        if not isinstance(inputs, list):
+            raise ValueError("input_lineage must be a list")
+        metadata["input_lineage"] = inputs + [baselode.geophysics.provenance.input_record(right.metadata)]
     if operation in ("multiply", "divide") and "units" in metadata:
         metadata["units"] = [None] * left.band_count
     return left.copy_with(result, nodata=None, metadata=metadata, processing=step)

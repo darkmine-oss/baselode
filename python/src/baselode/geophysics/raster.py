@@ -20,6 +20,7 @@ import numpy as np
 
 import baselode.geophysics.colour_scales
 import baselode.geophysics.ers
+import baselode.geophysics.provenance
 
 try:
     import rasterio as _rasterio
@@ -487,10 +488,10 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
         return raster.copy_with(
             np.stack([raster.band(index) for index in indexes]),
             band_names=[raster.band_names[index - 1] for index in indexes],
-            metadata={
+            metadata=baselode.geophysics.provenance.selection({
                 **raster.metadata,
                 "units": [raster.metadata["units"][index - 1] for index in indexes],
-            },
+            }, indexes),
         )
     if engine != "rasterio":
         raise ValueError(f"unknown raster engine {engine!r}")
@@ -519,6 +520,9 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
             "units": [dataset.units[index - 1] or None for index in indexes],
             "tags": tags,
         }
+        metadata = baselode.geophysics.provenance.restore(metadata, tags.get("BASELODE_PROVENANCE"))
+        if bands is not None:
+            metadata = baselode.geophysics.provenance.selection(metadata, indexes)
         return GeophysicsRaster(
             data,
             transform=dataset.transform,

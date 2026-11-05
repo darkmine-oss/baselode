@@ -1207,6 +1207,22 @@ Projected CRS axis units determine derivative units. Local Cartesian grids can d
 
 The JavaScript and Python implementations share one FFT design and are tested against a common fixture, so they agree cell for cell.
 
+### Embedded processing provenance
+
+`encodeErs` and `encodeGeoTiff` embed the same version 1 manifest as Python
+(see [Python provenance contract](/api/python#embedded-processing-provenance)).
+Set `includeProvenance: false` to omit it. `readErs` and `loadGeoTiff` restore
+`metadata.processing` and expose the recorded manifest as `metadata.provenance`.
+Non-JSON/cyclic/non-finite metadata and malformed or unknown manifest versions
+raise errors. The decoded manifest limit is 16 MiB. Imported file metadata,
+units, names and geometry remain authoritative; GeoTIFF selected samples are
+recorded as a one-based `select_bands` step before any decimation.
+
+Producer versions identify the exporter package; direct, unbundled JavaScript
+source reports `unversioned`. Source references and metadata may include local
+paths and calibration notes; use the opt-out when these should be omitted.
+The embedded record is lineage, not content authentication or an executable recipe.
+
 ### Sampling
 
 | Function | Description |

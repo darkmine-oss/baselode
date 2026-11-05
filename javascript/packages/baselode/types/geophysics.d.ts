@@ -8,7 +8,18 @@ export interface GeophysicsProcessingStep {
   [key: string]: unknown;
 }
 
+export interface GeophysicsProvenance {
+  schema: 'baselode.geophysics.provenance';
+  version: 1;
+  producer: { library: 'baselode'; version: string };
+  sources: string[];
+  metadata: Record<string, unknown>;
+  export: { format: 'ERS' | 'GeoTIFF'; dtype: GeophysicsCellType };
+}
+
 export interface GeophysicsRasterMetadata {
+  provenance?: GeophysicsProvenance;
+  input_lineage?: Array<{ metadata: Record<string, unknown>; sources: string[] }>;
   units?: Array<string | null>;
   crs_units?: GeophysicsCrsUnits | null;
   processing?: GeophysicsProcessingStep[];
@@ -169,9 +180,9 @@ export const DEFAULT_ERS_NULL: number;
 export function ersCoordinateSpace(crs: string | number | null | undefined): [string, string, string];
 export function encodeErs(
   raster: GeophysicsRasterInput,
-  options?: { name?: string; dtype?: GeophysicsCellType; nodata?: number },
+  options?: { name?: string; dtype?: GeophysicsCellType; nodata?: number; includeProvenance?: boolean },
 ): { header: string; data: ArrayBuffer };
 export function encodeGeoTiff(
   raster: GeophysicsRasterInput,
-  options?: { dtype?: GeophysicsCellType; nodata?: number },
+  options?: { dtype?: GeophysicsCellType; nodata?: number; includeProvenance?: boolean },
 ): ArrayBuffer;

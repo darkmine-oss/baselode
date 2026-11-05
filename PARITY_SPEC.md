@@ -15,7 +15,7 @@ The two implementations should remain aligned for:
 5. 3D drillhole payload/scene helpers
 6. Spatial extent bounds, CRS normalisation, reprojection, and center helpers
 7. Block model primitive: grid definition + transforms, sub-block operations, validation, tonnage, diff
-8. Geophysics raster filters and enhancements: numerical results, coordinate validation, derived band units and processing records
+8. Geophysics raster filters and enhancements: numerical results, coordinate validation, derived band units, processing records and embedded version 1 provenance
 
 ## Runtime differences (intentional)
 

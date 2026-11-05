@@ -13,6 +13,7 @@
  * registration cell, which defaults to cell (0, 0).
  */
 
+import { restoreProvenance } from './geophysicsProvenance.js';
 import { geophysicsRasterFromBands } from './geophysicsRaster.js';
 
 const CELL_TYPES = {
@@ -257,7 +258,7 @@ export function readErs(headerText, data, options = {}) {
     crs: ersCrs(space.Datum, space.Projection),
     nodata: sentinel,
     bandNames,
-    metadata: {
+    metadata: restoreProvenance({
       driver: 'ERS',
       source: options.name ?? null,
       datum: space.Datum ?? null,
@@ -268,7 +269,7 @@ export function readErs(headerText, data, options = {}) {
       crs_units: coordinateType === 'LL' || coordinateType === 'LATLONG' ? 'degree' : 'metre',
       cell_type: rasterInfo.CellType,
       units,
-    },
+    }, header.BASELODE_PROVENANCE),
   });
 }
 

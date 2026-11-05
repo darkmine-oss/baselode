@@ -18,6 +18,7 @@ import re
 
 import numpy as np
 
+import baselode.geophysics.provenance
 import baselode.geophysics.raster
 
 
@@ -303,5 +304,5 @@ def read_ers(path, masked=True):
         crs=ers_crs(space.get("Datum"), space.get("Projection")),
         nodata=nodata,
         band_names=band_names,
-        metadata=metadata,
+        metadata=baselode.geophysics.provenance.restore(metadata, header.get("BASELODE_PROVENANCE")),
     )

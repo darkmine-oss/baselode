@@ -214,6 +214,48 @@ unless `dtype="float64"`. Missing cells get `nodata`, or the raster's own
 - **GeoTIFF** needs the `raster` extra. Band names are kept as band
   descriptions and units as band units.
 
+### Embedded processing provenance
+
+ERS and GeoTIFF writers embed lineage by default. After loading,
+`raster.metadata["processing"]` contains the recorded steps and
+`raster.metadata["provenance"]` contains the versioned manifest. Set
+`include_provenance=False` on `save_raster`, `write_ers`, `write_geotiff` or
+`ers_header` to omit it explicitly. Legacy files without a manifest still load.
+
+The manifest is UTF-8 JSON encoded as ASCII base64 in the ERS header field
+`BASELODE_PROVENANCE` or the GeoTIFF GDAL metadata item with that name:
+
+```json
+{
+  "schema": "baselode.geophysics.provenance",
+  "version": 1,
+  "producer": {"library": "baselode", "version": "<exporter version>"},
+  "sources": ["original-survey.ers"],
+  "metadata": {"processing": [{"operation": "upward_continuation", "height": 100}]},
+  "export": {"format": "GeoTIFF", "dtype": "float32"}
+}
+```
+
+Metadata, including source references and calibration notes, must be acyclic
+JSON objects/lists with string keys and finite numbers. Python integers must
+be exactly representable as JavaScript numbers for cross-language interchange. Non-JSON values fail
+before files are written. Malformed manifests, unsupported versions and
+manifests above 16 MiB fail clearly on reading. The previous manifest and its
+transport tag are excluded from the next snapshot, so repeated saves do not
+recursively embed prior envelopes. Source references are accumulated uniquely.
+
+On loading, the file's current source, driver, tags and band units take
+precedence over the snapshot. Geometry and CRS always come from the file.
+An explicit band selection appends a one-based `select_bands` view step;
+JavaScript downsampling also records its existing `decimate` step.
+Raster arithmetic stores the right-hand input's metadata and sources in
+`metadata["input_lineage"]` as well as retaining the left-hand history.
+
+The producer identifies the exporter package, not every upstream calculation.
+The record documents lineage; it does not authenticate cell values, guarantee
+numerical replay, or contain an executable workflow. Other software can strip
+custom metadata. Use Baselode's native ERS reader for its custom header field.
+
 ### Colour scales
 
 ```python

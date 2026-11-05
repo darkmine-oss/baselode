@@ -71,7 +71,7 @@ describe('geophysics editing reference', () => {
 
   it('writes the same ERS dataset as Python', () => {
     const { raster, name, header, data } = editing.ersWriter;
-    const encoded = encodeErs(raster, { name });
+    const encoded = encodeErs(raster, { name, includeProvenance: false });
     expect(Buffer.from(encoded.data).toString('base64')).toBe(data);
     expect(normaliseNumbers(parseErsHeader(encoded.header))).toEqual(normaliseNumbers(parseErsHeader(header)));
   });
@@ -284,13 +284,15 @@ describe('writers', () => {
   });
 });
 
+// Frozen binary fixtures exercise legacy exports; provenance interoperability
+// is checked separately with dynamic producer versions.
 describe('files for Python', () => {
   // The fixture's ERS raster, written by this encoder for Python to read.
   const raster = editing.ersWriter.raster;
   const outputs = {
-    'geophysics_js_written.tif': () => new Uint8Array(encodeGeoTiff(raster)),
-    'geophysics_js_written.ers': () => encodeErs(raster, { name: 'geophysics_js_written.ers' }).header,
-    geophysics_js_written: () => new Uint8Array(encodeErs(raster, { name: 'geophysics_js_written.ers' }).data),
+    'geophysics_js_written.tif': () => new Uint8Array(encodeGeoTiff(raster, { includeProvenance: false })),
+    'geophysics_js_written.ers': () => encodeErs(raster, { name: 'geophysics_js_written.ers', includeProvenance: false }).header,
+    geophysics_js_written: () => new Uint8Array(encodeErs(raster, { name: 'geophysics_js_written.ers', includeProvenance: false }).data),
   };
 
   it.each(Object.keys(outputs))('%s is current', (file) => {

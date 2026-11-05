@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+**Embedded geophysics lineage (TRK-530)**
+
+- ERS and GeoTIFF writers embed versioned JSON provenance by default; readers restore processing steps, source references and non-transport metadata. Explicit writer opt-out supports metadata-free exports.
+- Repeated saves avoid recursive manifest nesting. Band selection records its view; raster arithmetic preserves both input histories. GeoTIFF band descriptions and unit XML entities round-trip correctly.
+- Invalid/non-JSON metadata and malformed/unsupported manifests raise errors; both languages share the version 1 format. The record identifies the exporter and dtype; it does not authenticate data or execute a workflow.
+
+
 **Geophysics processing contracts (TRK-526, Milestone 0 first increment)**
 
 - Derivatives and analytic signal now update per-band units (for example `nT/m`, `nT/m^2`); tilt is labelled `degree`. Unknown local distances use `coordinate_unit`.

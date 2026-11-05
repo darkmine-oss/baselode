@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { restoreProvenance, recordSelection } from './geophysicsProvenance.js';
+
 /**
  * Create the portable in-memory raster shape shared by the Python and
  * JavaScript Baselode packages. Data is always bands-first: [band][row][col].
@@ -285,15 +287,25 @@ export async function loadGeoTiff(source, options = {}) {
   const payload = {
     transform: geoTiffTransform(image, image.getGeoKeys()),
     crs: geoTiffCrs(image.getGeoKeys()),
-    metadata: { driver: 'GeoTIFF', width, height, crs_units: geoTiffCrsUnits(image.getGeoKeys()) },
+    metadata: restoreProvenance({ driver: 'GeoTIFF', width, height, source: typeof source === 'string' || source instanceof URL ? String(source) : null, crs_units: geoTiffCrsUnits(image.getGeoKeys()) }, image.getGDALMetadata?.()?.BASELODE_PROVENANCE),
+  };
+  if (options.samples) payload.metadata = recordSelection(payload.metadata, options.samples.map((index) => index + 1));
+  const bandTag = (index, key) => {
+    const text = image.getGDALMetadata?.(options.samples?.[index] ?? index)?.[key];
+    return typeof text === 'string' ? text.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos);/gi, (whole, entity) => {
+      const named = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+      if (named[entity]) return named[entity];
+      const code = entity[1]?.toLowerCase() === 'x' ? parseInt(entity.slice(2), 16) : Number(entity.slice(1));
+      return Number.isInteger(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole;
+    }) : null;
   };
   const bandMetadata = (count) => ({
     ...payload.metadata,
     units: Array.from({ length: count }, (_, index) => (
-      image.getGDALMetadata?.(options.samples?.[index] ?? index)?.UNITTYPE || null
+      bandTag(index, 'UNITTYPE') || null
     )),
   });
-  const bandNames = (count) => Array.from({ length: count }, (_, index) => `band_${index + 1}`);
+  const bandNames = (count) => Array.from({ length: count }, (_, index) => bandTag(index, 'DESCRIPTION') || `band_${(options.samples?.[index] ?? index) + 1}`);
   if (maxCells == null || width * height <= maxCells) {
     const values = await image.readRasters({ samples: options.samples, interleave: false });
     return geophysicsRasterFromBands(Array.from(values), {
