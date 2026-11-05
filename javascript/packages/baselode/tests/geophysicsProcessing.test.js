@@ -9,6 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import fixture from '../../../../test/data/geophysics_reference.json';
 import footCrs from '../../../../test/data/geophysics_foot_crs.json';
+import localCrs from '../../../../test/data/geophysics_local_crs.json';
 import { createGeophysicsRaster } from '../src/data/geophysicsRaster.js';
 import {
   GEOPHYSICS_OPERATIONS,
@@ -229,4 +230,15 @@ it('uses explicit PROJ distance scales without assuming metres', () => {
   });
   expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/us-ft']);
   expect(() => processGeophysicsRaster({ ...raster, crs: '+proj=utm +zone=50 +south +datum=WGS84 +to_meter=2' }, 'horizontal_derivative')).toThrow(/linear/);
+});
+
+it('processes local engineering CRS axes in metres', () => {
+  const raster = createGeophysicsRaster({
+    data: grid(8, 8, (_, c) => 30 * c), transform: NORTH_UP,
+    crs: localCrs.crs, metadata: { units: ['nT'], crs_units: 'metre' },
+  });
+  const gradient = processGeophysicsRaster(raster, 'horizontal_derivative');
+  expect(gradient.metadata.units).toEqual(['nT/m']);
+  expect(gradient.data[0].flat()).toEqual(Array(64).fill(3));
+  expect(processGeophysicsRaster(raster, 'low_pass', { wavelength: 100 }).crs).toEqual(raster.crs);
 });

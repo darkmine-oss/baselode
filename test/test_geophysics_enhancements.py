@@ -302,3 +302,15 @@ def test_esri_wkt_foot_unit_is_recognised():
         gaussian_bump((8, 8)), transform=NORTH_UP, crs=fixture["crs"], metadata={"units": ["nT"]},
     )
     assert baselode.geophysics.horizontal_derivative(raster).metadata["units"] == ["nT/us-ft"]
+
+
+def test_local_engineering_crs_uses_its_linear_axes():
+    fixture = json.loads((pathlib.Path(__file__).parent / "data" / "geophysics_local_crs.json").read_text())
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.tile(np.arange(8) * 30., (8, 1)), transform=NORTH_UP,
+        crs=fixture["crs"], metadata={"units": ["nT"], "crs_units": "metre"},
+    )
+    gradient = baselode.geophysics.horizontal_derivative(raster)
+    assert gradient.metadata["units"] == ["nT/m"]
+    np.testing.assert_array_equal(gradient.data, 3.)
+    assert baselode.geophysics.low_pass(raster, 100).crs == raster.crs

@@ -66,7 +66,7 @@ def _coordinate_unit(raster):
         raise ValueError("processing requires linear crs_units (m, ft, us-ft or km)")
     if raster.crs:
         crs = pyproj.CRS.from_user_input(raster.crs)
-        if not crs.is_projected:
+        if not (crs.is_projected or crs.is_engineering):
             raise ValueError("processing requires a projected CRS or local Cartesian grid; reproject first")
         axes = crs.axis_info[:2]
         symbols = [_LINEAR_UNITS.get(axis.unit_name.lower()) for axis in axes]
