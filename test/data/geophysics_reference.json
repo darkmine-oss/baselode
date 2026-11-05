@@ -5654,7 +5654,8 @@
       "operand": "raster",
       "operand_bands": [
        "tmi"
-      ]
+      ],
+      "operand_lineage": 0
      }
     }
    },
@@ -5861,7 +5862,8 @@
       "operand": "raster",
       "operand_bands": [
        "tmi"
-      ]
+      ],
+      "operand_lineage": 0
      }
     }
    },

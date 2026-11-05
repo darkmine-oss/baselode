@@ -9,7 +9,7 @@
 // rasters with missing cells as null, `nodata: null`, and a step appended to
 // `metadata.processing` using Python's record names.
 
-import { inputRecord } from './geophysicsProvenance.js';
+import { appendInput } from './geophysicsProvenance.js';
 import { createGeophysicsRaster } from './geophysicsRaster.js';
 import { canonicalCrs } from './geophysicsWriters.js';
 
@@ -288,8 +288,9 @@ export function combineGeophysicsRasters(left, right, operation) {
   });
   const metadata = { ...normalized.metadata };
   if (typeof right !== 'number') {
-    if (metadata.input_lineage && !Array.isArray(metadata.input_lineage)) throw new TypeError('input_lineage must be a list');
-    metadata.input_lineage = [...(metadata.input_lineage ?? []), inputRecord(asRaster(right).metadata)];
+    const { nodes, operand } = appendInput(normalized.metadata, asRaster(right).metadata);
+    metadata.input_lineage = nodes;
+    step.operand_lineage = operand;
   }
   if ((operation === 'multiply' || operation === 'divide') && 'units' in metadata) {
     metadata.units = Array(normalized.bandCount).fill(null);

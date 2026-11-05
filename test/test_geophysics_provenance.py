@@ -148,3 +148,57 @@ for (const extension of ['ers', 'tif']) {{
         assert result.metadata["provenance"]["producer"]["version"] == "unversioned"
         assert result.metadata["units"] == ["nT/m", None]
         assert result.band_names == source.band_names
+
+
+def test_cross_format_metadata_is_historical_not_current(tmp_path):
+    ers = tmp_path / "source.ers"
+    tif = tmp_path / "result.tif"
+    back = tmp_path / "back.ers"
+    baselode.geophysics.save_raster(source_grid(), ers)
+    original = baselode.geophysics.load_raster(ers)
+    assert original.metadata["cell_type"] == "IEEE4ByteReal"
+    baselode.geophysics.save_raster(original, tif, dtype="float64")
+    converted = baselode.geophysics.load_raster(tif)
+    assert "cell_type" not in converted.metadata
+    assert "datum" not in converted.metadata
+    assert converted.metadata["provenance"]["metadata"]["cell_type"] == "IEEE4ByteReal"
+    baselode.geophysics.save_raster(converted, back)
+    reread = baselode.geophysics.load_raster(back)
+    assert "tags" not in reread.metadata
+    assert "tags" in reread.metadata["provenance"]["metadata"]
+
+
+def test_signed_source_references_are_redacted_without_mutating_the_input():
+    url = "https://user:secret@example.com/survey.tif?X-Amz-Signature=token#fragment"
+    metadata = {"source": url, "processing": [{"operation": "subtract", "operand_source": url}]}
+    encoded = baselode.geophysics.provenance.encode(metadata, "GeoTIFF", "float32")
+    manifest = json.loads(base64.b64decode(encoded))
+    assert "secret" not in json.dumps(manifest) and "token" not in json.dumps(manifest)
+    assert manifest["sources"] == ["https://example.com/survey.tif"]
+    assert manifest["metadata"]["processing"][0]["operand_source"] == "https://example.com/survey.tif"
+    assert metadata["source"] == url
+
+
+def test_repeated_and_branching_combinations_use_flat_valid_references(tmp_path):
+    grid = source_grid()
+    for _ in range(16):
+        grid = baselode.geophysics.combine(grid, grid, "add")
+    assert len(grid.metadata["input_lineage"]) == 16
+    assert len(json.dumps(grid.metadata)) < 50000
+    assert grid.metadata["processing"][-1]["operand_lineage"] == 15
+    right = baselode.geophysics.combine(source_grid(), source_grid(), "multiply")
+    combined = baselode.geophysics.combine(grid, right, "subtract")
+    index = combined.metadata["processing"][-1]["operand_lineage"]
+    right_snapshot = combined.metadata["input_lineage"][index]["metadata"]
+    assert right_snapshot["processing"][-1]["operation"] == "multiply"
+    assert right_snapshot["processing"][-1]["operand_lineage"] == 0
+    path = tmp_path / "graph.tif"
+    baselode.geophysics.save_raster(combined, path, dtype="float64")
+    assert baselode.geophysics.load_raster(path).metadata["input_lineage"] == combined.metadata["input_lineage"]
+
+
+def test_invalid_graph_references_are_rejected_before_export(tmp_path):
+    grid = source_grid().copy_with(metadata={"processing": [{"operation": "add", "operand_lineage": 123}]})
+    with pytest.raises(ValueError, match="operand_lineage"):
+        baselode.geophysics.save_raster(grid, tmp_path / "bad.tif")
+    assert not (tmp_path / "bad.tif").exists()

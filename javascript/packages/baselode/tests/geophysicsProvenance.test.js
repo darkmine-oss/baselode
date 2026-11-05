@@ -63,7 +63,7 @@ it('records GeoTIFF band selection before decimation', async () => {
   expect(selected.metadata.processing[0].bands).toEqual([2, 1]);
 });
 
-it.each([NaN, Infinity, undefined, () => {}, { processing: null }, { x: new Date() }])('rejects non-JSON metadata %s', (bad) => {
+it.each([NaN, Infinity, undefined, () => {}, { processing: null }, { x: new Date() }, { tags: new Date() }])('rejects non-JSON metadata %s', (bad) => {
   const source = sourceGrid();
   source.metadata = bad && typeof bad === 'object' ? bad : { bad };
   expect(() => encodeErs(source)).toThrow(/JSON|processing/);
@@ -88,4 +88,49 @@ it('decodes band descriptions and unit XML escapes independently of provenance',
   const restored = await roundTrip(raster, 'tif', { includeProvenance: false });
   expect(restored.bandNames).toEqual(raster.bandNames);
   expect(restored.metadata.units).toEqual(raster.metadata.units);
+});
+
+it('does not revive stale fields after a cross-format round trip', async () => {
+  const ers = await roundTrip(sourceGrid(), 'ers');
+  const tif = await roundTrip(ers, 'tif', { dtype: 'float64' });
+  expect(tif.metadata.cell_type).toBeUndefined();
+  expect(tif.metadata.datum).toBeUndefined();
+  expect(tif.metadata.provenance.metadata.cell_type).toBe('IEEE4ByteReal');
+  const back = await roundTrip(tif, 'ers');
+  expect(back.metadata.width).toBeUndefined();
+  expect(back.metadata.provenance.metadata.width).toBe(2);
+});
+
+it('redacts source URL credentials on capture and reading without mutating callers', () => {
+  const source = 'https://user:secret@example.com/survey.tif?X-Amz-Signature=token#fragment';
+  const metadata = { source, processing: [{ operation: 'subtract', operand_source: source }] };
+  const encoded = encodeProvenance(metadata, 'GeoTIFF', 'float32');
+  const restored = restoreProvenance({}, encoded);
+  expect(JSON.stringify(restored)).not.toMatch(/secret|token/);
+  expect(restored.provenance.sources).toEqual(['https://example.com/survey.tif']);
+  expect(metadata.source).toBe(source);
+  expect(restoreProvenance({ source }, null).source).toBe('https://example.com/survey.tif');
+});
+
+it('uses flat graph references for repeated and branching combinations', async () => {
+  let raster = sourceGrid();
+  for (let index = 0; index < 16; index += 1) raster = combineGeophysicsRasters(raster, raster, 'add');
+  expect(raster.metadata.input_lineage).toHaveLength(16);
+  expect(JSON.stringify(raster.metadata).length).toBeLessThan(50000);
+  const right = combineGeophysicsRasters(sourceGrid(), sourceGrid(), 'multiply');
+  const combined = combineGeophysicsRasters(raster, right, 'subtract');
+  const operand = combined.metadata.processing.at(-1).operand_lineage;
+  expect(combined.metadata.input_lineage[operand].metadata.processing.at(-1)).toMatchObject({ operation: 'multiply', operand_lineage: 0 });
+  const back = await roundTrip(combined, 'tif');
+  expect(back.metadata.input_lineage).toEqual(combined.metadata.input_lineage);
+});
+
+it('rejects invalid lineage references, symbol keys and sparse/extended arrays', () => {
+  expect(() => encodeProvenance({ processing: [{ operation: 'add', operand_lineage: 123 }] }, 'ERS', 'float32')).toThrow(/operand_lineage/);
+  const symbolMetadata = { [Symbol('key')]: 'value' };
+  expect(() => encodeProvenance(symbolMetadata, 'ERS', 'float32')).toThrow(/JSON/);
+  expect(() => encodeProvenance({ values: Array(2) }, 'ERS', 'float32')).toThrow(/JSON/);
+  const values = [1];
+  values.extra = 2;
+  expect(() => encodeProvenance({ values }, 'ERS', 'float32')).toThrow(/JSON/);
 });

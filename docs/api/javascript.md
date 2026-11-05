@@ -1219,8 +1219,8 @@ units, names and geometry remain authoritative; GeoTIFF selected samples are
 recorded as a one-based `select_bands` step before any decimation.
 
 Producer versions identify the exporter package; direct, unbundled JavaScript
-source reports `unversioned`. Source references and metadata may include local
-paths and calibration notes; use the opt-out when these should be omitted.
+source reports `unversioned`. Known source URL fields are stripped of userinfo, query strings and fragments.
+Other source references and metadata may include local paths and calibration notes; use the opt-out when these should be omitted.
 The embedded record is lineage, not content authentication or an executable recipe.
 
 ### Sampling

@@ -244,12 +244,24 @@ manifests above 16 MiB fail clearly on reading. The previous manifest and its
 transport tag are excluded from the next snapshot, so repeated saves do not
 recursively embed prior envelopes. Source references are accumulated uniquely.
 
-On loading, the file's current source, driver, tags and band units take
+Known source URL fields (`source`, `*_source`, and source-reference lists) have
+userinfo, query strings and fragments removed before capture and on reading;
+they are sanitized references, not exact fetch URLs. Other arbitrary metadata
+is retained, so the opt-out remains available when metadata should be omitted.
+
+On loading, prior format-specific reader fields (including ERS cell type,
+datum/projection, GDAL tags, and dimensions) remain only in the historical
+snapshot; they are not revived as current fields in another format.
+The file's current source, driver, tags and band units take
 precedence over the snapshot. Geometry and CRS always come from the file.
 An explicit band selection appends a one-based `select_bands` view step;
 JavaScript downsampling also records its existing `decimate` step.
-Raster arithmetic stores the right-hand input's metadata and sources in
-`metadata["input_lineage"]` as well as retaining the left-hand history.
+Raster arithmetic stores a flat graph of input metadata/source records in
+`metadata["input_lineage"]`, alongside the left-hand history. Each binary
+processing step's zero-based `operand_lineage` points to its right-hand record.
+Records reference earlier graph entries through their own processing steps;
+merging graphs remaps references and deduplicates identical records. This avoids
+recursive duplication when repeatedly combining derived grids.
 
 The producer identifies the exporter package, not every upstream calculation.
 The record documents lineage; it does not authenticate cell values, guarantee

@@ -103,7 +103,7 @@ def test_combine_aligned_rasters_and_numbers():
     assert np.isnan(residual.data[0, 1, 1])
     assert residual.metadata["units"] == ["nT"]
     step = residual.metadata["processing"][-1]
-    assert step == {"operation": "subtract", "operand": "raster", "operand_bands": ["tmi"], "operand_source": "ramp.ers"}
+    assert step == {"operation": "subtract", "operand": "raster", "operand_bands": ["tmi"], "operand_source": "ramp.ers", "operand_lineage": 0}
 
     scaled = baselode.geophysics.combine(raster, 2, "multiply")
     np.testing.assert_array_equal(scaled.data[0, 1], [20, 22, 24, 26, 28])

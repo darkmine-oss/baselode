@@ -302,10 +302,9 @@ def combine(left, right, operation):
     result = np.where(np.isfinite(result), result, np.nan)
     metadata = dict(left.metadata)
     if isinstance(right, baselode.geophysics.raster.GeophysicsRaster):
-        inputs = metadata.get("input_lineage", [])
-        if not isinstance(inputs, list):
-            raise ValueError("input_lineage must be a list")
-        metadata["input_lineage"] = inputs + [baselode.geophysics.provenance.input_record(right.metadata)]
+        nodes, operand = baselode.geophysics.provenance.append_input(left.metadata, right.metadata)
+        metadata["input_lineage"] = nodes
+        step["operand_lineage"] = operand
     if operation in ("multiply", "divide") and "units" in metadata:
         metadata["units"] = [None] * left.band_count
     return left.copy_with(result, nodata=None, metadata=metadata, processing=step)

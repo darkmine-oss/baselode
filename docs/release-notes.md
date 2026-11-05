@@ -5,7 +5,7 @@
 **Embedded geophysics lineage (TRK-530)**
 
 - ERS and GeoTIFF writers embed versioned JSON provenance by default; readers restore processing steps, source references and non-transport metadata. Explicit writer opt-out supports metadata-free exports.
-- Repeated saves avoid recursive manifest nesting. Band selection records its view; raster arithmetic preserves both input histories. GeoTIFF band descriptions and unit XML entities round-trip correctly.
+- Repeated saves avoid recursive manifest nesting; binary operations merge flat, deduplicated input graphs. Source URL credentials/query fragments are stripped, and stale format-specific fields remain historical rather than current. Band selection records its view; raster arithmetic preserves both input histories. GeoTIFF band descriptions and unit XML entities round-trip correctly.
 - Invalid/non-JSON metadata and malformed/unsupported manifests raise errors; both languages share the version 1 format. The record identifies the exporter and dtype; it does not authenticate data or execute a workflow.
 
 
