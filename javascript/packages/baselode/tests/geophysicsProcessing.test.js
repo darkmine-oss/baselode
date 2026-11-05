@@ -211,3 +211,22 @@ it('reads linear units from an ESRI Foot_US WKT projection', () => {
   });
   expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/us-ft']);
 });
+
+it('uses explicit linear units for external CRS authority identifiers', () => {
+  const raster = createGeophysicsRaster({
+    data: grid(8, 8, (_, c) => 30 * c), transform: NORTH_UP,
+    crs: 'ESRI:102003', metadata: { crs_units: 'metre', units: ['nT'] },
+  });
+  expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/m']);
+  expect(() => processGeophysicsRaster({ ...raster, metadata: {} }, 'horizontal_derivative')).toThrow(/explicit linear/);
+});
+
+it('uses explicit PROJ distance scales without assuming metres', () => {
+  const raster = createGeophysicsRaster({
+    data: grid(8, 8, (_, c) => 30 * c), transform: NORTH_UP,
+    crs: '+proj=utm +zone=50 +south +datum=WGS84 +to_meter=0.3048006096012192',
+    metadata: { units: ['nT'] },
+  });
+  expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/us-ft']);
+  expect(() => processGeophysicsRaster({ ...raster, crs: '+proj=utm +zone=50 +south +datum=WGS84 +to_meter=2' }, 'horizontal_derivative')).toThrow(/linear/);
+});

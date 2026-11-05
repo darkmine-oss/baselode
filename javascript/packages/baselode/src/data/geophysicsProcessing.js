@@ -40,18 +40,23 @@ function coordinateUnit(raster) {
   let unit = declared ? LINEAR_UNITS[String(declared).trim().toLowerCase()] : null;
   if (declared && !unit) throw new RangeError('processing requires linear crs_units (m, ft, us-ft or km)');
   if (raster.crs) {
-    const epsg = String(raster.crs).trim().match(/^(?:epsg\s*:\s*)?(\d+)$/i);
-    if (epsg && !proj4.defs(`EPSG:${Number(epsg[1])}`)) {
-      // GeoTIFF can identify projected CRSs outside proj4's local registry.
-      // Use explicitly recorded linear units; never guess from the EPSG code.
-      if (!unit) throw new RangeError('unregistered CRS requires explicit linear metadata.crs_units');
+    let projection;
+    try {
+      projection = new proj4.Proj(normaliseCrs(raster.crs));
+    } catch (error) {
+      // External readers may supply CRS identifiers/definitions that proj4
+      // cannot resolve. Require the caller's explicit linear-unit contract.
+      if (!unit) throw new RangeError('unresolved CRS requires explicit linear metadata.crs_units', { cause: error });
       return unit;
     }
-    const projection = new proj4.Proj(normaliseCrs(raster.crs));
     if (['longlat', 'geocent'].includes(projection.projName)) {
       throw new RangeError('processing requires a projected CRS or local Cartesian grid; reproject first');
     }
-    const axisUnit = LINEAR_UNITS[String(projection.units ?? 'm').trim().toLowerCase()];
+    const scaleUnits = [[1, 'm'], [0.3048, 'ft'], [1200 / 3937, 'us-ft'], [1000, 'km']];
+    const scaledUnit = scaleUnits.find(([scale]) => Math.abs(projection.to_meter - scale) <= 1e-12 * scale)?.[1];
+    const axisUnit = projection.units
+      ? LINEAR_UNITS[String(projection.units).trim().toLowerCase()]
+      : (projection.to_meter == null ? 'm' : scaledUnit);
     if (!axisUnit) throw new RangeError('processing requires supported linear CRS axis units');
     if (unit && unit !== axisUnit) throw new RangeError('metadata crs_units conflicts with the CRS axis units');
     unit = axisUnit;
