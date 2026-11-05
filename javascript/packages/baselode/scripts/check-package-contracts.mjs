@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const packageJson = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'));
 const publishedEntries = {
+  './geophysics': ['dist/geophysics.js', 'types/geophysics.d.ts'],
   './extent': ['dist/extent.js', 'types/extent.d.ts'],
   './tool-ui': ['dist/tool-ui.js', 'types/tool-ui.d.ts'],
   './tool-ui/contracts': ['dist/tool-ui-contracts.js', 'types/tool-ui-contracts.d.ts'],
@@ -38,6 +39,14 @@ const extent = extentModule.Extent.fromBbox([118, -32, 120, -30]);
 assert.deepEqual(extent.center(), [119, -31]);
 assert.equal(extentModule.DEFAULT_EXTENT_CRS, 'EPSG:4326');
 
+const geophysics = await import(pathToFileURL(resolve(root, 'dist/geophysics.js')));
+assert.equal(geophysics.listGeophysicsOperations().length, 11);
+const workflowGrid = geophysics.createGeophysicsRaster({
+  data: [[1, 2], [3, 4]], transform: [10, 0, 0, 0, -10, 20],
+  metadata: { field_type: 'magnetic_anomaly', units: ['nT'], crs_units: 'm' },
+});
+assert.equal(geophysics.runGeophysicsWorkflow(geophysics.magneticGridRecipe(), { magnetic: workflowGrid }).state, 'ok');
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {
@@ -62,4 +71,4 @@ assert(files.has('dist/style.css'));
 assert(files.has('src/tool-ui/style.css'));
 assert(files.has('README.md'));
 
-console.log('Published Extent and Tool UI contracts are present, importable, and typed.');
+console.log('Published Extent, geophysics and Tool UI contracts are present, importable, and typed.');

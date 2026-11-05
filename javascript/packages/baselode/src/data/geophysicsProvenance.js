@@ -58,7 +58,7 @@ function checkGraph(metadata) {
   checkSteps(metadata, nodes.length);
 }
 
-function jsonValue(value, ancestors = new Set()) {
+export function jsonValue(value, ancestors = new Set()) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return;
   if (typeof value === 'number' && Number.isFinite(value)) return;
   if (!value || typeof value !== 'object' || ancestors.has(value)

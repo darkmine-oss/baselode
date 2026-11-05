@@ -577,6 +577,43 @@
         ["baselode.geophysics", "write_geotiff"],
         ["baselode.geophysics", "save_raster"]
       ]
+    },
+    {
+      "name": "geophysics_workflows",
+      "jsExports": [
+        "listGeophysicsOperations",
+        "describeGeophysicsOperation",
+        "geophysicsWorkflowSchema",
+        "magneticGridRecipe",
+        "validateGeophysicsWorkflow",
+        "runGeophysicsWorkflow"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "list_operations"
+        ],
+        [
+          "baselode.geophysics",
+          "describe_operation"
+        ],
+        [
+          "baselode.geophysics",
+          "workflow_schema"
+        ],
+        [
+          "baselode.geophysics",
+          "magnetic_grid_recipe"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_workflow"
+        ],
+        [
+          "baselode.geophysics",
+          "run_workflow"
+        ]
+      ]
     }
   ]
 }

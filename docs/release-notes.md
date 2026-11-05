@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Geophysics operation catalogue and workflows (TRK-532)**
+
+- Discoverable geophysics operation contracts and versioned in-memory workflow validation/execution in Python and JavaScript, with a reproducible magnetic-grid regional/residual/edge recipe, explicit scientific context, resource limits and persisted execution history.
+
 **Embedded geophysics lineage (TRK-530)**
 
 - ERS and GeoTIFF writers embed versioned JSON provenance by default; readers restore processing steps, source references and non-transport metadata, exposing the manifest under the reserved `metadata.baselode_provenance` key. Explicit writer opt-out supports metadata-free exports.
