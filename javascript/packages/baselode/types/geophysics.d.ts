@@ -169,6 +169,7 @@ export function combineGeophysicsRasters(
   left: GeophysicsRasterInput,
   right: GeophysicsRasterInput | number,
   operation: GeophysicsCombineOperation,
+  options?: { includeProvenance?: boolean },
 ): GeophysicsRaster;
 export function fillGeophysicsGaps(
   raster: GeophysicsRasterInput,

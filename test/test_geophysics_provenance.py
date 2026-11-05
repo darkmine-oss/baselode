@@ -202,3 +202,43 @@ def test_invalid_graph_references_are_rejected_before_export(tmp_path):
     with pytest.raises(ValueError, match="operand_lineage"):
         baselode.geophysics.save_raster(grid, tmp_path / "bad.tif")
     assert not (tmp_path / "bad.tif").exists()
+
+
+def test_opaque_metadata_arithmetic_and_export_have_an_explicit_legacy_opt_out(tmp_path):
+    left = source_grid().copy_with(metadata={"opaque": pathlib.Path("notes.txt")})
+    right = source_grid().copy_with(metadata={"opaque": (1, 2)})
+    result = baselode.geophysics.combine(left, right, "add", include_provenance=False)
+    np.testing.assert_array_equal(result.data, left.data + right.data)
+    assert result.metadata["opaque"] == pathlib.Path("notes.txt")
+    assert result.metadata["processing"][-1]["lineage_omitted"] is True
+    for extension in ["ers", "tif"]:
+        path = tmp_path / f"opaque.{extension}"
+        baselode.geophysics.save_raster(result, path, include_provenance=False)
+        assert "provenance" not in baselode.geophysics.load_raster(path).metadata
+
+
+@pytest.mark.parametrize("extension", ["ers", "tif"])
+def test_numpy_band_indexes_still_allow_a_provenance_export(tmp_path, extension):
+    path = tmp_path / f"bands-numpy.{extension}"
+    baselode.geophysics.save_raster(source_grid(), path)
+    selected = baselode.geophysics.load_raster(path, bands=np.array([2, 1]))
+    assert all(type(index) is int for index in selected.metadata["processing"][-1]["bands"])
+    baselode.geophysics.save_raster(selected, tmp_path / f"selected.{extension}")
+
+
+@pytest.mark.parametrize("reference, expected", [
+    ("http://[bad/x", "http://[bad/x"),
+    ("foo://a b", "foo://a b"),
+    ("https://User:password@EXAMPLE.com?token=secret", "https://EXAMPLE.com"),
+    ("/vsicurl/https://u:p@HOST/α.tif?token=secret#x", "/vsicurl/https://HOST/α.tif"),
+])
+def test_source_reference_redaction_preserves_spelling_and_opaque_names(reference, expected):
+    assert baselode.geophysics.provenance.restore({"source": reference}, None)["source"] == expected
+
+
+def test_graph_deduplication_distinguishes_booleans_from_numbers():
+    root = source_grid()
+    for value in [True, 1, 1.0]:
+        root = baselode.geophysics.combine(root, source_grid().copy_with(metadata={"flag": value}), "add")
+    assert len(root.metadata["input_lineage"]) == 2
+    assert root.metadata["processing"][-1]["operand_lineage"] == 1

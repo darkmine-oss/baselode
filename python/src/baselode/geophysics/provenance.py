@@ -11,7 +11,6 @@ import binascii
 import json
 import math
 import re
-import urllib.parse
 
 import baselode
 
@@ -30,10 +29,13 @@ def _source_reference(value):
     match = re.search(r"[A-Za-z][A-Za-z0-9+.-]*://", value)
     if match is None:
         return value
-    url = urllib.parse.urlsplit(value[match.start():])
-    return value[:match.start()] + urllib.parse.urlunsplit((
-        url.scheme, url.netloc.rsplit("@", 1)[-1], url.path, "", "",
-    ))
+    # Text-only redaction also supports VSI prefixes and opaque vendor names.
+    # Do not parse/rebuild URLs: that changes case, escaping and empty paths.
+    end = match.end()
+    tail = re.split(r"[?#]", value[end:], maxsplit=1)[0]
+    authority, separator, path = tail.partition("/")
+    return value[:end] + authority.rsplit("@", 1)[-1] + separator + path
+
 
 
 def _redact_sources(value):
@@ -143,20 +145,38 @@ def input_record(metadata):
     return record
 
 
+def _canonical(value):
+    """Type-aware equality key: JSON booleans are not numbers."""
+    if value is None:
+        return ("null",)
+    if isinstance(value, bool):
+        return ("boolean", value)
+    if type(value) in (int, float):
+        return ("number", value)
+    if isinstance(value, str):
+        return ("string", value)
+    if isinstance(value, list):
+        return ("array", tuple(_canonical(item) for item in value))
+    return ("object", tuple((key, _canonical(value[key])) for key in sorted(value)))
+
+
 def append_input(left, right):
     """Merge a right-hand input graph without recursively duplicating it."""
     _check_graph(left)
     _check_graph(right)
     nodes = input_record(left)["metadata"].get("input_lineage", [])
     mapping = {}
+    keys = [_canonical(node) for node in nodes]
 
     def add(record):
         for step in record["metadata"].get("processing", []):
             if "operand_lineage" in step:
                 step["operand_lineage"] = mapping[step["operand_lineage"]]
-        if record not in nodes:
+        key = _canonical(record)
+        if key not in keys:
             nodes.append(record)
-        return nodes.index(record)
+            keys.append(key)
+        return keys.index(key)
 
     right_record = input_record(right)
     for index, node in enumerate(right_record["metadata"].pop("input_lineage", [])):
@@ -176,6 +196,8 @@ def selection(metadata, bands):
 
 def encode(metadata, file_format, dtype):
     """Return the base64 manifest for JSON-compatible raster metadata."""
+    # Intentional v1 contract: never silently omit non-JSON metadata. Writers
+    # offer include_provenance=False for legacy metadata-agnostic exports.
     record = input_record(metadata)
     manifest = _validate({
         "schema": SCHEMA, "version": 1,

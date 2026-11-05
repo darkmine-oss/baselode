@@ -253,10 +253,13 @@ function checkAligned(left, right) {
  * @param {object|number} right - A raster on the same grid with one band or
  *   one per band of `left`, or a finite number.
  * @param {'add'|'subtract'|'multiply'|'divide'} operation
+ * @param {object} [options]
+ * @param {boolean} [options.includeProvenance=true] - False skips right-input
+ *   metadata capture for legacy arithmetic and records lineage_omitted.
  * @returns {object} Null where either input is missing or on division by
  *   zero.  Units are kept for add/subtract and cleared otherwise.
  */
-export function combineGeophysicsRasters(left, right, operation) {
+export function combineGeophysicsRasters(left, right, operation, { includeProvenance = true } = {}) {
   if (!GEOPHYSICS_COMBINE_OPERATIONS.includes(operation)) {
     throw new RangeError(`operation must be one of ${GEOPHYSICS_COMBINE_OPERATIONS.join(', ')}; received ${JSON.stringify(operation)}`);
   }
@@ -287,10 +290,12 @@ export function combineGeophysicsRasters(left, right, operation) {
     return toRows(result, normalized.width, normalized.height);
   });
   const metadata = { ...normalized.metadata };
-  if (typeof right !== 'number') {
+  if (typeof right !== 'number' && includeProvenance) {
     const { nodes, operand } = appendInput(normalized.metadata, asRaster(right).metadata);
     metadata.input_lineage = nodes;
     step.operand_lineage = operand;
+  } else if (typeof right !== 'number') {
+    step.lineage_omitted = true;
   }
   if ((operation === 'multiply' || operation === 'divide') && 'units' in metadata) {
     metadata.units = Array(normalized.bandCount).fill(null);

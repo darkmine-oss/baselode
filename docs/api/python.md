@@ -178,7 +178,7 @@ checked against a shared fixture.
 ```python
 crop(raster, bounds)                          # (min_x, min_y, max_x, max_y)
 clip(raster, polygon, crop=True)
-combine(left, right, operation)               # "add", "subtract", "multiply", "divide"
+combine(left, right, operation, include_provenance=True)  # "add", "subtract", "multiply", "divide"
 fill_gaps(raster, max_distance=None, iterations=100)
 ```
 
@@ -239,7 +239,12 @@ The manifest is UTF-8 JSON encoded as ASCII base64 in the ERS header field
 Metadata, including source references and calibration notes, must be acyclic
 JSON objects/lists with string keys and finite numbers. Python integers must
 be exactly representable as JavaScript numbers for cross-language interchange. Non-JSON values fail
-before files are written. Malformed manifests, unsupported versions and
+before files are written. This default intentionally changes the old writers,
+which ignored most metadata: normalize metadata to JSON to retain it, or use
+`include_provenance=False` for the previous metadata-agnostic export behaviour.
+For in-memory `combine` with opaque metadata, the same flag skips right-input
+capture and records `lineage_omitted: true`. Opaque metadata is retained in
+memory; a later provenance-bearing export still requires JSON metadata. Malformed manifests, unsupported versions and
 manifests above 16 MiB fail clearly on reading. The previous manifest and its
 transport tag are excluded from the next snapshot, so repeated saves do not
 recursively embed prior envelopes. Source references are accumulated uniquely.
@@ -259,6 +264,9 @@ JavaScript downsampling also records its existing `decimate` step.
 Raster arithmetic stores a flat graph of input metadata/source records in
 `metadata["input_lineage"]`, alongside the left-hand history. Each binary
 processing step's zero-based `operand_lineage` points to its right-hand record.
+These nodes describe metadata/history, not unique data identities: inputs with
+identical descriptions may share a record. Supply stable artifact identifiers
+in metadata when distinct inputs need to be distinguished.
 Records reference earlier graph entries through their own processing steps;
 merging graphs remaps references and deduplicates identical records. This avoids
 recursive duplication when repeatedly combining derived grids.

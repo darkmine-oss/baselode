@@ -13,6 +13,7 @@ raster driver available in the installed GDAL.
 """
 
 import math
+import operator
 import pathlib
 import uuid
 
@@ -484,7 +485,7 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
         raster = baselode.geophysics.ers.read_ers(source, masked=masked)
         if bands is None:
             return raster
-        indexes = list(bands)
+        indexes = [operator.index(index) for index in bands]
         return raster.copy_with(
             np.stack([raster.band(index) for index in indexes]),
             band_names=[raster.band_names[index - 1] for index in indexes],
@@ -501,7 +502,7 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
             "Install it with: pip install 'baselode[raster]'"
         )
     with _rasterio.open(source, **kwargs) as dataset:
-        indexes = list(bands) if bands is not None else list(dataset.indexes)
+        indexes = [operator.index(index) for index in bands] if bands is not None else list(dataset.indexes)
         if not indexes:
             raise ValueError("raster contains no bands")
         data = dataset.read(indexes=indexes, masked=masked)

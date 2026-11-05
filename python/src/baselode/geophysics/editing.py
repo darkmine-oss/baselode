@@ -249,7 +249,7 @@ def _check_aligned(left, right):
         raise ValueError("the second raster needs one band or as many bands as the first")
 
 
-def combine(left, right, operation):
+def combine(left, right, operation, include_provenance=True):
     """Add, subtract, multiply or divide two aligned rasters, or a raster and a number.
 
     A residual is ``combine(grid, regional, "subtract")``.
@@ -262,6 +262,10 @@ def combine(left, right, operation):
         band, applied to every band of ``left``, or one band per band of
         ``left``.  Or a number.
     operation : {"add", "subtract", "multiply", "divide"}
+    include_provenance : bool, optional
+        Capture right-hand metadata in the lineage graph (default True).
+        False preserves legacy arithmetic with opaque metadata, marking
+        the step as ``lineage_omitted`` rather than implying complete lineage.
 
     Returns
     -------
@@ -301,10 +305,12 @@ def combine(left, right, operation):
             result = values / operand
     result = np.where(np.isfinite(result), result, np.nan)
     metadata = dict(left.metadata)
-    if isinstance(right, baselode.geophysics.raster.GeophysicsRaster):
+    if isinstance(right, baselode.geophysics.raster.GeophysicsRaster) and include_provenance:
         nodes, operand = baselode.geophysics.provenance.append_input(left.metadata, right.metadata)
         metadata["input_lineage"] = nodes
         step["operand_lineage"] = operand
+    elif isinstance(right, baselode.geophysics.raster.GeophysicsRaster):
+        step["lineage_omitted"] = True
     if operation in ("multiply", "divide") and "units" in metadata:
         metadata["units"] = [None] * left.band_count
     return left.copy_with(result, nodata=None, metadata=metadata, processing=step)

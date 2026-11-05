@@ -134,3 +134,33 @@ it('rejects invalid lineage references, symbol keys and sparse/extended arrays',
   values.extra = 2;
   expect(() => encodeProvenance({ values }, 'ERS', 'float32')).toThrow(/JSON/);
 });
+
+it('supports explicit legacy arithmetic and export with opaque metadata', async () => {
+  const left = sourceGrid();
+  left.metadata.opaque = new Date();
+  const right = sourceGrid();
+  right.metadata.opaque = undefined;
+  const result = combineGeophysicsRasters(left, right, 'add', { includeProvenance: false });
+  expect(result.metadata.opaque).toBe(left.metadata.opaque);
+  expect(result.metadata.processing.at(-1).lineage_omitted).toBe(true);
+  expect((await roundTrip(result, 'tif', { includeProvenance: false })).metadata.provenance).toBeUndefined();
+});
+
+it.each([
+  ['http://[bad/x', 'http://[bad/x'], ['foo://a b', 'foo://a b'],
+  ['https://User:password@EXAMPLE.com?token=secret', 'https://EXAMPLE.com'],
+  ['/vsicurl/https://u:p@HOST/α.tif?token=secret#x', '/vsicurl/https://HOST/α.tif'],
+])('preserves source spelling for %s', (source, expected) => {
+  expect(restoreProvenance({ source }, null).source).toBe(expected);
+});
+
+it('keeps JSON booleans distinct from numbers when deduplicating records', () => {
+  let root = sourceGrid();
+  for (const flag of [true, 1, 1.0]) {
+    const right = sourceGrid();
+    right.metadata = { flag };
+    root = combineGeophysicsRasters(root, right, 'add');
+  }
+  expect(root.metadata.input_lineage).toHaveLength(2);
+  expect(root.metadata.processing.at(-1).operand_lineage).toBe(1);
+});

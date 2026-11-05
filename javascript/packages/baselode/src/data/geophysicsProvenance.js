@@ -13,12 +13,14 @@ function sourceReference(value) {
   if (typeof value !== 'string') return value;
   const match = /[A-Za-z][A-Za-z0-9+.-]*:\/\//.exec(value);
   if (!match) return value;
-  const url = new URL(value.slice(match.index));
-  url.username = '';
-  url.password = '';
-  url.search = '';
-  url.hash = '';
-  return value.slice(0, match.index) + url.href;
+  // Preserve spelling and opaque/VSI names; strip only URL authority
+  // userinfo and query/fragment text, identically to Python.
+  const end = match.index + match[0].length;
+  const tail = value.slice(end).split(/[?#]/, 1)[0];
+  const slash = tail.indexOf('/');
+  const authority = slash < 0 ? tail : tail.slice(0, slash);
+  const path = slash < 0 ? '' : tail.slice(slash);
+  return value.slice(0, end) + authority.slice(authority.lastIndexOf('@') + 1) + path;
 }
 
 function redactSources(value) {
@@ -145,6 +147,8 @@ export function recordSelection(metadata, bands) {
 }
 
 export function encodeProvenance(metadata, format, dtype) {
+  // Intentional v1 contract: never silently drop non-JSON metadata. Writers
+  // provide includeProvenance:false for legacy metadata-agnostic exports.
   const record = inputRecord(metadata);
   const manifest = validate({
     schema: SCHEMA, version: 1,
