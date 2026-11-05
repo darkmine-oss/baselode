@@ -47,6 +47,13 @@ const workflowGrid = geophysics.createGeophysicsRaster({
 });
 assert.equal(geophysics.runGeophysicsWorkflow(geophysics.magneticGridRecipe(), { magnetic: workflowGrid }).state, 'ok');
 
+const observations = geophysics.createGeophysicsObservations({
+  records: [{ id: 'a', x: 1, y: 2, values: { mag: 10 } }],
+  channels: { mag: { field_type: 'magnetic_total_field', units: 'nT' } }, crs_units: 'm',
+});
+assert.equal(geophysics.qcGeophysicsObservations(observations).state, 'ok');
+assert.equal(geophysics.describeGeophysicsObservationQc().version, 1);
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {

@@ -232,3 +232,63 @@ export function geophysicsWorkflowSchema(): Record<string, unknown>;
 export function magneticGridRecipe(): GeophysicsWorkflow;
 export function validateGeophysicsWorkflow(workflow: unknown, inputs: Record<string, GeophysicsRaster>): GeophysicsWorkflowValidation;
 export function runGeophysicsWorkflow(workflow: unknown, inputs: Record<string, GeophysicsRaster>): GeophysicsWorkflowResult;
+
+export type GeophysicsObservationField = 'magnetic_total_field' | 'magnetic_anomaly' | 'gravity_observed' | 'gravity_anomaly' | 'radiometric' | 'radiometric_counts' | 'other';
+export interface GeophysicsObservationRecord {
+  id: string;
+  x?: number | null;
+  y?: number | null;
+  z?: number | null;
+  time?: number | null;
+  clearance?: number | null;
+  line_id?: string | null;
+  station_id?: string | null;
+  values?: Record<string, number | null>;
+  extra?: Record<string, unknown>;
+}
+export interface GeophysicsObservationsInput {
+  schema?: 'baselode.geophysics.observations';
+  version?: 1;
+  records: GeophysicsObservationRecord[];
+  channels: Record<string, { field_type: GeophysicsObservationField; units: string; description?: string }>;
+  crs?: string | null;
+  crs_units?: string | null;
+  metadata?: Record<string, unknown>;
+}
+export interface GeophysicsObservations extends GeophysicsObservationsInput {
+  schema: 'baselode.geophysics.observations';
+  version: 1;
+  records: Required<GeophysicsObservationRecord>[];
+  crs: string | null;
+  crs_units: string | null;
+  metadata: Record<string, unknown>;
+}
+export interface GeophysicsObservationQcOptions {
+  max_speed?: number;
+  max_distance_gap?: number;
+  max_time_gap?: number;
+  min_clearance?: number;
+  spike_window?: number;
+  spike_thresholds?: Record<string, number>;
+}
+export interface GeophysicsObservationQcReport {
+  schema: 'baselode.geophysics.observation_qc';
+  version: 1;
+  state: 'ok' | 'needs_input' | 'rejected';
+  producer: { library: string; version: string; algorithm_version: number };
+  issues: Array<{ state: string; code: string; message: string }>;
+  flags: Array<{ row: number; id: string; code: string; channel?: string; [key: string]: unknown }>;
+  segments: Array<{ line_id: string | null; start: number; end: number; count: number; reason: string }>;
+  edges: Array<{ from: number; to: number; distance: number; seconds: number; speed: number }>;
+  coincident_locations: number[][];
+  repeats: Array<{ station_id: string; rows: number[]; same_location: boolean | null; channels: Record<string, { count: number; mean: number; min: number; max: number; range: number; sample_std: number | null }> }>;
+  summary: Record<string, unknown>;
+  coverage: Record<string, number>;
+  parameters: GeophysicsObservationQcOptions;
+  assumptions: string[];
+  flags_truncated: boolean;
+}
+export function createGeophysicsObservations(payload: GeophysicsObservationsInput): GeophysicsObservations;
+export function geophysicsObservationSchema(): Record<string, unknown>;
+export function describeGeophysicsObservationQc(): Record<string, unknown>;
+export function qcGeophysicsObservations(payload: unknown, options?: GeophysicsObservationQcOptions | null): GeophysicsObservationQcReport;

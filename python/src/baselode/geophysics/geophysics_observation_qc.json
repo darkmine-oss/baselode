@@ -1,0 +1,78 @@
+{
+  "id": "qc_observations",
+  "version": 1,
+  "inputs": {
+    "kind": "baselode.geophysics.observations",
+    "version": 1
+  },
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "max_speed": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "max_distance_gap": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "max_time_gap": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "min_clearance": {
+        "type": "number",
+        "minimum": -1e+100,
+        "maximum": 1e+100
+      },
+      "spike_window": {
+        "type": "integer",
+        "minimum": 3,
+        "maximum": 101,
+        "default": 5,
+        "not": {
+          "multipleOf": 2
+        }
+      },
+      "spike_thresholds": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100
+        },
+        "default": {}
+      }
+    }
+  },
+  "outputs": {
+    "kind": "baselode.geophysics.observation_qc",
+    "states": [
+      "ok",
+      "needs_input",
+      "rejected"
+    ],
+    "preserves_observations": true
+  },
+  "assumptions": [
+    "Input order is acquisition order; only consecutive records of the same non-null line are connected. No implicit sorting or connection across interleaved lines.",
+    "Distances are horizontal in native linear CRS units; speed is those units per second. Missing context prevents affected checks; explicit gaps and nonpositive time intervals break segments.",
+    "Spike candidates compare a complete odd sample window against its median, in channel units. They may be real geology; no values are removed or corrected.",
+    "Repeated-station statistics are descriptive, not instrument precision or geological uncertainty. Station IDs identify the same station only when the caller supplies that identity.",
+    "Clearance is a measured input in metadata.height_units. It is not inferred by subtracting elevations.",
+    "Unspecified correction history remains unknown; QC does not apply corrections."
+  ],
+  "resources": {
+    "max_records": 100000,
+    "max_channels": 32,
+    "max_readings": 250000,
+    "max_json_bytes": 16777216,
+    "max_spike_window_values": 10000000,
+    "max_flags": 250000
+  },
+  "workflow_support": "Direct observation QC API; raster workflow v1 remains raster-only."
+}

@@ -16,6 +16,7 @@ import baselode.geophysics.raster as geophysics_raster
 import baselode.geophysics.sampling as geophysics_sampling
 import baselode.geophysics.writers as geophysics_writers
 import baselode.geophysics.workflows as geophysics_workflows
+import baselode.geophysics.observations as geophysics_observations
 
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
 load_raster = geophysics_raster.load_raster
@@ -56,7 +57,17 @@ magnetic_grid_recipe = geophysics_workflows.magnetic_grid_recipe
 validate_workflow = geophysics_workflows.validate_workflow
 run_workflow = geophysics_workflows.run_workflow
 
+create_observations = geophysics_observations.create_observations
+observation_schema = geophysics_observations.observation_schema
+describe_observation_qc = geophysics_observations.describe_observation_qc
+qc_observations = geophysics_observations.qc_observations
+
 __all__ = [
+    "create_observations",
+    "observation_schema",
+    "describe_observation_qc",
+    "qc_observations",
+
     "list_operations",
     "describe_operation",
     "workflow_schema",

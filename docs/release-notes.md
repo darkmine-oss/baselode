@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Geophysics observations and survey QC (TRK-533)**
+
+- Portable versioned line/station observations and non-destructive QC in Python/JavaScript: acquisition-order segments, missing readings/positions, coincident XY locations, time reversals/gaps, caller-defined speed/clearance thresholds, window-median spike candidates and repeat-station statistics. Explicit context, coverage, correction-state preservation and resource limits accompany the report.
+
 **Geophysics operation catalogue and workflows (TRK-532)**
 
 - Discoverable geophysics operation contracts and versioned in-memory workflow validation/execution in Python and JavaScript, with a reproducible magnetic-grid regional/residual/edge recipe, explicit scientific context, resource limits and persisted execution history.

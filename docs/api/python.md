@@ -10,6 +10,89 @@ Complete reference for the `baselode` Python package (v0.1.x).
 import baselode.geophysics
 ```
 
+### Observation records and survey QC
+
+`create_observations(payload)` validates and copies an acquisition-order JSON document.
+`observation_schema()` returns its normalized v1 JSON Schema;
+`describe_observation_qc()` returns QC parameters, assumptions and resource limits.
+`qc_observations(payload, options=None)` returns a versioned report without changing readings,
+order, extensions or declared correction states. These are direct APIs; raster workflow v1
+continues to accept raster artifacts only.
+
+```python
+import baselode.geophysics
+
+observations = baselode.geophysics.create_observations({
+    "crs_units": "m",  # or provide a projected CRS
+    "channels": {"mag": {"field_type": "magnetic_total_field", "units": "nT"}},
+    "records": [
+        {"id": "a", "line_id": "L1", "x": 0, "y": 0, "time": 1000, "values": {"mag": 50100}},
+        {"id": "b", "line_id": "L1", "x": 10, "y": 0, "time": 1001, "values": {"mag": None}},
+    ],
+    "metadata": {"corrections": {"diurnal": "applied", "igrf": "unknown"}},
+})
+report = baselode.geophysics.qc_observations(observations, {"max_speed": 8})
+# The speed is 10 m/s; the missing reading stays None. No correction is applied.
+```
+
+A normalized document has `schema="baselode.geophysics.observations"`, `version=1`,
+`records`, `channels`, `crs`, `crs_units`, `metadata`. The constructor defaults omitted
+schema/version/CRS/metadata. Each record has unique `id`, nullable `x`, `y`, `z`, `time`,
+`clearance`, `line_id`, `station_id`, channel `values`, and JSON-object `extra`.
+Absent nullable fields/readings become null. JSON normalization canonicalizes signed zero (`-0`) to `0` in the copied data/options; originals remain untouched. Unknown record/top-level fields and undeclared
+channels are rejected: retain source-specific fields under `extra` or survey `metadata`.
+Time is UTC Unix epoch **seconds**, not milliseconds; all XY values use one declared CRS.
+Z and measured clearance use `metadata.height_units`; `metadata.height_datum` may preserve
+the supplied datum. Clearance is never inferred from Z or terrain. Station IDs group repeat
+measurements, while record IDs identify individual readings. No IDs, dates, datums or
+corrections are inferred. The correction map uses `applied`, `unapplied` or `unknown`;
+missing entries remain unspecified/unknown. QC does not implement a correction ledger.
+
+Each channel declares nonempty `units` and a `field_type`: `magnetic_total_field`,
+`magnetic_anomaly`, `gravity_observed`, `gravity_anomaly`, `radiometric`,
+`radiometric_counts`, or `other`. Blank labels use the same explicit whitespace set in both runtimes (Unicode whitespace, BOM and legacy record separators). No numeric strings, booleans as numbers, nonfinite values,
+cycles, unpaired Unicode surrogates or opaque objects are accepted. Record numbers lie within ±1e100 to keep baseline
+statistics finite. All channel readings are numbers or null; full raw spectra/calibration
+and spatial gridding are separate later capabilities.
+
+QC always reports missing readings/coordinates, unassigned lines, exact coincident XY
+locations, non-increasing within-line times and same-station repeat summaries. It connects
+**only consecutive records with the same non-null line ID**; interleaved/returning lines
+start a new segment. Nonpositive time intervals break segments. Missing distance context breaks segments when distance-gap checks are requested; missing timestamps do so when time-gap checks are requested. Coordinate-free base-station series can still use sample-window spike QC.
+Optional `max_distance_gap` and `max_time_gap` thresholds also break segments; no speed or
+spike window crosses those boundaries. Distance is horizontal in native linear CRS units,
+speed is those units/second; no implicit unit conversion or geographic-distance calculation.
+Same-station statistics include count, mean, min/max/range and sample standard deviation
+(null for a single available reading), plus a same-location indicator. Position mismatches
+are flagged; these descriptive statistics are not instrument precision or geological uncertainty. Python and JavaScript statistics agree within floating-point tolerance rather than bitwise identity.
+
+Options use snake_case in both languages. `max_speed`, `max_distance_gap`, `max_time_gap`
+and per-channel `spike_thresholds` must be positive, finite values; thresholds have no
+invented defaults. `min_clearance` compares measured clearance in declared linear height units.
+`spike_window` is an odd integer 3..101 (default 5). Only complete windows inside a segment
+are tested: a reading is a candidate when its absolute departure from the window median
+exceeds its channel threshold. Edges and windows containing missing readings are not
+filled or tested. A candidate can be real geology; QC never deletes or replaces it.
+These are sample windows, not a time/distance-calibrated noise filter. Use explicit gap
+thresholds to exclude unwanted continuity in irregular acquisition.
+
+Reports contain `state`, actionable `issues`, row/channel `flags`, contiguous `segments`
+(zero-based inclusive start/end), `edges`, `coincident_locations` (index groups), `repeats`,
+`summary`, `coverage`, effective `parameters`, producer/algorithm version and assumptions. Summary retains channel definitions/units, CRS and supplied height datum so flags remain interpretable.
+`ok` means the checks completed, **not survey acceptance**. `needs_input` returns available
+checks when requested physical checks lack context or no complete spike windows exist.
+`rejected` identifies bad contracts/options or resource failures. The normalizer raises
+`ValueError` for invalid input; QC returns structured rejection. Missing speed/clearance
+context is never invented. Coverage counts evaluated/skipped speed edges and spike windows,
+plus spike edge rows; line transitions are not candidate speed edges.
+
+Limits: 100,000 records, 32 channels, 250,000 record×channel readings, 16 MiB compact UTF-8
+JSON before/after normalization, 10,000,000 requested spike-window values, and 250,000 flags.
+If flags exceed the bound, the report is explicitly `rejected`/`flags_truncated=True`;
+summary counts still reflect all checks. Use smaller, scientifically meaningful survey
+partitions for large inputs; partition boundaries do not automatically reconnect. There
+is no file/network I/O, automatic correction, crossover levelling or gridding in this API.
+
 ### GeophysicsRaster
 
 ```python

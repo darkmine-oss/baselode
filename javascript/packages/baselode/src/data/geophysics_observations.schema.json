@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Baselode geophysics observations v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "records",
+    "channels",
+    "metadata",
+    "crs",
+    "crs_units"
+  ],
+  "properties": {
+    "schema": {
+      "const": "baselode.geophysics.observations"
+    },
+    "version": {
+      "const": 1
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "x",
+          "y",
+          "values"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "x": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          },
+          "y": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          },
+          "z": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          },
+          "clearance": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          },
+          "time": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          },
+          "line_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "station_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          },
+          "extra": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "channels": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 32,
+      "propertyNames": {
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field_type",
+          "units"
+        ],
+        "properties": {
+          "field_type": {
+            "enum": [
+              "magnetic_total_field",
+              "magnetic_anomaly",
+              "gravity_observed",
+              "gravity_anomaly",
+              "radiometric",
+              "radiometric_counts",
+              "other"
+            ]
+          },
+          "units": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "corrections": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "applied",
+              "unapplied",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "crs": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    },
+    "crs_units": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1
+    }
+  }
+}

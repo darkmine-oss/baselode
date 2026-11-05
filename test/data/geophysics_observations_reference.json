@@ -1,0 +1,539 @@
+{
+  "input": {
+    "records": [
+      {
+        "id": "r0",
+        "x": 0,
+        "y": 0,
+        "time": 0,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "r1",
+        "x": 5,
+        "y": 0,
+        "time": 1,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "r2",
+        "x": 10,
+        "y": 0,
+        "time": 2,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "r3",
+        "x": 15,
+        "y": 0,
+        "time": 3,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 100
+        }
+      },
+      {
+        "id": "r4",
+        "x": 20,
+        "y": 0,
+        "time": 4,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "r5",
+        "x": 25,
+        "y": 0,
+        "time": 5,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "r6",
+        "x": 30,
+        "y": 0,
+        "time": 6,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "gap",
+        "x": 500,
+        "y": 0,
+        "time": 50,
+        "line_id": "L1",
+        "clearance": 5,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "reverse",
+        "x": 505,
+        "y": 0,
+        "time": 49,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "dropout",
+        "x": null,
+        "y": 0,
+        "time": 50,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": null
+        }
+      },
+      {
+        "id": "after",
+        "x": 510,
+        "y": 0,
+        "time": 51,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "base0",
+        "station_id": "BASE",
+        "x": 100,
+        "y": 200,
+        "time": 100,
+        "line_id": "L2",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "base1",
+        "station_id": "BASE",
+        "x": 100,
+        "y": 200,
+        "time": 110,
+        "line_id": "L2",
+        "clearance": 30,
+        "values": {
+          "mag": 12
+        }
+      },
+      {
+        "id": "base2",
+        "station_id": "BASE",
+        "x": 100,
+        "y": 200,
+        "time": 120,
+        "line_id": "L2",
+        "clearance": 30,
+        "values": {
+          "mag": 14
+        }
+      },
+      {
+        "id": "other",
+        "x": 1000,
+        "y": 1000,
+        "time": 130,
+        "line_id": "L3",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      },
+      {
+        "id": "return",
+        "x": 10,
+        "y": 0,
+        "time": 2,
+        "line_id": "L1",
+        "clearance": 30,
+        "values": {
+          "mag": 10
+        }
+      }
+    ],
+    "channels": {
+      "mag": {
+        "field_type": "magnetic_total_field",
+        "units": "nT"
+      }
+    },
+    "crs_units": "m",
+    "metadata": {
+      "height_units": "m",
+      "height_datum": "measured AGL",
+      "corrections": {
+        "diurnal": "applied",
+        "igrf": "unknown"
+      }
+    }
+  },
+  "options": {
+    "max_speed": 4,
+    "max_distance_gap": 20,
+    "max_time_gap": 10,
+    "min_clearance": 20,
+    "spike_thresholds": {
+      "mag": 20
+    }
+  },
+  "report": {
+    "schema": "baselode.geophysics.observation_qc",
+    "version": 1,
+    "state": "needs_input",
+    "issues": [
+      {
+        "state": "needs_input",
+        "code": "distance_context",
+        "message": "supply XY coordinates for rows flagged missing_coordinates"
+      }
+    ],
+    "flags": [
+      {
+        "row": 1,
+        "id": "r1",
+        "code": "high_speed",
+        "previous_id": "r0",
+        "speed": 5.0
+      },
+      {
+        "row": 2,
+        "id": "r2",
+        "code": "high_speed",
+        "previous_id": "r1",
+        "speed": 5.0
+      },
+      {
+        "row": 3,
+        "id": "r3",
+        "code": "high_speed",
+        "previous_id": "r2",
+        "speed": 5.0
+      },
+      {
+        "row": 4,
+        "id": "r4",
+        "code": "high_speed",
+        "previous_id": "r3",
+        "speed": 5.0
+      },
+      {
+        "row": 5,
+        "id": "r5",
+        "code": "high_speed",
+        "previous_id": "r4",
+        "speed": 5.0
+      },
+      {
+        "row": 6,
+        "id": "r6",
+        "code": "high_speed",
+        "previous_id": "r5",
+        "speed": 5.0
+      },
+      {
+        "row": 7,
+        "id": "gap",
+        "code": "low_clearance",
+        "value": 5
+      },
+      {
+        "row": 7,
+        "id": "gap",
+        "code": "distance_gap",
+        "previous_id": "r6",
+        "distance": 470.0
+      },
+      {
+        "row": 7,
+        "id": "gap",
+        "code": "time_gap",
+        "previous_id": "r6",
+        "seconds": 44
+      },
+      {
+        "row": 8,
+        "id": "reverse",
+        "code": "non_increasing_time",
+        "previous_id": "gap"
+      },
+      {
+        "row": 9,
+        "id": "dropout",
+        "code": "missing_coordinates"
+      },
+      {
+        "row": 9,
+        "id": "dropout",
+        "code": "missing_value",
+        "channel": "mag"
+      },
+      {
+        "row": 2,
+        "id": "r2",
+        "code": "coincident_location"
+      },
+      {
+        "row": 15,
+        "id": "return",
+        "code": "coincident_location"
+      },
+      {
+        "row": 11,
+        "id": "base0",
+        "code": "coincident_location"
+      },
+      {
+        "row": 12,
+        "id": "base1",
+        "code": "coincident_location"
+      },
+      {
+        "row": 13,
+        "id": "base2",
+        "code": "coincident_location"
+      },
+      {
+        "row": 3,
+        "id": "r3",
+        "code": "spike_candidate",
+        "residual": 90,
+        "median": 10,
+        "channel": "mag"
+      }
+    ],
+    "segments": [
+      {
+        "line_id": "L1",
+        "start": 0,
+        "end": 6,
+        "count": 7,
+        "reason": "start"
+      },
+      {
+        "line_id": "L1",
+        "start": 7,
+        "end": 7,
+        "count": 1,
+        "reason": "distance_gap"
+      },
+      {
+        "line_id": "L1",
+        "start": 8,
+        "end": 8,
+        "count": 1,
+        "reason": "non_increasing_time"
+      },
+      {
+        "line_id": "L1",
+        "start": 9,
+        "end": 9,
+        "count": 1,
+        "reason": "missing_coordinates"
+      },
+      {
+        "line_id": "L1",
+        "start": 10,
+        "end": 10,
+        "count": 1,
+        "reason": "missing_coordinates"
+      },
+      {
+        "line_id": "L2",
+        "start": 11,
+        "end": 13,
+        "count": 3,
+        "reason": "line_change"
+      },
+      {
+        "line_id": "L3",
+        "start": 14,
+        "end": 14,
+        "count": 1,
+        "reason": "line_change"
+      },
+      {
+        "line_id": "L1",
+        "start": 15,
+        "end": 15,
+        "count": 1,
+        "reason": "line_change"
+      }
+    ],
+    "edges": [
+      {
+        "from": 0,
+        "to": 1,
+        "distance": 5.0,
+        "seconds": 1,
+        "speed": 5.0
+      },
+      {
+        "from": 1,
+        "to": 2,
+        "distance": 5.0,
+        "seconds": 1,
+        "speed": 5.0
+      },
+      {
+        "from": 2,
+        "to": 3,
+        "distance": 5.0,
+        "seconds": 1,
+        "speed": 5.0
+      },
+      {
+        "from": 3,
+        "to": 4,
+        "distance": 5.0,
+        "seconds": 1,
+        "speed": 5.0
+      },
+      {
+        "from": 4,
+        "to": 5,
+        "distance": 5.0,
+        "seconds": 1,
+        "speed": 5.0
+      },
+      {
+        "from": 5,
+        "to": 6,
+        "distance": 5.0,
+        "seconds": 1,
+        "speed": 5.0
+      },
+      {
+        "from": 11,
+        "to": 12,
+        "distance": 0.0,
+        "seconds": 10,
+        "speed": 0.0
+      },
+      {
+        "from": 12,
+        "to": 13,
+        "distance": 0.0,
+        "seconds": 10,
+        "speed": 0.0
+      }
+    ],
+    "coincident_locations": [
+      [
+        2,
+        15
+      ],
+      [
+        11,
+        12,
+        13
+      ]
+    ],
+    "repeats": [
+      {
+        "station_id": "BASE",
+        "rows": [
+          11,
+          12,
+          13
+        ],
+        "same_location": true,
+        "channels": {
+          "mag": {
+            "count": 3,
+            "mean": 12.0,
+            "min": 10,
+            "max": 14,
+            "range": 4,
+            "sample_std": 2.0
+          }
+        }
+      }
+    ],
+    "summary": {
+      "records": 16,
+      "channels": 1,
+      "flags_by_code": {
+        "high_speed": 6,
+        "low_clearance": 1,
+        "distance_gap": 1,
+        "time_gap": 1,
+        "non_increasing_time": 1,
+        "missing_coordinates": 1,
+        "missing_value": 1,
+        "coincident_location": 5,
+        "spike_candidate": 1
+      },
+      "channel_definitions": {
+        "mag": {
+          "field_type": "magnetic_total_field",
+          "units": "nT"
+        }
+      },
+      "crs": null,
+      "height_datum": "measured AGL",
+      "distance_units": "m",
+      "height_units": "m",
+      "corrections": {
+        "diurnal": "applied",
+        "igrf": "unknown"
+      }
+    },
+    "coverage": {
+      "within_line_edges": 12,
+      "speed_edges": 8,
+      "skipped_speed_edges": 4,
+      "spike_windows": 3,
+      "skipped_spike_windows": 0,
+      "spike_edge_rows": 13
+    },
+    "parameters": {
+      "spike_window": 5,
+      "spike_thresholds": {
+        "mag": 20
+      },
+      "max_speed": 4,
+      "max_distance_gap": 20,
+      "max_time_gap": 10,
+      "min_clearance": 20
+    },
+    "assumptions": [
+      "Input order is acquisition order; only consecutive records of the same non-null line are connected. No implicit sorting or connection across interleaved lines.",
+      "Distances are horizontal in native linear CRS units; speed is those units per second. Missing context prevents affected checks; explicit gaps and nonpositive time intervals break segments.",
+      "Spike candidates compare a complete odd sample window against its median, in channel units. They may be real geology; no values are removed or corrected.",
+      "Repeated-station statistics are descriptive, not instrument precision or geological uncertainty. Station IDs identify the same station only when the caller supplies that identity.",
+      "Clearance is a measured input in metadata.height_units. It is not inferred by subtracting elevations.",
+      "Unspecified correction history remains unknown; QC does not apply corrections."
+    ],
+    "flags_truncated": false
+  }
+}

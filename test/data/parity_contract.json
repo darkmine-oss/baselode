@@ -614,6 +614,33 @@
           "run_workflow"
         ]
       ]
+    },
+    {
+      "name": "geophysics_observations",
+      "jsExports": [
+        "createGeophysicsObservations",
+        "geophysicsObservationSchema",
+        "describeGeophysicsObservationQc",
+        "qcGeophysicsObservations"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "create_observations"
+        ],
+        [
+          "baselode.geophysics",
+          "observation_schema"
+        ],
+        [
+          "baselode.geophysics",
+          "describe_observation_qc"
+        ],
+        [
+          "baselode.geophysics",
+          "qc_observations"
+        ]
+      ]
     }
   ]
 }

@@ -41,3 +41,11 @@ const artifact: GeophysicsRaster | undefined = report.artifacts.edges;
 void artifact; void contractVersion; void catalogueSize;
 void validateGeophysicsWorkflow(recipe, { magnetic: raster });
 void geophysicsWorkflowSchema();
+
+import { createGeophysicsObservations, geophysicsObservationSchema, describeGeophysicsObservationQc, qcGeophysicsObservations, type GeophysicsObservations } from 'baselode/geophysics';
+const observations: GeophysicsObservations = createGeophysicsObservations({ records: [{ id: 'a', x: 1, y: 2, values: { mag: 10 } }], channels: { mag: { field_type: 'magnetic_total_field', units: 'nT' } }, crs_units: 'm' });
+const surveyReport = qcGeophysicsObservations(observations, { max_speed: 20, spike_thresholds: { mag: 5 } });
+const normalizedReading: number | null | undefined = observations.records[0]?.values.mag;
+void surveyReport; void normalizedReading; void geophysicsObservationSchema(); void describeGeophysicsObservationQc();
+// @ts-expect-error speed threshold must be numeric
+qcGeophysicsObservations(observations, { max_speed: '20' });
