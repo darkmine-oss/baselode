@@ -45,7 +45,21 @@ the choice.
 `metadata["crs_units"]` records the coordinate units — `"degree"`, `"metre"`,
 `"foot"` or `"us_survey_foot"`, or `None` when the source does not say — so
 callers can express distances (filter wavelengths, continuation heights) in
-the grid's units.
+the grid's units. Reproject geographic grids before scientific processing.
+
+Scientific filters and enhancements require projected or local Cartesian coordinates.
+Geographic and geocentric CRSs, angular coordinate units and conflicting
+CRS/unit metadata raise an error. Distances remain in the native linear units;
+metres are not silently converted to feet. For local grids, set
+`metadata["crs_units"]` to `m`/`metre`, `ft`/`foot`,
+`us-ft`/`us_survey_foot`, or `km`/`kilometre`. Without a CRS or declared
+unit, derivatives explicitly use `coordinate_unit`.
+
+Derived `metadata["units"]` follows the calculation: `nT/m` for first
+derivatives and analytic signal, `nT/m^2` for 2VD, and `degree` for tilt.
+Unknown input band units remain `None` for derivatives. Filtering,
+continuation and RTP preserve band units. Tool UI payloads and raster writers
+use these corrected labels. Geographic grids still support display and sampling.
 
 ### read_ers
 

@@ -65,6 +65,7 @@ describe('geophysics processing Python parity', () => {
   it.each(fixture.processing.cases.map((testCase) => [testCase.name, testCase]))('%s', (_, testCase) => {
     const result = processGeophysicsRaster(raster, testCase.operation, testCase.options);
     expect(result.metadata.processing.at(-1)).toEqual(testCase.step);
+    expect(result.metadata.units).toEqual(testCase.units);
     expect(result.nodata).toBeNull();
     testCase.data.forEach((band, bandIndex) => band.forEach((row, rowIndex) => row.forEach((value, column) => {
       const cell = result.data[bandIndex][rowIndex][column];
@@ -130,5 +131,56 @@ describe('geophysics enhancements', () => {
   it('mirror-pads to a power of two like Python', () => {
     expect(symmetricIndices(3, 4, 16)).toEqual([2, 2, 1, 0, 0, 1, 2, 2, 1, 0, 0, 1, 2, 2, 1, 0]);
     expect([1, 2, 3, 64, 65].map(fftSize)).toEqual([1, 2, 4, 64, 128]);
+  });
+});
+
+
+describe('scientific coordinate and unit contracts', () => {
+  it.each([
+    ['EPSG:28350', null, 'm'],
+    [null, 'metre', 'm'],
+    [null, null, 'coordinate_unit'],
+    ['+proj=utm +zone=50 +south +datum=WGS84 +units=us-ft', 'us_survey_foot', 'us-ft'],
+  ])('derives units from %s / %s', (crs, crsUnits, denominator) => {
+    const raster = createGeophysicsRaster({
+      data: [grid(8, 8, (r, c) => r * c), grid(8, 8, () => 1)],
+      transform: NORTH_UP, crs, metadata: { units: ['nT', null], crs_units: crsUnits },
+    });
+    for (const operation of ['horizontal_derivative', 'vertical_derivative', 'total_horizontal_derivative', 'analytic_signal']) {
+      expect(processGeophysicsRaster(raster, operation).metadata.units).toEqual([`nT/${denominator}`, null]);
+    }
+    expect(geophysicsVerticalDerivative(raster, { order: 2 }).metadata.units).toEqual([`nT/${denominator}^2`, null]);
+    expect(geophysicsTiltDerivative(raster).metadata.units).toEqual(['degree', 'degree']);
+    expect(geophysicsUpwardContinuation(raster, { height: 20 }).metadata.units).toEqual(['nT', null]);
+    expect(raster.metadata.units).toEqual(['nT', null]);
+  });
+
+  it.each([
+    ['EPSG:4326', null], ['EPSG:4283', 'metre'],
+    ['+proj=geocent +datum=WGS84 +units=m', null],
+    [null, 'degree'], ['EPSG:28350', 'foot'],
+  ])('rejects unsuitable coordinates %s / %s for every operation', (crs, crsUnits) => {
+    const raster = createGeophysicsRaster({
+      data: grid(8, 8, () => 1), transform: NORTH_UP, crs, metadata: { crs_units: crsUnits },
+    });
+    for (const operation of GEOPHYSICS_OPERATIONS) {
+      expect(() => processGeophysicsRaster(raster, operation, {
+        wavelength: 100, longWavelength: 100, shortWavelength: 20,
+        height: 100, inclination: -55, declination: 0,
+      })).toThrow(/projected|linear|conflicts/);
+    }
+  });
+
+  it('returns physical gradients of a metric plane and unambiguous chained units', () => {
+    const raster = createGeophysicsRaster({
+      data: grid(8, 8, (r, c) => 3 * CELL * c - 2 * CELL * r),
+      transform: NORTH_UP, crs: 'EPSG:28350', metadata: { units: ['nT'] },
+    });
+    const east = processGeophysicsRaster(raster, 'horizontal_derivative');
+    const north = processGeophysicsRaster(raster, 'horizontal_derivative', { direction: 'north' });
+    expect(east.data[0].flat()).toEqual(Array(64).fill(3));
+    expect(north.data[0].flat()).toEqual(Array(64).fill(2));
+    expect(east.metadata.units).toEqual(['nT/m']);
+    expect(processGeophysicsRaster(east, 'horizontal_derivative').metadata.units).toEqual(['(nT/m)/m']);
   });
 });

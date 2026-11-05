@@ -1481,8 +1481,8 @@ const regional = processGeophysicsRaster(raster, 'upward_continuation', { height
 | `geophysicsReduceToPole` | `inclination`, `declination` (degrees) |
 
 `processGeophysicsRaster(raster, operation, options)` applies one by its
-Python name (`GEOPHYSICS_OPERATIONS`). Distances are in CRS units, so they
-are degrees for geographic grids. `readErs` and `loadGeoTiff` record those
+Python name (`GEOPHYSICS_OPERATIONS`). Distances use linear CRS units;
+reproject geographic grids before processing. `readErs` and `loadGeoTiff` record those
 units in `metadata.crs_units` (`'degree'`, `'metre'`, `'foot'`,
 `'us_survey_foot'`, or null when a GeoTIFF does not say).
 

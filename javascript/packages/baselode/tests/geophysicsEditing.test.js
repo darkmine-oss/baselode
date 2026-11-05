@@ -193,6 +193,7 @@ describe('writers', () => {
     const raster = ramp(options);
     const back = readErs(encodeErs(raster, { dtype: 'float64' }).header, encodeErs(raster, { dtype: 'float64' }).data);
     expect(back.crs).toBe(raster.crs);
+    expect(back.metadata.units).toEqual(raster.metadata.units);
     back.transform.forEach((value, index) => expect(value).toBeCloseTo(raster.transform[index], 9));
   });
 
@@ -223,6 +224,7 @@ describe('writers', () => {
     raster.data[0][1][1] = options.nodata ?? null;
     const back = await loadGeoTiff(encodeGeoTiff(raster, encodeOptions));
     expect(back.crs).toBe(raster.crs);
+    expect(back.metadata.units).toEqual(raster.metadata.units);
     back.transform.forEach((value, index) => expect(value).toBeCloseTo(raster.transform[index], 9));
     expect(back.data[0][1][1] === null || back.data[0][1][1] === back.nodata).toBe(true);
     expect(back.data[0][3]).toEqual([30, 31, 32, 33, 34]);
@@ -306,5 +308,18 @@ it('is exported from the worker-safe entry', () => {
     'GEOPHYSICS_COMBINE_OPERATIONS', 'encodeErs', 'encodeGeoTiff', 'ersCoordinateSpace',
   ]) {
     expect(geophysicsEntry[name], name).toBeDefined();
+  }
+});
+
+it('retains selected GeoTIFF band units through full-resolution and decimated reads', async () => {
+  const raster = createGeophysicsRaster({
+    data: [[[1, 2], [3, 4]], [[5, 6], [7, 8]]],
+    transform: [10, 0, 500000, 0, -10, 7000000], crs: 'EPSG:28350',
+    metadata: { units: ['nT/m', 'degree'] },
+  });
+  const encoded = encodeGeoTiff(raster);
+  for (const maxCells of [undefined, 1]) {
+    const result = await loadGeoTiff(encoded, { samples: [1, 0], maxCells });
+    expect(result.metadata.units).toEqual(['degree', 'nT/m']);
   }
 });

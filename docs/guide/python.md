@@ -1005,7 +1005,8 @@ and `y = d * column + e * row + f`.
 ### Filtering
 
 Separate regional and residual fields with wavelength filters. Cut-offs are in
-CRS units (metres for MGA grids):
+linear CRS units (metres for MGA grids). Reproject geographic grids to a
+suitable projected CRS before filtering or computing enhancements:
 
 ```python
 regional = baselode.geophysics.low_pass(tmi, wavelength=5000)

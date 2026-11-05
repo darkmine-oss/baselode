@@ -287,6 +287,12 @@ export async function loadGeoTiff(source, options = {}) {
     crs: geoTiffCrs(image.getGeoKeys()),
     metadata: { driver: 'GeoTIFF', width, height, crs_units: geoTiffCrsUnits(image.getGeoKeys()) },
   };
+  const bandMetadata = (count) => ({
+    ...payload.metadata,
+    units: Array.from({ length: count }, (_, index) => (
+      image.getGDALMetadata?.(options.samples?.[index] ?? index)?.UNITTYPE ?? null
+    )),
+  });
   const bandNames = (count) => Array.from({ length: count }, (_, index) => `band_${index + 1}`);
   if (maxCells == null || width * height <= maxCells) {
     const values = await image.readRasters({ samples: options.samples, interleave: false });
@@ -296,6 +302,7 @@ export async function loadGeoTiff(source, options = {}) {
       height,
       nodata: geoTiffNoData(image.getGDALNoData(), values),
       bandNames: bandNames(values.length),
+      metadata: bandMetadata(values.length),
     });
   }
   // Stream tile-aligned row chunks (each source block is decoded once) into
@@ -317,7 +324,7 @@ export async function loadGeoTiff(source, options = {}) {
     });
   }
   const data = accumulators.map((accumulator) => accumulator.finish());
-  return decimatedRaster(data, { ...payload, bandNames: bandNames(data.length) }, { width, height, ...shape });
+  return decimatedRaster(data, { ...payload, metadata: bandMetadata(data.length), bandNames: bandNames(data.length) }, { width, height, ...shape });
 }
 
 /**
