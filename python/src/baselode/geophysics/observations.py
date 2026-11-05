@@ -273,7 +273,7 @@ def qc_observations(payload, options=None):
                 flag(index, "missing_clearance")
             elif row["clearance"] < params["min_clearance"]:
                 flag(index, "low_clearance", value=row["clearance"])
-        reason = "start" if index == 0 else "line_change"
+        reason = "unassigned_line" if row["line_id"] is None else ("start" if index == 0 else "line_change")
         connect = index > 0 and row["line_id"] is not None and row["line_id"] == rows[index - 1]["line_id"]
         if connect:
             report["coverage"]["within_line_edges"] += 1

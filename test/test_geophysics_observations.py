@@ -84,6 +84,7 @@ def test_empty_singleton_and_unknown_line_context():
     report = baselode.geophysics.qc_observations(payload, {"max_time_gap": 5, "spike_thresholds": {"mag": 5}})
     assert report["state"] == "needs_input" and report["edges"] == []
     assert len(report["segments"]) == 7
+    assert all(segment["reason"] == "unassigned_line" for segment in report["segments"])
 
 
 def test_monotonic_trend_is_not_a_median_spike_and_gaps_block_windows():

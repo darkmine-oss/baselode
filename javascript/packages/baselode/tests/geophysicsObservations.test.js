@@ -42,7 +42,7 @@ it('handles empty/singleton surveys and missing line context', () => {
   expect(qcGeophysicsObservations(payload, { max_speed: 5 }).state).toBe('needs_input');
   payload.records = survey().records.slice(0, 7); payload.records.forEach((row) => delete row.line_id);
   const report = qcGeophysicsObservations(payload, { max_time_gap: 5, spike_thresholds: { mag: 5 } });
-  expect(report.state).toBe('needs_input'); expect(report.edges).toEqual([]); expect(report.segments).toHaveLength(7);
+  expect(report.state).toBe('needs_input'); expect(report.edges).toEqual([]); expect(report.segments).toHaveLength(7); expect(report.segments.every((segment) => segment.reason === 'unassigned_line')).toBe(true);
 });
 it('does not call a monotonic trend a spike or bridge missing readings', () => {
   const payload = survey(); payload.records = payload.records.slice(0, 7); payload.records.forEach((row, index) => { row.values.mag = index * 100; });

@@ -168,7 +168,7 @@ export function qcGeophysicsObservations(payload, options = null) {
       if (row.clearance === null) { missingClearance = true; flag(index, 'missing_clearance'); }
       else if (row.clearance < params.min_clearance) flag(index, 'low_clearance', null, { value: row.clearance });
     }
-    let reason = index === 0 ? 'start' : 'line_change';
+    let reason = row.line_id === null ? 'unassigned_line' : (index === 0 ? 'start' : 'line_change');
     let connect = index > 0 && row.line_id !== null && row.line_id === rows[index - 1].line_id;
     if (connect) {
       report.coverage.within_line_edges += 1;
