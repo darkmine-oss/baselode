@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://baselode.dev/schemas/geophysics-workflow-v1.json",
+  "title": "Baselode geophysics workflow v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "version",
+    "steps",
+    "outputs"
+  ],
+  "properties": {
+    "schema": {
+      "const": "baselode.geophysics.workflow"
+    },
+    "version": {
+      "const": 1
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "operation",
+          "version",
+          "inputs",
+          "parameters"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "operation": {
+            "enum": [
+              "low_pass",
+              "high_pass",
+              "band_pass",
+              "vertical_derivative",
+              "horizontal_derivative",
+              "total_horizontal_derivative",
+              "tilt_derivative",
+              "analytic_signal",
+              "upward_continuation",
+              "reduce_to_pole",
+              "combine"
+            ]
+          },
+          "version": {
+            "const": 1
+          },
+          "inputs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+            }
+          },
+          "parameters": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      }
+    }
+  }
+}

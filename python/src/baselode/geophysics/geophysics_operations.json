@@ -1,0 +1,629 @@
+[
+  {
+    "id": "low_pass",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly",
+        "radiometric",
+        "other"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "wavelength": {
+          "type": "number",
+          "description": "Cut-off wavelength in CRS linear units.",
+          "exclusiveMinimum": 0
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "gaussian",
+            "butterworth"
+          ],
+          "default": "gaussian"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Filter order.",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 32
+        },
+        "detrend": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "wavelength"
+      ],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "high_pass",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly",
+        "radiometric",
+        "other"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "wavelength": {
+          "type": "number",
+          "description": "Cut-off wavelength in CRS linear units.",
+          "exclusiveMinimum": 0
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "gaussian",
+            "butterworth"
+          ],
+          "default": "gaussian"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Filter order.",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 32
+        },
+        "detrend": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "wavelength"
+      ],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "band_pass",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly",
+        "radiometric",
+        "other"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "long_wavelength": {
+          "type": "number",
+          "description": "Cut-off wavelength in CRS linear units.",
+          "exclusiveMinimum": 0
+        },
+        "short_wavelength": {
+          "type": "number",
+          "description": "Cut-off wavelength in CRS linear units.",
+          "exclusiveMinimum": 0
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "gaussian",
+            "butterworth"
+          ],
+          "default": "gaussian"
+        },
+        "order": {
+          "type": "integer",
+          "description": "Filter order.",
+          "default": 4,
+          "minimum": 1,
+          "maximum": 32
+        },
+        "detrend": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": [
+        "long_wavelength",
+        "short_wavelength"
+      ],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "vertical_derivative",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ],
+          "default": 1
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "input / CRS_unit^order"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain.",
+      "Potential-field operator: do not apply to radiometrics or uncorrected total fields."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "horizontal_derivative",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly",
+        "radiometric",
+        "other"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": [
+            "east",
+            "north"
+          ],
+          "default": "east"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "input / CRS_unit^order"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "total_horizontal_derivative",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly",
+        "radiometric",
+        "other"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "other",
+      "units": "input / CRS_unit^order"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "tilt_derivative",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "other",
+      "units": "degree"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain.",
+      "Potential-field operator: do not apply to radiometrics or uncorrected total fields."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "analytic_signal",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {},
+      "required": [],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "other",
+      "units": "input / CRS_unit^order"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain.",
+      "Potential-field operator: do not apply to radiometrics or uncorrected total fields."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "upward_continuation",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "height": {
+          "type": "number",
+          "description": "Positive continuation distance in CRS linear units.",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "height"
+      ],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain.",
+      "Potential-field operator: do not apply to radiometrics or uncorrected total fields."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "reduce_to_pole",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "inclination": {
+          "type": "number",
+          "description": "Field inclination in degrees, positive down.",
+          "minimum": -90,
+          "maximum": 90
+        },
+        "declination": {
+          "type": "number",
+          "description": "Field declination in degrees east of grid north, after caller applies convergence.",
+          "minimum": -180,
+          "maximum": 180
+        }
+      },
+      "required": [
+        "inclination",
+        "declination"
+      ],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "All bands share the declared field_type. Distances are in CRS linear units.",
+      "Finite grids with gaps are plane-filled internally for FFTs; missing cells stay missing. Edge and gap artefacts may remain.",
+      "Induced magnetisation only; |inclination| must be at least 15 degrees.",
+      "Caller must supply field direction applicable to the survey date/location; declination must already be referred to grid north. No IGRF or convergence is inferred."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "combine",
+    "version": 1,
+    "inputs": {
+      "count": 2,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly",
+        "gravity_anomaly",
+        "radiometric",
+        "other"
+      ],
+      "units": "Explicit per-band metadata.units; combine requires matching units.",
+      "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
+    },
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "add",
+            "subtract"
+          ],
+          "default": "subtract"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "Aligned grids, matching per-band units and field_type. Only additive arithmetic is registered in workflow v1."
+    ],
+    "backend": {
+      "python": "numpy",
+      "javascript": "native FFT/finite differences",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Does not apply IGRF, instrument, datum or observation corrections. No correction state is inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  }
+]

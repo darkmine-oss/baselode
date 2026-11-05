@@ -1355,3 +1355,29 @@ view.destroy();
 Drag or use arrow keys to pan. Use the wheel, +/− buttons or keys to zoom; wheel zoom preserves the coordinate under the pointer. Home, double-click and Fit restore the data extent. Hover shows point identifiers and coordinates. A scale bar and group legend retain spatial context. Point rendering uses Canvas for dense datasets.
 
 `setPoints(rows, {fit: true})` replaces observations and reports excluded null, blank or nonfinite coordinates through `getView().excludedCount`. Coordinate strings are accepted when numeric. `resize()` supports hidden/revealed hosts; `getView()` reports the viewport and point count. `destroy()` removes owned DOM, events and resize observers. Host colours, font, point radius and optional `onPointClick`/`onViewChange` callbacks are configurable. The math helpers `fitPlanView`, `planToScreen`, `screenToPlan`, `zoomPlanView` and `panPlanView` are also exported.
+
+### Discoverable operations and saved workflows
+
+The main and `baselode/geophysics` entries export `listGeophysicsOperations()`,
+`describeGeophysicsOperation(id)`, `geophysicsWorkflowSchema()`, `magneticGridRecipe()`,
+`validateGeophysicsWorkflow(workflow, inputs)` and `runGeophysicsWorkflow(workflow, inputs)`.
+They share the [Python workflow contract](/api/python#discoverable-operations-and-saved-workflows),
+including snake_case recipe parameters, scientific context, states, limits and exclusions.
+Unknown descriptions throw `RangeError`; validation failures return structured issues.
+Execution is synchronous and retains full-resolution artifacts.
+
+```javascript
+import { magneticGridRecipe, validateGeophysicsWorkflow, runGeophysicsWorkflow } from 'baselode/geophysics';
+
+// grid is an already-corrected anomaly raster with explicit field_type, units and CRS.
+const recipe = magneticGridRecipe();
+recipe.steps[0].parameters.height = 100; // choose for this survey, in CRS linear units
+const check = validateGeophysicsWorkflow(recipe, { magnetic: grid });
+const result = runGeophysicsWorkflow(recipe, { magnetic: grid });
+if (result.state === 'ok') console.log(result.artifacts.edges);
+else console.log(result.issues);
+```
+
+Use `createGeophysicsRaster` to construct inputs. Recipes never load files, infer
+calibration, generate code or silently apply observation corrections. For UI responsiveness,
+run the synchronous executor in a Web Worker for larger grids.

@@ -79,3 +79,9 @@ When adding/removing parity APIs:
 2. Update [test/data/parity_contract.json](test/data/parity_contract.json).
 3. Ensure [test/test_parity_contract.py](test/test_parity_contract.py) passes.
 4. If divergence is intentional, add rationale under "Runtime differences" in this file.
+
+## Geophysics operation catalogue and workflow v1
+
+Python `baselode.geophysics.{list_operations,describe_operation,workflow_schema,magnetic_grid_recipe,validate_workflow,run_workflow}` corresponds to JavaScript `{listGeophysicsOperations,describeGeophysicsOperation,geophysicsWorkflowSchema,magneticGridRecipe,validateGeophysicsWorkflow,runGeophysicsWorkflow}` (main and `baselode/geophysics` entries). Both use the packaged operation catalogue, workflow schema and magnetic-grid recipe; a Python test checks the JSON copies match. Snake_case parameter names, graph semantics, structured states and resource bounds are shared. The workflow reference fixture checks numerical replay at 1e-10 tolerance; analytical plane tests independently check gradient and regional/residual wiring.
+
+Execution uses existing kernels. Backend/library version strings intentionally differ by runtime. Python artifacts are GeophysicsRaster instances; JS artifacts use its portable raster shape. In workflow v1, arithmetic is restricted to add/subtract with exactly aligned, equally banded grids and matching unit strings/field types, although direct arithmetic APIs support additional cases. Direct APIs retain their existing metadata/context contracts. Sampling, display products, file I/O, gap filling/cropping, observation corrections, hashes, correction ledgers and arbitrary plugin registration are not workflow v1 operations. Later increments extend the allowlist/contracts explicitly.

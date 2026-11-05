@@ -214,6 +214,70 @@ unless `dtype="float64"`. Missing cells get `nodata`, or the raster's own
 - **GeoTIFF** needs the `raster` extra. Band names are kept as band
   descriptions and units as band units.
 
+### Discoverable operations and saved workflows
+
+`list_operations()` returns independent JSON contracts; `describe_operation(id)` returns one
+(or raises `ValueError` for an unknown ID). `workflow_schema()` returns the v1 JSON Schema.
+The catalogue covers the ten filtering/enhancement operators and `combine` (add/subtract).
+Each contract includes parameter schemas/defaults, field applicability, unit/coordinate
+requirements, assumptions, algorithm version, backend and resource limits.
+
+```python
+import baselode.geophysics
+
+# grid is an existing, already-corrected magnetic anomaly raster.
+# Supply metadata at acquisition/import, based on known survey information:
+# {"field_type": "magnetic_anomaly", "units": ["nT"], "crs_units": "m"}
+recipe = baselode.geophysics.magnetic_grid_recipe()
+recipe["steps"][0]["parameters"]["height"] = 100  # choose for your survey, in CRS units
+check = baselode.geophysics.validate_workflow(recipe, {"magnetic": grid})
+result = baselode.geophysics.run_workflow(recipe, {"magnetic": grid})
+if result["state"] == "ok":
+    baselode.geophysics.save_raster(result["artifacts"]["edges"], "edges.tif")
+else:
+    print(result["issues"])
+```
+
+A workflow is finite JSON with exactly `schema="baselode.geophysics.workflow"`, `version=1`,
+`steps` and `outputs`. Each step has exactly `id`, `operation`, `version=1`, `inputs` (one
+reference, or two for combine), and `parameters`. Parameter names use snake_case in both
+runtimes. Defaults are expanded into the returned `plan` and recorded in processing history.
+References name explicit inputs or earlier steps. Input and step IDs are unique and match
+`[A-Za-z][A-Za-z0-9_]{0,63}`. Outputs name available inputs/steps. Unknown operations,
+versions, parameters, forward references and extra fields are rejected. The JSON Schema
+checks document shape; `validate_workflow` additionally checks parameter and scientific semantics.
+
+`validate_workflow(workflow, inputs)` never runs numerical kernels. `run_workflow` performs
+the complete preflight before executing any step, with no generated code, eval, implicit
+file/network I/O, or plugin lookup. Results contain `state`, actionable `issues`, `plan`,
+`resource_estimate`, and (for execution) `artifacts`, `diagnostics`, `completed_steps`.
+States are `ok`, `needs_input` for absent context/parameters/inputs, `rejected` for invalid
+contracts, and `failed` for backend exceptions. Failed execution returns no partial artifacts.
+Artifacts retain full resolution; this API does not generate decimated display previews.
+
+Workflow inputs need explicit `metadata.field_type` for all bands: `magnetic_anomaly`,
+`gravity_anomaly`, `radiometric`, or `other`, plus one nonempty `metadata.units` string
+per band and finite invertible affine coordinates. Use separate rasters for mixed field
+families. A projected CRS supplies linear units; a local grid must declare `crs_units`.
+Angular coordinates are rejected. Potential-field operators reject radiometric/other
+fields; RTP requires magnetic anomalies, explicit inclination/declination and
+`|inclination| >= 15°`. In this workflow contract declination is **east of grid north**:
+the caller must apply survey-appropriate convergence before supplying it. No field date,
+IGRF, correction, calibration or north convergence is inferred. Analytic-signal amplitude,
+tilt and total-horizontal-gradient magnitude become field type `other`; they cannot be
+continued as though they were potential fields. Combine requires exactly matching shape,
+transform, CRS, field types and per-band unit strings; no implicit resampling or conversion.
+
+Limits are 64 steps, 1,000,000 cell values per input, 16,000,000 retained cell values
+(inputs plus all step results), and a conservative 4,194,304 padded FFT cells per band.
+The estimates bound these counts, not peak backend memory or wall time; callers needing
+hard time/memory isolation should execute in their own worker process. Original inputs
+and nested metadata are preserved. Workflow operation/library/backend versions and effective
+parameters join the existing persisted lineage. There are no input hashes or correction
+ledger yet; this recipe is **processed grid → regional/residual → edge product**, not
+survey observations → calibrated corrections → validated gridding. Edge/gap assumptions
+are returned per step; diagnostics are execution metadata, not a calibrated geological QC report.
+
 ### Embedded processing provenance
 
 ERS and GeoTIFF writers embed lineage by default. After loading,

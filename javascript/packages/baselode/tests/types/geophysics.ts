@@ -31,3 +31,13 @@ void producerVersion;
 
 void loadGeoTiff(new ArrayBuffer(0), { includeProvenance: false });
 readErs('', new ArrayBuffer(0), { includeProvenance: false });
+
+import { listGeophysicsOperations, describeGeophysicsOperation, geophysicsWorkflowSchema, magneticGridRecipe, validateGeophysicsWorkflow, runGeophysicsWorkflow } from 'baselode/geophysics';
+const recipe = magneticGridRecipe();
+const contractVersion: 1 = describeGeophysicsOperation('upward_continuation').version;
+const catalogueSize: number = listGeophysicsOperations().length;
+const report = runGeophysicsWorkflow(recipe, { magnetic: raster });
+const artifact: GeophysicsRaster | undefined = report.artifacts.edges;
+void artifact; void contractVersion; void catalogueSize;
+void validateGeophysicsWorkflow(recipe, { magnetic: raster });
+void geophysicsWorkflowSchema();

@@ -64,3 +64,6 @@ exclude = ["build", "build.*", "*.egg-info", "*.egg-info.*"]
 root = ".."
 version_scheme = "post-release"
 local_scheme = "no-local-version"
+
+[tool.setuptools.package-data]
+"baselode.geophysics" = ["*.json"]

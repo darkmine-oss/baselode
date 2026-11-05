@@ -1,0 +1,43 @@
+{
+  "schema": "baselode.geophysics.workflow",
+  "version": 1,
+  "steps": [
+    {
+      "id": "regional",
+      "operation": "upward_continuation",
+      "version": 1,
+      "inputs": [
+        "magnetic"
+      ],
+      "parameters": {
+        "height": 100
+      }
+    },
+    {
+      "id": "residual",
+      "operation": "combine",
+      "version": 1,
+      "inputs": [
+        "magnetic",
+        "regional"
+      ],
+      "parameters": {
+        "operation": "subtract"
+      }
+    },
+    {
+      "id": "edges",
+      "operation": "total_horizontal_derivative",
+      "version": 1,
+      "inputs": [
+        "residual"
+      ],
+      "parameters": {}
+    }
+  ],
+  "outputs": [
+    "regional",
+    "residual",
+    "edges"
+  ]
+}

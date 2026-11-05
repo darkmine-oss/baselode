@@ -716,3 +716,6 @@ export function processGeophysicsRaster(raster, operation, options = {}) {
   if (!apply) throw new RangeError(`Unknown geophysics operation '${operation}'.`);
   return apply(raster, options);
 }
+
+// Internal preflight hook: validates coordinates without running a kernel.
+export { coordinateUnit as geophysicsCoordinateUnit };

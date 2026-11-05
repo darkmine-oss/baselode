@@ -671,3 +671,5 @@ export {
 export {
   IDWVolumeLayer,
 } from './layers/IDWVolumeLayer.js';
+
+export { listGeophysicsOperations, describeGeophysicsOperation, geophysicsWorkflowSchema, magneticGridRecipe, validateGeophysicsWorkflow, runGeophysicsWorkflow } from './data/geophysicsWorkflows.js';

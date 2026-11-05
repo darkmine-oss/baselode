@@ -15,6 +15,7 @@ import baselode.geophysics.processing as geophysics_processing
 import baselode.geophysics.raster as geophysics_raster
 import baselode.geophysics.sampling as geophysics_sampling
 import baselode.geophysics.writers as geophysics_writers
+import baselode.geophysics.workflows as geophysics_workflows
 
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
 load_raster = geophysics_raster.load_raster
@@ -48,7 +49,21 @@ write_ers = geophysics_writers.write_ers
 write_geotiff = geophysics_writers.write_geotiff
 save_raster = geophysics_writers.save_raster
 
+list_operations = geophysics_workflows.list_operations
+describe_operation = geophysics_workflows.describe_operation
+workflow_schema = geophysics_workflows.workflow_schema
+magnetic_grid_recipe = geophysics_workflows.magnetic_grid_recipe
+validate_workflow = geophysics_workflows.validate_workflow
+run_workflow = geophysics_workflows.run_workflow
+
 __all__ = [
+    "list_operations",
+    "describe_operation",
+    "workflow_schema",
+    "magnetic_grid_recipe",
+    "validate_workflow",
+    "run_workflow",
+
     "GeophysicsRaster",
     "load_raster",
     "read_ers",

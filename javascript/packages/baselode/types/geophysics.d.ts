@@ -188,3 +188,47 @@ export function encodeGeoTiff(
   raster: GeophysicsRasterInput,
   options?: { dtype?: GeophysicsCellType; nodata?: number; includeProvenance?: boolean },
 ): ArrayBuffer;
+
+/** V1 recipes use the same snake_case parameters in Python and JavaScript. */
+export interface GeophysicsWorkflowStep {
+  id: string;
+  operation: string;
+  version: 1;
+  inputs: string[];
+  parameters: Record<string, number | string | boolean>;
+}
+export interface GeophysicsWorkflow {
+  schema: 'baselode.geophysics.workflow';
+  version: 1;
+  steps: GeophysicsWorkflowStep[];
+  outputs: string[];
+}
+export interface GeophysicsOperationDescription {
+  id: string;
+  version: 1;
+  inputs: { count: number; kind: string; field_types: string[]; units: string; coordinates: string };
+  parameters: { type: 'object'; properties: Record<string, Record<string, unknown>>; required: string[]; additionalProperties: false };
+  outputs: { kind: string; resolution: string; field_type: string; units: string };
+  assumptions: string[];
+  backend: Record<string, unknown>;
+  deterministic: boolean;
+  corrections: string;
+  resources: Record<string, number>;
+}
+export interface GeophysicsWorkflowValidation {
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed';
+  issues: Array<{ state: string; code: string; path: string; message: string }>;
+  plan: GeophysicsWorkflowStep[];
+  resource_estimate: { retained_cell_values: number; max_fft_cells_per_band: number; limits: Record<string, number> };
+}
+export interface GeophysicsWorkflowResult extends GeophysicsWorkflowValidation {
+  artifacts: Record<string, GeophysicsRaster>;
+  diagnostics: Array<{ step: string; cell_values: number; assumptions: string[] }>;
+  completed_steps: string[];
+}
+export function listGeophysicsOperations(): GeophysicsOperationDescription[];
+export function describeGeophysicsOperation(operation: string): GeophysicsOperationDescription;
+export function geophysicsWorkflowSchema(): Record<string, unknown>;
+export function magneticGridRecipe(): GeophysicsWorkflow;
+export function validateGeophysicsWorkflow(workflow: unknown, inputs: Record<string, GeophysicsRaster>): GeophysicsWorkflowValidation;
+export function runGeophysicsWorkflow(workflow: unknown, inputs: Record<string, GeophysicsRaster>): GeophysicsWorkflowResult;
