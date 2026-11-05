@@ -33,7 +33,7 @@ reconstructs the model.
 ### load_raster
 
 ```python
-load_raster(source, bands=None, masked=True, engine=None, **kwargs)
+load_raster(source, bands=None, masked=True, engine=None, include_provenance=True, **kwargs)
 ```
 
 Reads a raster into a `GeophysicsRaster`. ER Mapper `.ers` headers load with
@@ -66,7 +66,7 @@ use these corrected labels. Geographic grids still support display and sampling.
 ### read_ers
 
 ```python
-read_ers(path, masked=True)
+read_ers(path, masked=True, include_provenance=True)
 ```
 
 Native ER Mapper reader: band-interleaved-by-line binary with all integer and
@@ -178,7 +178,7 @@ checked against a shared fixture.
 ```python
 crop(raster, bounds)                          # (min_x, min_y, max_x, max_y)
 clip(raster, polygon, crop=True)
-combine(left, right, operation)               # "add", "subtract", "multiply", "divide"
+combine(left, right, operation, include_provenance=True)  # "add", "subtract", "multiply", "divide"
 fill_gaps(raster, max_distance=None, iterations=100)
 ```
 
@@ -213,6 +213,75 @@ unless `dtype="float64"`. Missing cells get `nodata`, or the raster's own
   system. Any other CRS is written as `RAW`.
 - **GeoTIFF** needs the `raster` extra. Band names are kept as band
   descriptions and units as band units.
+
+### Embedded processing provenance
+
+ERS and GeoTIFF writers embed lineage by default. After loading,
+`raster.metadata["processing"]` contains the recorded steps and
+`raster.metadata["baselode_provenance"]` contains the versioned manifest. This namespaced key is reserved; ordinary
+`metadata["provenance"]` remains user metadata. Set
+`include_provenance=False` on `save_raster`, `write_ers`, `write_geotiff` or
+`ers_header` to omit it explicitly. Legacy files without a manifest still load.
+
+The manifest is UTF-8 JSON encoded as ASCII base64 in the ERS header field
+`BASELODE_PROVENANCE` or the GeoTIFF GDAL metadata item with that name:
+
+```json
+{
+  "schema": "baselode.geophysics.provenance",
+  "version": 1,
+  "producer": {"library": "baselode", "version": "<exporter version>"},
+  "sources": ["original-survey.ers"],
+  "metadata": {"processing": [{"operation": "upward_continuation", "height": 100}]},
+  "export": {"format": "GeoTIFF", "dtype": "float32"}
+}
+```
+
+Metadata, including source references and calibration notes, must be acyclic
+JSON objects/lists with string keys and finite numbers. Python integers must
+be exactly representable as JavaScript numbers for cross-language interchange. Non-JSON values fail
+before files are written. This default intentionally changes the old writers,
+which ignored most metadata: normalize metadata to JSON to retain it, or use
+`include_provenance=False` for the previous metadata-agnostic export behaviour.
+For in-memory `combine` with opaque metadata, the same flag skips right-input
+capture and records `lineage_omitted: true`. Opaque metadata is retained in
+memory; a later provenance-bearing export still requires JSON metadata. Malformed manifests, unsupported versions and
+manifests above 16 MiB fail clearly on reading. To read cells from a future or
+damaged record explicitly, set `include_provenance=False` on `load_raster` or
+`read_ers`. The reader skips that record, sets `provenance_ignored=True` and
+records `provenance_omitted_on_import`; history is never silently discarded. The previous manifest and its
+transport tag are excluded from the next snapshot, so repeated saves do not
+recursively embed prior envelopes. Source references are accumulated uniquely.
+
+Known source URL fields (`source`, `*_source`, and source-reference lists) have
+userinfo, query strings and fragments removed from persisted snapshots and
+references (including imported historical manifests). The current in-memory
+`metadata["source"]` remains the live locator, so it can still reopen signed
+URLs. Recorded source references are sanitized locators, not exact fetch URLs. Other arbitrary metadata
+is retained, so the opt-out remains available when metadata should be omitted.
+
+On loading, prior format-specific reader fields (including ERS cell type,
+datum/projection, GDAL tags, and dimensions) remain only in the historical
+snapshot; they are not revived as current fields in another format.
+The file's current source, driver, tags and band units take
+precedence over the snapshot. Geometry and CRS always come from the file.
+An explicit band selection, including on legacy files, appends a one-based
+`select_bands` view step;
+JavaScript downsampling also records its existing `decimate` step.
+Raster arithmetic stores a flat graph of input metadata/source records in
+`metadata["input_lineage"]`, alongside the left-hand history. Each binary
+processing step's zero-based `operand_lineage` points to its right-hand record.
+These nodes describe metadata/history, not unique data identities: inputs with
+identical descriptions may share a record. Supply stable artifact identifiers
+in metadata when distinct inputs need to be distinguished.
+Records reference earlier graph entries through their own processing steps;
+merging graphs remaps references and deduplicates identical records. This avoids
+recursive duplication when repeatedly combining derived grids.
+
+The producer identifies the exporter package, not every upstream calculation.
+The record documents lineage; it does not authenticate cell values, guarantee
+numerical replay, or contain an executable workflow. Other software can strip
+custom metadata. Use Baselode's native ERS reader for its custom header field.
 
 ### Colour scales
 

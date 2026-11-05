@@ -1207,6 +1207,29 @@ Projected CRS axis units determine derivative units. Local Cartesian grids can d
 
 The JavaScript and Python implementations share one FFT design and are tested against a common fixture, so they agree cell for cell.
 
+### Embedded processing provenance
+
+`encodeErs` and `encodeGeoTiff` embed the same version 1 manifest as Python
+(see [Python provenance contract](/api/python#embedded-processing-provenance)).
+Set `includeProvenance: false` to omit it. This intentionally replaces the old
+writers' metadata-agnostic default: non-JSON metadata now needs normalization
+or that explicit opt-out. In-memory `combineGeophysicsRasters` accepts a fourth
+options argument `{ includeProvenance: false }` for opaque metadata; the result
+records `lineage_omitted: true`. `readErs` and `loadGeoTiff` restore
+`metadata.processing` and expose the recorded manifest as `metadata.baselode_provenance`.
+Non-JSON/cyclic/non-finite metadata and malformed or unknown manifest versions
+raise errors. Readers accept `includeProvenance: false` to skip a damaged or
+future manifest explicitly; `metadata.provenance_ignored` and a
+`provenance_omitted_on_import` step mark that gap. The decoded manifest limit is 16 MiB. Imported file metadata,
+units, names and geometry remain authoritative; GeoTIFF selected samples are
+recorded as a one-based `select_bands` step before any decimation.
+
+Producer versions identify the exporter package; direct, unbundled JavaScript
+source reports `unversioned`. Persisted source URL fields are stripped of userinfo, query strings and
+fragments; the current in-memory `metadata.source` remains the live locator.
+Other source references and metadata may include local paths and calibration notes; use the opt-out when these should be omitted.
+The embedded record is lineage, not content authentication or an executable recipe.
+
 ### Sampling
 
 | Function | Description |
@@ -1229,7 +1252,7 @@ The results match Python's `sample_points`, `sample_table` and `sample_profile`,
 |---|---|
 | `cropGeophysicsRaster(raster, [minX, minY, maxX, maxY])` | The whole cells that overlap the box. Values and `nodata` are unchanged. |
 | `clipGeophysicsRaster(raster, polygon, { crop = true })` | Cells whose centres lie outside the polygon become `null`. Takes one ring of `[x, y]` points, a list of rings (inner rings cut holes), or a GeoJSON `Polygon`, `MultiPolygon` or `Feature`. |
-| `combineGeophysicsRasters(left, right, operation)` | `'add'`, `'subtract'`, `'multiply'` or `'divide'` (`GEOPHYSICS_COMBINE_OPERATIONS`) with a number or a raster on the same grid. `combineGeophysicsRasters(tmi, regional, 'subtract')` gives a residual. |
+| `combineGeophysicsRasters(left, right, operation, options?)` | `'add'`, `'subtract'`, `'multiply'` or `'divide'` (`GEOPHYSICS_COMBINE_OPERATIONS`) with a number or a raster on the same grid. `combineGeophysicsRasters(tmi, regional, 'subtract')` gives a residual. |
 | `fillGeophysicsGaps(raster, { maxDistance = null, iterations = 100 })` | Fills missing cells with a smooth surface that joins the data. `maxDistance` limits filling to cells within that many cells of data. |
 
 These follow Python's `crop`, `clip`, `combine` and `fill_gaps` and are checked

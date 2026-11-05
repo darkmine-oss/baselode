@@ -8,7 +8,19 @@ export interface GeophysicsProcessingStep {
   [key: string]: unknown;
 }
 
+export interface GeophysicsProvenance {
+  schema: 'baselode.geophysics.provenance';
+  version: 1;
+  producer: { library: 'baselode'; version: string };
+  sources: string[];
+  metadata: Record<string, unknown>;
+  export: { format: 'ERS' | 'GeoTIFF'; dtype: GeophysicsCellType };
+}
+
 export interface GeophysicsRasterMetadata {
+  baselode_provenance?: GeophysicsProvenance;
+  provenance_ignored?: boolean;
+  input_lineage?: Array<{ metadata: Record<string, unknown>; sources: string[] }>;
   units?: Array<string | null>;
   crs_units?: GeophysicsCrsUnits | null;
   processing?: GeophysicsProcessingStep[];
@@ -48,19 +60,19 @@ export function geophysicsRasterFromBands(
   bands: Array<ArrayLike<number> | ((index: number) => number)>,
   options: { width: number; height: number; maxCells?: number } & Omit<GeophysicsRasterPayload, 'data'>,
 ): GeophysicsRaster;
-export function loadGeoTiff(source: BinarySource, options?: { maxCells?: number; samples?: number[] }): Promise<GeophysicsRaster>;
+export function loadGeoTiff(source: BinarySource, options?: { maxCells?: number; samples?: number[]; includeProvenance?: boolean }): Promise<GeophysicsRaster>;
 
 export function parseErsHeader(text: string): Record<string, unknown>;
 export function ersCrs(datum: string | null | undefined, projection: string | null | undefined): string | null;
 export function readErs(
   headerText: string,
   data: ArrayBuffer | ArrayBufferView,
-  options?: { maxCells?: number; name?: string },
+  options?: { maxCells?: number; name?: string; includeProvenance?: boolean },
 ): GeophysicsRaster;
 export function loadErs(
   header: BinarySource,
   data: BinarySource,
-  options?: { maxCells?: number; name?: string },
+  options?: { maxCells?: number; name?: string; includeProvenance?: boolean },
 ): Promise<GeophysicsRaster>;
 
 export type GeophysicsFilterMethod = 'gaussian' | 'butterworth';
@@ -158,6 +170,7 @@ export function combineGeophysicsRasters(
   left: GeophysicsRasterInput,
   right: GeophysicsRasterInput | number,
   operation: GeophysicsCombineOperation,
+  options?: { includeProvenance?: boolean },
 ): GeophysicsRaster;
 export function fillGeophysicsGaps(
   raster: GeophysicsRasterInput,
@@ -169,9 +182,9 @@ export const DEFAULT_ERS_NULL: number;
 export function ersCoordinateSpace(crs: string | number | null | undefined): [string, string, string];
 export function encodeErs(
   raster: GeophysicsRasterInput,
-  options?: { name?: string; dtype?: GeophysicsCellType; nodata?: number },
+  options?: { name?: string; dtype?: GeophysicsCellType; nodata?: number; includeProvenance?: boolean },
 ): { header: string; data: ArrayBuffer };
 export function encodeGeoTiff(
   raster: GeophysicsRasterInput,
-  options?: { dtype?: GeophysicsCellType; nodata?: number },
+  options?: { dtype?: GeophysicsCellType; nodata?: number; includeProvenance?: boolean },
 ): ArrayBuffer;

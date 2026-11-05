@@ -1,6 +1,11 @@
 import {
   GEOPHYSICS_OPERATIONS,
   createGeophysicsRaster,
+  combineGeophysicsRasters,
+  encodeErs,
+  encodeGeoTiff,
+  loadGeoTiff,
+  readErs,
   geophysicsReduceToPole,
   processGeophysicsRaster,
   type GeophysicsRaster,
@@ -17,3 +22,12 @@ processGeophysicsRaster(raster, 'upward_continuation', { order: 1 });
 
 void units;
 void operations;
+
+combineGeophysicsRasters(raster, raster, 'subtract', { includeProvenance: false });
+encodeErs(raster, { includeProvenance: false });
+encodeGeoTiff(raster, { includeProvenance: false });
+const producerVersion: string | undefined = raster.metadata.baselode_provenance?.producer.version;
+void producerVersion;
+
+void loadGeoTiff(new ArrayBuffer(0), { includeProvenance: false });
+readErs('', new ArrayBuffer(0), { includeProvenance: false });

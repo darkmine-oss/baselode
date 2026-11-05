@@ -15,6 +15,7 @@ import pathlib
 import numpy as np
 import pyproj
 
+import baselode.geophysics.provenance
 import baselode.geophysics.colour_scales
 
 try:
@@ -133,7 +134,7 @@ def _cells(raster, dtype, null):
         if null is not None and np.isfinite(null) and abs(null) > largest:
             raise ValueError(f"nodata {null!r} is too large for {dtype.name} cells")
         data = raster.data[valid]
-        if data.size and np.abs(data).max() > largest:
+        if data.size and float(np.abs(data).max()) > largest:
             raise ValueError(f"values are too large for {dtype.name} cells; pass dtype='float64'")
     cells = np.where(valid, raster.data, null if null is not None else 0).astype(dtype)
     if null is not None and np.isfinite(null) and (cells[valid] == np.asarray(null).astype(dtype)).any():
@@ -152,7 +153,7 @@ def _null_value(raster, dtype, nodata):
     return DEFAULT_ERS_NULL if dtype.kind == "f" else None
 
 
-def ers_header(raster, name, dtype=None, nodata=None):
+def ers_header(raster, name, dtype=None, nodata=None, include_provenance=True):
     """Return the text of an ERS header describing ``raster``.
 
     See :func:`write_ers` for the parameters.
@@ -203,7 +204,11 @@ def ers_header(raster, name, dtype=None, nodata=None):
         if index < len(units) and units[index]:
             lines.append(f'\t\t\tUnits\t= "{units[index]}"')
         lines.append("\t\tBandId End")
-    lines += ["\tRasterInfo End", "DatasetHeader End", ""]
+    lines += ["\tRasterInfo End"]
+    if include_provenance:
+        encoded = baselode.geophysics.provenance.encode(raster.metadata, "ERS", dtype.name)
+        lines.append(f'\tBASELODE_PROVENANCE\t= "{encoded}"')
+    lines += ["DatasetHeader End", ""]
     return "\n".join(lines)
 
 
@@ -215,7 +220,7 @@ def ers_data(raster, dtype=None, nodata=None):
     return np.ascontiguousarray(cells.transpose(1, 0, 2)).astype(dtype.newbyteorder("<")).tobytes()
 
 
-def write_ers(raster, path, dtype=None, nodata=None):
+def write_ers(raster, path, dtype=None, nodata=None, include_provenance=True):
     """Write an ER Mapper ``.ers`` header and its data file.
 
     Parameters
@@ -229,6 +234,9 @@ def write_ers(raster, path, dtype=None, nodata=None):
         Cell type.  Defaults to ``float32`` for float data, the usual
         precision of distributed grids (pass ``"float64"`` to keep full
         precision), and the data's own integer type otherwise.
+    include_provenance : bool, optional
+        Embed a version 1 lineage manifest (default True). Source references,
+        JSON metadata and processing steps are included; False omits it.
     nodata : float, optional
         ``NullCellValue`` for missing cells.  Defaults to the raster's
         ``nodata``, or ``-99999`` for float grids without one.
@@ -255,13 +263,13 @@ def write_ers(raster, path, dtype=None, nodata=None):
         raise ValueError("the ERS header path must end in .ers")
     data_path = header_path.with_suffix("")
     data = ers_data(raster, dtype=dtype, nodata=nodata)
-    header = ers_header(raster, header_path.name, dtype=dtype, nodata=nodata)
+    header = ers_header(raster, header_path.name, dtype=dtype, nodata=nodata, include_provenance=include_provenance)
     data_path.write_bytes(data)
     header_path.write_text(header, encoding="latin-1")
     return header_path, data_path
 
 
-def write_geotiff(raster, path, dtype=None, nodata=None, compress="deflate"):
+def write_geotiff(raster, path, dtype=None, nodata=None, compress="deflate", include_provenance=True):
     """Write a GeoTIFF with Rasterio.
 
     Parameters
@@ -270,6 +278,9 @@ def write_geotiff(raster, path, dtype=None, nodata=None, compress="deflate"):
     path : str or path-like
     dtype : str or numpy.dtype, optional
         Defaults as for :func:`write_ers`.
+    include_provenance : bool, optional
+        Embed a version 1 lineage manifest (default True). Source references,
+        JSON metadata and processing steps are included; False omits it.
     nodata : float, optional
         Value written for missing cells.  Defaults to the raster's
         ``nodata``, or ``NaN`` for float grids.
@@ -311,8 +322,11 @@ def write_geotiff(raster, path, dtype=None, nodata=None, compress="deflate"):
     path = pathlib.Path(path)
     cells = _cells(raster, dtype, null)
     units = list(raster.metadata.get("units") or [])
+    encoded = baselode.geophysics.provenance.encode(raster.metadata, "GeoTIFF", dtype.name) if include_provenance else None
     with _rasterio.open(path, "w", **profile) as dataset:
         dataset.write(cells)
+        if encoded is not None:
+            dataset.update_tags(BASELODE_PROVENANCE=encoded)
         for index, band_name in enumerate(raster.band_names, start=1):
             dataset.set_band_description(index, band_name)
             if index <= len(units) and units[index - 1]:

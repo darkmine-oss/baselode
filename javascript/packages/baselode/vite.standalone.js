@@ -4,12 +4,14 @@
  */
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import { readFileSync } from 'fs';
 
 // Standalone build: bundles three.js + three-viewport-gizmo.
 // Excludes React, Plotly, and PapaParse (not needed for the 3D scene class).
 // Output goes to dist/baselode-module.js; the build:module script copies it to
 // demo-viewer-dash/assets/.
 export default defineConfig({
+  define: { __BASELODE_VERSION__: JSON.stringify(JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')).version) },
   build: {
     emptyOutDir: false, // share dist/ with the main library build
     lib: {

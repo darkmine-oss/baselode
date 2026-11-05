@@ -12,6 +12,7 @@
 // geotiff.js's own writer stores 8-bit samples only, so GeoTIFF is encoded
 // here: little-endian, uncompressed, one strip per band.
 
+import { encodeProvenance } from './geophysicsProvenance.js';
 import proj4 from 'proj4';
 import { createGeophysicsRaster } from './geophysicsRaster.js';
 
@@ -164,12 +165,13 @@ function dms(value) {
  * @param {object} [options]
  * @param {string} [options.name='grid.ers'] - Header file name, recorded in the header.
  * @param {string} [options.dtype='float32'] - Cell type: float32, float64, (u)int8/16/32.
+ * @param {boolean} [options.includeProvenance=true] - Embed versioned JSON lineage.
  * @param {number} [options.nodata] - `NullCellValue`; defaults to the raster's
  *   nodata, or -99999 for float grids.
  * @returns {{header: string, data: ArrayBuffer}} Save the data beside the
  *   header, named as the header without `.ers`.
  */
-export function encodeErs(raster, { name = 'grid.ers', dtype = 'float32', nodata } = {}) {
+export function encodeErs(raster, { name = 'grid.ers', dtype = 'float32', nodata, includeProvenance = true } = {}) {
   const normalized = asRaster(raster);
   const type = cellType(dtype);
   const [cellX, cellY, originX, originY] = northUp(normalized);
@@ -239,7 +241,9 @@ export function encodeErs(raster, { name = 'grid.ers', dtype = 'float32', nodata
     if (units[index]) lines.push(`\t\t\tUnits\t= "${units[index]}"`);
     lines.push('\t\tBandId End');
   });
-  lines.push('\tRasterInfo End', 'DatasetHeader End', '');
+  lines.push('\tRasterInfo End');
+  if (includeProvenance) lines.push(`\tBASELODE_PROVENANCE\t= "${encodeProvenance(normalized.metadata, 'ERS', dtype)}"`);
+  lines.push('DatasetHeader End', '');
   return { header: lines.join('\n'), data: buffer };
 }
 
@@ -286,12 +290,13 @@ function escapeXml(text) {
   return String(text).replace(/[<>&"']/g, (character) => `&#${character.charCodeAt(0)};`);
 }
 
-function gdalMetadata(raster) {
+function gdalMetadata(raster, dtype, includeProvenance) {
   const units = raster.metadata?.units ?? [];
   const items = raster.bandNames.flatMap((bandName, index) => [
     `<Item name="DESCRIPTION" sample="${index}" role="description">${escapeXml(bandName)}</Item>`,
     ...(units[index] ? [`<Item name="UNITTYPE" sample="${index}" role="unittype">${escapeXml(units[index])}</Item>`] : []),
   ]);
+  if (includeProvenance) items.push(`<Item name="BASELODE_PROVENANCE">${encodeProvenance(raster.metadata, 'GeoTIFF', dtype)}</Item>`);
   return `<GDALMetadata>\n${items.map((item) => `  ${item}`).join('\n')}\n</GDALMetadata>`;
 }
 
@@ -304,6 +309,7 @@ function gdalMetadata(raster) {
  * @param {object} raster
  * @param {object} [options]
  * @param {string} [options.dtype='float32'] - float32, float64 or (u)int8/16/32.
+ * @param {boolean} [options.includeProvenance=true] - Embed versioned JSON lineage.
  * @param {number} [options.nodata] - Value for missing cells; defaults to the
  *   raster's nodata, or NaN for float grids.
  * @returns {ArrayBuffer}
@@ -311,7 +317,7 @@ function gdalMetadata(raster) {
  * The CRS is written when it is an EPSG code; other definitions are left
  * out (the grid keeps its transform).
  */
-export function encodeGeoTiff(raster, { dtype = 'float32', nodata } = {}) {
+export function encodeGeoTiff(raster, { dtype = 'float32', nodata, includeProvenance = true } = {}) {
   const normalized = asRaster(raster);
   const type = cellType(dtype);
   const fill = nullValue(normalized, type, nodata, NaN);
@@ -348,7 +354,7 @@ export function encodeGeoTiff(raster, { dtype = 'float32', nodata } = {}) {
       ? [[33550, DOUBLE, [a, -e, 0]], [33922, DOUBLE, [0, 0, 0, c, f, 0]]]
       : [[34264, DOUBLE, [a, b, 0, c, d, e, 0, f, 0, 0, 0, 0, 0, 0, 0, 1]]]),
     [34735, SHORT, [1, 1, 0, geoKeys.length, ...geoKeys.flatMap(([key, value]) => [key, 0, 1, value])]],
-    [42112, ASCII, gdalMetadata(normalized)],
+    [42112, ASCII, gdalMetadata(normalized, dtype, includeProvenance)],
     ...(fill === null ? [] : [[42113, ASCII, Number.isNaN(fill) ? 'nan' : String(fill)]]),
   ].sort(([p], [q]) => p - q);
 

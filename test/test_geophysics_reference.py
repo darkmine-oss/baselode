@@ -306,7 +306,7 @@ def build_editing_reference():
         "ersWriter": {
             "raster": ers_raster.to_payload(),
             "name": "edited.ers",
-            "header": baselode.geophysics.writers.ers_header(ers_raster, "edited.ers"),
+            "header": baselode.geophysics.writers.ers_header(ers_raster, "edited.ers", include_provenance=False),
             "data": base64.b64encode(baselode.geophysics.writers.ers_data(ers_raster)).decode("ascii"),
         },
     }

@@ -18,6 +18,7 @@ import re
 
 import numpy as np
 
+import baselode.geophysics.provenance
 import baselode.geophysics.raster
 
 
@@ -193,7 +194,7 @@ def _registration(raster_info, coordinate_type):
     return float(x), float(y)
 
 
-def read_ers(path, masked=True):
+def read_ers(path, masked=True, include_provenance=True):
     """Load an ER Mapper ``.ers`` raster into a ``GeophysicsRaster``.
 
     Parameters
@@ -201,6 +202,9 @@ def read_ers(path, masked=True):
     path : str or path-like
         Path to the ``.ers`` header.  The binary data file is the header path
         without its ``.ers`` suffix unless the header names a ``DataFile``.
+    include_provenance : bool, optional
+        Restore the embedded lineage (default True). False explicitly ignores
+        it and marks ``provenance_ignored`` when a record exists.
     masked : bool, optional
         Replace ``NullCellValue`` cells with ``NaN`` (data become floating
         point).  Default ``True``.
@@ -303,5 +307,5 @@ def read_ers(path, masked=True):
         crs=ers_crs(space.get("Datum"), space.get("Projection")),
         nodata=nodata,
         band_names=band_names,
-        metadata=metadata,
+        metadata=baselode.geophysics.provenance.restore(metadata, header.get("BASELODE_PROVENANCE"), include_provenance=include_provenance),
     )
