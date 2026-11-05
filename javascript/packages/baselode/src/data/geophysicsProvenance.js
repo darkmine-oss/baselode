@@ -142,7 +142,6 @@ export function appendInput(left, right) {
 }
 
 export function recordSelection(metadata, bands) {
-  if (!metadata.provenance) return metadata;
   return { ...metadata, processing: [...(metadata.processing ?? []), { operation: 'select_bands', bands }] };
 }
 
@@ -162,8 +161,16 @@ export function encodeProvenance(metadata, format, dtype) {
   return btoa(binary);
 }
 
-export function restoreProvenance(metadata, encoded) {
-  if (encoded === null || encoded === undefined) return redactSources(metadata);
+export function restoreProvenance(metadata, encoded, includeProvenance = true) {
+  if (encoded === null || encoded === undefined) return metadata;
+  if (!includeProvenance) {
+    // Explicit opt-out, never silent degradation of a required history.
+    const ignored = { ...metadata, provenance_ignored: true, processing: [{ operation: 'provenance_omitted_on_import' }] };
+    if (ignored.tags && typeof ignored.tags === 'object') {
+      ignored.tags = Object.fromEntries(Object.entries(ignored.tags).filter(([key]) => key !== PROVENANCE_TAG));
+    }
+    return ignored;
+  }
   try {
     if (typeof encoded !== 'string' || encoded.length > 4 * Math.ceil(MAX_BYTES / 3) || (encoded.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded))) {
       throw new TypeError('invalid or oversized provenance field');
@@ -172,7 +179,8 @@ export function restoreProvenance(metadata, encoded) {
     if (bytes.length > MAX_BYTES) throw new RangeError('oversized provenance field');
     const manifest = redactSources(validate(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))));
     const snapshot = Object.fromEntries(Object.entries(manifest.metadata).filter(([key]) => !READER_FIELDS.has(key)));
-    const restored = { ...snapshot, ...redactSources(metadata), provenance: manifest };
+    // Keep the live I/O locator in memory; sanitize only persisted references.
+    const restored = { ...snapshot, ...metadata, provenance: manifest };
     if (restored.tags && typeof restored.tags === 'object') {
       restored.tags = Object.fromEntries(Object.entries(restored.tags).filter(([key]) => key !== PROVENANCE_TAG));
     }

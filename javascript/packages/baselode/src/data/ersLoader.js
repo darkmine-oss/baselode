@@ -168,6 +168,7 @@ function registration(rasterInfo, coordinateType) {
  *
  * @param {string} headerText - Contents of the `.ers` header.
  * @param {ArrayBuffer|ArrayBufferView} data - The binary data file.
+ * @param {boolean} [options.includeProvenance=true] - False ignores the embedded record and marks the gap.
  * @param {object} [options]
  * @param {number} [options.maxCells] - Decimate (area-weighted mean) to at
  *   most this many cells per band while reading.
@@ -269,7 +270,7 @@ export function readErs(headerText, data, options = {}) {
       crs_units: coordinateType === 'LL' || coordinateType === 'LATLONG' ? 'degree' : 'metre',
       cell_type: rasterInfo.CellType,
       units,
-    }, header.BASELODE_PROVENANCE),
+    }, header.BASELODE_PROVENANCE, options.includeProvenance !== false),
   });
 }
 
@@ -280,6 +281,7 @@ export function readErs(headerText, data, options = {}) {
  *   containing `DatasetHeader Begin`), or a URL, file or bytes holding it.
  * @param {string|URL|Blob|ArrayBuffer|ArrayBufferView} data - The data file
  *   (the header name without `.ers`) as a URL, file, or bytes.
+ * @param {boolean} [options.includeProvenance=true] - False ignores the embedded record and marks the gap.
  * @param {object} [options] - See {@link readErs}.
  * @returns {Promise<object>}
  */

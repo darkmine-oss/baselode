@@ -19,6 +19,7 @@ export interface GeophysicsProvenance {
 
 export interface GeophysicsRasterMetadata {
   provenance?: GeophysicsProvenance;
+  provenance_ignored?: boolean;
   input_lineage?: Array<{ metadata: Record<string, unknown>; sources: string[] }>;
   units?: Array<string | null>;
   crs_units?: GeophysicsCrsUnits | null;
@@ -59,19 +60,19 @@ export function geophysicsRasterFromBands(
   bands: Array<ArrayLike<number> | ((index: number) => number)>,
   options: { width: number; height: number; maxCells?: number } & Omit<GeophysicsRasterPayload, 'data'>,
 ): GeophysicsRaster;
-export function loadGeoTiff(source: BinarySource, options?: { maxCells?: number; samples?: number[] }): Promise<GeophysicsRaster>;
+export function loadGeoTiff(source: BinarySource, options?: { maxCells?: number; samples?: number[]; includeProvenance?: boolean }): Promise<GeophysicsRaster>;
 
 export function parseErsHeader(text: string): Record<string, unknown>;
 export function ersCrs(datum: string | null | undefined, projection: string | null | undefined): string | null;
 export function readErs(
   headerText: string,
   data: ArrayBuffer | ArrayBufferView,
-  options?: { maxCells?: number; name?: string },
+  options?: { maxCells?: number; name?: string; includeProvenance?: boolean },
 ): GeophysicsRaster;
 export function loadErs(
   header: BinarySource,
   data: BinarySource,
-  options?: { maxCells?: number; name?: string },
+  options?: { maxCells?: number; name?: string; includeProvenance?: boolean },
 ): Promise<GeophysicsRaster>;
 
 export type GeophysicsFilterMethod = 'gaussian' | 'butterworth';

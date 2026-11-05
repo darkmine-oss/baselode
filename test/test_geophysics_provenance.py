@@ -93,6 +93,7 @@ def test_malformed_and_future_manifests_are_not_silently_dropped(tmp_path):
     path.write_text(text.replace(token, encoded), encoding="latin-1")
     with pytest.raises(ValueError, match="unsupported.*version"):
         baselode.geophysics.load_raster(path)
+    assert baselode.geophysics.load_raster(path, include_provenance=False).metadata["provenance_ignored"] is True
     path.write_text(text.replace(token, "not-base64!"), encoding="latin-1")
     with pytest.raises(ValueError, match="provenance"):
         baselode.geophysics.load_raster(path)
@@ -233,7 +234,9 @@ def test_numpy_band_indexes_still_allow_a_provenance_export(tmp_path, extension)
     ("/vsicurl/https://u:p@HOST/α.tif?token=secret#x", "/vsicurl/https://HOST/α.tif"),
 ])
 def test_source_reference_redaction_preserves_spelling_and_opaque_names(reference, expected):
-    assert baselode.geophysics.provenance.restore({"source": reference}, None)["source"] == expected
+    assert baselode.geophysics.provenance.restore({"source": reference}, None)["source"] == reference
+    encoded = baselode.geophysics.provenance.encode({"source": reference}, "GeoTIFF", "float32")
+    assert baselode.geophysics.provenance.restore({}, encoded)["provenance"]["sources"] == [expected]
 
 
 def test_graph_deduplication_distinguishes_booleans_from_numbers():
@@ -242,3 +245,23 @@ def test_graph_deduplication_distinguishes_booleans_from_numbers():
         root = baselode.geophysics.combine(root, source_grid().copy_with(metadata={"flag": value}), "add")
     assert len(root.metadata["input_lineage"]) == 2
     assert root.metadata["processing"][-1]["operand_lineage"] == 1
+
+
+@pytest.mark.parametrize("extension", ["ers", "tif"])
+def test_explicit_read_opt_out_recovers_cells_and_marks_the_history_gap(tmp_path, extension):
+    path = tmp_path / f"future-optout.{extension}"
+    baselode.geophysics.save_raster(source_grid(), path)
+    if extension == "ers":
+        text = path.read_text(encoding="latin-1")
+        token = baselode.geophysics.ers.parse_ers_header(text)["BASELODE_PROVENANCE"]
+        path.write_text(text.replace(token, "future-or-damaged!"), encoding="latin-1")
+    else:
+        with rasterio.open(path, "r+") as dataset:
+            dataset.update_tags(BASELODE_PROVENANCE="future-or-damaged!")
+    with pytest.raises(ValueError, match="provenance"):
+        baselode.geophysics.load_raster(path)
+    ignored = baselode.geophysics.load_raster(path, include_provenance=False, bands=[2, 1])
+    np.testing.assert_array_equal(ignored.data, source_grid().data[[1, 0]])
+    assert ignored.metadata["provenance_ignored"] is True
+    assert [step["operation"] for step in ignored.metadata["processing"]] == ["provenance_omitted_on_import", "select_bands"]
+    baselode.geophysics.save_raster(ignored, tmp_path / f"recovered.{extension}")

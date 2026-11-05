@@ -4,6 +4,8 @@ import {
   combineGeophysicsRasters,
   encodeErs,
   encodeGeoTiff,
+  loadGeoTiff,
+  readErs,
   geophysicsReduceToPole,
   processGeophysicsRaster,
   type GeophysicsRaster,
@@ -26,3 +28,6 @@ encodeErs(raster, { includeProvenance: false });
 encodeGeoTiff(raster, { includeProvenance: false });
 const producerVersion: string | undefined = raster.metadata.provenance?.producer.version;
 void producerVersion;
+
+void loadGeoTiff(new ArrayBuffer(0), { includeProvenance: false });
+readErs('', new ArrayBuffer(0), { includeProvenance: false });

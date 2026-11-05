@@ -444,7 +444,7 @@ def _crs_units(crs):
     return _LINEAR_UNITS.get(str(crs.linear_units or "").strip().lower())
 
 
-def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
+def load_raster(source, bands=None, masked=True, engine=None, include_provenance=True, **kwargs):
     """Load a geophysics raster into memory.
 
     Parameters
@@ -457,6 +457,9 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
     masked : bool, optional
         Replace the dataset mask with ``NaN`` values.  Default ``True`` makes
         no-data handling uniform for rendering and numerical algorithms.
+    include_provenance : bool, optional
+        Restore embedded lineage (default True). False skips its validation
+        and marks the ignored record, allowing damaged/future files to load.
     engine : {"ers", "rasterio"}, optional
         Reader to use.  Defaults to the native ``"ers"`` reader for ``.ers``
         paths and ``"rasterio"`` for everything else.
@@ -482,7 +485,7 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
     if engine == "ers":
         if kwargs:
             raise TypeError(f"the ERS reader does not accept {sorted(kwargs)}")
-        raster = baselode.geophysics.ers.read_ers(source, masked=masked)
+        raster = baselode.geophysics.ers.read_ers(source, masked=masked, include_provenance=include_provenance)
         if bands is None:
             return raster
         indexes = [operator.index(index) for index in bands]
@@ -521,7 +524,7 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
             "units": [dataset.units[index - 1] or None for index in indexes],
             "tags": tags,
         }
-        metadata = baselode.geophysics.provenance.restore(metadata, tags.get("BASELODE_PROVENANCE"))
+        metadata = baselode.geophysics.provenance.restore(metadata, tags.get("BASELODE_PROVENANCE"), include_provenance=include_provenance)
         if bands is not None:
             metadata = baselode.geophysics.provenance.selection(metadata, indexes)
         return GeophysicsRaster(

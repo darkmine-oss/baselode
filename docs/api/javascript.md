@@ -1218,12 +1218,15 @@ options argument `{ includeProvenance: false }` for opaque metadata; the result
 records `lineage_omitted: true`. `readErs` and `loadGeoTiff` restore
 `metadata.processing` and expose the recorded manifest as `metadata.provenance`.
 Non-JSON/cyclic/non-finite metadata and malformed or unknown manifest versions
-raise errors. The decoded manifest limit is 16 MiB. Imported file metadata,
+raise errors. Readers accept `includeProvenance: false` to skip a damaged or
+future manifest explicitly; `metadata.provenance_ignored` and a
+`provenance_omitted_on_import` step mark that gap. The decoded manifest limit is 16 MiB. Imported file metadata,
 units, names and geometry remain authoritative; GeoTIFF selected samples are
 recorded as a one-based `select_bands` step before any decimation.
 
 Producer versions identify the exporter package; direct, unbundled JavaScript
-source reports `unversioned`. Known source URL fields are stripped of userinfo, query strings and fragments.
+source reports `unversioned`. Persisted source URL fields are stripped of userinfo, query strings and
+fragments; the current in-memory `metadata.source` remains the live locator.
 Other source references and metadata may include local paths and calibration notes; use the opt-out when these should be omitted.
 The embedded record is lineage, not content authentication or an executable recipe.
 

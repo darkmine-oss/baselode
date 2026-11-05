@@ -33,7 +33,7 @@ reconstructs the model.
 ### load_raster
 
 ```python
-load_raster(source, bands=None, masked=True, engine=None, **kwargs)
+load_raster(source, bands=None, masked=True, engine=None, include_provenance=True, **kwargs)
 ```
 
 Reads a raster into a `GeophysicsRaster`. ER Mapper `.ers` headers load with
@@ -66,7 +66,7 @@ use these corrected labels. Geographic grids still support display and sampling.
 ### read_ers
 
 ```python
-read_ers(path, masked=True)
+read_ers(path, masked=True, include_provenance=True)
 ```
 
 Native ER Mapper reader: band-interleaved-by-line binary with all integer and
@@ -245,13 +245,18 @@ which ignored most metadata: normalize metadata to JSON to retain it, or use
 For in-memory `combine` with opaque metadata, the same flag skips right-input
 capture and records `lineage_omitted: true`. Opaque metadata is retained in
 memory; a later provenance-bearing export still requires JSON metadata. Malformed manifests, unsupported versions and
-manifests above 16 MiB fail clearly on reading. The previous manifest and its
+manifests above 16 MiB fail clearly on reading. To read cells from a future or
+damaged record explicitly, set `include_provenance=False` on `load_raster` or
+`read_ers`. The reader skips that record, sets `provenance_ignored=True` and
+records `provenance_omitted_on_import`; history is never silently discarded. The previous manifest and its
 transport tag are excluded from the next snapshot, so repeated saves do not
 recursively embed prior envelopes. Source references are accumulated uniquely.
 
 Known source URL fields (`source`, `*_source`, and source-reference lists) have
-userinfo, query strings and fragments removed before capture and on reading;
-they are sanitized references, not exact fetch URLs. Other arbitrary metadata
+userinfo, query strings and fragments removed from persisted snapshots and
+references (including imported historical manifests). The current in-memory
+`metadata["source"]` remains the live locator, so it can still reopen signed
+URLs. Recorded source references are sanitized locators, not exact fetch URLs. Other arbitrary metadata
 is retained, so the opt-out remains available when metadata should be omitted.
 
 On loading, prior format-specific reader fields (including ERS cell type,
@@ -259,7 +264,8 @@ datum/projection, GDAL tags, and dimensions) remain only in the historical
 snapshot; they are not revived as current fields in another format.
 The file's current source, driver, tags and band units take
 precedence over the snapshot. Geometry and CRS always come from the file.
-An explicit band selection appends a one-based `select_bands` view step;
+An explicit band selection, including on legacy files, appends a one-based
+`select_bands` view step;
 JavaScript downsampling also records its existing `decimate` step.
 Raster arithmetic stores a flat graph of input metadata/source records in
 `metadata["input_lineage"]`, alongside the left-hand history. Each binary

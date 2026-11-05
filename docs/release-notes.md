@@ -7,6 +7,8 @@
 - ERS and GeoTIFF writers embed versioned JSON provenance by default; readers restore processing steps, source references and non-transport metadata. Explicit writer opt-out supports metadata-free exports.
 - Repeated saves avoid recursive manifest nesting; binary operations merge flat, deduplicated input graphs. Source URL credentials/query fragments are stripped, and stale format-specific fields remain historical rather than current. Band selection records its view; raster arithmetic preserves both input histories. GeoTIFF band descriptions and unit XML entities round-trip correctly.
 - Compatibility: writers now require JSON metadata by default; `include_provenance=False` / `includeProvenance:false` restores the old metadata-agnostic export behaviour. Raster arithmetic offers the same opt-out for opaque in-memory metadata and marks omitted lineage explicitly.
+- Reader compatibility: malformed/future manifests still fail by default, with an explicit read opt-out that marks the ignored history. Current in-memory source locators retain their original spelling/credentials; persisted source references are sanitized.
+- JavaScript GeoTIFF band names now use stored GDAL descriptions. When absent, names retain the output-order `band_1`, `band_2`, ... fallback, including selected bands.
 - Invalid/non-JSON metadata and malformed/unsupported manifests raise errors; both languages share the version 1 format. The record identifies the exporter and dtype; it does not authenticate data or execute a workflow.
 
 

@@ -187,8 +187,6 @@ def append_input(left, right):
 
 def selection(metadata, bands):
     """Record an explicit band view of an imported provenance-bearing file."""
-    if "provenance" not in metadata:
-        return metadata
     return {**metadata, "processing": list(metadata.get("processing", [])) + [
         {"operation": "select_bands", "bands": list(bands)},
     ]}
@@ -211,10 +209,19 @@ def encode(metadata, file_format, dtype):
     return base64.b64encode(data).decode("ascii")
 
 
-def restore(metadata, encoded):
+def restore(metadata, encoded, include_provenance=True):
     """Restore a manifest while keeping reader metadata authoritative."""
     if encoded is None:
-        return _redact_sources(metadata)
+        return metadata
+    if not include_provenance:
+        # Explicit escape hatch for unknown/damaged records. Never pretend
+        # that an ignored history was complete or silently degrade by default.
+        ignored = {**metadata, "provenance_ignored": True, "processing": [
+            {"operation": "provenance_omitted_on_import"},
+        ]}
+        if isinstance(ignored.get("tags"), dict):
+            ignored["tags"] = {key: value for key, value in ignored["tags"].items() if key != TAG}
+        return ignored
     try:
         if not isinstance(encoded, str) or len(encoded) > 4 * ((MAX_BYTES + 2) // 3):
             raise ValueError("invalid or oversized provenance field")
@@ -226,7 +233,9 @@ def restore(metadata, encoded):
         raise ValueError(f"invalid Baselode provenance: {error}") from error
     manifest = _redact_sources(manifest)
     snapshot = {key: value for key, value in manifest["metadata"].items() if key not in _READER_FIELDS}
-    restored = {**snapshot, **_redact_sources(metadata), "provenance": manifest}
+    # Current reader.source remains the live I/O locator; only persisted
+    # snapshots/references are sanitized, so signed URLs can still reopen.
+    restored = {**snapshot, **metadata, "provenance": manifest}
     if isinstance(restored.get("tags"), dict):
         restored["tags"] = {key: value for key, value in restored["tags"].items() if key != TAG}
     return restored

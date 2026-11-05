@@ -109,7 +109,7 @@ it('redacts source URL credentials on capture and reading without mutating calle
   expect(JSON.stringify(restored)).not.toMatch(/secret|token/);
   expect(restored.provenance.sources).toEqual(['https://example.com/survey.tif']);
   expect(metadata.source).toBe(source);
-  expect(restoreProvenance({ source }, null).source).toBe('https://example.com/survey.tif');
+  expect(restoreProvenance({ source }, null).source).toBe(source);
 });
 
 it('uses flat graph references for repeated and branching combinations', async () => {
@@ -151,7 +151,8 @@ it.each([
   ['https://User:password@EXAMPLE.com?token=secret', 'https://EXAMPLE.com'],
   ['/vsicurl/https://u:p@HOST/α.tif?token=secret#x', '/vsicurl/https://HOST/α.tif'],
 ])('preserves source spelling for %s', (source, expected) => {
-  expect(restoreProvenance({ source }, null).source).toBe(expected);
+  expect(restoreProvenance({ source }, null).source).toBe(source);
+  expect(restoreProvenance({}, encodeProvenance({ source }, 'GeoTIFF', 'float32')).provenance.sources).toEqual([expected]);
 });
 
 it('keeps JSON booleans distinct from numbers when deduplicating records', () => {
@@ -163,4 +164,31 @@ it('keeps JSON booleans distinct from numbers when deduplicating records', () =>
   }
   expect(root.metadata.input_lineage).toHaveLength(2);
   expect(root.metadata.processing.at(-1).operand_lineage).toBe(1);
+});
+
+it('supports an explicit ERS read opt-out with a marked history gap', () => {
+  const { header, data } = encodeErs(sourceGrid());
+  const corrupted = header.replace(/BASELODE_PROVENANCE\s*=\s*"[^"]*"/, 'BASELODE_PROVENANCE = "future-or-damaged!"');
+  expect(() => readErs(corrupted, data)).toThrow(/provenance/);
+  const ignored = readErs(corrupted, data, { includeProvenance: false });
+  expect(ignored.metadata.provenance_ignored).toBe(true);
+  expect(ignored.metadata.processing).toEqual([{ operation: 'provenance_omitted_on_import' }]);
+  expect(ignored.data).toEqual(sourceGrid().data);
+});
+
+it('supports an explicit GeoTIFF read opt-out with a marked history gap', async () => {
+  const encoded = encodeGeoTiff(sourceGrid());
+  const bytes = new Uint8Array(encoded);
+  const token = new TextEncoder().encode('BASELODE_PROVENANCE">');
+  let start = -1;
+  for (let i = 0; i <= bytes.length - token.length; i += 1) {
+    if (token.every((value, offset) => bytes[i + offset] === value)) { start = i + token.length; break; }
+  }
+  expect(start).toBeGreaterThan(-1);
+  bytes[start] = '!'.charCodeAt(0);
+  await expect(loadGeoTiff(encoded)).rejects.toThrow(/provenance/);
+  const ignored = await loadGeoTiff(encoded, { includeProvenance: false });
+  expect(ignored.metadata.provenance_ignored).toBe(true);
+  expect(ignored.metadata.processing).toEqual([{ operation: 'provenance_omitted_on_import' }]);
+  expect(ignored.data).toEqual(sourceGrid().data);
 });
