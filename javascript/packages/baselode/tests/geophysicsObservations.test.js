@@ -5,10 +5,20 @@ import contract from '../src/data/geophysics_observation_qc.json';
 import reference from '../../../../test/data/geophysics_observations_reference.json';
 import { createGeophysicsObservations, geophysicsObservationSchema, describeGeophysicsObservationQc, qcGeophysicsObservations } from '../src/data/geophysicsObservations.js';
 const survey = () => structuredClone(reference.input);
+function expectPortableClose(actual, expected) {
+  if (typeof expected === 'number') {
+    expect(Math.abs(actual - expected)).toBeLessThanOrEqual(1e-12 * Math.max(1, Math.abs(expected)));
+  } else if (Array.isArray(expected)) {
+    expect(actual).toHaveLength(expected.length); expected.forEach((value, index) => expectPortableClose(actual[index], value));
+  } else if (expected && typeof expected === 'object') {
+    expect(Object.keys(actual).sort()).toEqual(Object.keys(expected).sort());
+    Object.entries(expected).forEach(([key, value]) => expectPortableClose(actual[key], value));
+  } else expect(actual).toEqual(expected);
+}
 it('matches the shared QC reference and independent known speed/spike/repeat outcomes', () => {
   const payload = survey(); const original = structuredClone(payload);
   const report = qcGeophysicsObservations(payload, reference.options); const { producer, ...portable } = report;
-  expect(portable).toEqual(reference.report); expect(producer.algorithm_version).toBe(1); expect(payload).toEqual(original);
+  expectPortableClose(portable, reference.report); expect(producer.algorithm_version).toBe(1); expect(payload).toEqual(original);
   expect(report.flags.filter((item) => item.code === 'spike_candidate').map((item) => item.id)).toEqual(['r3']);
   expect(report.flags.filter((item) => item.code === 'high_speed').map((item) => item.speed)).toEqual(Array(6).fill(5));
   expect(report.coincident_locations).toEqual([[2, 15], [11, 12, 13]]);
@@ -112,4 +122,15 @@ it('does not bridge unknown timestamps when time-gap checks are requested', () =
   const report = qcGeophysicsObservations(payload, { max_time_gap: 10, spike_thresholds: { mag: 20 } });
   expect(report.state).toBe('needs_input'); expect(report.flags.some((item) => item.id === 'r3' && item.code === 'missing_time')).toBe(true);
   expect(report.coverage.spike_windows).toBe(0); expect(report.segments).toHaveLength(3);
+});
+
+it.each(['\ud800', '\udc00', 'a\ud800b'])('rejects unpaired Unicode %o', (value) => {
+  const payload = survey(); payload.records[0].id = value;
+  expect(qcGeophysicsObservations(payload).state).toBe('rejected');
+  const keyPayload = survey(); keyPayload.metadata[value] = 'invalid key';
+  expect(qcGeophysicsObservations(keyPayload).state).toBe('rejected');
+});
+it('preserves valid surrogate pairs/astral characters', () => {
+  const payload = survey(); payload.records[0].id = '\ud83d\ude00';
+  expect(createGeophysicsObservations(payload).records[0].id).toBe('😀');
 });

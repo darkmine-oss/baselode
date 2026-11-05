@@ -79,12 +79,14 @@ def create_observations(payload):
         raise ValueError("require 1..32 channels and at most 250000 channel readings")
     try:
         baselode.geophysics.provenance._json_value(payload)
-        encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        # JSON parsing combines valid UTF-16 surrogate pairs into scalars;
+        # UTF-8 encoding then rejects any unpaired surrogate, like the JS API.
+        document = json.loads(json.dumps(payload, ensure_ascii=True, allow_nan=False, separators=(",", ":")))
+        encoded = json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     except (ValueError, TypeError, RecursionError) as error:
-        raise ValueError("observations must contain finite acyclic JSON") from error
-    if len(encoded.encode("utf-8")) > _LIMITS["max_json_bytes"]:
+        raise ValueError("observations require finite acyclic JSON and valid Unicode scalar strings") from error
+    if len(encoded) > _LIMITS["max_json_bytes"]:
         raise ValueError("observations exceed the 16 MiB JSON limit")
-    document = json.loads(encoded)
     version = document.get("version", 1)
     if document.get("schema", "baselode.geophysics.observations") != "baselode.geophysics.observations" or type(version) not in (int, float) or version != 1:
         raise ValueError("unsupported observation schema/version")

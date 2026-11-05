@@ -13,6 +13,23 @@ const knownKeys = (value, keys) => object(value) && Object.keys(value).every((ke
 const fields = ['magnetic_total_field', 'magnetic_anomaly', 'gravity_observed', 'gravity_anomaly', 'radiometric', 'radiometric_counts', 'other'];
 const limits = descriptor.resources;
 
+// Reject lone UTF-16 code units, including in extension keys, consistently
+// with Python's UTF-8 JSON contract. Valid pairs/astral characters are retained.
+function unicodeStrings(value) {
+  if (typeof value === 'string') {
+    for (let index = 0; index < value.length; index += 1) {
+      const code = value.charCodeAt(index);
+      if (code >= 0xD800 && code <= 0xDBFF) {
+        const next = value.charCodeAt(index + 1);
+        if (!(next >= 0xDC00 && next <= 0xDFFF)) throw new TypeError('unpaired Unicode surrogate');
+        index += 1;
+      } else if (code >= 0xDC00 && code <= 0xDFFF) throw new TypeError('unpaired Unicode surrogate');
+    }
+  } else if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) { unicodeStrings(key); unicodeStrings(item); }
+  }
+}
+
 /** Independent schema for normalized observation documents. */
 export function geophysicsObservationSchema() { return clone(schema); }
 /** Discover parameter contracts, assumptions, limits and direct API scope. */
@@ -26,7 +43,7 @@ export function createGeophysicsObservations(payload) {
   if (!object(channels) || Object.keys(channels).length < 1 || Object.keys(channels).length > 32 || records.length * Object.keys(channels).length > limits.max_readings) {
     throw new RangeError('require 1..32 channels and at most 250000 channel readings');
   }
-  try { jsonValue(payload); } catch { throw new TypeError('observations must contain finite acyclic JSON'); }
+  try { jsonValue(payload); unicodeStrings(payload); } catch { throw new TypeError('observations require finite acyclic JSON and valid Unicode scalar strings'); }
   const encoded = JSON.stringify(payload);
   if (new TextEncoder().encode(encoded).length > limits.max_json_bytes) throw new RangeError('observations exceed the 16 MiB JSON limit');
   const document = JSON.parse(encoded);

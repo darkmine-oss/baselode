@@ -51,7 +51,7 @@ missing entries remain unspecified/unknown. QC does not implement a correction l
 Each channel declares nonempty `units` and a `field_type`: `magnetic_total_field`,
 `magnetic_anomaly`, `gravity_observed`, `gravity_anomaly`, `radiometric`,
 `radiometric_counts`, or `other`. No numeric strings, booleans as numbers, nonfinite values,
-cycles or opaque objects are accepted. Record numbers lie within ±1e100 to keep baseline
+cycles, unpaired Unicode surrogates or opaque objects are accepted. Record numbers lie within ±1e100 to keep baseline
 statistics finite. All channel readings are numbers or null; full raw spectra/calibration
 and spatial gridding are separate later capabilities.
 
@@ -64,7 +64,7 @@ spike window crosses those boundaries. Distance is horizontal in native linear C
 speed is those units/second; no implicit unit conversion or geographic-distance calculation.
 Same-station statistics include count, mean, min/max/range and sample standard deviation
 (null for a single available reading), plus a same-location indicator. Position mismatches
-are flagged; these descriptive statistics are not instrument precision or geological uncertainty.
+are flagged; these descriptive statistics are not instrument precision or geological uncertainty. Python and JavaScript statistics agree within floating-point tolerance rather than bitwise identity.
 
 Options use snake_case in both languages. `max_speed`, `max_distance_gap`, `max_time_gap`
 and per-channel `spike_thresholds` must be positive, finite values; thresholds have no

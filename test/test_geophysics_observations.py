@@ -202,3 +202,16 @@ def test_requested_time_gap_checks_never_bridge_unknown_timestamps():
     assert any(flag["id"] == "r3" and flag["code"] == "missing_time" for flag in result["flags"])
     assert result["coverage"]["spike_windows"] == 0
     assert len(result["segments"]) == 3
+
+
+@pytest.mark.parametrize("value", ["\ud800", "\udc00", "a\ud800b"])
+def test_unpaired_unicode_is_rejected(value):
+    payload = survey(); payload["records"][0]["id"] = value
+    assert baselode.geophysics.qc_observations(payload)["state"] == "rejected"
+    payload = survey(); payload["metadata"][value] = "invalid key"
+    assert baselode.geophysics.qc_observations(payload)["state"] == "rejected"
+
+
+def test_paired_surrogates_are_normalized_as_valid_unicode_scalars():
+    payload = survey(); payload["records"][0]["id"] = "\ud83d\ude00"
+    assert baselode.geophysics.create_observations(payload)["records"][0]["id"] == "😀"
