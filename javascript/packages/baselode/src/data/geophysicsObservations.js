@@ -7,8 +7,12 @@ import { geophysicsCoordinateUnit } from './geophysicsProcessing.js';
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const whitespace = '[ \t\n\r\v\f\u001c-\u001f\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]';
+const surroundingWhitespace = new RegExp(`^${whitespace}+|${whitespace}+$`, 'g');
+const trim = (value) => typeof value === 'string' ? value.replace(surroundingWhitespace, '') : value;
+const text = (value) => typeof value === 'string' && trim(value).length > 0;
 const number = (value) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1e100;
-const label = (value) => typeof value === 'string' && [...value].length >= 1 && [...value].length <= 128 && value.trim().length > 0;
+const label = (value) => typeof value === 'string' && [...value].length >= 1 && [...value].length <= 128 && text(value);
 const knownKeys = (value, keys) => object(value) && Object.keys(value).every((key) => keys.includes(key));
 const fields = ['magnetic_total_field', 'magnetic_anomaly', 'gravity_observed', 'gravity_anomaly', 'radiometric', 'radiometric_counts', 'other'];
 const limits = descriptor.resources;
@@ -53,7 +57,7 @@ export function createGeophysicsObservations(payload) {
   document.schema = 'baselode.geophysics.observations'; document.version = 1;
   for (const name of ['crs', 'crs_units']) {
     if (!Object.hasOwn(document, name)) document[name] = null;
-    if (document[name] !== null && (typeof document[name] !== 'string' || !document[name].trim())) throw new TypeError(`${name} must be a nonempty string or null`);
+    if (document[name] !== null && !text(document[name])) throw new TypeError(`${name} must be a nonempty string or null`);
   }
   if (!Object.hasOwn(document, 'metadata')) document.metadata = {};
   if (!object(document.metadata)) throw new TypeError('metadata must be a JSON object');
@@ -61,7 +65,7 @@ export function createGeophysicsObservations(payload) {
   if (!object(corrections) || !Object.values(corrections).every((state) => ['applied', 'unapplied', 'unknown'].includes(state))) throw new TypeError('corrections must map names to applied, unapplied or unknown');
   for (const [name, channel] of Object.entries(document.channels)) {
     if (!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(name) || !knownKeys(channel, ['field_type', 'units', 'description'])) throw new TypeError('channel names/descriptors violate the v1 schema');
-    if (!fields.includes(channel.field_type) || typeof channel.units !== 'string' || !channel.units.trim() || (Object.hasOwn(channel, 'description') && typeof channel.description !== 'string')) {
+    if (!fields.includes(channel.field_type) || !text(channel.units) || (Object.hasOwn(channel, 'description') && typeof channel.description !== 'string')) {
       throw new TypeError('each channel needs a recognized field_type and nonempty units');
     }
   }
@@ -123,7 +127,11 @@ export function qcGeophysicsObservations(payload, options = null) {
     flags: [], segments: [], edges: [], coincident_locations: [], repeats: [], summary: {},
     coverage: { within_line_edges: 0, speed_edges: 0, skipped_speed_edges: 0, spike_windows: 0, skipped_spike_windows: 0, spike_edge_rows: 0 },
     parameters: {}, assumptions: clone(descriptor.assumptions), flags_truncated: false };
-  const issue = (state, code, message) => report.issues.push({ state, code, message });
+  const seenIssues = new Set();
+  const issue = (state, code, message) => {
+    const key = JSON.stringify([state, code, message]);
+    if (!seenIssues.has(key)) { seenIssues.add(key); report.issues.push({ state, code, message }); }
+  };
   let data; let params;
   try { data = createGeophysicsObservations(payload); params = optionsContract(options, data.channels); report.parameters = params; }
   catch (error) { issue('rejected', 'contract', error.message); report.state = 'rejected'; return report; }
@@ -138,13 +146,13 @@ export function qcGeophysicsObservations(payload, options = null) {
     else if (!report.flags_truncated) { report.flags_truncated = true; issue('rejected', 'resource', 'QC flag limit exceeded; report is partial'); }
   };
   let distanceUnit = null; let linear = true;
-  try { distanceUnit = geophysicsCoordinateUnit({ crs: data.crs, metadata: { crs_units: data.crs_units } }); if (distanceUnit === 'coordinate_unit') linear = false; }
+  try { distanceUnit = geophysicsCoordinateUnit({ crs: trim(data.crs), metadata: { crs_units: trim(data.crs_units) } }); if (distanceUnit === 'coordinate_unit') linear = false; }
   catch { linear = false; }
   if (!linear && ['max_speed', 'max_distance_gap'].some((name) => Object.hasOwn(params, name))) issue('needs_input', 'coordinates', 'speed/distance thresholds require a projected CRS or explicit local linear crs_units');
   const heightUnits = data.metadata.height_units;
   let clearanceEnabled = false;
-  if (Object.hasOwn(params, 'min_clearance') && typeof heightUnits === 'string' && heightUnits.trim()) {
-    try { clearanceEnabled = geophysicsCoordinateUnit({ crs: null, metadata: { crs_units: heightUnits } }) !== 'coordinate_unit'; } catch { /* Missing/invalid height context remains explicit. */ }
+  if (Object.hasOwn(params, 'min_clearance') && text(heightUnits)) {
+    try { clearanceEnabled = geophysicsCoordinateUnit({ crs: null, metadata: { crs_units: trim(heightUnits) } }) !== 'coordinate_unit'; } catch { /* Missing/invalid height context remains explicit. */ }
   }
   if (Object.hasOwn(params, 'min_clearance') && !clearanceEnabled) issue('needs_input', 'height_units', 'supply metadata.height_units for measured clearance thresholds');
   const locations = new Map(); const stations = new Map(); let segment;
@@ -167,7 +175,7 @@ export function qcGeophysicsObservations(payload, options = null) {
       const previous = rows[index - 1]; const geometry = xy && previous.x !== null && previous.y !== null;
       const distance = geometry && linear ? Math.hypot(row.x - previous.x, row.y - previous.y) : null;
       const dt = row.time !== null && previous.time !== null ? row.time - previous.time : null;
-      reason = geometry ? null : 'missing_coordinates';
+      reason = Object.hasOwn(params, 'max_distance_gap') && distance === null ? (geometry ? 'distance_context' : 'missing_coordinates') : null;
       if (dt === null && Object.hasOwn(params, 'max_time_gap')) reason = 'missing_time';
       if (dt !== null && dt <= 0) { reason = 'non_increasing_time'; flag(index, reason, null, { previous_id: previous.id }); }
       if (distance !== null && Object.hasOwn(params, 'max_distance_gap') && distance > params.max_distance_gap) { reason ??= 'distance_gap'; flag(index, 'distance_gap', null, { previous_id: previous.id, distance }); }
@@ -177,7 +185,11 @@ export function qcGeophysicsObservations(payload, options = null) {
         if (Number.isFinite(speed)) {
           report.edges.push({ from: index - 1, to: index, distance, seconds: dt, speed }); report.coverage.speed_edges += 1;
           if (Object.hasOwn(params, 'max_speed') && speed > params.max_speed) flag(index, 'high_speed', null, { previous_id: previous.id, speed });
-        } else issue('rejected', 'numeric_range', 'speed exceeds numeric range');
+        } else {
+          reason = 'numeric_range'; report.coverage.skipped_speed_edges += 1;
+          flag(index, 'numeric_range', null, { previous_id: previous.id });
+          issue('rejected', 'numeric_range', 'speed exceeds numeric range');
+        }
       } else {
         report.coverage.skipped_speed_edges += 1;
       }

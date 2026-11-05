@@ -134,3 +134,28 @@ it('preserves valid surrogate pairs/astral characters', () => {
   const payload = survey(); payload.records[0].id = '\ud83d\ude00';
   expect(createGeophysicsObservations(payload).records[0].id).toBe('😀');
 });
+
+it('runs sample-window QC for coordinate-free base-station series', () => {
+  const payload = survey(); payload.records = payload.records.slice(0, 7); delete payload.crs_units;
+  payload.records.forEach((row) => { delete row.x; delete row.y; });
+  const report = qcGeophysicsObservations(payload, { spike_thresholds: { mag: 20 } });
+  expect(report.state).toBe('ok'); expect(report.flags.filter((item) => item.code === 'spike_candidate').map((item) => item.id)).toEqual(['r3']);
+  expect(report.segments).toHaveLength(1);
+});
+it('deduplicates numeric overflow issues and preserves coverage totals', () => {
+  const payload = survey(); payload.records = payload.records.slice(0, 3); payload.records.forEach((row, index) => { row.time = index * 1e-320; });
+  const report = qcGeophysicsObservations(payload); expect(report.state).toBe('rejected'); expect(report.issues).toHaveLength(1);
+  expect(report.coverage.within_line_edges).toBe(2); expect(report.coverage.speed_edges + report.coverage.skipped_speed_edges).toBe(2);
+  expect(report.segments).toHaveLength(3); expect(report.flags.filter((item) => item.code === 'numeric_range')).toHaveLength(2);
+});
+it.each(['\u001c', '\u001d', '\u001e', '\u001f', '\u0085', '\ufeff', '\u00a0', '\u3000'])('shares blank-string rules for %o', (blank) => {
+  for (const kind of ['id', 'crs', 'units']) {
+    const payload = survey(); if (kind === 'id') payload.records[0].id = blank; if (kind === 'crs') payload.crs = blank; if (kind === 'units') payload.channels.mag.units = blank;
+    expect(qcGeophysicsObservations(payload).state).toBe('rejected');
+  }
+});
+it('uses shared whitespace normalization for declared unit interpretation', () => {
+  const payload = survey(); payload.crs_units = '\u0085m\ufeff'; payload.metadata.height_units = '\ufeffm\u0085';
+  const report = qcGeophysicsObservations(payload, { min_clearance: 20 });
+  expect(report.state).toBe('ok'); expect(report.summary.distance_units).toBe('m'); expect(report.flags.some((item) => item.code === 'low_clearance')).toBe(true);
+});

@@ -43,12 +43,24 @@ def describe_observation_qc():
     return copy.deepcopy(_DESCRIPTOR)
 
 
+# Explicit shared whitespace avoids Python/ECMAScript strip differences.
+_WHITESPACE = " \t\n\r\v\f\x1c\x1d\x1e\x1f\x85\xa0\u1680" + "".join(chr(code) for code in range(0x2000, 0x200B)) + "\u2028\u2029\u202f\u205f\u3000\ufeff"
+
+
+def _text(value):
+    return isinstance(value, str) and bool(value.strip(_WHITESPACE))
+
+
+def _trim(value):
+    return value.strip(_WHITESPACE) if isinstance(value, str) else value
+
+
 def _number(value):
     return type(value) in (int, float) and math.isfinite(value) and abs(value) <= 1e100
 
 
 def _label(value):
-    return isinstance(value, str) and 1 <= len(value) <= 128 and bool(value.strip())
+    return isinstance(value, str) and 1 <= len(value) <= 128 and _text(value)
 
 
 def create_observations(payload):
@@ -93,7 +105,7 @@ def create_observations(payload):
     document.update(schema="baselode.geophysics.observations", version=1)
     for name in ("crs", "crs_units"):
         value = document.setdefault(name, None)
-        if value is not None and (not isinstance(value, str) or not value.strip()):
+        if value is not None and not _text(value):
             raise ValueError(f"{name} must be a nonempty string or null")
     metadata = document.setdefault("metadata", {})
     if type(metadata) is not dict:
@@ -104,7 +116,7 @@ def create_observations(payload):
     for name, channel in document["channels"].items():
         if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", name) or type(channel) is not dict or set(channel) - {"field_type", "units", "description"}:
             raise ValueError("channel names/descriptors violate the v1 schema")
-        if channel.get("field_type") not in _FIELDS or not isinstance(channel.get("units"), str) or not channel["units"].strip() or ("description" in channel and not isinstance(channel["description"], str)):
+        if channel.get("field_type") not in _FIELDS or not _text(channel.get("units")) or ("description" in channel and not isinstance(channel["description"], str)):
             raise ValueError("each channel needs a recognized field_type and nonempty units")
     ids = set()
     for index, row in enumerate(document["records"]):
@@ -180,8 +192,13 @@ def qc_observations(payload, options=None):
               "summary": {}, "coverage": {"within_line_edges": 0, "speed_edges": 0, "skipped_speed_edges": 0, "spike_windows": 0, "skipped_spike_windows": 0, "spike_edge_rows": 0},
               "parameters": {}, "assumptions": copy.deepcopy(_DESCRIPTOR["assumptions"]), "flags_truncated": False}
 
+    seen_issues = set()
+
     def issue(state, code, message):
-        report["issues"].append({"state": state, "code": code, "message": message})
+        key = (state, code, message)
+        if key not in seen_issues:
+            seen_issues.add(key)
+            report["issues"].append({"state": state, "code": code, "message": message})
 
     try:
         data = create_observations(payload)
@@ -212,7 +229,7 @@ def qc_observations(payload, options=None):
     linear = True
     try:
         distance_unit = baselode.geophysics.processing._coordinate_unit(types.SimpleNamespace(
-            crs=data["crs"], metadata={"crs_units": data["crs_units"]}))
+            crs=_trim(data["crs"]), metadata={"crs_units": _trim(data["crs_units"])}))
         if distance_unit == "coordinate_unit":
             linear = False
     except ValueError:
@@ -222,10 +239,10 @@ def qc_observations(payload, options=None):
         issue("needs_input", "coordinates", "speed/distance thresholds require a projected CRS or explicit local linear crs_units")
     height_units = data["metadata"].get("height_units")
     clearance_enabled = False
-    if "min_clearance" in params and isinstance(height_units, str) and height_units.strip():
+    if "min_clearance" in params and _text(height_units):
         try:
             clearance_enabled = baselode.geophysics.processing._coordinate_unit(types.SimpleNamespace(
-                crs=None, metadata={"crs_units": height_units})) != "coordinate_unit"
+                crs=None, metadata={"crs_units": _trim(height_units)})) != "coordinate_unit"
         except ValueError:
             pass
     if "min_clearance" in params and not clearance_enabled:
@@ -265,8 +282,8 @@ def qc_observations(payload, options=None):
             distance = math.hypot(row["x"] - previous["x"], row["y"] - previous["y"]) if geometry and linear else None
             dt = row["time"] - previous["time"] if row["time"] is not None and previous["time"] is not None else None
             reason = None
-            if not geometry:
-                reason = "missing_coordinates"
+            if "max_distance_gap" in params and distance is None:
+                reason = "missing_coordinates" if not geometry else "distance_context"
             if dt is None and "max_time_gap" in params:
                 reason = "missing_time"
             if dt is not None and dt <= 0:
@@ -286,6 +303,9 @@ def qc_observations(payload, options=None):
                     if "max_speed" in params and speed > params["max_speed"]:
                         flag(index, "high_speed", previous_id=previous["id"], speed=speed)
                 else:
+                    reason = "numeric_range"
+                    report["coverage"]["skipped_speed_edges"] += 1
+                    flag(index, "numeric_range", previous_id=previous["id"])
                     issue("rejected", "numeric_range", "speed exceeds numeric range")
             else:
                 report["coverage"]["skipped_speed_edges"] += 1

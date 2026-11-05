@@ -50,7 +50,7 @@ missing entries remain unspecified/unknown. QC does not implement a correction l
 
 Each channel declares nonempty `units` and a `field_type`: `magnetic_total_field`,
 `magnetic_anomaly`, `gravity_observed`, `gravity_anomaly`, `radiometric`,
-`radiometric_counts`, or `other`. No numeric strings, booleans as numbers, nonfinite values,
+`radiometric_counts`, or `other`. Blank labels use the same explicit whitespace set in both runtimes (Unicode whitespace, BOM and legacy record separators). No numeric strings, booleans as numbers, nonfinite values,
 cycles, unpaired Unicode surrogates or opaque objects are accepted. Record numbers lie within ±1e100 to keep baseline
 statistics finite. All channel readings are numbers or null; full raw spectra/calibration
 and spatial gridding are separate later capabilities.
@@ -58,7 +58,7 @@ and spatial gridding are separate later capabilities.
 QC always reports missing readings/coordinates, unassigned lines, exact coincident XY
 locations, non-increasing within-line times and same-station repeat summaries. It connects
 **only consecutive records with the same non-null line ID**; interleaved/returning lines
-start a new segment. Missing coordinates and nonpositive time intervals break segments. When time-gap checks are requested, missing timestamps also break segments.
+start a new segment. Nonpositive time intervals break segments. Missing distance context breaks segments when distance-gap checks are requested; missing timestamps do so when time-gap checks are requested. Coordinate-free base-station series can still use sample-window spike QC.
 Optional `max_distance_gap` and `max_time_gap` thresholds also break segments; no speed or
 spike window crosses those boundaries. Distance is horizontal in native linear CRS units,
 speed is those units/second; no implicit unit conversion or geographic-distance calculation.

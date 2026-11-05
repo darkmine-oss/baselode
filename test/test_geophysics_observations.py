@@ -215,3 +215,39 @@ def test_unpaired_unicode_is_rejected(value):
 def test_paired_surrogates_are_normalized_as_valid_unicode_scalars():
     payload = survey(); payload["records"][0]["id"] = "\ud83d\ude00"
     assert baselode.geophysics.create_observations(payload)["records"][0]["id"] == "😀"
+
+
+def test_coordinate_free_base_station_series_can_use_sample_window_qc():
+    payload = survey(); payload["records"] = payload["records"][:7]; payload.pop("crs_units")
+    for row in payload["records"]: row.pop("x"); row.pop("y")
+    report = baselode.geophysics.qc_observations(payload, {"spike_thresholds": {"mag": 20}})
+    assert report["state"] == "ok"
+    assert [flag["id"] for flag in report["flags"] if flag["code"] == "spike_candidate"] == ["r3"]
+    assert len(report["segments"]) == 1
+
+
+def test_numeric_overflow_is_deduplicated_and_preserves_coverage():
+    payload = survey(); payload["records"] = payload["records"][:3]
+    for i, row in enumerate(payload["records"]): row["time"] = i * 1e-320
+    report = baselode.geophysics.qc_observations(payload)
+    assert report["state"] == "rejected" and len(report["issues"]) == 1
+    assert report["coverage"]["within_line_edges"] == report["coverage"]["speed_edges"] + report["coverage"]["skipped_speed_edges"] == 2
+    assert len(report["segments"]) == 3
+    assert len([flag for flag in report["flags"] if flag["code"] == "numeric_range"]) == 2
+
+
+@pytest.mark.parametrize("blank", ["\x1c", "\x1d", "\x1e", "\x1f", "\x85", "\ufeff", "\xa0", "\u3000"])
+def test_shared_blank_string_contract(blank):
+    for kind in ("id", "crs", "units"):
+        payload = survey()
+        if kind == "id": payload["records"][0]["id"] = blank
+        if kind == "crs": payload["crs"] = blank
+        if kind == "units": payload["channels"]["mag"]["units"] = blank
+        assert baselode.geophysics.qc_observations(payload)["state"] == "rejected"
+
+
+def test_shared_context_whitespace_is_normalized_for_unit_interpretation():
+    payload = survey(); payload["crs_units"] = "\x85m\ufeff"; payload["metadata"]["height_units"] = "\ufeffm\x85"
+    report = baselode.geophysics.qc_observations(payload, {"min_clearance": 20})
+    assert report["state"] == "ok" and report["summary"]["distance_units"] == "m"
+    assert any(flag["code"] == "low_clearance" for flag in report["flags"])
