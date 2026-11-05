@@ -6,7 +6,7 @@
 /**
  * Wavelength filters and potential-field enhancements for geophysics rasters.
  * Matches Python's `baselode.geophysics.processing`: distances are in CRS
- * units (metres for MGA/UTM grids, degrees for geographic grids) and
+ * linear units (metres for MGA/UTM grids; reproject geographic grids first) and
  * derivatives are per CRS unit. Every function processes all bands and
  * returns a new raster with `nodata: null`, missing cells null, and the step
  * appended to `metadata.processing` using Python's record names.
@@ -15,6 +15,8 @@
  * cells set to that plane, and the grid mirror-padded to a power-of-two size.
  */
 
+import proj4 from 'proj4';
+import { normaliseCrs } from '../extent/crs.js';
 import { createGeophysicsRaster } from './geophysicsRaster.js';
 import { isGeophysicsValue } from '../viz/geophysicsColorScales.js';
 
@@ -22,7 +24,60 @@ export const GEOPHYSICS_FILTER_METHODS = Object.freeze(['gaussian', 'butterworth
 export const MIN_RTP_INCLINATION = 15;
 
 function asRaster(raster) {
-  return raster?.bandCount ? raster : createGeophysicsRaster(raster);
+  const normalized = raster?.bandCount ? raster : createGeophysicsRaster(raster);
+  coordinateUnit(normalized);
+  return normalized;
+}
+
+const LINEAR_UNITS = {
+  m: 'm', metre: 'm', meter: 'm', ft: 'ft', foot: 'ft', feet: 'ft',
+  'us-ft': 'us-ft', us_survey_foot: 'us-ft', 'us survey foot': 'us-ft', foot_us: 'us-ft', foot_intl: 'ft',
+  km: 'km', kilometre: 'km', kilometer: 'km',
+};
+
+function coordinateUnit(raster) {
+  const declared = raster.metadata.crs_units;
+  let unit = declared ? LINEAR_UNITS[String(declared).trim().toLowerCase()] : null;
+  if (declared && !unit) throw new RangeError('processing requires linear crs_units (m, ft, us-ft or km)');
+  if (raster.crs) {
+    let projection;
+    try {
+      projection = new proj4.Proj(normaliseCrs(raster.crs));
+    } catch (error) {
+      // External readers may supply CRS identifiers/definitions that proj4
+      // cannot resolve. Require the caller's explicit linear-unit contract.
+      if (!unit) throw new RangeError('unresolved CRS requires explicit linear metadata.crs_units', { cause: error });
+      return unit;
+    }
+    if (['longlat', 'geocent'].includes(projection.projName)) {
+      throw new RangeError('processing requires a projected CRS or local Cartesian grid; reproject first');
+    }
+    const scaleUnits = [[1, 'm'], [0.3048, 'ft'], [1200 / 3937, 'us-ft'], [1000, 'km']];
+    const scaledUnit = scaleUnits.find(([scale]) => Math.abs(projection.to_meter - scale) <= 1e-12 * scale)?.[1];
+    const axisUnit = projection.units
+      ? LINEAR_UNITS[String(projection.units).trim().toLowerCase()]
+      : (projection.to_meter == null ? 'm' : scaledUnit);
+    if (!axisUnit) throw new RangeError('processing requires supported linear CRS axis units');
+    if (unit && unit !== axisUnit) throw new RangeError('metadata crs_units conflicts with the CRS axis units');
+    unit = axisUnit;
+  }
+  return unit ?? 'coordinate_unit';
+}
+
+function derivedUnits(raster, step) {
+  if (step.operation === 'tilt_derivative') return Array(raster.bandCount).fill('degree');
+  if (!['vertical_derivative', 'horizontal_derivative', 'total_horizontal_derivative', 'analytic_signal'].includes(step.operation)) {
+    return raster.metadata.units;
+  }
+  const order = step.order ?? 1;
+  const distance = coordinateUnit(raster);
+  const denominator = order === 1 ? distance : `${distance}^${order}`;
+  return raster.data.map((_, index) => {
+    const unit = raster.metadata.units?.[index];
+    if (!unit) return null;
+    const numerator = /[/^]/.test(unit) ? `(${unit})` : unit;
+    return `${numerator}/${denominator}`;
+  });
 }
 
 /**
@@ -75,13 +130,14 @@ function cellSize(transform) {
 }
 
 function derivedRaster(raster, bands, step) {
+  const units = derivedUnits(raster, step);
   return createGeophysicsRaster({
     data: bands,
     transform: raster.transform,
     crs: raster.crs,
     nodata: null,
     bandNames: raster.bandNames,
-    metadata: { ...raster.metadata, processing: [...(raster.metadata.processing ?? []), step] },
+    metadata: { ...raster.metadata, ...(units === undefined ? {} : { units }), processing: [...(raster.metadata.processing ?? []), step] },
   });
 }
 

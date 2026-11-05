@@ -6,6 +6,8 @@
 upward continuation and reduction to the pole."""
 
 import math
+import json
+import pathlib
 
 import numpy as np
 import pytest
@@ -185,3 +187,142 @@ def test_fourier_padding_mirrors_to_a_power_of_two():
     values = np.arange(3.0)
     np.testing.assert_array_equal(values[indices[:11]], np.pad(values, (4, 4), mode="symmetric"))
     assert [baselode.geophysics.processing._fft_size(size) for size in (1, 2, 3, 64, 65)] == [1, 2, 4, 64, 128]
+
+
+@pytest.mark.parametrize("crs, declared, denominator", [
+    ("EPSG:28350", None, "m"),
+    (None, "metre", "m"),
+    (None, None, "coordinate_unit"),
+    ("+proj=utm +zone=50 +south +datum=WGS84 +units=us-ft", "us_survey_foot", "us-ft"),
+])
+def test_derived_units_follow_coordinates_and_reach_display(crs, declared, denominator):
+    metadata = {"units": ["nT", None]}
+    if declared:
+        metadata["crs_units"] = declared
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.stack([gaussian_bump((16, 16)), np.ones((16, 16))]),
+        transform=NORTH_UP, crs=crs, metadata=metadata,
+    )
+    for operation in ("horizontal_derivative", "vertical_derivative",
+                      "total_horizontal_derivative", "analytic_signal"):
+        result = getattr(baselode.geophysics, operation)(raster)
+        assert result.metadata["units"] == [f"nT/{denominator}", None]
+        assert result.to_tool_ui_payload()["units"] == f"nT/{denominator}"
+    second = baselode.geophysics.vertical_derivative(raster, order=2)
+    assert second.metadata["units"] == [f"nT/{denominator}^2", None]
+    tilt = baselode.geophysics.tilt_derivative(raster)
+    assert tilt.metadata["units"] == ["degree", "degree"]
+    assert tilt.to_tool_ui_payload()["units"] == "degree"
+    assert baselode.geophysics.upward_continuation(raster, 20).metadata["units"] == ["nT", None]
+    assert raster.metadata == metadata
+
+
+@pytest.mark.parametrize("crs, units", [
+    ("EPSG:4326", None), ("EPSG:4283", "metre"),
+    ("EPSG:4978", None), (None, "degree"), ("EPSG:28350", "foot"),
+])
+def test_scientific_processing_rejects_non_cartesian_or_conflicting_units(crs, units):
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.ones((8, 8)), transform=NORTH_UP, crs=crs, metadata={"crs_units": units},
+    )
+    operations = [
+        lambda: baselode.geophysics.low_pass(raster, 100),
+        lambda: baselode.geophysics.high_pass(raster, 100),
+        lambda: baselode.geophysics.band_pass(raster, 100, 20),
+        lambda: baselode.geophysics.horizontal_derivative(raster),
+        lambda: baselode.geophysics.vertical_derivative(raster),
+        lambda: baselode.geophysics.total_horizontal_derivative(raster),
+        lambda: baselode.geophysics.tilt_derivative(raster),
+        lambda: baselode.geophysics.analytic_signal(raster),
+        lambda: baselode.geophysics.upward_continuation(raster, 100),
+        lambda: baselode.geophysics.reduce_to_pole(raster, -55, 0),
+    ]
+    for operation in operations:
+        with pytest.raises(ValueError, match="projected|linear|conflicts"):
+            operation()
+    # Rendering existing geographic grids remains supported.
+    assert np.isfinite(baselode.geophysics.hillshade(raster)).all()
+
+
+def test_derivative_of_a_metric_plane_has_physical_value_and_units():
+    rows, columns = np.indices((8, 8), dtype=float)
+    raster = baselode.geophysics.GeophysicsRaster(
+        3 * CELL * columns - 2 * CELL * rows, transform=NORTH_UP,
+        crs="EPSG:28350", metadata={"units": ["nT"]},
+    )
+    east = baselode.geophysics.horizontal_derivative(raster)
+    north = baselode.geophysics.horizontal_derivative(raster, "north")
+    np.testing.assert_allclose(east.band(1), 3)
+    np.testing.assert_allclose(north.band(1), 2)
+    assert east.metadata["units"] == north.metadata["units"] == ["nT/m"]
+    repeated = baselode.geophysics.horizontal_derivative(east)
+    assert repeated.metadata["units"] == ["(nT/m)/m"]
+
+
+@pytest.mark.parametrize("extension", ["ers", "tif"])
+def test_written_derivative_preserves_corrected_band_units(tmp_path, extension):
+    raster = baselode.geophysics.GeophysicsRaster(
+        gaussian_bump((16, 16)), transform=NORTH_UP, crs="EPSG:28350",
+        metadata={"units": ["nT"]},
+    )
+    derivative = baselode.geophysics.vertical_derivative(raster)
+    path = tmp_path / f"derivative.{extension}"
+    baselode.geophysics.save_raster(derivative, path)
+    loaded = baselode.geophysics.load_raster(path)
+    assert loaded.metadata["units"] == ["nT/m"]
+    np.testing.assert_allclose(loaded.data, derivative.data, rtol=1e-6)
+
+
+def test_geotiff_band_selection_reorders_units_with_data(tmp_path):
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.stack([np.ones((2, 2)), np.full((2, 2), 2)]),
+        transform=NORTH_UP, crs="EPSG:28350", metadata={"units": ["nT/m", "degree"]},
+    )
+    path = tmp_path / "bands.tif"
+    baselode.geophysics.save_raster(raster, path)
+    selected = baselode.geophysics.load_raster(path, bands=[2, 1])
+    assert selected.metadata["units"] == ["degree", "nT/m"]
+    np.testing.assert_array_equal(selected.data, raster.data[[1, 0]])
+
+
+def test_esri_foot_alias_and_missing_geotiff_band_units(tmp_path):
+    raster = baselode.geophysics.GeophysicsRaster(
+        gaussian_bump((8, 8)), transform=NORTH_UP,
+        metadata={"crs_units": "Foot_US", "units": ["nT"]},
+    )
+    assert baselode.geophysics.horizontal_derivative(raster).metadata["units"] == ["nT/us-ft"]
+    path = tmp_path / "unitless.tif"
+    baselode.geophysics.save_raster(raster.copy_with(metadata={}), path)
+    assert baselode.geophysics.load_raster(path).metadata["units"] == [None]
+
+
+def test_esri_wkt_foot_unit_is_recognised():
+    fixture = json.loads((pathlib.Path(__file__).parent / "data" / "geophysics_foot_crs.json").read_text())
+    raster = baselode.geophysics.GeophysicsRaster(
+        gaussian_bump((8, 8)), transform=NORTH_UP, crs=fixture["crs"], metadata={"units": ["nT"]},
+    )
+    assert baselode.geophysics.horizontal_derivative(raster).metadata["units"] == ["nT/us-ft"]
+
+
+def test_local_engineering_crs_uses_its_linear_axes():
+    fixture = json.loads((pathlib.Path(__file__).parent / "data" / "geophysics_local_crs.json").read_text())
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.tile(np.arange(8) * 30., (8, 1)), transform=NORTH_UP,
+        crs=fixture["crs"], metadata={"units": ["nT"], "crs_units": "metre"},
+    )
+    gradient = baselode.geophysics.horizontal_derivative(raster)
+    assert gradient.metadata["units"] == ["nT/m"]
+    np.testing.assert_array_equal(gradient.data, 3.)
+    assert baselode.geophysics.low_pass(raster, 100).crs == raster.crs
+
+
+def test_unresolved_external_crs_requires_explicit_linear_units():
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.tile(np.arange(8) * 30., (8, 1)), transform=NORTH_UP,
+        crs="vendor:local-grid", metadata={"units": ["nT"], "crs_units": "metre"},
+    )
+    gradient = baselode.geophysics.horizontal_derivative(raster)
+    assert gradient.metadata["units"] == ["nT/m"]
+    np.testing.assert_array_equal(gradient.data, 3.)
+    with pytest.raises(ValueError, match="explicit linear"):
+        baselode.geophysics.horizontal_derivative(raster.copy_with(metadata={}))

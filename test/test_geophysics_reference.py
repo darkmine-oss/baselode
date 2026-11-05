@@ -187,7 +187,7 @@ PROCESSING_CASES = (
 
 
 def build_processing_reference():
-    raster = _processing_grid()
+    raster = _processing_grid().copy_with(crs="EPSG:28350", metadata={"units": ["nT"]})
     cases = []
     for name, operation, options, function in PROCESSING_CASES:
         result = function(raster)
@@ -197,6 +197,7 @@ def build_processing_reference():
             "options": options,
             "data": _rounded(result.data),
             "step": result.metadata["processing"][-1],
+            "units": result.metadata.get("units"),
         })
     return {"raster": raster.to_payload(), "cases": cases}
 

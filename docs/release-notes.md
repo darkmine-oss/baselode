@@ -1,5 +1,15 @@
 # Release Notes
 
+## Unreleased
+
+**Geophysics processing contracts (TRK-526, Milestone 0 first increment)**
+
+- Derivatives and analytic signal now update per-band units (for example `nT/m`, `nT/m^2`); tilt is labelled `degree`. Unknown local distances use `coordinate_unit`.
+- Scientific filters and enhancements now reject geographic/geocentric CRSs, angular units and conflicting CRS/unit metadata. Reproject geographic data first. Display and sampling remain available. Distances continue to use native linear coordinate units.
+- Compatibility: CRS identifiers/definitions unavailable to a processing CRS engine now require explicit linear `metadata.crs_units`; missing units cause an error. This includes JavaScript EPSG:3577/EPSG:2193 rasters and GeoTIFFs without a linear-unit GeoKey. Python can resolve more CRS definitions through pyproj; both engines honour explicit linear units for unresolved external definitions. No distance unit is guessed from an unknown identifier.
+- GeoTIFF readers retain per-band units, including when selecting or decimating bands.
+- Python and JavaScript share regression fixtures for derived units as well as numerical values.
+
 ---
 
 ## v0.1.71

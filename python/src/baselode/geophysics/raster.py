@@ -516,6 +516,7 @@ def load_raster(source, bands=None, masked=True, engine=None, **kwargs):
             "driver": dataset.driver,
             "source": str(dataset.name),
             "crs_units": _crs_units(dataset.crs),
+            "units": [dataset.units[index - 1] or None for index in indexes],
             "tags": tags,
         }
         return GeophysicsRaster(

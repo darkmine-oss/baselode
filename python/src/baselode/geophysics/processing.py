@@ -6,7 +6,8 @@
 
 Fourier-domain operations use NumPy only.  Distances (cut-off wavelengths,
 continuation heights) are in the raster's CRS units: metres for MGA/UTM
-grids, degrees for geographic grids.  Derivatives are per CRS unit.
+grids. Geographic grids must be reprojected before processing. Derivatives
+are per linear coordinate unit; local grids may declare metadata["crs_units"].
 
 Wavelength filters have a response of 0.5 at their cut-off:
 
@@ -36,11 +37,76 @@ data first when gaps are large.
 import math
 
 import numpy as np
+import pyproj
 
 import baselode.geophysics.colour_scales
 
 
 FILTER_METHODS = ("gaussian", "butterworth")
+
+
+_LINEAR_UNITS = {
+    "m": "m", "metre": "m", "meter": "m",
+    "ft": "ft", "foot": "ft", "feet": "ft",
+    "us-ft": "us-ft", "us_survey_foot": "us-ft", "us survey foot": "us-ft", "foot_us": "us-ft", "foot_intl": "ft",
+    "km": "km", "kilometre": "km", "kilometer": "km",
+}
+
+
+def _coordinate_unit(raster):
+    """Validate Cartesian processing coordinates and return their unit symbol.
+
+    Unlabelled local grids retain their historical coordinate-unit convention;
+    no physical unit is inferred from numeric cell sizes. Display operations
+    such as hillshade do not require this physical-processing contract.
+    """
+    declared = raster.metadata.get("crs_units")
+    unit = _LINEAR_UNITS.get(str(declared).strip().lower()) if declared else None
+    if declared and unit is None:
+        raise ValueError("processing requires linear crs_units (m, ft, us-ft or km)")
+    if raster.crs:
+        try:
+            crs = pyproj.CRS.from_user_input(raster.crs)
+        except pyproj.exceptions.CRSError as error:
+            # Match the JS contract for external definitions unavailable to
+            # the CRS engine: use explicitly declared linear units only.
+            if unit:
+                return unit
+            raise ValueError("unresolved CRS requires explicit linear metadata.crs_units") from error
+        if not (crs.is_projected or crs.is_engineering):
+            raise ValueError("processing requires a projected CRS or local Cartesian grid; reproject first")
+        axes = crs.axis_info[:2]
+        symbols = [_LINEAR_UNITS.get(axis.unit_name.lower()) for axis in axes]
+        if len(symbols) != 2 or not symbols[0] or symbols[0] != symbols[1]:
+            raise ValueError("processing requires matching supported linear CRS axis units")
+        if unit and unit != symbols[0]:
+            raise ValueError("metadata crs_units conflicts with the CRS axis units")
+        unit = symbols[0]
+    return unit or "coordinate_unit"
+
+
+def _derived(raster, output, step):
+    """Build a scientific product with derived per-band units, without mutation."""
+    metadata = dict(raster.metadata)
+    operation = step["operation"]
+    if operation == "tilt_derivative":
+        metadata["units"] = ["degree"] * raster.band_count
+    elif operation in ("vertical_derivative", "horizontal_derivative",
+                       "total_horizontal_derivative", "analytic_signal"):
+        distance_unit = _coordinate_unit(raster)
+        order = step.get("order", 1)
+        denominator = distance_unit if order == 1 else f"{distance_unit}^{order}"
+        units = list(metadata.get("units") or [])
+
+        def derivative_unit(index):
+            unit = units[index] if index < len(units) else None
+            if not unit:
+                return None
+            numerator = f"({unit})" if "/" in unit or "^" in unit else unit
+            return f"{numerator}/{denominator}"
+
+        metadata["units"] = [derivative_unit(index) for index in range(raster.band_count)]
+    return raster.copy_with(output, nodata=None, metadata=metadata, processing=step)
 
 
 def _band_values(values, nodata):
@@ -273,6 +339,7 @@ def _fourier_bands(raster, response, keep_trend=False, pad_length=None, detrend=
     numpy.ndarray
         Float ``(band, row, column)`` array with ``NaN`` for missing cells.
     """
+    _coordinate_unit(raster)
     cell_x, cell_y = _cell_size(raster)
     rows, columns = raster.data.shape[1:]
     # Round each padded axis up to a power of two and split the padding
@@ -430,6 +497,7 @@ def _vertical_derivative_bands(raster, order):
 
 def _gradient_bands(raster):
     """Return ``(east, north)`` arrays of map gradients for every band."""
+    _coordinate_unit(raster)
     east = np.full(raster.data.shape, np.nan)
     north = np.full(raster.data.shape, np.nan)
     for index in range(raster.band_count):
@@ -481,7 +549,7 @@ def vertical_derivative(raster, order=1):
     if not (isinstance(order, int) and order >= 1):
         raise ValueError("order must be a positive integer")
     output = _vertical_derivative_bands(raster, order)
-    return raster.copy_with(output, nodata=None, processing={"operation": "vertical_derivative", "order": order})
+    return _derived(raster, output, {"operation": "vertical_derivative", "order": order})
 
 
 def horizontal_derivative(raster, direction="east"):
@@ -504,11 +572,8 @@ def horizontal_derivative(raster, direction="east"):
     if direction not in ("east", "north"):
         raise ValueError(f"direction must be 'east' or 'north', not {direction!r}")
     east, north = _gradient_bands(raster)
-    return raster.copy_with(
-        east if direction == "east" else north,
-        nodata=None,
-        processing={"operation": "horizontal_derivative", "direction": direction},
-    )
+    return _derived(raster, east if direction == "east" else north,
+                    {"operation": "horizontal_derivative", "direction": direction})
 
 
 def total_horizontal_derivative(raster):
@@ -527,9 +592,7 @@ def total_horizontal_derivative(raster):
         Non-negative data units per CRS unit.
     """
     east, north = _gradient_bands(raster)
-    return raster.copy_with(
-        np.hypot(east, north), nodata=None, processing={"operation": "total_horizontal_derivative"},
-    )
+    return _derived(raster, np.hypot(east, north), {"operation": "total_horizontal_derivative"})
 
 
 def tilt_derivative(raster):
@@ -557,11 +620,8 @@ def tilt_derivative(raster):
     tolerance = _gradient_tolerance(raster)[:, None, None]
     vertical = np.where(np.abs(vertical) < tolerance, 0.0, vertical)
     horizontal = np.where(horizontal < tolerance, 0.0, horizontal)
-    return raster.copy_with(
-        np.degrees(np.arctan2(vertical, horizontal)),
-        nodata=None,
-        processing={"operation": "tilt_derivative"},
-    )
+    return _derived(raster, np.degrees(np.arctan2(vertical, horizontal)),
+                    {"operation": "tilt_derivative"})
 
 
 def analytic_signal(raster):
@@ -583,11 +643,8 @@ def analytic_signal(raster):
     """
     vertical = _vertical_derivative_bands(raster, 1)
     east, north = _gradient_bands(raster)
-    return raster.copy_with(
-        np.sqrt(east ** 2 + north ** 2 + vertical ** 2),
-        nodata=None,
-        processing={"operation": "analytic_signal"},
-    )
+    return _derived(raster, np.sqrt(east ** 2 + north ** 2 + vertical ** 2),
+                    {"operation": "analytic_signal"})
 
 
 def upward_continuation(raster, height):
