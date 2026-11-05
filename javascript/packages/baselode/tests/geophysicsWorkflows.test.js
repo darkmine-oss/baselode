@@ -94,3 +94,17 @@ it('supports rectangular rotations and JSON integer numbers', () => {
   const recipe = single('vertical_derivative', { order: 1.0 });
   expect(runGeophysicsWorkflow(recipe, { magnetic: { ...grid(), transform: [0, 10, 0, 10, 0, 80] } }).state).toBe('ok');
 });
+
+it('uses operation-specific FFT padding in resource limits', () => {
+  const source = createGeophysicsRaster({ ...grid(), data: Array.from({ length: 700 }, () => Array(700).fill(1)) });
+  const report = validateGeophysicsWorkflow(magneticGridRecipe(), { magnetic: source });
+  expect(report.state).toBe('ok'); expect(report.resource_estimate.max_fft_cells_per_band).toBe(2048 ** 2);
+  const narrow = validateGeophysicsWorkflow(single('low_pass', { wavelength: 10 }), { magnetic: source });
+  expect(narrow.state).toBe('ok'); expect(narrow.resource_estimate.max_fft_cells_per_band).toBe(1024 ** 2);
+  const broad = validateGeophysicsWorkflow(single('low_pass', { wavelength: 10000 }), { magnetic: source });
+  expect(broad.state).toBe('rejected'); expect(broad.resource_estimate.max_fft_cells_per_band).toBe(4096 ** 2);
+});
+
+it('returns structured preflight failure for filter geometry', () => {
+  expect(validateGeophysicsWorkflow(single('low_pass', { wavelength: 10 }), { magnetic: { ...grid(), transform: [0, 0, 0, 0, 0, 0] } }).state).toBe('rejected');
+});

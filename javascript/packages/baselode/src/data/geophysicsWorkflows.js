@@ -120,7 +120,7 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
     }
     retained += cells;
     if (cells > 1000000) issue('rejected', 'resource', path, 'input exceeds 1000000 cell values');
-    let distance = 'coordinate_unit';
+    let distance = 'coordinate_unit'; let spacing = [1, 1];
     try {
       encodeProvenance(raster.metadata, 'GeoTIFF', 'float64');
       distance = geophysicsCoordinateUnit(raster);
@@ -129,11 +129,12 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
       if (!Array.isArray(t) || t.length !== 6 || !t.every(Number.isFinite)) throw new RangeError('require a finite invertible rectangular affine transform');
       const determinant = t[0] * t[4] - t[1] * t[3];
       const column = Math.hypot(t[0], t[3]); const row = Math.hypot(t[1], t[4]);
+      spacing = [column, row];
       if (!Number.isFinite(determinant) || determinant === 0 || !Number.isFinite(column) || !Number.isFinite(row)
         || column === 0 || row === 0 || Math.abs(t[0] * t[1] + t[3] * t[4]) > 1e-9 * column * row) {
         throw new RangeError('require a finite invertible rectangular affine transform; sheared grids are unsupported');
       }
-    } catch (error) { issue('rejected', 'input', path, error.message); }
+    } catch (error) { issue('rejected', 'input', path, error.message); spacing = [1, 1]; }
     const field = raster.metadata.field_type;
     if (field === undefined || field === null) issue('needs_input', 'field_type', path, 'supply scalar metadata.field_type for all bands');
     else if (!['magnetic_anomaly', 'gravity_anomaly', 'radiometric', 'other'].includes(field)) {
@@ -143,7 +144,7 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
     if (!Array.isArray(units) || units.length !== raster.bandCount || !units.every((unit) => typeof unit === 'string' && unit.trim())) {
       issue('needs_input', 'units', path, 'supply one nonempty metadata.units string per band'); units = Array(raster.bandCount).fill('unknown');
     }
-    contexts.set(key, { grid: raster, field_type: field, units, distance_unit: distance });
+    contexts.set(key, { grid: raster, field_type: field, units, distance_unit: distance, spacing });
   }
   const ids = new Set(Object.keys(inputs));
   steps.forEach((step, index) => {
@@ -183,8 +184,18 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
       }
       contexts.set(name, outputContext(left, operation, params));
       retained += left.grid.width * left.grid.height * left.grid.bandCount;
-      const fft = 2 ** Math.ceil(Math.log2(3 * left.grid.height)) * 2 ** Math.ceil(Math.log2(3 * left.grid.width));
-      if (!['combine', 'horizontal_derivative', 'total_horizontal_derivative'].includes(operation.id)) largestFft = Math.max(largestFft, fft);
+      if (!['combine', 'horizontal_derivative', 'total_horizontal_derivative'].includes(operation.id)) {
+        const length = params.long_wavelength ?? params.wavelength;
+        const [cellX, cellY] = left.spacing;
+        if (length !== undefined && ![cellX, cellY].every((spacing) => Number.isFinite(length / spacing))) {
+          issue('rejected', 'parameter', path, 'wavelength/cell-size ratio exceeds numeric backend range');
+        } else if (cellX > 0 && cellY > 0) {
+          const pad = (size, spacing) => Math.min(Math.max(8, length === undefined ? Math.floor(size / 2) : Math.ceil(length / spacing)), size);
+          const fft = 2 ** Math.ceil(Math.log2(left.grid.height + 2 * pad(left.grid.height, cellY)))
+            * 2 ** Math.ceil(Math.log2(left.grid.width + 2 * pad(left.grid.width, cellX)));
+          largestFft = Math.max(largestFft, fft);
+        }
+      }
     }
     ids.add(name); plan.push({ ...step, parameters: params });
   });

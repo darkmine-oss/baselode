@@ -269,7 +269,7 @@ continued as though they were potential fields. Combine requires exactly matchin
 transform, CRS, field types and per-band unit strings; no implicit resampling or conversion.
 
 Limits are 64 steps, 1,000,000 cell values per input, 16,000,000 retained cell values
-(inputs plus all step results), and a conservative 4,194,304 padded FFT cells per band.
+(inputs plus all step results), and 4,194,304 padded FFT cells per band using the kernel’s operation-specific padding.
 The estimates bound these counts, not peak backend memory or wall time; callers needing
 hard time/memory isolation should execute in their own worker process. Original inputs
 and nested metadata are preserved. Workflow operation/library/backend versions and effective

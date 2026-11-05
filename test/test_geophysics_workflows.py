@@ -180,3 +180,21 @@ def test_rectangular_rotation_and_json_integer_numbers_are_supported():
     result = baselode.geophysics.run_workflow(recipe, {"magnetic": grid().copy_with(transform=(0, 10, 0, 10, 0, 80))})
     assert result["state"] == "ok"
     assert type(result["plan"][0]["parameters"]["order"]) is int
+
+
+def test_fft_limits_follow_operation_padding_and_wavelength():
+    source = grid().copy_with(np.ones((700, 700)))
+    result = baselode.geophysics.validate_workflow(baselode.geophysics.magnetic_grid_recipe(), {"magnetic": source})
+    assert result["state"] == "ok"
+    assert result["resource_estimate"]["max_fft_cells_per_band"] == 2048 ** 2
+    result = baselode.geophysics.validate_workflow(single("low_pass", {"wavelength": 10}), {"magnetic": source})
+    assert result["state"] == "ok"
+    assert result["resource_estimate"]["max_fft_cells_per_band"] == 1024 ** 2
+    result = baselode.geophysics.validate_workflow(single("low_pass", {"wavelength": 10000}), {"magnetic": source})
+    assert result["state"] == "rejected"
+    assert result["resource_estimate"]["max_fft_cells_per_band"] == 4096 ** 2
+
+
+def test_invalid_filter_geometry_remains_a_structured_preflight_failure():
+    source = grid().copy_with(transform=(0, 0, 0, 0, 0, 0))
+    assert baselode.geophysics.validate_workflow(single("low_pass", {"wavelength": 10}), {"magnetic": source})["state"] == "rejected"

@@ -188,6 +188,7 @@ def validate_workflow(workflow, inputs):
         retained += cells
         if cells > 1_000_000:
             issue("rejected", "resource", path, "input exceeds 1000000 cell values")
+        spacing = (1.0, 1.0)
         try:
             baselode.geophysics.provenance.encode(raster.metadata, "GeoTIFF", "float64")
             distance = baselode.geophysics.processing._coordinate_unit(raster)
@@ -206,6 +207,7 @@ def validate_workflow(workflow, inputs):
         except (ValueError, TypeError, RecursionError) as error:
             issue("rejected", "input", path, str(error))
             distance = "coordinate_unit"
+            spacing = (1.0, 1.0)
         field = raster.metadata.get("field_type")
         if field is None:
             issue("needs_input", "field_type", path, "supply scalar metadata.field_type for all bands")
@@ -215,7 +217,7 @@ def validate_workflow(workflow, inputs):
         if not isinstance(units, list) or len(units) != raster.band_count or not all(isinstance(unit, str) and unit.strip() for unit in units):
             issue("needs_input", "units", path, "supply one nonempty metadata.units string per band")
             units = ["unknown"] * raster.band_count
-        contexts[key] = {"grid": raster, "field_type": field, "units": units, "distance_unit": distance}
+        contexts[key] = {"grid": raster, "field_type": field, "units": units, "distance_unit": distance, "spacing": spacing}
     ids = set(inputs)
     for index, step in enumerate(steps):
         path = f"steps[{index}]"
@@ -260,10 +262,15 @@ def validate_workflow(workflow, inputs):
             contexts[name] = _output_context(left, operation, params)
             retained += left["grid"].data.size
             grid = left["grid"]
-            # FFT padding is capped at one axis length on each side.
-            fft = (1 << (3 * grid.height - 1).bit_length()) * (1 << (3 * grid.width - 1).bit_length())
             if operation["id"] not in ("combine", "horizontal_derivative", "total_horizontal_derivative"):
-                largest_fft = max(largest_fft, fft)
+                length = params.get("long_wavelength", params.get("wavelength"))
+                cell_x, cell_y = left["spacing"]
+                if length is not None and not all(math.isfinite(length / spacing) for spacing in (cell_x, cell_y)):
+                    issue("rejected", "parameter", path, "wavelength/cell-size ratio exceeds numeric backend range")
+                else:
+                    rows = baselode.geophysics.processing._fft_size(grid.height + 2 * baselode.geophysics.processing._pad_cells(length, cell_y, grid.height))
+                    columns = baselode.geophysics.processing._fft_size(grid.width + 2 * baselode.geophysics.processing._pad_cells(length, cell_x, grid.width))
+                    largest_fft = max(largest_fft, rows * columns)
         ids.add(name)
         plan.append({**step, "parameters": params})
     for ref in outputs:
