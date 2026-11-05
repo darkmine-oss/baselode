@@ -65,7 +65,14 @@ def _coordinate_unit(raster):
     if declared and unit is None:
         raise ValueError("processing requires linear crs_units (m, ft, us-ft or km)")
     if raster.crs:
-        crs = pyproj.CRS.from_user_input(raster.crs)
+        try:
+            crs = pyproj.CRS.from_user_input(raster.crs)
+        except pyproj.exceptions.CRSError as error:
+            # Match the JS contract for external definitions unavailable to
+            # the CRS engine: use explicitly declared linear units only.
+            if unit:
+                return unit
+            raise ValueError("unresolved CRS requires explicit linear metadata.crs_units") from error
         if not (crs.is_projected or crs.is_engineering):
             raise ValueError("processing requires a projected CRS or local Cartesian grid; reproject first")
         axes = crs.axis_info[:2]

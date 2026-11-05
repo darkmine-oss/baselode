@@ -53,7 +53,9 @@ CRS/unit metadata raise an error. Distances remain in the native linear units;
 metres are not silently converted to feet. For local grids, set
 `metadata["crs_units"]` to `m`/`metre`, `ft`/`foot`,
 `us-ft`/`us_survey_foot`, or `km`/`kilometre`. Without a CRS or declared
-unit, derivatives explicitly use `coordinate_unit`.
+unit, derivatives explicitly use `coordinate_unit`. Unresolved external CRS
+identifiers/definitions require explicit linear `crs_units`, matching the
+JavaScript caller contract; without those units a `ValueError` is raised.
 
 Derived `metadata["units"]` follows the calculation: `nT/m` for first
 derivatives and analytic signal, `nT/m^2` for 2VD, and `degree` for tilt.

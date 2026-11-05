@@ -213,10 +213,10 @@ it('reads linear units from an ESRI Foot_US WKT projection', () => {
   expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/us-ft']);
 });
 
-it('uses explicit linear units for external CRS authority identifiers', () => {
+it.each(['ESRI:102003', 'vendor:local-grid'])('uses explicit linear units for external CRS %s', (crs) => {
   const raster = createGeophysicsRaster({
     data: grid(8, 8, (_, c) => 30 * c), transform: NORTH_UP,
-    crs: 'ESRI:102003', metadata: { crs_units: 'metre', units: ['nT'] },
+    crs, metadata: { crs_units: 'metre', units: ['nT'] },
   });
   expect(processGeophysicsRaster(raster, 'horizontal_derivative').metadata.units).toEqual(['nT/m']);
   expect(() => processGeophysicsRaster({ ...raster, metadata: {} }, 'horizontal_derivative')).toThrow(/explicit linear/);

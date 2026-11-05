@@ -314,3 +314,15 @@ def test_local_engineering_crs_uses_its_linear_axes():
     assert gradient.metadata["units"] == ["nT/m"]
     np.testing.assert_array_equal(gradient.data, 3.)
     assert baselode.geophysics.low_pass(raster, 100).crs == raster.crs
+
+
+def test_unresolved_external_crs_requires_explicit_linear_units():
+    raster = baselode.geophysics.GeophysicsRaster(
+        np.tile(np.arange(8) * 30., (8, 1)), transform=NORTH_UP,
+        crs="vendor:local-grid", metadata={"units": ["nT"], "crs_units": "metre"},
+    )
+    gradient = baselode.geophysics.horizontal_derivative(raster)
+    assert gradient.metadata["units"] == ["nT/m"]
+    np.testing.assert_array_equal(gradient.data, 3.)
+    with pytest.raises(ValueError, match="explicit linear"):
+        baselode.geophysics.horizontal_derivative(raster.copy_with(metadata={}))

@@ -28,6 +28,10 @@ The two implementations should remain aligned for:
 - 3D parity target is payload-level parity in both languages; interactive renderer remains JS-first.
 - JavaScript `Extent` adds GeoJSON Polygon/Feature helpers; Python callers can
   use the existing Shapely `bbox` geometry for equivalent geometry workflows.
+- Scientific processing of unresolved CRS identifiers/definitions requires explicit
+  linear `metadata.crs_units`. The Python CRS database can resolve identifiers
+  that the JavaScript proj4 registry cannot; JS requires that metadata in those
+  cases rather than guessing a physical unit.
 - CRS engines are runtime-native (`proj4` in JavaScript, `pyproj` in Python),
   with shared EPSG behavior and tolerance-based numeric parity checks.
 
