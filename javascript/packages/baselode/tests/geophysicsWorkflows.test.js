@@ -85,3 +85,12 @@ it('rejects non-JSON recipes, malformed dimensions and resource overflow', () =>
   const recipe = single(); recipe.steps = Array.from({ length: 64 }, (_, index) => ({ ...recipe.steps[0], id: `step${index}` })); recipe.outputs = ['step63'];
   expect(validateGeophysicsWorkflow(recipe, { magnetic: source }).issues.some((issue) => issue.code === 'resource')).toBe(true);
 });
+
+it.each([[10, 3, 0, 0, -10, 80], [1e200, 0, 0, 0, -1e200, 80]])('preflights unsupported affine %o', (...transform) => {
+  const report = runGeophysicsWorkflow(single(), { magnetic: { ...grid(), transform } });
+  expect(report.state).toBe('rejected'); expect(report.completed_steps).toEqual([]);
+});
+it('supports rectangular rotations and JSON integer numbers', () => {
+  const recipe = single('vertical_derivative', { order: 1.0 });
+  expect(runGeophysicsWorkflow(recipe, { magnetic: { ...grid(), transform: [0, 10, 0, 10, 0, 80] } }).state).toBe('ok');
+});

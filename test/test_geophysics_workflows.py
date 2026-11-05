@@ -165,3 +165,18 @@ def test_shared_recipe_reference():
     assert result["state"] == "ok"
     for key, expected in fixture["outputs"].items():
         np.testing.assert_allclose(result["artifacts"][key].data, expected, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.parametrize("transform", [(10, 3, 0, 0, -10, 80), (1e200, 0, 0, 0, -1e200, 80)])
+def test_sheared_or_overflowing_geometry_is_preflighted(transform):
+    result = baselode.geophysics.run_workflow(single(), {"magnetic": grid().copy_with(transform=transform)})
+    assert result["state"] == "rejected" and result["completed_steps"] == []
+
+
+def test_rectangular_rotation_and_json_integer_numbers_are_supported():
+    recipe = single("vertical_derivative", {"order": 1.0})
+    recipe["version"] = 1.0
+    recipe["steps"][0]["version"] = 1.0
+    result = baselode.geophysics.run_workflow(recipe, {"magnetic": grid().copy_with(transform=(0, 10, 0, 10, 0, 80))})
+    assert result["state"] == "ok"
+    assert type(result["plan"][0]["parameters"]["order"]) is int

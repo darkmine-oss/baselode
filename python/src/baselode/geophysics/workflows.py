@@ -194,8 +194,15 @@ def validate_workflow(workflow, inputs):
             if distance == "coordinate_unit":
                 issue("needs_input", "coordinates", path, "supply explicit local metadata.crs_units or a projected CRS")
             transform = raster.transform
-            if transform is None or not all(math.isfinite(value) for value in transform) or transform[0] * transform[4] - transform[1] * transform[3] == 0:
-                issue("rejected", "coordinates", path, "require a finite invertible affine transform")
+            if transform is None or not all(math.isfinite(value) for value in transform):
+                raise ValueError("require a finite invertible rectangular affine transform")
+            determinant = transform[0] * transform[4] - transform[1] * transform[3]
+            if not math.isfinite(determinant) or determinant == 0:
+                raise ValueError("require a finite invertible rectangular affine transform")
+            # Use the same rectangular-cell check as the numerical kernels.
+            spacing = raster.cell_size
+            if not all(math.isfinite(value) and value > 0 for value in spacing):
+                raise ValueError("cell spacing must be positive and finite")
         except (ValueError, TypeError, RecursionError) as error:
             issue("rejected", "input", path, str(error))
             distance = "coordinate_unit"

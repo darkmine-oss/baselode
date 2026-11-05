@@ -126,8 +126,12 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
       distance = geophysicsCoordinateUnit(raster);
       if (distance === 'coordinate_unit') issue('needs_input', 'coordinates', path, 'supply explicit local metadata.crs_units or a projected CRS');
       const t = raster.transform;
-      if (!Array.isArray(t) || t.length !== 6 || !t.every(Number.isFinite) || t[0] * t[4] - t[1] * t[3] === 0) {
-        issue('rejected', 'coordinates', path, 'require a finite invertible affine transform');
+      if (!Array.isArray(t) || t.length !== 6 || !t.every(Number.isFinite)) throw new RangeError('require a finite invertible rectangular affine transform');
+      const determinant = t[0] * t[4] - t[1] * t[3];
+      const column = Math.hypot(t[0], t[3]); const row = Math.hypot(t[1], t[4]);
+      if (!Number.isFinite(determinant) || determinant === 0 || !Number.isFinite(column) || !Number.isFinite(row)
+        || column === 0 || row === 0 || Math.abs(t[0] * t[1] + t[3] * t[4]) > 1e-9 * column * row) {
+        throw new RangeError('require a finite invertible rectangular affine transform; sheared grids are unsupported');
       }
     } catch (error) { issue('rejected', 'input', path, error.message); }
     const field = raster.metadata.field_type;

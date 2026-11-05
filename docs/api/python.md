@@ -257,7 +257,7 @@ Artifacts retain full resolution; this API does not generate decimated display p
 
 Workflow inputs need explicit `metadata.field_type` for all bands: `magnetic_anomaly`,
 `gravity_anomaly`, `radiometric`, or `other`, plus one nonempty `metadata.units` string
-per band and finite invertible affine coordinates. Use separate rasters for mixed field
+per band and finite invertible rectangular affine coordinates (rotations supported; shear rejected). Use separate rasters for mixed field
 families. A projected CRS supplies linear units; a local grid must declare `crs_units`.
 Angular coordinates are rejected. Potential-field operators reject radiometric/other
 fields; RTP requires magnetic anomalies, explicit inclination/declination and
