@@ -1381,3 +1381,28 @@ else console.log(result.issues);
 Use `createGeophysicsRaster` to construct inputs. Recipes never load files, infer
 calibration, generate code or silently apply observation corrections. For UI responsiveness,
 run the synchronous executor in a Web Worker for larger grids.
+
+### Observation records and survey QC
+
+The main and `baselode/geophysics` entries export `createGeophysicsObservations(payload)`,
+`geophysicsObservationSchema()`, `describeGeophysicsObservationQc()` and
+`qcGeophysicsObservations(payload, options)`. They use the same snake_case payloads/options,
+flags, coverage and resource limits as the [Python observation/QC contract](/api/python#observation-records-and-survey-qc).
+The constructor throws for bad contracts; QC returns `ok`, `needs_input` or `rejected`.
+
+```javascript
+import { createGeophysicsObservations, qcGeophysicsObservations } from 'baselode/geophysics';
+const observations = createGeophysicsObservations({
+  crs_units: 'm', channels: { mag: { field_type: 'magnetic_total_field', units: 'nT' } },
+  records: [
+    { id: 'a', line_id: 'L1', x: 0, y: 0, time: 1000, values: { mag: 50100 } },
+    { id: 'b', line_id: 'L1', x: 10, y: 0, time: 1001, values: { mag: null } },
+  ],
+});
+const report = qcGeophysicsObservations(observations, { max_speed: 8 });
+console.log(report.flags, report.coverage);
+```
+
+Time is UTC epoch seconds. QC is synchronous, preserves the observations and acquisition
+order, and never converts coordinates or applies corrections. Spike flags are candidates,
+not instructions to remove geological signals. Use a worker for larger surveys.

@@ -53,3 +53,5 @@ export {
 } from './data/geophysicsProcessing.js';
 
 export { listGeophysicsOperations, describeGeophysicsOperation, geophysicsWorkflowSchema, magneticGridRecipe, validateGeophysicsWorkflow, runGeophysicsWorkflow } from './data/geophysicsWorkflows.js';
+
+export { createGeophysicsObservations, geophysicsObservationSchema, describeGeophysicsObservationQc, qcGeophysicsObservations } from './data/geophysicsObservations.js';
