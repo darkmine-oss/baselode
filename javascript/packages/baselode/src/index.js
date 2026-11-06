@@ -675,3 +675,5 @@ export {
 export { listGeophysicsOperations, describeGeophysicsOperation, geophysicsWorkflowSchema, magneticGridRecipe, validateGeophysicsWorkflow, runGeophysicsWorkflow } from './data/geophysicsWorkflows.js';
 
 export { createGeophysicsObservations, geophysicsObservationSchema, describeGeophysicsObservationQc, qcGeophysicsObservations } from './data/geophysicsObservations.js';
+
+export { describeGeophysicsGridding, gridGeophysicsObservations, crossValidateGeophysicsGridding } from './data/geophysicsGridding.js';

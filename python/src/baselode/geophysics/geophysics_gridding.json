@@ -1,0 +1,220 @@
+{
+  "id": "geophysics_gridding",
+  "version": 1,
+  "interpolation_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "channels": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string"
+        }
+      },
+      "radius": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "method": {
+        "enum": [
+          "nearest",
+          "idw"
+        ],
+        "default": "idw"
+      },
+      "neighbors": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 64,
+        "default": 8
+      },
+      "min_neighbors": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 64,
+        "default": 1
+      },
+      "power": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 16,
+        "default": 2
+      },
+      "duplicate_policy": {
+        "enum": [
+          "mean",
+          "reject"
+        ]
+      },
+      "elevation_policy": {
+        "const": "ignore"
+      },
+      "extrapolation": {
+        "enum": [
+          "mask",
+          "allow"
+        ],
+        "default": "mask"
+      }
+    },
+    "required": [
+      "channels",
+      "radius",
+      "duplicate_policy",
+      "elevation_policy"
+    ]
+  },
+  "grid_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "channels": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "uniqueItems": true,
+        "items": {
+          "type": "string"
+        }
+      },
+      "radius": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "method": {
+        "enum": [
+          "nearest",
+          "idw"
+        ],
+        "default": "idw"
+      },
+      "neighbors": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 64,
+        "default": 8
+      },
+      "min_neighbors": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 64,
+        "default": 1
+      },
+      "power": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 16,
+        "default": 2
+      },
+      "duplicate_policy": {
+        "enum": [
+          "mean",
+          "reject"
+        ]
+      },
+      "elevation_policy": {
+        "const": "ignore"
+      },
+      "extrapolation": {
+        "enum": [
+          "mask",
+          "allow"
+        ],
+        "default": "mask"
+      },
+      "bounds": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": {
+          "type": "number",
+          "minimum": -1e+100,
+          "maximum": 1e+100
+        }
+      },
+      "shape": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      }
+    },
+    "required": [
+      "channels",
+      "radius",
+      "duplicate_policy",
+      "elevation_policy",
+      "bounds",
+      "shape"
+    ]
+  },
+  "validation_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "by": {
+        "enum": [
+          "line",
+          "block"
+        ]
+      },
+      "block_size": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100
+        }
+      },
+      "origin": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "number",
+          "minimum": -1e+100,
+          "maximum": 1e+100
+        }
+      },
+      "buffer_distance": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100,
+        "default": 0
+      }
+    },
+    "required": [
+      "by"
+    ]
+  },
+  "resources": {
+    "max_grid_cells": 100000,
+    "max_band_values": 250000,
+    "max_pair_evaluations": 10000000,
+    "max_folds": 64
+  },
+  "assumptions": [
+    "XY interpolation only: elevation_policy=ignore is required. No continuation, drape correction, calibration or datum transformation is performed.",
+    "Radius is inclusive and measured in native linear CRS units. Grid bounds are outer edges [min_x,min_y,max_x,max_y]; shape is [rows,columns], north-up with cell-centre predictions.",
+    "Per-channel valid observations at identical XY form one location. Mean is an explicit duplicate policy, not QC; min_neighbors counts unique locations among the selected nearest neighbors. Exact samples still require min_neighbors.",
+    "Extrapolation means outside the per-channel convex hull (including degenerate point/segment hulls). It is masked by default; allowing it still requires radius and minimum support. Support diagnostics are not calibrated geological uncertainty.",
+    "Nearest ties and neighbor-cutoff ties use first location occurrence in acquisition order. IDW scales weights by the smallest nonzero distance; exact location values take precedence after support checks.",
+    "Validation leaves out whole declared lines or explicit-origin XY blocks. Training rows at any held-out location are always excluded; buffer_distance can exclude a wider halo. Duplicate aggregation uses only training values.",
+    "Errors are predicted-minus-observed and scored only for supported predictions. Coverage and unsupported counts must accompany RMSE/MAE/bias; they do not establish calibrated uncertainty.",
+    "The direct APIs operate on observation payloads; raster-only workflow v1 is unchanged. No automatic sorting/filtering of the original observations or correction application occurs."
+  ],
+  "references": [
+    "https://www.fatiando.org/verde/latest/gallery/blockkfold.html"
+  ]
+}

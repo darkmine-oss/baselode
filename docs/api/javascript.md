@@ -1406,3 +1406,27 @@ console.log(report.flags, report.coverage);
 Time is UTC epoch seconds. QC is synchronous, preserves the observations and acquisition
 order, and never converts coordinates or applies corrections. Spike flags are candidates,
 not instructions to remove geological signals. Use a worker for larger surveys.
+
+### Baseline observation gridding and spatial validation
+
+The main and `baselode/geophysics` entries export `describeGeophysicsGridding()`,
+`gridGeophysicsObservations(payload, options)` and
+`crossValidateGeophysicsGridding(payload, options, validation)`. They share the
+[Python gridding contract](/api/python#baseline-observation-gridding-and-spatial-validation),
+including snake_case options, explicit XY/elevation assumptions, support/hull rules,
+line/block holdouts, exclusion buffers, structured states and resource limits.
+
+```javascript
+import { gridGeophysicsObservations, crossValidateGeophysicsGridding } from 'baselode/geophysics';
+const interpolation = { channels: ['mag'], radius: 200, duplicate_policy: 'mean', elevation_policy: 'ignore' };
+const result = gridGeophysicsObservations(observations, {
+  ...interpolation, bounds: [400000, 6500000, 401000, 6501000], shape: [40, 40],
+});
+if (result.state === 'ok') console.log(result.artifacts.grid, result.artifacts.support);
+const validation = crossValidateGeophysicsGridding(observations, interpolation, { by: 'line', buffer_distance: 25 });
+console.log(validation.summary, validation.issues);
+```
+
+Field raster cells are null when unsupported; support/count/distance/extrapolation artifacts
+remain full resolution. APIs are synchronous: use a Web Worker for larger bounded jobs.
+They never apply observation corrections or infer a common height from draped observations.

@@ -54,6 +54,14 @@ const observations = geophysics.createGeophysicsObservations({
 assert.equal(geophysics.qcGeophysicsObservations(observations).state, 'ok');
 assert.equal(geophysics.describeGeophysicsObservationQc().version, 1);
 
+const gridReport = geophysics.gridGeophysicsObservations(observations, {
+  channels: ['mag'], radius: 5, duplicate_policy: 'mean', elevation_policy: 'ignore',
+  bounds: [0, 1, 2, 3], shape: [1, 1],
+});
+assert.equal(gridReport.state, 'ok');
+assert.equal(gridReport.artifacts.grid.data[0][0][0], 10);
+assert.equal(geophysics.describeGeophysicsGridding().version, 1);
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {
