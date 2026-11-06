@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 import baselode.geophysics
+import baselode.geophysics.provenance
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REFERENCE = json.loads((ROOT / 'test/data/geophysics_corrections_reference.json').read_text())
@@ -183,8 +184,9 @@ def test_corrected_observation_ledger_survives_gridding_and_export(tmp_path, ext
     item = fixture(); item['survey']['metadata']['uncertainty'] = {'mag': 1}
     result = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])
     output = result['observations']; assert 'uncertainty' not in output['metadata'] and output['metadata']['uncertainty_propagated'] is False
-    step = output['metadata']['processing'][-1]
-    assert output['metadata']['input_lineage'][step['source_operand_lineage']]['metadata']['uncertainty'] == {'mag': 1}
+    step = output['metadata']['processing'][-2]
+    assert step['operation'] == 'magnetic_base_input'
+    assert output['metadata']['input_lineage'][step['operand_lineage']]['metadata']['uncertainty'] == {'mag': 1}
     grid = baselode.geophysics.grid_observations(output, {'channels': ['mag'], 'radius': 100, 'duplicate_policy': 'mean', 'elevation_policy': 'ignore', 'bounds': [0, -5, 40, 5], 'shape': [1, 4], 'extrapolation': 'allow'})
     assert grid['state'] == 'ok', grid['issues']
     raster = grid['artifacts']['grid']; path = tmp_path / ('corrected.' + extension)
@@ -256,3 +258,38 @@ def test_unrelated_large_binary64_values_remain_usable():
     assert result['observations']['records'][0]['clearance'] == 1e90
     assert result['observations']['records'][0]['values']['second'] == 2 ** 60
     assert baselode.geophysics.inspect_corrections(result['observations'])['state'] == 'ok'
+
+
+def test_source_and_base_references_remap_through_a_foreign_lineage_graph():
+    item = fixture(); item['survey']['metadata']['uncertainty'] = {'mag': 1}
+    output = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])['observations']
+    left = {'input_lineage': [{'metadata': {'source': 'unrelated.xyz'}, 'sources': ['unrelated.xyz']}]}
+    nodes, operand = baselode.geophysics.provenance.append_input(left, output['metadata'])
+    source_step, base_step = nodes[operand]['metadata']['processing'][-2:]
+    assert source_step['operation'] == 'magnetic_base_input'
+    assert nodes[source_step['operand_lineage']]['metadata']['uncertainty'] == {'mag': 1}
+    assert nodes[base_step['operand_lineage']]['metadata']['source'] == 'base.xyz'
+    assert source_step['operand_lineage'] != 0
+    baselode.geophysics.provenance.encode({'input_lineage': nodes}, 'GeoTIFF', 'float64')
+    damaged = copy.deepcopy(nodes); damaged[operand]['metadata']['processing'][-2]['operand_lineage'] = -1
+    with pytest.raises(ValueError, match='operand_lineage'):
+        baselode.geophysics.provenance.encode({'input_lineage': damaged}, 'GeoTIFF', 'float64')
+
+
+def test_compact_option_byte_limit_matches_json_transport_boundary():
+    limit = 256 * 1024
+    items = [declaration(identity='edge-' + str(index)) for index in range(63)]
+    for item in items: item['evidence'] = 'x' * 4096
+    size = lambda value: len(json.dumps(value, separators=(',', ':'), ensure_ascii=False).encode())
+    remaining = size(items) - (limit - 1)
+    assert remaining > 0
+    for item in items:
+        removed = min(remaining, len(item['evidence']) - 1)
+        item['evidence'] = item['evidence'][:-removed] if removed else item['evidence']
+        remaining -= removed
+    assert remaining == 0 and size(items) == limit - 1
+    result = baselode.geophysics.declare_corrections(fixture()['survey'], items)
+    assert result['state'] == 'ok', result['issues']
+    items[0]['evidence'] += 'xx'
+    result = baselode.geophysics.declare_corrections(fixture()['survey'], items)
+    assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'resource'

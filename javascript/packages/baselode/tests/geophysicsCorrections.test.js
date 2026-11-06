@@ -8,6 +8,7 @@ import { gridGeophysicsObservations } from '../src/data/geophysicsGridding.js';
 import { encodeErs, encodeGeoTiff } from '../src/data/geophysicsWriters.js';
 import { readErs } from '../src/data/ersLoader.js';
 import { loadGeoTiff } from '../src/data/geophysicsRaster.js';
+import { appendInput, encodeProvenance } from '../src/data/geophysicsProvenance.js';
 const fixture = () => JSON.parse(JSON.stringify(reference));
 const declaration = (changes = {}) => ({ id: 'source-history', correction: 'magnetic_diurnal', channels: ['mag'], state: 'unapplied', evidence: 'Contractor source record checked', ...changes });
 async function corrected() { const item = fixture(); const result = await correctGeophysicsMagneticBase(item.survey, item.base, item.options); expect(result.state, JSON.stringify(result.issues)).toBe('ok'); return result.observations; }
@@ -119,8 +120,9 @@ it('persists corrected observation history through gridding and both formats', a
   const item = fixture(); item.survey.metadata.uncertainty = { mag: 1 };
   const result = await correctGeophysicsMagneticBase(item.survey, item.base, item.options); const output = result.observations;
   expect(output.metadata.uncertainty).toBeUndefined(); expect(output.metadata.uncertainty_propagated).toBe(false);
-  const step = output.metadata.processing.at(-1);
-  expect(output.metadata.input_lineage[step.source_operand_lineage].metadata.uncertainty).toEqual({ mag: 1 });
+  const step = output.metadata.processing.at(-2);
+  expect(step.operation).toBe('magnetic_base_input');
+  expect(output.metadata.input_lineage[step.operand_lineage].metadata.uncertainty).toEqual({ mag: 1 });
   const grid = gridGeophysicsObservations(output, { channels: ['mag'], radius: 100, duplicate_policy: 'mean', elevation_policy: 'ignore', bounds: [0, -5, 40, 5], shape: [1, 4], extrapolation: 'allow' });
   expect(grid.state).toBe('ok'); const raster = grid.artifacts.grid; const ers = encodeErs(raster, { dtype: 'float64' });
   for (const back of [readErs(ers.header, ers.data), await loadGeoTiff(encodeGeoTiff(raster, { dtype: 'float64' }))]) expect(back.metadata.observation_metadata.correction_ledger).toEqual(output.metadata.correction_ledger);
@@ -169,4 +171,29 @@ it('preserves unrelated large binary64 values during correction and inspection',
   expect(result.state).toBe('ok'); expect(result.observations.records[0].clearance).toBe(1e90);
   expect(result.observations.records[0].values.second).toBe(2 ** 60);
   expect((await inspectGeophysicsCorrections(result.observations)).state).toBe('ok');
+});
+
+it('remaps and validates both source and base references through foreign graphs', async () => {
+  const item = fixture(); item.survey.metadata.uncertainty = { mag: 1 };
+  const output = (await correctGeophysicsMagneticBase(item.survey, item.base, item.options)).observations;
+  const left = { input_lineage: [{ metadata: { source: 'unrelated.xyz' }, sources: ['unrelated.xyz'] }] };
+  const { nodes, operand } = appendInput(left, output.metadata);
+  const sourceStep = nodes[operand].metadata.processing.at(-2); const baseStep = nodes[operand].metadata.processing.at(-1);
+  expect(sourceStep.operation).toBe('magnetic_base_input');
+  expect(sourceStep.operand_lineage).not.toBe(0);
+  expect(nodes[sourceStep.operand_lineage].metadata.uncertainty).toEqual({ mag: 1 });
+  expect(nodes[baseStep.operand_lineage].metadata.source).toBe('base.xyz');
+  expect(() => encodeProvenance({ input_lineage: nodes }, 'GeoTIFF', 'float64')).not.toThrow();
+  nodes[operand].metadata.processing.at(-2).operand_lineage = -1;
+  expect(() => encodeProvenance({ input_lineage: nodes }, 'GeoTIFF', 'float64')).toThrow('operand_lineage');
+});
+it('uses compact UTF-8 option bytes at the exact transport boundary', async () => {
+  const limit = 256 * 1024; const items = Array.from({ length: 63 }, (_, index) => declaration({ id: `edge-${index}`, evidence: 'x'.repeat(4096) }));
+  const size = (value) => new TextEncoder().encode(JSON.stringify(value)).length;
+  let remaining = size(items) - (limit - 1); expect(remaining).toBeGreaterThan(0);
+  for (const item of items) { const removed = Math.min(remaining, item.evidence.length - 1); if (removed) item.evidence = item.evidence.slice(0, -removed); remaining -= removed; }
+  expect(size(items)).toBe(limit - 1);
+  expect((await declareGeophysicsCorrections(fixture().survey, items)).state).toBe('ok');
+  items[0].evidence += 'xx'; const result = await declareGeophysicsCorrections(fixture().survey, items);
+  expect(result.state).toBe('rejected'); expect(result.issues[0].code).toBe('resource');
 });

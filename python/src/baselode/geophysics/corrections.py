@@ -59,7 +59,7 @@ def _error(report, error):
 def _json(value):
     baselode.geophysics.provenance._json_value(value)
     result = json.loads(json.dumps(value, ensure_ascii=True, allow_nan=False), parse_float=baselode.geophysics.observations._json_float)
-    if len(json.dumps(result, ensure_ascii=False).encode("utf-8")) > _LIMITS["max_options_bytes"]:
+    if len(json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) > _LIMITS["max_options_bytes"]:
         raise _ResourceError("correction options/declarations exceed 256 KiB")
     return result
 
@@ -411,8 +411,8 @@ def correct_magnetic_base(payload, base, options):
         for key in ("uncertainty", "variance", "standard_deviation"):
             metadata.pop(key, None)
         metadata["uncertainty_propagated"] = False
-        metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "correct_magnetic_base", "version": 1, "parameters": params, "input_binding": before_binding, "output_binding": output_binding,
-                                                                        "base_binding": base_binding, "source_operand_lineage": source_operand, "operand_lineage": base_operand}]
+        metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "magnetic_base_input", "version": 1, "event_id": params["event_id"], "input_binding": before_binding, "operand_lineage": source_operand}, {"operation": "correct_magnetic_base", "version": 1, "parameters": params, "input_binding": before_binding, "output_binding": output_binding,
+                                                                        "base_binding": base_binding, "operand_lineage": base_operand}]
         output = _save(data, ledger)
         _validate(output, ledger, output_binding)
         report.update(observations=output, states=_states(output, ledger))

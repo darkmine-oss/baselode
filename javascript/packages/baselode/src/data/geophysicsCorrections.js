@@ -218,7 +218,7 @@ export async function correctGeophysicsMagneticBase(payload, base, options) {
     const metadata = data.metadata; const source = appendInput(metadata, metadata); metadata.input_lineage = source.nodes; const monitorInput = appendInput(metadata, monitor.metadata); metadata.input_lineage = monitorInput.nodes;
     for (const key of ['uncertainty', 'variance', 'standard_deviation']) delete metadata[key];
     metadata.uncertainty_propagated = false;
-    metadata.processing = [...(metadata.processing ?? []), { operation: 'correct_magnetic_base', version: 1, parameters: params, input_binding: beforeBinding, output_binding: outputBinding, base_binding: baseBinding, source_operand_lineage: source.operand, operand_lineage: monitorInput.operand }];
+    metadata.processing = [...(metadata.processing ?? []), { operation: 'magnetic_base_input', version: 1, event_id: params.event_id, input_binding: beforeBinding, operand_lineage: source.operand }, { operation: 'correct_magnetic_base', version: 1, parameters: params, input_binding: beforeBinding, output_binding: outputBinding, base_binding: baseBinding, operand_lineage: monitorInput.operand }];
     const output = await save(data, ledger); validate(output, ledger, outputBinding);
     Object.assign(result, { observations: output, states: statesFor(output, ledger) }); return result;
   } catch (error) { return errorResult(result, error); }
