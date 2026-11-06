@@ -73,7 +73,7 @@ def _evidence(value):
 
 
 def _number(value):
-    return baselode.geophysics.observations._number(value) and abs(value) <= _LIMITS["numeric_bound"]
+    return baselode.geophysics.observations._number(value) and (type(value) is not int or float(value) == value)
 
 
 def _digest(value):
@@ -97,7 +97,7 @@ def _binding(data):
         if value is None:
             return None
         if not _number(value):
-            raise ValueError("correction binding numeric values must be within the JSON safe-integer magnitude")
+            raise ValueError("correction binding requires finite binary64 values within +/-1e100; integers must be exactly representable")
         return struct.pack(">d", 0.0 if value == 0 else float(value)).hex()
     rows = [[row["id"], *[hex_number(row[name]) for name in ("x", "y", "z", "time", "clearance")], row["line_id"], row["station_id"], [hex_number(row["values"][name]) for name in names]] for row in data["records"]]
     snapshot = ["baselode.correction_binding.v1", data["crs"], data["crs_units"], [[name, data["channels"][name]["field_type"], data["channels"][name]["units"]] for name in names], rows]
@@ -164,7 +164,10 @@ def _validate(data, ledger, current, check_summary=True):
             if entry["output_binding"] != previous or any(states[correction][name] != "unknown" and states[correction][name] != entry["state"] for name in channels):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
-            params = _base_options(entry["parameters"])
+            try:
+                params = _base_options(entry["parameters"])
+            except _NeedsInput as error:
+                raise ValueError("invalid stored application parameters: " + str(error)) from error
             count = sum(row["values"][channels[0]] is not None for row in data["records"])
             if correction != "magnetic_diurnal" or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied magnetic_diurnal history for one channel")
@@ -196,8 +199,11 @@ def _validate(data, ledger, current, check_summary=True):
 
 def _load(data):
     current = _binding(data)
+    baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
+    if any(step["operation"] == "correct_magnetic_base" for step in data["metadata"].get("processing", [])):
+        raise ValueError("processing records magnetic base correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
     for alias, state in data["metadata"].get("corrections", {}).items():

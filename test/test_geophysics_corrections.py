@@ -170,7 +170,7 @@ def test_schema_and_malformed_ledger_events_reject_before_state_derivation():
 
 
 def test_numeric_resource_and_option_guards():
-    item = fixture(); item['survey']['records'][0]['values']['mag'] = 2 ** 53
+    item = fixture(); item['survey']['records'][0]['values']['mag'] = 2 ** 53 + 1
     assert baselode.geophysics.inspect_corrections(item['survey'])['state'] == 'rejected'
     item = fixture()
     assert baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], {**item['options'], 'clock_policy': 'guess'})['state'] == 'needs_input'
@@ -193,7 +193,10 @@ def test_corrected_observation_ledger_survives_gridding_and_export(tmp_path, ext
 
 
 def test_bidirectional_python_javascript_ledger_replay(tmp_path):
-    item = fixture(); item['python_output'] = corrected()
+    item = fixture(); item['survey']['records'][0]['clearance'] = 1e90
+    first = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])
+    assert first['state'] == 'ok'
+    item['python_output'] = first['observations']
     source = tmp_path / 'input.json'; target = tmp_path / 'output.json'
     source.write_text(json.dumps(item))
     script = ROOT / 'test/data/corrections_parity.mjs'
@@ -226,3 +229,30 @@ def test_base_history_must_be_unapplied_and_existing_binding_must_validate():
     assert declared['state'] == 'ok'
     declared['observations']['records'][0]['values']['base'] += 1
     assert baselode.geophysics.correct_magnetic_base(item['survey'], declared['observations'], item['options'])['state'] == 'rejected'
+
+
+def test_retained_processing_blocks_reinitializing_a_dropped_ledger():
+    item = fixture(); output = corrected(); del output['metadata']['correction_ledger']
+    assert baselode.geophysics.inspect_corrections(output)['state'] == 'rejected'
+    declared = baselode.geophysics.declare_corrections(output, [declaration(identity='claim-raw')])
+    assert declared['state'] == 'rejected' and declared['observations'] is None
+    assert baselode.geophysics.correct_magnetic_base(output, item['base'], item['options'])['state'] == 'rejected'
+
+
+def test_malformed_stored_application_options_are_contract_rejections():
+    for change in ('missing', 'clock'):
+        output = corrected(); params = output['metadata']['correction_ledger']['entries'][-1]['parameters']
+        if change == 'missing': del params['reference']
+        else: params['clock_policy'] = 'guess'
+        result = baselode.geophysics.inspect_corrections(output)
+        assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'contract'
+
+
+def test_unrelated_large_binary64_values_remain_usable():
+    item = fixture(); item['survey']['records'][0]['clearance'] = 1e90
+    item['survey']['records'][0]['values']['second'] = 2 ** 60
+    result = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])
+    assert result['state'] == 'ok', result['issues']
+    assert result['observations']['records'][0]['clearance'] == 1e90
+    assert result['observations']['records'][0]['values']['second'] == 2 ** 60
+    assert baselode.geophysics.inspect_corrections(result['observations'])['state'] == 'ok'

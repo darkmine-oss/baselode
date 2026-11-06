@@ -44,7 +44,7 @@ async function binding(data) {
   const names = Object.keys(data.channels).sort(); const buffer = new ArrayBuffer(8); const view = new DataView(buffer);
   function hexNumber(value) {
     if (value === null) return null;
-    if (!number(value)) throw Error('correction binding numeric values must be within the JSON safe-integer magnitude');
+    if (!number(value)) throw Error('correction binding requires finite binary64 values within +/-1e100; integers must be exactly representable');
     view.setFloat64(0, value === 0 ? 0 : value, false);
     return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
   }
@@ -90,7 +90,10 @@ function validate(data, ledger, current, checkSummary = true) {
     if (entry.kind === 'declaration') {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
-      const params = baseOptions(entry.parameters); const count = data.records.filter((row) => row.values[channels[0]] !== null).length;
+      let params;
+      try { params = baseOptions(entry.parameters); }
+      catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
+      const count = data.records.filter((row) => row.values[channels[0]] !== null).length;
       if (correction !== 'magnetic_diurnal' || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied magnetic_diurnal history for one channel');
       if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence || !digest(entry.base_binding) || !label(entry.base_station_id)) throw Error('application parameters/base binding do not match the ledger event');
       if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading');
@@ -113,7 +116,9 @@ function validate(data, ledger, current, checkSummary = true) {
 }
 async function load(data) {
   const current = await binding(data);
+  encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
+  if ((data.metadata.processing ?? []).some((step) => step.operation === 'correct_magnetic_base')) throw Error('processing records magnetic base correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);

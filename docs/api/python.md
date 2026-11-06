@@ -1984,7 +1984,7 @@ application is returned. There is no repeat/force override.
 A successful ledger event records input/output/base bindings, exact parameters,
 station identity, affected reading count, evidence and producer version. All
 records/other channels and field type/units are preserved. Diurnal correction
-alone does not remove IGRF or relabel total field as anomaly. Existing uncertainty
+alone does not remove IGRF or relabel total field as anomaly. Existing metadata uncertainty/variance/standard_deviation
 moves into flat input lineage and `uncertainty_propagated=False` marks the output;
 no uncertainty estimate is computed. Source/base metadata and processing history
 survive downstream gridding and ERS/GeoTIFF exports.
@@ -1992,8 +1992,8 @@ survive downstream gridding and ERS/GeoTIFF exports.
 The versioned `metadata.correction_ledger` validates event transitions, unique
 IDs and chain continuity. Its SHA-256 binding covers normalized observation
 identities/order, geometry/time/clearance, channel definitions/units and readings.
-Numeric values use a shared binary64 encoding and magnitude <=2^53-1. Editing,
-adding or dropping bound data makes its ledger stale. Arbitrary metadata and row
+Numeric values use a shared binary64 encoding and magnitude <=1e100. Python integers that cannot be represented exactly as binary64 are rejected rather than hashed with lost precision; use an explicit float conversion only when that rounding is intended. Editing, adding or dropping bound data makes its ledger stale. Retained
+processing records of base correction also block reinitializing a missing ledger. Arbitrary metadata and row
 extensions are excluded from the binding; correction summaries are checked
 separately. This guards ordinary workflows and records provenance; it does not
 authenticate stripped or maliciously rewritten metadata. Preserve traceable raw

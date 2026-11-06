@@ -108,7 +108,7 @@ it('rejects malformed events and unknown declarations before deriving channel st
   expect((await declareGeophysicsCorrections(fixture().survey, [declaration({ correction: 'custom' })])).state).toBe('rejected');
 });
 it('enforces option, event and numeric bounds', async () => {
-  const item = fixture(); item.survey.records[0].values.mag = 2 ** 53;
+  const item = fixture(); item.survey.records[0].values.mag = 1e101;
   expect((await inspectGeophysicsCorrections(item.survey)).state).toBe('rejected');
   const fresh = fixture();
   expect((await correctGeophysicsMagneticBase(fresh.survey, fresh.base, { ...fresh.options, clock_policy: 'guess' })).state).toBe('needs_input');
@@ -147,4 +147,26 @@ it('reports missing native Web Crypto as actionable context', async () => {
   vi.stubGlobal('crypto', undefined);
   try { const result = await inspectGeophysicsCorrections(fixture().survey); expect(result.state).toBe('needs_input'); expect(result.issues[0].message).toContain('Web Crypto'); }
   finally { vi.unstubAllGlobals(); }
+});
+
+it('rejects dropped ledgers when processing still records the correction', async () => {
+  const item = fixture(); const output = await corrected(); delete output.metadata.correction_ledger;
+  expect((await inspectGeophysicsCorrections(output)).state).toBe('rejected');
+  expect((await declareGeophysicsCorrections(output, [declaration({ id: 'claim-raw' })])).state).toBe('rejected');
+  expect((await correctGeophysicsMagneticBase(output, item.base, item.options)).state).toBe('rejected');
+});
+it('classifies corrupt stored application options as contract violations', async () => {
+  for (const change of ['missing', 'clock']) {
+    const output = await corrected(); const params = output.metadata.correction_ledger.entries.at(-1).parameters;
+    if (change === 'missing') delete params.reference; else params.clock_policy = 'guess';
+    const result = await inspectGeophysicsCorrections(output);
+    expect(result.state).toBe('rejected'); expect(result.issues[0].code).toBe('contract');
+  }
+});
+it('preserves unrelated large binary64 values during correction and inspection', async () => {
+  const item = fixture(); item.survey.records[0].clearance = 1e90; item.survey.records[0].values.second = 2 ** 60;
+  const result = await correctGeophysicsMagneticBase(item.survey, item.base, item.options);
+  expect(result.state).toBe('ok'); expect(result.observations.records[0].clearance).toBe(1e90);
+  expect(result.observations.records[0].values.second).toBe(2 ** 60);
+  expect((await inspectGeophysicsCorrections(result.observations)).state).toBe('ok');
 });

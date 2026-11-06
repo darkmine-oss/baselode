@@ -244,13 +244,13 @@
       },
       "reference": {
         "type": "number",
-        "minimum": -9007199254740991,
-        "maximum": 9007199254740991
+        "minimum": -1e+100,
+        "maximum": 1e+100
       },
       "max_gap": {
         "type": "number",
         "exclusiveMinimum": 0,
-        "maximum": 9007199254740991
+        "maximum": 1e+100
       },
       "event_id": {
         "type": "string",
@@ -420,13 +420,13 @@
                 },
                 "reference": {
                   "type": "number",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
                 },
                 "max_gap": {
                   "type": "number",
                   "exclusiveMinimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 1e+100
                 },
                 "event_id": {
                   "type": "string",
@@ -523,7 +523,7 @@
     "max_events": 64,
     "max_binding_bytes": 33554432,
     "max_options_bytes": 262144,
-    "numeric_bound": 9007199254740991
+    "numeric_bound": 1e+100
   },
   "binding": {
     "algorithm": "sha256-float64-v1",
@@ -534,17 +534,17 @@
       "sorted channel tuples [name,field_type,units]",
       "acquisition-order rows [id,x,y,z,time,clearance,line_id,station_id,channel values in sorted channel order]"
     ],
-    "numbers": "All numeric fields/readings become lowercase 16-digit big-endian IEEE-754 float64 hexadecimal strings; null stays null and -0 canonicalizes to +0. Snapshot is compact UTF-8 JSON arrays (Unicode scalars, ensure_ascii=false), then SHA-256. Metadata/extensions are not included.",
+    "numbers": "All numeric fields/readings become lowercase 16-digit big-endian IEEE-754 float64 hexadecimal strings; null stays null and -0 canonicalizes to +0. Values up to +/-1e100 are supported; Python integer values must be exactly representable as binary64 to prevent lossy hashing. Snapshot is compact UTF-8 JSON arrays (Unicode scalars, ensure_ascii=false), then SHA-256. Metadata/extensions are not included.",
     "runtime": "Python hashlib; JS async Web Crypto SHA-256 (Node 20+ or secure browser context)."
   },
   "assumptions": [
     "History defaults to unknown. Evidence-backed declarations resolve unknown states; known applied/unapplied states cannot be changed to a different state through these APIs. Registered aliases import legacy global correction declarations conservatively for applicable channels.",
-    "Ledger events validate IDs, binding-chain continuity and per-channel state transitions. Applying requires unapplied history and complete support. Reused event IDs, repeated applications, conflicting legacy aliases and stale dataset bindings are rejected. This is a workflow/provenance guard, not authentication against stripped or maliciously rewritten metadata.",
+    "Ledger events validate IDs, binding-chain continuity and per-channel state transitions. Applying requires unapplied history and complete support. Reused event IDs, repeated applications, conflicting legacy aliases and stale dataset bindings are rejected. This is a workflow/provenance guard, not authentication against stripped or maliciously rewritten metadata. Retained processing that records a base correction prevents reinitializing a missing ledger.",
     "Base variation is linear_interpolated_base - explicit_reference and corrected = observed - variation. Selected survey magnetic total field/anomaly and stationary base total field must be in nT. This does not remove IGRF, change field type or infer calibration.",
     "UTC Unix seconds and explicit synchronized clock policy are required. Base acquisition times must increase strictly. Null base readings break interpolation; no extrapolation or interpolation across excessive gaps. Exact valid base samples remain usable. Both selected survey and base stream require known unapplied diurnal history; existing base ledgers must validate.",
     "Every nonnull selected survey reading must have supported time coverage before any output/ledger application is committed. Missing survey readings stay null, with original record order and other fields preserved. Unsupported runs return needs_input and proposals but no corrected observations.",
     "Base station IDs must agree; available base XYZ positions must be stationary. The library cannot establish geographic suitability, disturbance-free recording, clock synchronization or calibration truth; caller evidence/QC is required.",
-    "Bindings cover normalized data identities/order, geometry/time/clearance, channel definitions and readings, not arbitrary metadata/extensions. Editing data invalidates the ledger. Binary64 numeric magnitude is bounded to the shared JSON safe-integer limit.",
+    "Bindings cover normalized data identities/order, geometry/time/clearance, channel definitions and readings, not arbitrary metadata/extensions. Editing data invalidates the ledger. Finite binary64 values up to +/-1e100 are supported. Python integers must be exactly representable; JS numbers already use binary64.",
     "Existing field units, correction declarations and source history are preserved; legacy aggregate states remain synchronized with per-channel states. Numeric changes move uncertainty into flat input lineage and mark uncertainty_propagated=false. No calibrated uncertainty is calculated. Raster workflow v1 is unchanged."
   ],
   "references": [
