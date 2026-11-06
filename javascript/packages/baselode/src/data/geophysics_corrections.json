@@ -1,0 +1,555 @@
+{
+  "id": "geophysics_corrections",
+  "version": 1,
+  "catalogue": {
+    "magnetic_diurnal": {
+      "family": "magnetic",
+      "aliases": [
+        "magnetic_diurnal",
+        "diurnal",
+        "base_station",
+        "base_station_correction",
+        "diurnal_correction",
+        "magnetic_base_station"
+      ],
+      "calculator": "correct_magnetic_base"
+    },
+    "magnetic_igrf": {
+      "family": "magnetic",
+      "aliases": [
+        "magnetic_igrf",
+        "igrf",
+        "igrf_removal"
+      ],
+      "calculator": null
+    },
+    "magnetic_lag": {
+      "family": "magnetic",
+      "aliases": [
+        "magnetic_lag",
+        "lag",
+        "time_lag"
+      ],
+      "calculator": null
+    },
+    "magnetic_heading": {
+      "family": "magnetic",
+      "aliases": [
+        "magnetic_heading",
+        "heading"
+      ],
+      "calculator": null
+    },
+    "magnetic_levelling": {
+      "family": "magnetic",
+      "aliases": [
+        "magnetic_levelling",
+        "levelling",
+        "leveling",
+        "tie_line_levelling"
+      ],
+      "calculator": null
+    },
+    "magnetic_microlevelling": {
+      "family": "magnetic",
+      "aliases": [
+        "magnetic_microlevelling",
+        "microlevelling",
+        "microleveling"
+      ],
+      "calculator": null
+    },
+    "gravity_drift": {
+      "family": "gravity",
+      "aliases": [
+        "gravity_drift",
+        "drift"
+      ],
+      "calculator": null
+    },
+    "gravity_tide": {
+      "family": "gravity",
+      "aliases": [
+        "gravity_tide",
+        "tide",
+        "tides"
+      ],
+      "calculator": null
+    },
+    "gravity_normal": {
+      "family": "gravity",
+      "aliases": [
+        "gravity_normal",
+        "normal_gravity"
+      ],
+      "calculator": null
+    },
+    "gravity_free_air": {
+      "family": "gravity",
+      "aliases": [
+        "gravity_free_air",
+        "free_air"
+      ],
+      "calculator": null
+    },
+    "gravity_bouguer": {
+      "family": "gravity",
+      "aliases": [
+        "gravity_bouguer",
+        "bouguer"
+      ],
+      "calculator": null
+    },
+    "gravity_terrain": {
+      "family": "gravity",
+      "aliases": [
+        "gravity_terrain",
+        "terrain"
+      ],
+      "calculator": null
+    },
+    "radiometric_dead_time": {
+      "family": "radiometric",
+      "aliases": [
+        "radiometric_dead_time",
+        "dead_time"
+      ],
+      "calculator": null
+    },
+    "radiometric_energy_calibration": {
+      "family": "radiometric",
+      "aliases": [
+        "radiometric_energy_calibration",
+        "energy_calibration"
+      ],
+      "calculator": null
+    },
+    "radiometric_background": {
+      "family": "radiometric",
+      "aliases": [
+        "radiometric_background",
+        "background"
+      ],
+      "calculator": null
+    },
+    "radiometric_stripping": {
+      "family": "radiometric",
+      "aliases": [
+        "radiometric_stripping",
+        "stripping"
+      ],
+      "calculator": null
+    },
+    "radiometric_height": {
+      "family": "radiometric",
+      "aliases": [
+        "radiometric_height",
+        "height_correction"
+      ],
+      "calculator": null
+    },
+    "radiometric_concentration": {
+      "family": "radiometric",
+      "aliases": [
+        "radiometric_concentration",
+        "concentration_conversion"
+      ],
+      "calculator": null
+    }
+  },
+  "declaration_parameters": {
+    "type": "array",
+    "minItems": 1,
+    "maxItems": 64,
+    "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "correction",
+        "channels",
+        "state",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "correction": {
+          "enum": [
+            "magnetic_diurnal",
+            "magnetic_igrf",
+            "magnetic_lag",
+            "magnetic_heading",
+            "magnetic_levelling",
+            "magnetic_microlevelling",
+            "gravity_drift",
+            "gravity_tide",
+            "gravity_normal",
+            "gravity_free_air",
+            "gravity_bouguer",
+            "gravity_terrain",
+            "radiometric_dead_time",
+            "radiometric_energy_calibration",
+            "radiometric_background",
+            "radiometric_stripping",
+            "radiometric_height",
+            "radiometric_concentration"
+          ]
+        },
+        "channels": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "state": {
+          "enum": [
+            "unknown",
+            "unapplied",
+            "applied"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    }
+  },
+  "base_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "base_channel",
+      "reference",
+      "max_gap",
+      "event_id",
+      "evidence",
+      "clock_policy"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string"
+      },
+      "base_channel": {
+        "type": "string"
+      },
+      "reference": {
+        "type": "number",
+        "minimum": -1e+100,
+        "maximum": 1e+100
+      },
+      "max_gap": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "clock_policy": {
+        "const": "synchronized"
+      }
+    }
+  },
+  "ledger_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "algorithm",
+      "initial_binding",
+      "current_binding",
+      "entries"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.correction_ledger"
+      },
+      "version": {
+        "const": 1
+      },
+      "algorithm": {
+        "const": "sha256-float64-v1"
+      },
+      "initial_binding": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "current_binding": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "entries": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "correction",
+            "channels",
+            "state",
+            "evidence",
+            "producer",
+            "input_binding",
+            "output_binding"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "kind": {
+              "enum": [
+                "declaration",
+                "application"
+              ]
+            },
+            "correction": {
+              "enum": [
+                "magnetic_diurnal",
+                "magnetic_igrf",
+                "magnetic_lag",
+                "magnetic_heading",
+                "magnetic_levelling",
+                "magnetic_microlevelling",
+                "gravity_drift",
+                "gravity_tide",
+                "gravity_normal",
+                "gravity_free_air",
+                "gravity_bouguer",
+                "gravity_terrain",
+                "radiometric_dead_time",
+                "radiometric_energy_calibration",
+                "radiometric_background",
+                "radiometric_stripping",
+                "radiometric_height",
+                "radiometric_concentration"
+              ]
+            },
+            "channels": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 32,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "state": {
+              "enum": [
+                "unknown",
+                "unapplied",
+                "applied"
+              ]
+            },
+            "evidence": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "producer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "library",
+                "version",
+                "algorithm_version"
+              ],
+              "properties": {
+                "library": {
+                  "const": "baselode"
+                },
+                "version": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "algorithm_version": {
+                  "const": 1
+                }
+              }
+            },
+            "input_binding": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "output_binding": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "parameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "channel",
+                "base_channel",
+                "reference",
+                "max_gap",
+                "event_id",
+                "evidence",
+                "clock_policy"
+              ],
+              "properties": {
+                "channel": {
+                  "type": "string"
+                },
+                "base_channel": {
+                  "type": "string"
+                },
+                "reference": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "max_gap": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1e+100
+                },
+                "event_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "clock_policy": {
+                  "const": "synchronized"
+                }
+              }
+            },
+            "base_binding": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "base_station_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "affected_records": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "application"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "parameters",
+                  "base_binding",
+                  "base_station_id",
+                  "affected_records"
+                ],
+                "properties": {
+                  "state": {
+                    "const": "applied"
+                  },
+                  "correction": {
+                    "const": "magnetic_diurnal"
+                  },
+                  "channels": {
+                    "maxItems": 1
+                  }
+                }
+              },
+              "else": {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "parameters"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "base_binding"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "base_station_id"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "affected_records"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "resources": {
+    "max_records": 100000,
+    "max_events": 64,
+    "max_binding_bytes": 33554432,
+    "max_options_bytes": 262144,
+    "numeric_bound": 1e+100,
+    "max_output_json_bytes": 16777216
+  },
+  "binding": {
+    "algorithm": "sha256-float64-v1",
+    "snapshot": [
+      "schema=baselode.correction_binding.v1",
+      "crs",
+      "crs_units",
+      "sorted channel tuples [name,field_type,units]",
+      "acquisition-order rows [id,x,y,z,time,clearance,line_id,station_id,channel values in sorted channel order]"
+    ],
+    "numbers": "All numeric fields/readings become lowercase 16-digit big-endian IEEE-754 float64 hexadecimal strings; null stays null and -0 canonicalizes to +0. Values up to +/-1e100 are supported; Python integer values must be exactly representable as binary64 to prevent lossy hashing. Snapshot is compact UTF-8 JSON arrays (Unicode scalars, ensure_ascii=false), then SHA-256. Metadata/extensions are not included.",
+    "runtime": "Python hashlib; JS async Web Crypto SHA-256 (Node 20+ or secure browser context)."
+  },
+  "assumptions": [
+    "History defaults to unknown. Evidence-backed declarations resolve unknown states; known applied/unapplied states cannot be changed to a different state through these APIs. Registered aliases import legacy global correction declarations conservatively for applicable channels.",
+    "Ledger events validate IDs, binding-chain continuity and per-channel state transitions. Applying requires unapplied history and complete support. Reused event IDs, repeated applications, conflicting legacy aliases and stale dataset bindings are rejected. This is a workflow/provenance guard, not authentication against stripped or maliciously rewritten metadata. Retained processing that records a base correction prevents reinitializing a missing ledger.",
+    "Base variation is linear_interpolated_base - explicit_reference and corrected = observed - variation. Selected survey magnetic total field/anomaly and stationary base total field must be in nT. This does not remove IGRF, change field type or infer calibration.",
+    "UTC Unix seconds and explicit synchronized clock policy are required. Base acquisition times must increase strictly. Null base readings break interpolation; no extrapolation or interpolation across excessive gaps. Exact valid base samples remain usable. Both selected survey and base stream require known unapplied diurnal history; existing base ledgers must validate.",
+    "Every nonnull selected survey reading must have supported time coverage before any output/ledger application is committed. Missing survey readings stay null, with original record order and other fields preserved. Unsupported runs return needs_input and proposals but no corrected observations.",
+    "Base station IDs must agree; available base XYZ positions must be stationary. The library cannot establish geographic suitability, disturbance-free recording, clock synchronization or calibration truth; caller evidence/QC is required.",
+    "Bindings cover normalized data identities/order, geometry/time/clearance, channel definitions and readings, not arbitrary metadata/extensions. Editing data invalidates the ledger. Finite binary64 values up to +/-1e100 are supported. Python integers must be exactly representable; JS numbers already use binary64.",
+    "Existing field units, correction declarations and source history are preserved; legacy aggregate states remain synchronized with per-channel states. Numeric changes move uncertainty into flat input lineage and mark uncertainty_propagated=false. No calibrated uncertainty is calculated. Raster workflow v1 is unchanged."
+  ],
+  "references": [
+    "https://archive.epa.gov/esd/archive-geophysics/web/html/magnetic_methods.html",
+    "https://nodejs.org/api/webcrypto.html"
+  ]
+}

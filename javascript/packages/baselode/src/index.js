@@ -681,3 +681,5 @@ export { describeGeophysicsGridding, gridGeophysicsObservations, crossValidateGe
 export { describeGeophysicsAlignment, alignGeophysicsRaster, matchGeophysicsRaster } from './data/geophysicsAlignment.js';
 
 export { describeGeophysicsEquivalentSources } from './data/geophysicsEquivalentSources.js';
+
+export { describeGeophysicsCorrections, inspectGeophysicsCorrections, declareGeophysicsCorrections, correctGeophysicsMagneticBase } from './data/geophysicsCorrections.js';

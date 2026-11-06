@@ -1,0 +1,145 @@
+{
+  "survey": {
+    "records": [
+      {
+        "id": "s0",
+        "x": 0,
+        "y": 0,
+        "time": 0,
+        "values": {
+          "mag": 50100,
+          "second": 200
+        },
+        "line_id": "line-A"
+      },
+      {
+        "id": "s1",
+        "x": 10,
+        "y": 0,
+        "time": 5,
+        "values": {
+          "mag": 50105,
+          "second": 204
+        },
+        "line_id": "line-A"
+      },
+      {
+        "id": "s2",
+        "x": 20,
+        "y": 0,
+        "time": 10,
+        "values": {
+          "mag": 50113,
+          "second": 208
+        },
+        "line_id": "line-A"
+      },
+      {
+        "id": "s3",
+        "x": 30,
+        "y": 0,
+        "time": 15,
+        "values": {
+          "mag": 50110,
+          "second": 205
+        },
+        "line_id": "line-A"
+      },
+      {
+        "id": "s4",
+        "x": 40,
+        "y": 0,
+        "time": 20,
+        "values": {
+          "mag": 50102,
+          "second": 202
+        },
+        "line_id": "line-A"
+      }
+    ],
+    "channels": {
+      "mag": {
+        "field_type": "magnetic_total_field",
+        "units": "nT"
+      },
+      "second": {
+        "field_type": "magnetic_anomaly",
+        "units": "nT"
+      }
+    },
+    "crs_units": "m",
+    "metadata": {
+      "corrections": {
+        "diurnal": "unapplied"
+      },
+      "source": "survey.xyz",
+      "height_datum": "local"
+    }
+  },
+  "base": {
+    "records": [
+      {
+        "id": "b0",
+        "time": 0,
+        "station_id": "BASE-A",
+        "values": {
+          "base": 50000
+        }
+      },
+      {
+        "id": "b1",
+        "time": 10,
+        "station_id": "BASE-A",
+        "values": {
+          "base": 50008
+        }
+      },
+      {
+        "id": "b2",
+        "time": 20,
+        "station_id": "BASE-A",
+        "values": {
+          "base": 50002
+        }
+      }
+    ],
+    "channels": {
+      "base": {
+        "field_type": "magnetic_total_field",
+        "units": "nT"
+      }
+    },
+    "metadata": {
+      "source": "base.xyz",
+      "corrections": {
+        "diurnal": "unapplied"
+      }
+    }
+  },
+  "options": {
+    "channel": "mag",
+    "base_channel": "base",
+    "reference": 50000,
+    "max_gap": 10,
+    "event_id": "apply-diurnal-1",
+    "evidence": "synthetic clock/base QC accepted",
+    "clock_policy": "synchronized"
+  },
+  "expected_values": [
+    50100,
+    50101,
+    50105,
+    50105,
+    50100
+  ],
+  "expected_base": [
+    50000,
+    50004,
+    50008,
+    50005,
+    50002
+  ],
+  "expected_input_binding": "34d8564bec87f4ab3d2948cf6ef3ac52e2916124447859868c96c23094155298",
+  "expected_output_binding": "1e941a30400f47754bfb0617f85c5a15d66b6a06241a38aae71379affd843035",
+  "expected_base_binding": "5dd6072ae3bc0be509094a8c4ec28e55efac5618f74c8c3c14a84f6d5adb965c"
+}

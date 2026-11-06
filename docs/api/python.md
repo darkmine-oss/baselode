@@ -1912,3 +1912,101 @@ an exact synthetic 1/r field at varying elevations (relative tolerance 1e-7) and
 an off-layer/off-grid source with small injected noise and gaps (absolute error
 <=0.05 in the synthetic field units). These cases establish bounded examples,
 not a general survey accuracy guarantee.
+
+### Observation correction ledger and magnetic base correction
+
+`describe_corrections()` returns the shared ledger/declaration/base schemas,
+registered correction names/aliases, data-binding protocol and limits.
+`inspect_corrections(payload)` validates history and returns per-channel states;
+`declare_corrections(payload, declarations)` appends evidence-backed history to a
+copied observation document. Every successful operation returns an independent
+`ledger` in the report; declaration/correction also return `observations`.
+Neither inspection nor declaration changes readings. Missing history
+is **unknown**. A declaration can resolve unknown state, but cannot change a
+known applied/unapplied state to a different state. Declarations record knowledge;
+they do not apply a numerical correction.
+
+`correct_magnetic_base(survey, base, options)` performs the first guarded
+correction in this family. Both selected channels need known **unapplied**
+`magnetic_diurnal` history, including the base monitor. Legacy
+`metadata.corrections` aliases such as `diurnal`/`base_station` are imported
+conservatively. Conflicting aliases are rejected. The scalar legacy summary is
+kept consistent with per-channel history; mixed channel states summarize as
+unknown. Already applied history and reused event IDs are rejected.
+
+```python
+import baselode.geophysics
+
+# Source history/QC must establish these declarations; do not infer them.
+survey_history = baselode.geophysics.declare_corrections(survey, [{
+    "id": "survey-source-check", "correction": "magnetic_diurnal",
+    "channels": ["mag"], "state": "unapplied", "evidence": "Raw contractor export checked",
+}])
+base_history = baselode.geophysics.declare_corrections(base, [{
+    "id": "base-source-check", "correction": "magnetic_diurnal",
+    "channels": ["base"], "state": "unapplied", "evidence": "Raw stationary monitor checked",
+}])
+if survey_history["state"] == base_history["state"] == "ok":
+    report = baselode.geophysics.correct_magnetic_base(
+        survey_history["observations"], base_history["observations"], {
+            "channel": "mag", "base_channel": "base", "reference": 50000,
+            "max_gap": 30, "event_id": "diurnal-1", "evidence": "Base QC and clocks checked",
+            "clock_policy": "synchronized",
+        },
+    )
+    if report["state"] == "ok":
+        corrected = report["observations"]
+```
+
+Survey input is a v1 observation document with a `magnetic_total_field` or
+`magnetic_anomaly` channel in nT. Base input has a `magnetic_total_field` channel
+in nT, one nonnull `station_id` across all records, and stationary XYZ wherever
+positions are present. All base records, including null-reading gap markers,
+need UTC Unix timestamps in strictly increasing acquisition order. Duplicate or
+unsorted base times need explicit input QC. Survey order may differ from time
+order and is retained. `reference` is an explicit baseline in nT; it is never
+estimated from the base series. `max_gap` is a positive bracket length in seconds.
+The caller must establish clock synchronization, base geographic suitability,
+calibration and disturbance-free recording; those cannot be inferred here.
+
+The calculation is
+`variation = linear_interpolated_base - reference` and
+`corrected = observed - variation`. The base variation subtraction is consistent
+with the [EPA magnetic survey description](https://archive.epa.gov/esd/archive-geophysics/web/html/magnetic_methods.html).
+Interpolation requires two nonnull bracketing base samples separated by no more
+than max_gap; it never crosses a null sample or extrapolates outside the base
+span. Exact nonnull base samples remain usable even when adjacent gaps are long.
+Each nonnull survey reading needs a time and supported base value before the
+operation commits. Otherwise state is `needs_input`, `observations` is None and
+per-reading `proposals` explain coverage/reasons. Null survey readings remain
+null and are excluded from the application count. Numerical range/field/unit or
+history violations return `rejected`. No partial corrected dataset or ledger
+application is returned. There is no repeat/force override.
+
+A successful ledger event records input/output/base bindings, exact parameters,
+station identity, affected reading count, evidence and producer version. All
+records/other channels and field type/units are preserved. Diurnal correction
+alone does not remove IGRF or relabel total field as anomaly. Existing metadata uncertainty/variance/standard_deviation
+moves into flat input lineage and `uncertainty_propagated=False` marks the output;
+no uncertainty estimate is computed. Source/base metadata and processing history
+survive downstream gridding and ERS/GeoTIFF exports.
+
+The versioned `metadata.correction_ledger` validates event transitions, unique
+IDs and chain continuity. Its SHA-256 binding covers normalized observation
+identities/order, geometry/time/clearance, channel definitions/units and readings.
+Numeric values use a shared binary64 encoding and magnitude <=1e100. Python integers that cannot be represented exactly as binary64 are rejected rather than hashed with lost precision; use an explicit float conversion only when that rounding is intended. Editing, adding or dropping bound data makes its ledger stale. Retained
+processing records of base correction also block reinitializing a missing ledger. Arbitrary metadata and row
+extensions are excluded from the binding; correction summaries are checked
+separately. This guards ordinary workflows and records provenance; it does not
+authenticate stripped or maliciously rewritten metadata. Preserve traceable raw
+inputs when changing datasets. Ledger-bound subsetting/merging is not supplied
+by this increment.
+
+Limits: 64 ledger events, 256 KiB options/declarations, 32 MiB binding snapshots,
+and the existing observation limits (100,000 rows, 250,000 readings, 16 MiB JSON).
+The 16 MiB output-document limit includes embedded source/base lineage and is
+reported as a resource error before returning any corrected observations.
+No rows/history are silently truncated. Correction IDs for later magnetic,
+gravity and radiometric operations can be declared/inspected, but only magnetic
+base correction is numerically implemented here. These direct APIs leave raster
+workflow v1 unchanged.

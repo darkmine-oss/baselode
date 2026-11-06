@@ -1493,3 +1493,35 @@ coverage and best-index selection. Always inspect state, issues and support;
 partial coverage never produces a selected candidate. Target height, height
 datum, positive-up convention and matching linear XY/height units are explicit.
 No uncertainty propagation or recovered-geology interpretation is implied.
+
+### Correction ledger and magnetic base correction
+
+Both public entries export `describeGeophysicsCorrections()` plus asynchronous
+`inspectGeophysicsCorrections(payload)`,
+`declareGeophysicsCorrections(payload, declarations)` and
+`correctGeophysicsMagneticBase(survey, base, options)`. They follow the
+[Python correction contract](/api/python#observation-correction-ledger-and-magnetic-base-correction)
+and use the same snake_case schemas and JSON reports. Public types cover the
+ledger, events, declarations, options, per-reading proposals and report.
+
+```javascript
+import { correctGeophysicsMagneticBase } from 'baselode/geophysics';
+const report = await correctGeophysicsMagneticBase(survey, base, {
+  channel: 'mag', base_channel: 'base', reference: 50000, max_gap: 30,
+  event_id: 'diurnal-1', evidence: 'Raw histories, base QC and clocks checked',
+  clock_policy: 'synchronized',
+});
+if (report.state === 'ok') {
+  const corrected = report.observations;
+}
+```
+
+Both selected channels require known unapplied diurnal history. Native Web Crypto
+SHA-256 makes these three APIs asynchronous and requires Node 20+ or a secure
+browser context. Missing Web Crypto returns actionable needs_input. Descriptor
+access is synchronous. Data bindings and replay agree with Python; producer
+version strings may differ. No network calls or extra dependency are needed.
+Incomplete base coverage returns proposals and no corrected observations; existing
+applied history cannot be reset or forced. Preserve raw data and ledger metadata.
+Only magnetic base correction is executable here; the other registered names
+record history for future calculators.

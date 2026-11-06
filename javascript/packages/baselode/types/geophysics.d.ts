@@ -413,3 +413,58 @@ export interface GeophysicsEquivalentSourceReport {
   best_index?: number | null;
 }
 export function describeGeophysicsEquivalentSources(): Record<string, unknown>;
+
+export type GeophysicsCorrectionState = 'unknown' | 'unapplied' | 'applied';
+export type GeophysicsCorrectionName = 'magnetic_diurnal' | 'magnetic_igrf' | 'magnetic_lag' | 'magnetic_heading' | 'magnetic_levelling' | 'magnetic_microlevelling' | 'gravity_drift' | 'gravity_tide' | 'gravity_normal' | 'gravity_free_air' | 'gravity_bouguer' | 'gravity_terrain' | 'radiometric_dead_time' | 'radiometric_energy_calibration' | 'radiometric_background' | 'radiometric_stripping' | 'radiometric_height' | 'radiometric_concentration';
+export interface GeophysicsCorrectionDeclaration {
+  id: string;
+  correction: GeophysicsCorrectionName;
+  channels: string[];
+  state: GeophysicsCorrectionState;
+  evidence: string;
+}
+export interface GeophysicsMagneticBaseOptions {
+  channel: string;
+  base_channel: string;
+  reference: number;
+  max_gap: number;
+  event_id: string;
+  evidence: string;
+  clock_policy: 'synchronized';
+}
+export type GeophysicsCorrectionEvent = GeophysicsCorrectionDeclaration & {
+  producer: { library: 'baselode'; version: string; algorithm_version: 1 };
+  input_binding: string;
+  output_binding: string;
+} & (
+  | { kind: 'declaration' }
+  | { kind: 'application'; correction: 'magnetic_diurnal'; state: 'applied'; parameters: GeophysicsMagneticBaseOptions; base_binding: string; base_station_id: string; affected_records: number }
+);
+export interface GeophysicsCorrectionLedger {
+  schema: 'baselode.geophysics.correction_ledger';
+  version: 1;
+  algorithm: 'sha256-float64-v1';
+  initial_binding: string;
+  current_binding: string;
+  entries: GeophysicsCorrectionEvent[];
+}
+export interface GeophysicsCorrectionReport {
+  schema: 'baselode.geophysics.corrections';
+  version: 1;
+  operation: 'inspect' | 'declare' | 'magnetic_base';
+  state: 'ok' | 'needs_input' | 'rejected';
+  issues: Array<{ code: string; message: string }>;
+  observations: GeophysicsObservations | null;
+  ledger: GeophysicsCorrectionLedger | null;
+  states: Record<GeophysicsCorrectionName, Record<string, GeophysicsCorrectionState>>;
+  proposals: Array<{ id: string; time: number | null; base_value: number | null; variation: number | null; corrected: number | null; supported: boolean; reason: 'missing_time' | 'missing_base_reading' | 'outside_base_span' | 'excessive_base_gap' | null }>;
+  diagnostics: Record<string, unknown>;
+  parameters: Record<string, unknown>;
+  producer: { library: string; version: string; algorithm_version: number };
+  assumptions: string[];
+}
+export function describeGeophysicsCorrections(): Record<string, unknown>;
+/** Native Web Crypto SHA-256: Node 20+ or secure browser context. */
+export function inspectGeophysicsCorrections(payload: unknown): Promise<GeophysicsCorrectionReport>;
+export function declareGeophysicsCorrections(payload: unknown, declarations: GeophysicsCorrectionDeclaration[]): Promise<GeophysicsCorrectionReport>;
+export function correctGeophysicsMagneticBase(payload: unknown, base: unknown, options: GeophysicsMagneticBaseOptions): Promise<GeophysicsCorrectionReport>;

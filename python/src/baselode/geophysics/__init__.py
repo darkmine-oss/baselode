@@ -20,6 +20,7 @@ import baselode.geophysics.observations as geophysics_observations
 import baselode.geophysics.gridding as geophysics_gridding
 import baselode.geophysics.alignment as geophysics_alignment
 import baselode.geophysics.equivalent_sources as geophysics_equivalent_sources
+import baselode.geophysics.corrections as geophysics_corrections
 
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
 load_raster = geophysics_raster.load_raster
@@ -78,7 +79,16 @@ describe_equivalent_sources = geophysics_equivalent_sources.describe_equivalent_
 grid_equivalent_sources = geophysics_equivalent_sources.grid_equivalent_sources
 cross_validate_equivalent_sources = geophysics_equivalent_sources.cross_validate_equivalent_sources
 
+describe_corrections = geophysics_corrections.describe_corrections
+inspect_corrections = geophysics_corrections.inspect_corrections
+declare_corrections = geophysics_corrections.declare_corrections
+correct_magnetic_base = geophysics_corrections.correct_magnetic_base
+
 __all__ = [
+    "describe_corrections",
+    "inspect_corrections",
+    "declare_corrections",
+    "correct_magnetic_base",
     "run_equivalent_sources",
     "describe_equivalent_sources",
     "grid_equivalent_sources",
