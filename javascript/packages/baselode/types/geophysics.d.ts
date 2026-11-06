@@ -370,3 +370,46 @@ export interface GeophysicsAlignmentReport extends GeophysicsGriddingBaseReport 
 export function describeGeophysicsAlignment(): Record<string, unknown>;
 export function alignGeophysicsRaster(source: GeophysicsRaster, target: GeophysicsAlignmentTarget, options: GeophysicsAlignmentOptions): GeophysicsAlignmentReport;
 export function matchGeophysicsRaster(source: GeophysicsRaster, reference: GeophysicsRaster, options: GeophysicsAlignmentOptions): GeophysicsAlignmentReport;
+
+/** Contracts for the optional Python numerical backend; no JavaScript solver. */
+export interface GeophysicsEquivalentSourceOptions {
+  channel: string;
+  depth: number;
+  damping: number | null;
+  radius: number;
+  duplicate_policy: 'mean' | 'reject';
+  extrapolation?: 'mask' | 'allow';
+}
+export interface GeophysicsEquivalentSourceGridOptions extends GeophysicsEquivalentSourceOptions {
+  bounds: [number, number, number, number];
+  shape: [number, number];
+  target_height: number;
+}
+export type GeophysicsEquivalentSourceRequest = {
+  schema: 'baselode.geophysics.equivalent_source_request';
+  version: 1;
+  observations: GeophysicsObservationsInput;
+} & (
+  | { operation: 'grid'; options: GeophysicsEquivalentSourceGridOptions; validation?: never; candidates?: never }
+  | { operation: 'cross_validate'; options: GeophysicsEquivalentSourceOptions; validation: GeophysicsGriddingValidationOptions; candidates?: Array<{ depth: number; damping: number | null }> | null }
+);
+export interface GeophysicsEquivalentSourceReport {
+  schema: 'baselode.geophysics.equivalent_source_grid' | 'baselode.geophysics.equivalent_source_validation' | 'baselode.geophysics.equivalent_source_request';
+  version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed';
+  issues: Array<{ code: string; message: string }>;
+  producer: { library: string; version: string; algorithm_version: number };
+  parameters: Record<string, unknown>;
+  diagnostics: Record<string, unknown>;
+  assumptions: string[];
+  /** Present for grid reports from the JSON runner, including empty on failure. */
+  artifacts?: Partial<Record<'grid' | 'support' | 'nearest_distance' | 'extrapolation', GeophysicsRasterPayload>>;
+  residuals?: Array<{ id: string; observed: number; predicted: number; residual: number }>;
+  candidates?: Array<{
+    parameters: { depth: number; damping: number | null };
+    folds: Array<{ group: string; train_records: number; test_records: number; excluded_buffer_records: number; training: Record<string, unknown> | null; predictions: Array<{ id: string; observed: number; predicted: number | null; nearest_distance: number | null; extrapolated: boolean | null; supported: boolean }>; metrics: GeophysicsGriddingMetrics }>;
+    summary: GeophysicsGriddingMetrics;
+  }>;
+  best_index?: number | null;
+}
+export function describeGeophysicsEquivalentSources(): Record<string, unknown>;

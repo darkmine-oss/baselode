@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Elevation-aware equivalent sources (TRK-537)**
+
+- Optional Python Harmonica adapter fits scalar magnetic/gravity anomalies at measured XYZ, predicts a common height, and returns support, residuals, backend/source geometry and persisted lineage. Explicit vertical context, depth/damping, duplicate and extrapolation policies accompany bounded execution. Line/block holdouts refit after XY/buffer exclusions; candidate ranking requires complete coverage.
+- A versioned JSON runner returns full-resolution raster payloads. JavaScript exposes shared schemas and TypeScript request/report contracts; numerical execution is explicitly Python-only. No downward continuation or geological inversion is claimed.
+
 **Geophysics scalar raster alignment (TRK-536)**
 
 - Matching Python/JavaScript align/match APIs provide explicit nearest/bilinear resampling, rotated affine grids and bounded horizontal reprojection, with per-band support, footprint and coordinate-valid masks. Categorical codes require nearest; local grids require frame/units; datum changes require backend acknowledgement. Field units/correction declarations and flat input lineage are preserved. No vector/height conversion, antialiasing or uncertainty propagation is claimed.

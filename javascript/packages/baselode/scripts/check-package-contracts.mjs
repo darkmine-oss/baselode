@@ -72,6 +72,9 @@ assert.equal(alignment.state, 'ok');
 assert.deepEqual(alignment.artifacts.raster.data, alignmentSource.data);
 assert.equal(typeof geophysics.alignGeophysicsRaster, 'function');
 
+assert.equal(geophysics.describeGeophysicsEquivalentSources().execution.javascript, 'contract_only');
+assert.equal(geophysics.describeGeophysicsEquivalentSources().request_schema.properties.version.const, 1);
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {

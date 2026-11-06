@@ -1,0 +1,692 @@
+{
+  "id": "geophysics_equivalent_sources",
+  "version": 1,
+  "execution": {
+    "python": "harmonica.EquivalentSources",
+    "javascript": "contract_only",
+    "extra": "potential-fields",
+    "supported_backend": "harmonica>=0.7,<0.8",
+    "runner": "baselode.geophysics.run_equivalent_sources"
+  },
+  "grid_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "depth",
+      "damping",
+      "radius",
+      "duplicate_policy",
+      "bounds",
+      "shape",
+      "target_height"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+      },
+      "depth": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100,
+        "description": "Fixed source plane is min(training z) minus depth, in coordinate units."
+      },
+      "damping": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100,
+        "description": "Explicit positive Tikhonov damping, or null for undamped fitting."
+      },
+      "radius": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "duplicate_policy": {
+        "enum": [
+          "mean",
+          "reject"
+        ]
+      },
+      "extrapolation": {
+        "enum": [
+          "mask",
+          "allow"
+        ],
+        "default": "mask"
+      },
+      "bounds": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": {
+          "type": "number",
+          "minimum": -1e+100,
+          "maximum": 1e+100
+        }
+      },
+      "shape": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        }
+      },
+      "target_height": {
+        "type": "number",
+        "minimum": -1e+100,
+        "maximum": 1e+100,
+        "description": "Constant positive-up height in the observation height datum/units; at or above all used observations."
+      }
+    }
+  },
+  "interpolation_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "depth",
+      "damping",
+      "radius",
+      "duplicate_policy"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+      },
+      "depth": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100,
+        "description": "Fixed source plane is min(training z) minus depth, in coordinate units."
+      },
+      "damping": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100,
+        "description": "Explicit positive Tikhonov damping, or null for undamped fitting."
+      },
+      "radius": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "duplicate_policy": {
+        "enum": [
+          "mean",
+          "reject"
+        ]
+      },
+      "extrapolation": {
+        "enum": [
+          "mask",
+          "allow"
+        ],
+        "default": "mask"
+      }
+    }
+  },
+  "validation_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "by": {
+        "enum": [
+          "line",
+          "block"
+        ]
+      },
+      "block_size": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100
+        }
+      },
+      "origin": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": {
+          "type": "number",
+          "minimum": -1e+100,
+          "maximum": 1e+100
+        }
+      },
+      "buffer_distance": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100,
+        "default": 0
+      }
+    },
+    "required": [
+      "by"
+    ]
+  },
+  "candidate_parameters": {
+    "type": "array",
+    "minItems": 1,
+    "maxItems": 8,
+    "items": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "depth",
+        "damping"
+      ],
+      "properties": {
+        "depth": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100,
+          "description": "Fixed source plane is min(training z) minus depth, in coordinate units."
+        },
+        "damping": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100,
+          "description": "Explicit positive Tikhonov damping, or null for undamped fitting."
+        }
+      }
+    }
+  },
+  "resources": {
+    "max_records": 512,
+    "max_grid_cells": 10000,
+    "max_folds": 16,
+    "max_candidates": 8,
+    "max_fit_work": 250000000,
+    "max_prediction_pairs": 10000000
+  },
+  "assumptions": [
+    "One scalar magnetic_anomaly or gravity_anomaly channel is modeled with the generic harmonic 1/r kernel. Equivalent source coefficients represent a field, not recovered geology, masses or magnetization. No reduction-to-pole or joint inversion occurs.",
+    "Coordinates are local/projected Cartesian XY and positive-up z with explicit shared height datum and matching linear coordinate/height units. No coordinate, datum, height or field-unit conversion is performed.",
+    "Exact XYZ duplicates are explicitly averaged or rejected; different heights at one XY remain separate measurements. Sources occupy unique training XY on one plane min(training z)-depth. Source geometry is derived from training data only.",
+    "Grid predictions use a caller-specified common height at or above the maximum used observation elevation. Downward continuation, draped target surfaces and gradient-boosted/windowed large-survey fitting are outside this bounded adapter.",
+    "Support combines XY radius and convex hull policy; nearest XY distance and extrapolation are diagnostics, not calibrated geological uncertainty. All values fitted by the dense solver contribute to supported predictions; radius does not localize the fit.",
+    "Each spatial holdout refits the model after removing coincident XY/buffered training rows. Predictions below the fold source plane or with insufficient training geometry remain unsupported. Candidate selection requires complete held-out coverage; otherwise best_index is null. Candidate tuning scores are not independent final generalization error.",
+    "Depth/damping are explicit; no automatic parameter estimation or data decimation occurs. Dense fitting, prediction pairs, folds/candidates and output cells are capped. Numerical/backend failures return failed, while missing/invalid context returns needs_input/rejected.",
+    "Original observations/correction declarations are preserved. Artifacts retain effective parameters, backend versions, source geometry and flat input lineage; uncertainty is not propagated. Numerical execution is Python-only; JavaScript exposes the same contracts. Raster workflow v1 is unchanged."
+  ],
+  "references": [
+    "https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.EquivalentSources.html",
+    "https://www.fatiando.org/harmonica/v0.7.0/user_guide/equivalent_sources/index.html",
+    "https://github.com/fatiando/harmonica/blob/v0.7.0/LICENSE.txt"
+  ],
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "operation",
+      "observations",
+      "options"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.equivalent_source_request"
+      },
+      "version": {
+        "const": 1
+      },
+      "operation": {
+        "enum": [
+          "grid",
+          "cross_validate"
+        ]
+      },
+      "observations": {
+        "title": "Baselode geophysics observations v1",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "records",
+          "channels"
+        ],
+        "properties": {
+          "schema": {
+            "const": "baselode.geophysics.observations"
+          },
+          "version": {
+            "const": 1
+          },
+          "records": {
+            "type": "array",
+            "maxItems": 512,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "x": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "y": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "z": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "clearance": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "time": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "line_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "station_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "values": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": -1e+100,
+                    "maximum": 1e+100
+                  }
+                },
+                "extra": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "channels": {
+            "type": "object",
+            "minProperties": 1,
+            "maxProperties": 32,
+            "propertyNames": {
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+            },
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "field_type",
+                "units"
+              ],
+              "properties": {
+                "field_type": {
+                  "enum": [
+                    "magnetic_total_field",
+                    "magnetic_anomaly",
+                    "gravity_observed",
+                    "gravity_anomaly",
+                    "radiometric",
+                    "radiometric_counts",
+                    "other"
+                  ]
+                },
+                "units": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "description": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "corrections": {
+                "type": "object",
+                "additionalProperties": {
+                  "enum": [
+                    "applied",
+                    "unapplied",
+                    "unknown"
+                  ]
+                }
+              }
+            }
+          },
+          "crs": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          },
+          "crs_units": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      },
+      "options": {
+        "type": "object"
+      },
+      "validation": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "by": {
+            "enum": [
+              "line",
+              "block"
+            ]
+          },
+          "block_size": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1e+100
+            }
+          },
+          "origin": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          },
+          "buffer_distance": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100,
+            "default": 0
+          }
+        },
+        "required": [
+          "by"
+        ]
+      },
+      "candidates": {
+        "anyOf": [
+          {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "depth",
+                "damping"
+              ],
+              "properties": {
+                "depth": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1e+100,
+                  "description": "Fixed source plane is min(training z) minus depth, in coordinate units."
+                },
+                "damping": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "exclusiveMinimum": 0,
+                  "maximum": 1e+100,
+                  "description": "Explicit positive Tikhonov damping, or null for undamped fitting."
+                }
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "oneOf": [
+      {
+        "properties": {
+          "operation": {
+            "const": "grid"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "depth",
+              "damping",
+              "radius",
+              "duplicate_policy",
+              "bounds",
+              "shape",
+              "target_height"
+            ],
+            "properties": {
+              "channel": {
+                "type": "string",
+                "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+              },
+              "depth": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100,
+                "description": "Fixed source plane is min(training z) minus depth, in coordinate units."
+              },
+              "damping": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100,
+                "description": "Explicit positive Tikhonov damping, or null for undamped fitting."
+              },
+              "radius": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100
+              },
+              "duplicate_policy": {
+                "enum": [
+                  "mean",
+                  "reject"
+                ]
+              },
+              "extrapolation": {
+                "enum": [
+                  "mask",
+                  "allow"
+                ],
+                "default": "mask"
+              },
+              "bounds": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                }
+              },
+              "shape": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100000
+                }
+              },
+              "target_height": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100,
+                "description": "Constant positive-up height in the observation height datum/units; at or above all used observations."
+              }
+            }
+          }
+        },
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "validation"
+              ]
+            },
+            {
+              "required": [
+                "candidates"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "required": [
+          "validation"
+        ],
+        "properties": {
+          "operation": {
+            "const": "cross_validate"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "depth",
+              "damping",
+              "radius",
+              "duplicate_policy"
+            ],
+            "properties": {
+              "channel": {
+                "type": "string",
+                "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+              },
+              "depth": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100,
+                "description": "Fixed source plane is min(training z) minus depth, in coordinate units."
+              },
+              "damping": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100,
+                "description": "Explicit positive Tikhonov damping, or null for undamped fitting."
+              },
+              "radius": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100
+              },
+              "duplicate_policy": {
+                "enum": [
+                  "mean",
+                  "reject"
+                ]
+              },
+              "extrapolation": {
+                "enum": [
+                  "mask",
+                  "allow"
+                ],
+                "default": "mask"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "result_contract": {
+    "states": [
+      "ok",
+      "needs_input",
+      "rejected",
+      "failed"
+    ],
+    "grid_schema": "baselode.geophysics.equivalent_source_grid",
+    "validation_schema": "baselode.geophysics.equivalent_source_validation",
+    "request_error_schema": "baselode.geophysics.equivalent_source_request",
+    "grid_artifacts": [
+      "grid",
+      "support",
+      "nearest_distance",
+      "extrapolation"
+    ],
+    "artifact_transport": "run_equivalent_sources returns full-resolution GeophysicsRaster.to_payload() objects with null missing cells; direct grid API returns GeophysicsRaster instances.",
+    "uncertainty_propagated": false
+  }
+}

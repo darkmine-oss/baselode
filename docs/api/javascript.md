@@ -1459,3 +1459,37 @@ require nearest; local grids require matching explicit frame IDs/units. No field
 unit conversion, vector/height/epoch transformation, antialiasing or uncertainty
 propagation occurs. Reference grids contribute geometry only. Check report state
 before reading artifacts and inspect support/footprint/coordinate-valid masks.
+
+### Equivalent-source Python backend contracts
+
+`describeGeophysicsEquivalentSources()` is exported from the main and
+`baselode/geophysics` entries. It returns the identical descriptor used by
+[Python's elevation-aware adapter](/api/python#elevation-aware-equivalent-source-gridding),
+including a versioned `request_schema`, `result_contract`, applicability and
+resource limits. **Numerical execution is Python-only** with the optional
+`baselode[potential-fields]` extra. JavaScript provides no solver or automatic
+network calls; a host routes a request to Python `run_equivalent_sources`.
+
+```typescript
+import {
+  describeGeophysicsEquivalentSources,
+  type GeophysicsEquivalentSourceRequest,
+  type GeophysicsEquivalentSourceReport,
+} from 'baselode/geophysics';
+const request: GeophysicsEquivalentSourceRequest = {
+  schema: 'baselode.geophysics.equivalent_source_request', version: 1,
+  operation: 'grid', observations,
+  options: {
+    channel: 'mag', depth: 100, damping: 1e-6, radius: 150,
+    duplicate_policy: 'mean', bounds: [0, 0, 100, 100], shape: [5, 5], target_height: 50,
+  },
+};
+```
+
+The Python JSON runner returns full-resolution raster payloads accepted by
+`createGeophysicsRaster`, with null missing cells. Public request/report types
+cover grid and line/block validation, depth/damping candidates, residuals,
+coverage and best-index selection. Always inspect state, issues and support;
+partial coverage never produces a selected candidate. Target height, height
+datum, positive-up convention and matching linear XY/height units are explicit.
+No uncertainty propagation or recovered-geology interpretation is implied.

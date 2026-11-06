@@ -71,3 +71,14 @@ void matchGeophysicsRaster(raster, raster, { method: 'nearest', value_kind: 'cat
 alignGeophysicsRaster(raster, target, { method: 'bilinear', value_kind: 'categorical' });
 // @ts-expect-error explicit sampling method is required
 alignGeophysicsRaster(raster, target, { value_kind: 'continuous' });
+
+import { describeGeophysicsEquivalentSources, type GeophysicsEquivalentSourceRequest, type GeophysicsEquivalentSourceReport } from 'baselode/geophysics';
+const equivalentOptions = { channel: 'mag', depth: 100, damping: null, radius: 1000, duplicate_policy: 'mean' as const };
+const equivalentRequest: GeophysicsEquivalentSourceRequest = { schema: 'baselode.geophysics.equivalent_source_request', version: 1, operation: 'grid', observations, options: { ...equivalentOptions, bounds: [0, 0, 100, 100], shape: [10, 10], target_height: 300 } };
+const equivalentValidation: GeophysicsEquivalentSourceRequest = { schema: 'baselode.geophysics.equivalent_source_request', version: 1, operation: 'cross_validate', observations, options: equivalentOptions, validation: { by: 'line' } };
+void equivalentRequest; void equivalentValidation; void describeGeophysicsEquivalentSources();
+const readEquivalentState = (result: GeophysicsEquivalentSourceReport) => result.state;
+void readEquivalentState;
+// @ts-expect-error common-surface height is mandatory for a grid request
+const missingEquivalentHeight: GeophysicsEquivalentSourceRequest = { schema: 'baselode.geophysics.equivalent_source_request', version: 1, operation: 'grid', observations, options: equivalentOptions };
+void missingEquivalentHeight;
