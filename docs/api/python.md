@@ -1801,3 +1801,114 @@ The direct APIs do not extend raster workflow v1. Limits are one million source
 band values, 100,000 target cells and 250,000 target band values; no automatic
 truncation or decimation is used. Portable finite JSON metadata is required
 (up to 16 MiB). A reference raster contributes no values or scientific metadata.
+
+### Elevation-aware equivalent-source gridding
+
+Install `pip install 'baselode[potential-fields]'` for the supported Harmonica
+0.7.x backend. This optional BSD-3-Clause dependency is used through its public
+API; no third-party implementation or survey fixtures are bundled.
+`describe_equivalent_sources()` exposes parameter schemas, a versioned JSON
+request schema, result contract, backend requirements and resource limits.
+
+`grid_equivalent_sources(observations, options)` fits one `magnetic_anomaly` or
+`gravity_anomaly` channel at its actual XYZ coordinates and predicts a constant
+height grid. The underlying [Harmonica equivalent-source engine](https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.EquivalentSources.html)
+uses a generic harmonic 1/r basis. Coefficients describe the field; they are not
+an interpretation of geological source geometry or physical masses.
+
+```python
+import baselode.geophysics
+
+observations = {
+    "records": [
+        {"id": "a", "x": 0, "y": 0, "z": 20, "values": {"mag": 10}},
+        {"id": "b", "x": 100, "y": 0, "z": 25, "values": {"mag": 11}},
+        {"id": "c", "x": 0, "y": 100, "z": 30, "values": {"mag": 9}},
+        {"id": "d", "x": 100, "y": 100, "z": 35, "values": {"mag": 10}},
+    ],
+    "channels": {"mag": {"field_type": "magnetic_anomaly", "units": "nT"}},
+    "crs": "EPSG:28350", "crs_units": "m",
+    "metadata": {"height_units": "m", "height_datum": "AHD", "z_positive": "up"},
+}
+interpolation = {
+    "channel": "mag", "depth": 100, "damping": 1e-6,
+    "radius": 150, "duplicate_policy": "mean", "extrapolation": "mask",
+}
+report = baselode.geophysics.grid_equivalent_sources(observations, {
+    **interpolation, "bounds": [0, 0, 100, 100], "shape": [5, 5], "target_height": 50,
+})
+if report["state"] == "ok":
+    grid = report["artifacts"]["grid"]
+    support = report["artifacts"]["support"]
+```
+
+Bounds are outer edges, shape is `[rows, columns]`, and centres follow north-up
+raster conventions. Horizontal coordinates must be projected/local Cartesian;
+local observations also need a `metadata.frame_id`. `height_units` must match
+linear XY units (aliases are normalized; values are never converted).
+`height_datum` must name a shared datum; `z_positive` must be `up`. Missing usable
+observation elevations require input rather than invented heights. Unsupported
+field families, geographic coordinates, conflicting units and target heights
+below the maximum used observation elevation are rejected.
+
+A source occupies each unique training XY, all on the plane
+`min(training z) - depth`. Depth is explicit and positive. Damping is an explicit
+positive scalar or `None` for undamped fitting; no depth/damping is estimated
+silently. Exact XYZ duplicates require mean/reject policy. Repeated XY at
+different heights are distinct measurements. At least three noncollinear XY
+locations are required. The backend works on centred coordinates and reports
+versions, source geometry, fit warnings and work estimates.
+
+Artifacts are `grid`, `support`, `nearest_distance` and `extrapolation`.
+Unsupported grid values are NaN. Support uses nearest XY distance within `radius`
+and the convex-hull policy (`mask` default, or explicit `allow`). The dense model
+uses all training measurements; radius does not localize the fit. Diagnostics are
+geometric support, not calibrated uncertainty. Fitted-observation residuals use
+**predicted minus observed**, including each original duplicate reading. Inputs,
+field units and correction declarations are preserved; stale geometry/uncertainty
+is retained in flat lineage. ERS/GeoTIFF exports retain effective parameters,
+backend and source geometry. No uncertainty propagation is claimed.
+
+`cross_validate_equivalent_sources(payload, interpolation, validation, candidates=None)`
+refits entire models for held-out lines or explicit-origin blocks, using the
+[baseline spatial split contract](/api/python#baseline-observation-gridding-and-spatial-validation).
+All training observations at held-out XY are excluded even if elevations differ;
+a buffer can exclude a wider halo. Fold source planes use training elevations
+only. Unsupported fold geometry or predictions below its source plane remain
+unsupported. Candidate pairs contain exactly `depth` and `damping`:
+
+```python
+validation = baselode.geophysics.cross_validate_equivalent_sources(
+    survey_with_line_ids, interpolation,
+    {"by": "line", "buffer_distance": 25},
+    [{"depth": 100, "damping": 1e-6}, {"depth": 200, "damping": 1e-3}],
+)
+```
+
+Each candidate returns per-fold predictions, coverage and paired-only RMSE/MAE/bias.
+`best_index` selects the lowest-RMSE candidate **only among complete-coverage
+candidates**; it is None when none qualifies. Partial-coverage errors must be read
+with coverage. Selection scores are tuning results, not independent final test
+errors; use a separate survey/outer holdout for that assessment. No model is fit
+to held-out observations. An explicit `allow` extrapolation policy can be needed
+for boundary lines; it remains constrained by radius and vertical domain.
+
+`run_equivalent_sources(request)` accepts the descriptor's versioned JSON
+contract, dispatching `operation="grid"` or `"cross_validate"`. It returns the
+same reports with grid artifacts converted to full-resolution `to_payload()`
+objects (null for missing values). It performs no file/network I/O and executes
+no user code. A hosting application can route these requests from JavaScript;
+this library supplies no implicit RPC client. Direct grid/validation APIs return
+structured `ok`, `needs_input`, `rejected` or backend `failed` states. A missing
+optional backend raises ImportError with installation instructions.
+
+Limits: 512 input records, 10,000 grid cells, 16 folds, 8 candidates, cumulative
+sum of fit record-count cubed <=250 million and prediction-pair estimate <=10
+million. These bound dense work, not exact memory/time. Nothing is truncated or
+decimated. The adapter does not perform downward continuation, vertical datum
+conversion, arbitrary target surfaces, vector rotation, RTP, joint inversion,
+Earth-curvature modelling or large-survey windowing. Independent tests recover
+an exact synthetic 1/r field at varying elevations (relative tolerance 1e-7) and
+an off-layer/off-grid source with small injected noise and gaps (absolute error
+<=0.05 in the synthetic field units). These cases establish bounded examples,
+not a general survey accuracy guarantee.

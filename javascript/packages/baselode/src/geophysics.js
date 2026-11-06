@@ -59,3 +59,5 @@ export { createGeophysicsObservations, geophysicsObservationSchema, describeGeop
 export { describeGeophysicsGridding, gridGeophysicsObservations, crossValidateGeophysicsGridding } from './data/geophysicsGridding.js';
 
 export { describeGeophysicsAlignment, alignGeophysicsRaster, matchGeophysicsRaster } from './data/geophysicsAlignment.js';
+
+export { describeGeophysicsEquivalentSources } from './data/geophysicsEquivalentSources.js';

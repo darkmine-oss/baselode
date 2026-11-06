@@ -685,6 +685,30 @@
           "match_raster"
         ]
       ]
+    },
+    {
+      "name": "geophysics_equivalent_sources",
+      "jsExports": [
+        "describeGeophysicsEquivalentSources"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_equivalent_sources"
+        ],
+        [
+          "baselode.geophysics",
+          "grid_equivalent_sources"
+        ],
+        [
+          "baselode.geophysics",
+          "cross_validate_equivalent_sources"
+        ],
+        [
+          "baselode.geophysics",
+          "run_equivalent_sources"
+        ]
+      ]
     }
   ]
 }

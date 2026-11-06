@@ -7,3 +7,7 @@ folium>=0.15
 pyarrow>=12.0
 sqlalchemy>=2.0
 rasterio>=1.4
+# Optional potential-fields backend used by CI/scientific scripts
+harmonica>=0.7,<0.8
+# Shared request-schema validation in tests
+jsonschema>=4.18
