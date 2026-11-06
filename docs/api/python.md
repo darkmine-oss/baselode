@@ -1767,7 +1767,8 @@ if report["state"] == "ok":
     supported = report["artifacts"]["support"]
 ```
 
-Shape is `[rows, columns]`; transform `[a,b,c,d,e,f]` maps pixel-edge coordinates
+Shape is `[rows, columns]`; Python also accepts tuples for shape/transform.
+Transform `[a,b,c,d,e,f]` maps pixel-edge coordinates
 `x=a*column+b*row+c`, `y=d*column+e*row+f`. Sampling occurs at target cell centres;
 rotation and shear are supported. Specify nearest or bilinear explicitly.
 Categorical safe-integer codes require nearest. Bilinear requires every cell with

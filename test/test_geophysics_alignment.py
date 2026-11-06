@@ -168,3 +168,25 @@ def test_reference_only_supplies_geometry_even_with_opaque_scientific_metadata()
     assert result["state"] == "ok"
     np.testing.assert_array_equal(result["artifacts"]["raster"].data, source.data)
     assert "opaque" not in result["artifacts"]["raster"].metadata
+
+
+def test_python_geometry_tuples_and_constructor_numeric_crs_are_accepted():
+    source = raster().copy_with(crs=28350)
+    grid = {"shape": (4, 4), "transform": source.transform, "crs": "EPSG:28350"}
+    result = baselode.geophysics.align_raster(source, grid, options())
+    assert result["state"] == "ok"
+    np.testing.assert_array_equal(result["artifacts"]["raster"].data, source.data)
+    assert isinstance(grid["shape"], tuple) and isinstance(grid["transform"], tuple)
+    assert baselode.geophysics.match_raster(source, source, options())["state"] == "ok"
+    assert baselode.geophysics.align_raster(source, {**grid, "crs": 28350}, options())["state"] == "rejected"
+
+
+def test_invalid_projection_domain_has_no_coordinate_or_sampling_support():
+    source = raster().copy_with(crs="EPSG:3857")
+    result = baselode.geophysics.align_raster(source, {
+        "shape": [1, 1], "transform": [1, 0, 0, 0, -1, 101], "crs": "EPSG:4326",
+    }, options(datum_policy="backend"))
+    assert result["state"] == "ok"
+    for key in ("support", "footprint", "coordinate_valid"):
+        assert result["artifacts"][key].data.item() == 0
+    assert np.isnan(result["artifacts"]["raster"].data.item())

@@ -89,3 +89,18 @@ it('requires safe integer categorical codes and treats large nodata sentinels as
   source.data = source.data.map((band) => band.map((row) => row.map(() => -1e300))); source.nodata = -1e300;
   expect(alignGeophysicsRaster(source, target(), options({ method: 'nearest', value_kind: 'categorical' })).state).toBe('ok');
 });
+
+it('accepts constructor numeric CRS identifiers for source/reference but explicit target strings', () => {
+  const source = createGeophysicsRaster({ ...raster(), crs: 28350 });
+  const result = alignGeophysicsRaster(source, target({ crs: 'EPSG:28350' }), options());
+  expect(result.state).toBe('ok'); expect(result.artifacts.raster.data).toEqual(source.data);
+  expect(matchGeophysicsRaster(source, source, options()).state).toBe('ok');
+  expect(alignGeophysicsRaster(source, target({ crs: 28350 }), options()).state).toBe('rejected');
+});
+it('masks invalid projection-domain coordinates separately from finite exterior samples', () => {
+  const source = createGeophysicsRaster({ ...raster(), crs: 'EPSG:3857' });
+  const result = alignGeophysicsRaster(source, { shape: [1, 1], transform: [1, 0, 0, 0, -1, 101], crs: 'EPSG:4326' }, options({ datum_policy: 'backend' }));
+  expect(result.state).toBe('ok');
+  for (const key of ['support', 'footprint', 'coordinate_valid']) expect(result.artifacts[key].data[0][0][0]).toBe(0);
+  expect(result.artifacts.raster.data[0][0][0]).toBeNull();
+});

@@ -144,7 +144,9 @@ def _options(options):
 def _target(target):
     if type(target) is not dict or target.keys() - _DESCRIPTOR["target"]["properties"].keys():
         raise ValueError("target must use only shape, transform, crs, crs_units and frame_id")
-    result = _json(target)
+    # Raster transforms are tuples in Python; normalize the documented
+    # geometry sequences to portable JSON arrays without mutating the caller.
+    result = _json({key: list(value) if key in ("shape", "transform") and type(value) is tuple else value for key, value in target.items()})
     if any(key not in result for key in ("shape", "transform", "crs")):
         raise _NeedsInput("target needs explicit shape, transform and crs (null for a local grid)")
     result["shape"], result["transform"] = _geometry(result["shape"], result["transform"])

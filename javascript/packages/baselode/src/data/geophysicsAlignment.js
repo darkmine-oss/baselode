@@ -35,6 +35,11 @@ function crs(value) {
   const normalized = trim(value); const match = /^(?:EPSG\s*:\s*)?(\d+)$/i.exec(normalized);
   return match ? `EPSG:${Number(match[1])}` : normalized;
 }
+// The raster constructor retains numeric CRS identifiers, unlike Python's
+// string-normalized model. The explicit target JSON contract remains string/null.
+function rasterCrs(value) {
+  return crs(typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? `EPSG:${value}` : value);
+}
 const epsg = (value) => typeof value === 'string' && /^EPSG:\d+$/.test(value) ? Number(value.slice(5)) : null;
 function coordinateUnit(reference, declared) {
   let unit = null;
@@ -105,7 +110,7 @@ export function alignGeophysicsRaster(source, target, options) {
     const original = sourceRaster(source); const metadata = original.metadata; const params = optionsContract(options); const grid = targetContract(target); const [height, width] = grid.shape;
     if (params.value_kind === 'categorical' && source.data.some((band) => band.some((row) => row.some((value) => value !== null && Number.isFinite(value) && value !== source.nodata && !Number.isSafeInteger(value))))) throw Error('categorical cells must be integer codes within the JSON safe-integer range');
     if (height * width > limits.max_target_cells || height * width * source.bandCount > limits.max_target_band_values) throw new ResourceError('target shape/bands exceed alignment resource limits');
-    const sourceCrs = crs(source.crs); const sourceUnit = coordinateUnit(sourceCrs, metadata.crs_units); const changed = sourceCrs !== grid.crs;
+    const sourceCrs = rasterCrs(source.crs); const sourceUnit = coordinateUnit(sourceCrs, metadata.crs_units); const changed = sourceCrs !== grid.crs;
     if (sourceCrs === null || grid.crs === null) {
       if (changed) throw new NeedsInput('a local grid cannot be reprojected without an explicit CRS');
       if (!label(metadata.frame_id) || grid.frame_id === null) throw new NeedsInput('local alignment requires declared matching source/target frame_id');
@@ -156,6 +161,6 @@ export function matchGeophysicsRaster(source, reference, options) {
   try {
     if (!object(reference) || !object(reference.metadata)) throw Error('source/reference must be a GeophysicsRaster');
     const grid = geometry([reference.height, reference.width], reference.transform);
-    return alignGeophysicsRaster(source, { shape: grid.shape, transform: grid.transform, crs: reference.crs, crs_units: reference.metadata.crs_units ?? null, frame_id: reference.metadata.frame_id ?? null }, options);
+    return alignGeophysicsRaster(source, { shape: grid.shape, transform: grid.transform, crs: rasterCrs(reference.crs), crs_units: reference.metadata.crs_units ?? null, frame_id: reference.metadata.frame_id ?? null }, options);
   } catch (error) { return errorResult(report(), error); }
 }
