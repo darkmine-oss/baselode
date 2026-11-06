@@ -19,7 +19,7 @@ const limits = descriptor.resources;
 
 // Reject lone UTF-16 code units, including in extension keys, consistently
 // with Python's UTF-8 JSON contract. Valid pairs/astral characters are retained.
-function unicodeStrings(value) {
+export function unicodeStrings(value) {
   if (typeof value === 'string') {
     for (let index = 0; index < value.length; index += 1) {
       const code = value.charCodeAt(index);

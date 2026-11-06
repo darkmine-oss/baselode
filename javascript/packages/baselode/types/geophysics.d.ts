@@ -349,3 +349,24 @@ export interface GeophysicsGriddingValidationReport extends GeophysicsGriddingBa
 export function describeGeophysicsGridding(): Record<string, unknown>;
 export function gridGeophysicsObservations(payload: unknown, options: GeophysicsGridOptions): GeophysicsObservationGridReport;
 export function crossValidateGeophysicsGridding(payload: unknown, options: GeophysicsInterpolationOptions, validation: GeophysicsGriddingValidationOptions): GeophysicsGriddingValidationReport;
+
+export interface GeophysicsAlignmentTarget {
+  shape: [number, number];
+  transform: [number, number, number, number, number, number];
+  crs: string | null;
+  crs_units?: string | null;
+  frame_id?: string | null;
+}
+export type GeophysicsAlignmentOptions = {
+  datum_policy?: 'backend';
+} & (
+  | { method: 'nearest' | 'bilinear'; value_kind: 'continuous' }
+  | { method: 'nearest'; value_kind: 'categorical' }
+);
+export interface GeophysicsAlignmentReport extends GeophysicsGriddingBaseReport {
+  schema: 'baselode.geophysics.raster_alignment';
+  artifacts: Partial<Record<'raster' | 'support' | 'footprint' | 'coordinate_valid', GeophysicsRaster>>;
+}
+export function describeGeophysicsAlignment(): Record<string, unknown>;
+export function alignGeophysicsRaster(source: GeophysicsRaster, target: GeophysicsAlignmentTarget, options: GeophysicsAlignmentOptions): GeophysicsAlignmentReport;
+export function matchGeophysicsRaster(source: GeophysicsRaster, reference: GeophysicsRaster, options: GeophysicsAlignmentOptions): GeophysicsAlignmentReport;

@@ -663,6 +663,28 @@
           "cross_validate_gridding"
         ]
       ]
+    },
+    {
+      "name": "geophysics_alignment",
+      "jsExports": [
+        "describeGeophysicsAlignment",
+        "alignGeophysicsRaster",
+        "matchGeophysicsRaster"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_alignment"
+        ],
+        [
+          "baselode.geophysics",
+          "align_raster"
+        ],
+        [
+          "baselode.geophysics",
+          "match_raster"
+        ]
+      ]
     }
   ]
 }

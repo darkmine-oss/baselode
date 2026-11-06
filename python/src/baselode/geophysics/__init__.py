@@ -18,6 +18,7 @@ import baselode.geophysics.writers as geophysics_writers
 import baselode.geophysics.workflows as geophysics_workflows
 import baselode.geophysics.observations as geophysics_observations
 import baselode.geophysics.gridding as geophysics_gridding
+import baselode.geophysics.alignment as geophysics_alignment
 
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
 load_raster = geophysics_raster.load_raster
@@ -67,7 +68,15 @@ describe_gridding = geophysics_gridding.describe_gridding
 grid_observations = geophysics_gridding.grid_observations
 cross_validate_gridding = geophysics_gridding.cross_validate_gridding
 
+describe_alignment = geophysics_alignment.describe_alignment
+align_raster = geophysics_alignment.align_raster
+match_raster = geophysics_alignment.match_raster
+
 __all__ = [
+    "describe_alignment",
+    "align_raster",
+    "match_raster",
+
     "describe_gridding",
     "grid_observations",
     "cross_validate_gridding",

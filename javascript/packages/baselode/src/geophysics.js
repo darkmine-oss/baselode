@@ -57,3 +57,5 @@ export { listGeophysicsOperations, describeGeophysicsOperation, geophysicsWorkfl
 export { createGeophysicsObservations, geophysicsObservationSchema, describeGeophysicsObservationQc, qcGeophysicsObservations } from './data/geophysicsObservations.js';
 
 export { describeGeophysicsGridding, gridGeophysicsObservations, crossValidateGeophysicsGridding } from './data/geophysicsGridding.js';
+
+export { describeGeophysicsAlignment, alignGeophysicsRaster, matchGeophysicsRaster } from './data/geophysicsAlignment.js';

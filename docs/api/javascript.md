@@ -1430,3 +1430,32 @@ console.log(validation.summary, validation.issues);
 Field raster cells are null when unsupported; support/count/distance/extrapolation artifacts
 remain full resolution. APIs are synchronous: use a Web Worker for larger bounded jobs.
 They never apply observation corrections or infer a common height from draped observations.
+
+### Raster alignment, resampling and horizontal reprojection
+
+The main and `baselode/geophysics` entries export `describeGeophysicsAlignment()`,
+`alignGeophysicsRaster(source, target, options)` and
+`matchGeophysicsRaster(source, reference, options)`. They follow the
+[Python alignment contract](/api/python#raster-alignment-resampling-and-horizontal-reprojection),
+with snake_case target/options and null for unsupported samples. Public types
+include `GeophysicsAlignmentTarget`, `GeophysicsAlignmentOptions` and
+`GeophysicsAlignmentReport`.
+
+```javascript
+import { alignGeophysicsRaster } from 'baselode/geophysics';
+const report = alignGeophysicsRaster(source, {
+  shape: [100, 120], transform: [50, 0, 400000, 0, -50, 6800000], crs: 'EPSG:28350',
+}, { method: 'bilinear', value_kind: 'continuous' });
+if (report.state === 'ok') {
+  const { raster, support, footprint, coordinate_valid } = report.artifacts;
+}
+```
+
+Use `datum_policy: 'backend'` for supported CRS changes. JS uses the existing
+proj4 registry, including approximate Australian datum definitions; Python uses
+pyproj/PROJ with ballpark transforms disabled. Reports record the backend/version.
+Datum changes have no exact cross-runtime accuracy guarantee. Categorical codes
+require nearest; local grids require matching explicit frame IDs/units. No field
+unit conversion, vector/height/epoch transformation, antialiasing or uncertainty
+propagation occurs. Reference grids contribute geometry only. Check report state
+before reading artifacts and inspect support/footprint/coordinate-valid masks.
