@@ -217,7 +217,7 @@ def _load(data):
         if len({state for alias, state in pairs}) != 1:
             raise ValueError("conflicting legacy correction aliases require explicit source-history repair")
         ledger["entries"].append({"id": "legacy:" + correction, "kind": "declaration", "correction": correction, "channels": _channels(data, correction), "state": pairs[0][1],
-                                  "evidence": "Imported metadata.corrections: " + ", ".join(alias for alias, state in pairs), "producer": _producer(), "input_binding": current, "output_binding": current})
+                                  "evidence": "Imported metadata.corrections for " + correction + " (" + str(len(pairs)) + " aliases)", "producer": _producer(), "input_binding": current, "output_binding": current})
     return _validate(data, ledger, current, check_summary=False)
 
 

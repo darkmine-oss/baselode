@@ -328,3 +328,19 @@ def test_ledger_entry_shape_errors_are_contract_errors(entries):
     output = corrected(); output['metadata']['correction_ledger']['entries'] = entries
     result = baselode.geophysics.inspect_corrections(output)
     assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'contract'
+
+
+def test_legacy_alias_evidence_is_bounded_without_discarding_original_keys():
+    item = fixture(); long_alias = 'diurnal' + ' ' * 5000; second_alias = 'BASE-STATION' + '_' * 200
+    item['survey']['metadata']['corrections'] = {long_alias: 'unapplied', second_alias: 'unapplied'}
+    original = copy.deepcopy(item)
+    inspected = baselode.geophysics.inspect_corrections(item['survey'])
+    assert inspected['state'] == 'ok', inspected['issues']
+    assert inspected['ledger']['entries'][0]['evidence'] == 'Imported metadata.corrections for magnetic_diurnal (2 aliases)'
+    declared = baselode.geophysics.declare_corrections(item['survey'], [declaration()])
+    assert declared['state'] == 'ok', declared['issues']
+    result = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])
+    assert result['state'] == 'ok', result['issues']
+    assert long_alias in result['observations']['metadata']['corrections']
+    assert second_alias in result['observations']['metadata']['corrections']
+    assert item == original

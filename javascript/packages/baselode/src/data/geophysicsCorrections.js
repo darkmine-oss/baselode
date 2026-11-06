@@ -128,7 +128,7 @@ async function load(data) {
   for (const correction of [...groups.keys()].sort()) {
     const pairs = groups.get(correction);
     if (new Set(pairs.map(([, state]) => state)).size !== 1) throw Error('conflicting legacy correction aliases require explicit source-history repair');
-    ledger.entries.push({ id: `legacy:${correction}`, kind: 'declaration', correction, channels: channelsFor(data, correction), state: pairs[0][1], evidence: `Imported metadata.corrections: ${pairs.map(([alias]) => alias).join(', ')}`, producer: producer(), input_binding: current, output_binding: current });
+    ledger.entries.push({ id: `legacy:${correction}`, kind: 'declaration', correction, channels: channelsFor(data, correction), state: pairs[0][1], evidence: `Imported metadata.corrections for ${correction} (${pairs.length} aliases)`, producer: producer(), input_binding: current, output_binding: current });
   }
   return validate(data, ledger, current, false);
 }

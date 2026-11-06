@@ -229,3 +229,15 @@ it.each([null, {}, 'bad'])('classifies malformed ledger entries %j as contract e
   const result = await inspectGeophysicsCorrections(output);
   expect(result.state).toBe('rejected'); expect(result.issues[0].code).toBe('contract');
 });
+
+it('bounds imported alias evidence while preserving every original key', async () => {
+  const item = fixture(); const longAlias = `diurnal${' '.repeat(5000)}`; const secondAlias = `BASE-STATION${'_'.repeat(200)}`;
+  item.survey.metadata.corrections = { [longAlias]: 'unapplied', [secondAlias]: 'unapplied' }; const before = JSON.stringify(item);
+  const inspected = await inspectGeophysicsCorrections(item.survey); expect(inspected.state).toBe('ok');
+  expect(inspected.ledger.entries[0].evidence).toBe('Imported metadata.corrections for magnetic_diurnal (2 aliases)');
+  expect((await declareGeophysicsCorrections(item.survey, [declaration()])).state).toBe('ok');
+  const result = await correctGeophysicsMagneticBase(item.survey, item.base, item.options); expect(result.state).toBe('ok');
+  expect(Object.hasOwn(result.observations.metadata.corrections, longAlias)).toBe(true);
+  expect(Object.hasOwn(result.observations.metadata.corrections, secondAlias)).toBe(true);
+  expect(JSON.stringify(item)).toBe(before);
+});
