@@ -140,6 +140,7 @@ async function save(data, ledger) {
     if (correction && Object.keys(states[correction]).length) { const values = new Set(Object.values(states[correction])); legacy[key] = values.size === 1 ? [...values][0] : 'unknown'; }
   }
   data.metadata.correction_ledger = ledger;
+  if (new TextEncoder().encode(JSON.stringify(data)).length > limits.max_output_json_bytes) throw new ResourceError('output observations including lineage exceed the 16 MiB JSON limit');
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   return createGeophysicsObservations(data);
 }
@@ -160,7 +161,7 @@ export async function declareGeophysicsCorrections(payload, declarations) {
       ledger.entries.push({ ...item, kind: 'declaration', producer: producer(), input_binding: ledger.current_binding, output_binding: ledger.current_binding });
     }
     const output = await save(data, ledger); validate(output, ledger, await binding(output));
-    Object.assign(result, { observations: output, states: statesFor(output, ledger), parameters: { declarations: items } }); return result;
+    Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger), parameters: { declarations: items } }); return result;
   } catch (error) { return errorResult(result, error); }
 }
 /** Subtract synchronized base variation only with complete coverage and unapplied history. */
@@ -220,6 +221,6 @@ export async function correctGeophysicsMagneticBase(payload, base, options) {
     metadata.uncertainty_propagated = false;
     metadata.processing = [...(metadata.processing ?? []), { operation: 'magnetic_base_input', version: 1, event_id: params.event_id, input_binding: beforeBinding, operand_lineage: source.operand }, { operation: 'correct_magnetic_base', version: 1, parameters: params, input_binding: beforeBinding, output_binding: outputBinding, base_binding: baseBinding, operand_lineage: monitorInput.operand }];
     const output = await save(data, ledger); validate(output, ledger, outputBinding);
-    Object.assign(result, { observations: output, states: statesFor(output, ledger) }); return result;
+    Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger) }); return result;
   } catch (error) { return errorResult(result, error); }
 }

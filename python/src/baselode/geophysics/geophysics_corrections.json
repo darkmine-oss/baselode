@@ -523,7 +523,8 @@
     "max_events": 64,
     "max_binding_bytes": 33554432,
     "max_options_bytes": 262144,
-    "numeric_bound": 1e+100
+    "numeric_bound": 1e+100,
+    "max_output_json_bytes": 16777216
   },
   "binding": {
     "algorithm": "sha256-float64-v1",

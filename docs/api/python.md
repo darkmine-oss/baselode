@@ -1919,7 +1919,9 @@ not a general survey accuracy guarantee.
 registered correction names/aliases, data-binding protocol and limits.
 `inspect_corrections(payload)` validates history and returns per-channel states;
 `declare_corrections(payload, declarations)` appends evidence-backed history to a
-copied observation document. Neither operation changes readings. Missing history
+copied observation document. Every successful operation returns an independent
+`ledger` in the report; declaration/correction also return `observations`.
+Neither inspection nor declaration changes readings. Missing history
 is **unknown**. A declaration can resolve unknown state, but cannot change a
 known applied/unapplied state to a different state. Declarations record knowledge;
 they do not apply a numerical correction.
@@ -2002,6 +2004,8 @@ by this increment.
 
 Limits: 64 ledger events, 256 KiB options/declarations, 32 MiB binding snapshots,
 and the existing observation limits (100,000 rows, 250,000 readings, 16 MiB JSON).
+The 16 MiB output-document limit includes embedded source/base lineage and is
+reported as a resource error before returning any corrected observations.
 No rows/history are silently truncated. Correction IDs for later magnetic,
 gravity and radiometric operations can be declared/inspected, but only magnetic
 base correction is numerically implemented here. These direct APIs leave raster

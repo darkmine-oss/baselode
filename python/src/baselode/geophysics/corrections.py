@@ -232,6 +232,8 @@ def _save(data, ledger):
             values = set(states[correction].values())
             legacy[key] = next(iter(values)) if len(values) == 1 else "unknown"
     data["metadata"]["correction_ledger"] = ledger
+    if len(json.dumps(data, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")) > _LIMITS["max_output_json_bytes"]:
+        raise _ResourceError("output observations including lineage exceed the 16 MiB JSON limit")
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     return baselode.geophysics.observations.create_observations(data)
 
@@ -292,7 +294,7 @@ def declare_corrections(payload, declarations):
         # validator receives a consistent candidate summary, never caller data.
         output = _save(data, ledger)
         _validate(output, ledger, _binding(output))
-        report.update(observations=output, states=_states(output, ledger), parameters={"declarations": declarations})
+        report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger), parameters={"declarations": declarations})
         return report
     except (ValueError, TypeError, RecursionError) as error:
         return _error(report, error)
@@ -415,7 +417,7 @@ def correct_magnetic_base(payload, base, options):
                                                                         "base_binding": base_binding, "operand_lineage": base_operand}]
         output = _save(data, ledger)
         _validate(output, ledger, output_binding)
-        report.update(observations=output, states=_states(output, ledger))
+        report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))
         return report
     except (ValueError, TypeError, RecursionError) as error:
         return _error(report, error)

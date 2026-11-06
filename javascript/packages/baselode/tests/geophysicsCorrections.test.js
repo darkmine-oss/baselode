@@ -3,6 +3,8 @@
 import { expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import reference from '../../../../test/data/geophysics_corrections_reference.json';
+import correctionDescriptor from '../src/data/geophysics_corrections.json';
+import { createGeophysicsObservations } from '../src/data/geophysicsObservations.js';
 import { describeGeophysicsCorrections, inspectGeophysicsCorrections, declareGeophysicsCorrections, correctGeophysicsMagneticBase } from '../src/data/geophysicsCorrections.js';
 import { gridGeophysicsObservations } from '../src/data/geophysicsGridding.js';
 import { encodeErs, encodeGeoTiff } from '../src/data/geophysicsWriters.js';
@@ -196,4 +198,24 @@ it('uses compact UTF-8 option bytes at the exact transport boundary', async () =
   expect((await declareGeophysicsCorrections(fixture().survey, items)).state).toBe('ok');
   items[0].evidence += 'xx'; const result = await declareGeophysicsCorrections(fixture().survey, items);
   expect(result.state).toBe('rejected'); expect(result.issues[0].code).toBe('resource');
+});
+
+it('returns independent ledgers for successful declaration and application reports', async () => {
+  const item = fixture(); const declared = await declareGeophysicsCorrections(item.survey, [declaration()]);
+  const applied = await correctGeophysicsMagneticBase(item.survey, item.base, item.options);
+  for (const result of [declared, applied]) {
+    expect(result.state).toBe('ok'); expect(result.ledger).toEqual(result.observations.metadata.correction_ledger);
+    const original = result.observations.metadata.correction_ledger.entries[0].evidence;
+    result.ledger.entries[0].evidence = 'edited report copy';
+    expect(result.observations.metadata.correction_ledger.entries[0].evidence).toBe(original);
+  }
+});
+it('classifies output lineage byte overflow as an atomic resource failure', async () => {
+  const item = fixture(); const before = JSON.stringify(item); const saved = correctionDescriptor.resources.max_output_json_bytes;
+  correctionDescriptor.resources.max_output_json_bytes = new TextEncoder().encode(JSON.stringify(createGeophysicsObservations(item.survey))).length + 100;
+  try {
+    const result = await correctGeophysicsMagneticBase(item.survey, item.base, item.options);
+    expect(result.state).toBe('rejected'); expect(result.issues[0].code).toBe('resource');
+    expect(result.observations).toBeNull(); expect(result.ledger).toBeNull(); expect(JSON.stringify(item)).toBe(before);
+  } finally { correctionDescriptor.resources.max_output_json_bytes = saved; }
 });

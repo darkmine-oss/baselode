@@ -12,6 +12,7 @@ import pytest
 
 import baselode.geophysics
 import baselode.geophysics.provenance
+import baselode.geophysics.corrections
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 REFERENCE = json.loads((ROOT / 'test/data/geophysics_corrections_reference.json').read_text())
@@ -293,3 +294,24 @@ def test_compact_option_byte_limit_matches_json_transport_boundary():
     items[0]['evidence'] += 'xx'
     result = baselode.geophysics.declare_corrections(fixture()['survey'], items)
     assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'resource'
+
+
+def test_successful_declaration_and_application_return_independent_ledgers():
+    item = fixture()
+    declared = baselode.geophysics.declare_corrections(item['survey'], [declaration()])
+    applied = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])
+    for result in (declared, applied):
+        assert result['state'] == 'ok'
+        assert result['ledger'] == result['observations']['metadata']['correction_ledger']
+        original = result['observations']['metadata']['correction_ledger']['entries'][0]['evidence']
+        result['ledger']['entries'][0]['evidence'] = 'edited report copy'
+        assert result['observations']['metadata']['correction_ledger']['entries'][0]['evidence'] == original
+
+
+def test_output_lineage_byte_limit_is_a_resource_error(monkeypatch):
+    item = fixture(); before = copy.deepcopy(item)
+    size = len(json.dumps(baselode.geophysics.create_observations(item['survey']), ensure_ascii=False, separators=(',', ':')).encode())
+    monkeypatch.setitem(baselode.geophysics.corrections._LIMITS, 'max_output_json_bytes', size + 100)
+    result = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])
+    assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'resource'
+    assert result['observations'] is None and result['ledger'] is None and item == before
