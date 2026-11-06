@@ -139,7 +139,9 @@ def _validate(data, ledger, current, check_summary=True):
         raise ValueError("unsupported or malformed correction ledger")
     if not _digest(ledger["initial_binding"]) or not _digest(ledger["current_binding"]):
         raise ValueError("ledger bindings must be lowercase SHA-256 digests")
-    if type(ledger["entries"]) is not list or len(ledger["entries"]) > _LIMITS["max_events"]:
+    if type(ledger["entries"]) is not list:
+        raise ValueError("correction ledger entries must be a list")
+    if len(ledger["entries"]) > _LIMITS["max_events"]:
         raise _ResourceError("correction ledger exceeds 64 events")
     common = {"id", "kind", "correction", "channels", "state", "evidence", "producer", "input_binding", "output_binding"}
     extra = {"parameters", "base_binding", "base_station_id", "affected_records"}
@@ -284,8 +286,10 @@ def declare_corrections(payload, declarations):
         data = baselode.geophysics.observations.create_observations(payload)
         ledger = _load(data)
         declarations = _json(declarations)
-        if type(declarations) is not list or not declarations or len(declarations) + len(ledger["entries"]) > _LIMITS["max_events"]:
-            raise _ResourceError("supply nonempty declarations within the 64-event ledger limit")
+        if type(declarations) is not list or not declarations:
+            raise ValueError("declarations must be a nonempty list")
+        if len(declarations) + len(ledger["entries"]) > _LIMITS["max_events"]:
+            raise _ResourceError("declarations exceed the 64-event ledger limit")
         for item in declarations:
             if type(item) is not dict or set(item) != {"id", "correction", "channels", "state", "evidence"}:
                 raise ValueError("declarations need exactly id, correction, channels, state and evidence")

@@ -74,7 +74,8 @@ function baseOptions(options) {
 function validate(data, ledger, current, checkSummary = true) {
   if (!keys(ledger, ['schema', 'version', 'algorithm', 'initial_binding', 'current_binding', 'entries']) || ledger.schema !== schema || ledger.version !== 1 || ledger.algorithm !== algorithm) throw Error('unsupported or malformed correction ledger');
   if (!digest(ledger.initial_binding) || !digest(ledger.current_binding)) throw Error('ledger bindings must be lowercase SHA-256 digests');
-  if (!Array.isArray(ledger.entries) || ledger.entries.length > limits.max_events) throw new ResourceError('correction ledger exceeds 64 events');
+  if (!Array.isArray(ledger.entries)) throw Error('correction ledger entries must be a list');
+  if (ledger.entries.length > limits.max_events) throw new ResourceError('correction ledger exceeds 64 events');
   const common = ['id', 'kind', 'correction', 'channels', 'state', 'evidence', 'producer', 'input_binding', 'output_binding'];
   const extra = ['parameters', 'base_binding', 'base_station_id', 'affected_records'];
   const states = statesFor(data, { entries: [] }); let previous = ledger.initial_binding; const ids = new Set();
@@ -155,7 +156,8 @@ export async function declareGeophysicsCorrections(payload, declarations) {
   const result = report('declare');
   try {
     const data = createGeophysicsObservations(payload); const ledger = await load(data); const items = json(declarations);
-    if (!Array.isArray(items) || !items.length || items.length + ledger.entries.length > limits.max_events) throw new ResourceError('supply nonempty declarations within the 64-event ledger limit');
+    if (!Array.isArray(items) || !items.length) throw Error('declarations must be a nonempty list');
+    if (items.length + ledger.entries.length > limits.max_events) throw new ResourceError('declarations exceed the 64-event ledger limit');
     for (const item of items) {
       if (!keys(item, ['id', 'correction', 'channels', 'state', 'evidence'])) throw Error('declarations need exactly id, correction, channels, state and evidence');
       ledger.entries.push({ ...item, kind: 'declaration', producer: producer(), input_binding: ledger.current_binding, output_binding: ledger.current_binding });

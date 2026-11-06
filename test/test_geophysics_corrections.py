@@ -315,3 +315,16 @@ def test_output_lineage_byte_limit_is_a_resource_error(monkeypatch):
     result = baselode.geophysics.correct_magnetic_base(item['survey'], item['base'], item['options'])
     assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'resource'
     assert result['observations'] is None and result['ledger'] is None and item == before
+
+
+@pytest.mark.parametrize('items', [None, {}, [], 'bad'])
+def test_declaration_shape_errors_are_contract_errors(items):
+    result = baselode.geophysics.declare_corrections(fixture()['survey'], items)
+    assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'contract'
+
+
+@pytest.mark.parametrize('entries', [None, {}, 'bad'])
+def test_ledger_entry_shape_errors_are_contract_errors(entries):
+    output = corrected(); output['metadata']['correction_ledger']['entries'] = entries
+    result = baselode.geophysics.inspect_corrections(output)
+    assert result['state'] == 'rejected' and result['issues'][0]['code'] == 'contract'

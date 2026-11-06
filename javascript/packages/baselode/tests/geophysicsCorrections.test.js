@@ -219,3 +219,13 @@ it('classifies output lineage byte overflow as an atomic resource failure', asyn
     expect(result.observations).toBeNull(); expect(result.ledger).toBeNull(); expect(JSON.stringify(item)).toBe(before);
   } finally { correctionDescriptor.resources.max_output_json_bytes = saved; }
 });
+
+it.each([null, {}, [], 'bad'])('classifies malformed declarations %j as contract errors', async (items) => {
+  const result = await declareGeophysicsCorrections(fixture().survey, items);
+  expect(result.state).toBe('rejected'); expect(result.issues[0].code).toBe('contract');
+});
+it.each([null, {}, 'bad'])('classifies malformed ledger entries %j as contract errors', async (entries) => {
+  const output = await corrected(); output.metadata.correction_ledger.entries = entries;
+  const result = await inspectGeophysicsCorrections(output);
+  expect(result.state).toBe('rejected'); expect(result.issues[0].code).toBe('contract');
+});
