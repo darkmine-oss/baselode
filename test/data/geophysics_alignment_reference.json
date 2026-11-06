@@ -1,0 +1,135 @@
+{
+  "source": {
+    "data": [
+      [
+        [
+          11.5,
+          13.5,
+          15.5,
+          17.5
+        ],
+        [
+          8.5,
+          null,
+          12.5,
+          14.5
+        ],
+        [
+          5.5,
+          7.5,
+          9.5,
+          11.5
+        ],
+        [
+          2.5,
+          4.5,
+          6.5,
+          8.5
+        ]
+      ]
+    ],
+    "transform": [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      -1.0,
+      4.0
+    ],
+    "crs": null,
+    "nodata": null,
+    "bandNames": [
+      "mag"
+    ],
+    "metadata": {
+      "units": [
+        "nT"
+      ],
+      "crs_units": "m",
+      "frame_id": "survey-A",
+      "field_type": "magnetic_anomaly",
+      "corrections": {
+        "igrf": "applied"
+      }
+    }
+  },
+  "target": {
+    "shape": [
+      2,
+      3
+    ],
+    "transform": [
+      1,
+      0,
+      -0.25,
+      0,
+      -1,
+      3.75
+    ],
+    "crs": null,
+    "crs_units": "m",
+    "frame_id": "survey-A"
+  },
+  "options": {
+    "method": "bilinear",
+    "value_kind": "continuous"
+  },
+  "artifacts": {
+    "raster": [
+      [
+        [
+          10.75,
+          null,
+          null
+        ],
+        [
+          7.75,
+          null,
+          null
+        ]
+      ]
+    ],
+    "support": [
+      [
+        [
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          1.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "footprint": [
+      [
+        [
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ]
+      ]
+    ],
+    "coordinate_valid": [
+      [
+        [
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ]
+      ]
+    ]
+  }
+}

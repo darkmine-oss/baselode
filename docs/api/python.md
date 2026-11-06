@@ -190,7 +190,7 @@ return no partial artifacts/folds. Limits are 100,000 grid cells, 250,000 band v
 Pair estimates include hull-support checks and validation exclusion work; native baseline
 searches are bounded but are not a large-survey spatial index or a wall-time/peak-memory
 sandbox. Use scientifically meaningful partitions or a later scalable adapter for larger
-problems; no silent truncation or decimation occurs. Minimum-curvature gridding, reprojection,
+problems; no silent truncation or decimation occurs. Minimum-curvature gridding,
 grid matching, equivalent sources and observation workflow graphs are separate increments.
 
 ### GeophysicsRaster
@@ -1744,3 +1744,60 @@ retain provenance and apply its own recorded QAQC policy before interpreting
 suspected inconsistencies.
 
 Copyright (C) 2026 Darkmine Pty Ltd.
+
+### Raster alignment, resampling and horizontal reprojection
+
+`describe_alignment()` exposes the shared v1 target/options schemas, EPSG list,
+resource limits and assumptions. `align_raster(source, target, options)` returns a
+structured `ok`, `needs_input` or `rejected` report; check its state before using
+artifacts. `match_raster(source, reference, options)` takes only the reference
+shape, affine transform, CRS, coordinate units and frame ID. Source bands, field
+units and correction declarations are retained; inputs are never modified.
+
+```python
+import baselode.geophysics
+
+report = baselode.geophysics.align_raster(source, {
+    "shape": [100, 120],
+    "transform": [50, 0, 400000, 0, -50, 6800000],
+    "crs": "EPSG:28350",
+}, {"method": "bilinear", "value_kind": "continuous"})
+if report["state"] == "ok":
+    aligned = report["artifacts"]["raster"]
+    supported = report["artifacts"]["support"]
+```
+
+Shape is `[rows, columns]`; Python also accepts tuples for shape/transform.
+Transform `[a,b,c,d,e,f]` maps pixel-edge coordinates
+`x=a*column+b*row+c`, `y=d*column+e*row+f`. Sampling occurs at target cell centres;
+rotation and shear are supported. Specify nearest or bilinear explicitly.
+Categorical safe-integer codes require nearest. Bilinear requires every cell with
+nonzero weight to be valid; edge cells cover the outer half-cell. Unsupported
+values stay NaN. Per-band `support` records finite samples; single-band
+`footprint` records source coverage irrespective of missing values, and
+`coordinate_valid` records finite transformed coordinates, even outside coverage.
+Masks contain 0/1 and use dimensionless units.
+
+For a CRS change, add `datum_policy: "backend"`. The descriptor lists supported
+2D EPSG codes (WGS84 geographic/Web Mercator/UTM and supported Australian systems).
+Python uses [pyproj/PROJ](https://pyproj4.github.io/pyproj/stable/api/transformer.html)
+with XY axis order and ballpark transformations disabled. JavaScript uses the
+existing [proj4](https://proj4js.org/) definitions, including approximate Australian
+datum transforms. Reports and processing lineage record the backend/version;
+this acknowledgement accepts those differences and makes no survey-grade datum
+accuracy guarantee. An unavailable transformation is rejected; invalid point
+coordinates have zero coordinate_valid/support.
+
+Unreferenced local grids need matching source metadata and target `frame_id`, plus
+matching `crs_units` (`m`, `ft`, `us-ft`, `km`, or `degree`). Equal custom CRS labels
+can be resampled with explicit coordinate units. A local grid cannot be assigned
+an unrelated global CRS. No height/epoch transformation, field-unit conversion,
+vector rotation, antialiasing, conservative averaging or uncertainty propagation
+is performed. Decimation can alias fine-scale content. Historical geometry,
+transport fields and uncertainty move into flat source lineage; active metadata
+sets `uncertainty_propagated=False`. Scientific declarations are preserved.
+
+The direct APIs do not extend raster workflow v1. Limits are one million source
+band values, 100,000 target cells and 250,000 target band values; no automatic
+truncation or decimation is used. Portable finite JSON metadata is required
+(up to 16 MiB). A reference raster contributes no values or scientific metadata.

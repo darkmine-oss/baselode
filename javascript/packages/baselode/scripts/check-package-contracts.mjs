@@ -62,6 +62,16 @@ assert.equal(gridReport.state, 'ok');
 assert.equal(gridReport.artifacts.grid.data[0][0][0], 10);
 assert.equal(geophysics.describeGeophysicsGridding().version, 1);
 
+assert.equal(geophysics.describeGeophysicsAlignment().version, 1);
+const alignmentSource = geophysics.createGeophysicsRaster({
+  data: [[1, 2], [3, 4]], crs: 'EPSG:28350', transform: [10, 0, 0, 0, -10, 20],
+  metadata: { field_type: 'magnetic_anomaly', units: ['nT'] },
+});
+const alignment = geophysics.matchGeophysicsRaster(alignmentSource, alignmentSource, { method: 'bilinear', value_kind: 'continuous' });
+assert.equal(alignment.state, 'ok');
+assert.deepEqual(alignment.artifacts.raster.data, alignmentSource.data);
+assert.equal(typeof geophysics.alignGeophysicsRaster, 'function');
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {

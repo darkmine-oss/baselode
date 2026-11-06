@@ -60,3 +60,14 @@ crossValidateGeophysicsGridding(observations, interpolationOptions, { by: 'block
 // @ts-expect-error elevation treatment must be explicitly acknowledged
 const incompleteInterpolation: GeophysicsInterpolationOptions = { channels: ['mag'], radius: 50, duplicate_policy: 'mean' };
 void incompleteInterpolation;
+
+import { alignGeophysicsRaster, matchGeophysicsRaster, describeGeophysicsAlignment, type GeophysicsAlignmentTarget } from 'baselode/geophysics';
+const target: GeophysicsAlignmentTarget = { shape: [2, 2], transform: [10, 0, 0, 0, -10, 0], crs: 'EPSG:28350' };
+const aligned = alignGeophysicsRaster(raster, target, { method: 'bilinear', value_kind: 'continuous' });
+const support: GeophysicsRaster | undefined = aligned.artifacts.support;
+void support; void describeGeophysicsAlignment();
+void matchGeophysicsRaster(raster, raster, { method: 'nearest', value_kind: 'categorical' });
+// @ts-expect-error categorical values cannot use bilinear sampling
+alignGeophysicsRaster(raster, target, { method: 'bilinear', value_kind: 'categorical' });
+// @ts-expect-error explicit sampling method is required
+alignGeophysicsRaster(raster, target, { value_kind: 'continuous' });

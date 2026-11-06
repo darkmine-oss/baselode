@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Geophysics scalar raster alignment (TRK-536)**
+
+- Matching Python/JavaScript align/match APIs provide explicit nearest/bilinear resampling, rotated affine grids and bounded horizontal reprojection, with per-band support, footprint and coordinate-valid masks. Categorical codes require nearest; local grids require frame/units; datum changes require backend acknowledgement. Field units/correction declarations and flat input lineage are preserved. No vector/height conversion, antialiasing or uncertainty propagation is claimed.
+
 **Geophysics baseline gridding and spatial validation (TRK-535)**
 
 - Matching Python/JavaScript nearest/IDW observation gridders return full-resolution field/support/count/distance/extrapolation rasters, with explicit support radius, duplicate policy and XY-only elevation treatment. Line/block holdout validation excludes colocated/buffered training observations before fitting and reports coverage with paired-only errors. Inputs, units, correction declarations and persisted grid lineage are retained.
