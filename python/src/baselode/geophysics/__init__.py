@@ -17,6 +17,7 @@ import baselode.geophysics.sampling as geophysics_sampling
 import baselode.geophysics.writers as geophysics_writers
 import baselode.geophysics.workflows as geophysics_workflows
 import baselode.geophysics.observations as geophysics_observations
+import baselode.geophysics.gridding as geophysics_gridding
 
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
 load_raster = geophysics_raster.load_raster
@@ -62,7 +63,15 @@ observation_schema = geophysics_observations.observation_schema
 describe_observation_qc = geophysics_observations.describe_observation_qc
 qc_observations = geophysics_observations.qc_observations
 
+describe_gridding = geophysics_gridding.describe_gridding
+grid_observations = geophysics_gridding.grid_observations
+cross_validate_gridding = geophysics_gridding.cross_validate_gridding
+
 __all__ = [
+    "describe_gridding",
+    "grid_observations",
+    "cross_validate_gridding",
+
     "create_observations",
     "observation_schema",
     "describe_observation_qc",

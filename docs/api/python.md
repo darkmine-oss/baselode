@@ -93,6 +93,106 @@ summary counts still reflect all checks. Use smaller, scientifically meaningful 
 partitions for large inputs; partition boundaries do not automatically reconnect. There
 is no file/network I/O, automatic correction, crossover levelling or gridding in this API.
 
+### Baseline observation gridding and spatial validation
+
+`describe_gridding()` returns the shared v1 parameter contracts, assumptions and limits.
+`grid_observations(payload, options)` converts v1 observations to full-resolution field and
+support rasters. `cross_validate_gridding(payload, options, validation)` evaluates the same
+predictor on held-out lines or spatial blocks. These direct APIs leave raster workflow v1
+unchanged and never edit input observations or apply corrections.
+
+```python
+import baselode.geophysics
+
+interpolation = {
+    "channels": ["mag"], "method": "idw", "radius": 200,
+    "duplicate_policy": "mean", "elevation_policy": "ignore",
+}
+# observations is a v1 payload with declared field/unit and linear CRS context.
+result = baselode.geophysics.grid_observations(observations, {
+    **interpolation, "bounds": [400000, 6500000, 401000, 6501000], "shape": [40, 40],
+})
+if result["state"] == "ok":
+    grid = result["artifacts"]["grid"]
+    support = result["artifacts"]["support"]
+    baselode.geophysics.save_raster(grid, "magnetic-grid.tif")
+validation = baselode.geophysics.cross_validate_gridding(
+    observations, interpolation, {"by": "line", "buffer_distance": 25},
+)
+```
+
+Options require a unique nonempty `channels` selection, positive `radius` in native linear
+CRS units, `duplicate_policy="mean"|"reject"`, and `elevation_policy="ignore"`. Coordinate
+units must come from a projected CRS or explicit local linear `crs_units`; no geographic
+interpolation or unit conversion is inferred. All selected channels share `field_type`,
+while each retains its unit label. Missing XY/channel values are excluded with counts;
+each gridded channel needs at least one eligible reading. QC flags are not automatically
+used to discard data. Select/filter observations explicitly after interpreting QC.
+
+`method` is `idw` (default) or `nearest`. `neighbors` is 1..64 (default 8) and
+`min_neighbors` is 1..neighbors (default 1). Neighbour support counts **unique XY locations**
+with available channel readings, among the nearest selected neighbours within the inclusive
+radius. Coincident readings are averaged only under the explicit mean policy, and otherwise
+rejected. Exact sample locations return their grouped value after the minimum-support
+check; they do not bypass an explicit minimum density rule. `nearest` returns the closest
+selected value; ties use first location occurrence in acquisition order. IDW uses
+`power` in (0,16] (default 2), weighting by inverse distance to that power. Weights are
+scaled by the smallest nonzero distance to avoid overflow. No smoothing/calibration is inferred.
+
+Grid `bounds=[min_x,min_y,max_x,max_y]` are **outer edges** with positive extent;
+`shape=[rows,columns]` contains positive integers. Predictions are at cell centres with a
+north-up affine; all five artifacts have the same full-resolution bands/grid:
+
+| Artifact | Meaning |
+|---|---|
+| `grid` | Field values, missing when unsupported |
+| `support` | 1 supported, 0 unsupported |
+| `neighbor_count` | Selected unique valid locations within radius (capped by neighbors) |
+| `nearest_distance` | Nearest valid channel location, even if outside radius |
+| `extrapolation` | 1 outside the per-channel convex hull, 0 inside/on its boundary |
+
+`extrapolation="mask"` is the default. `"allow"` permits predictions outside the hull only
+when radius and neighbour requirements still hold. One-point/collinear hulls are treated
+as a point/segment. Hull orientation uses normalized vectors with a 1e-12 angular tolerance
+for numerical boundaries. These diagnostics describe geometric/data support, not calibrated
+geological uncertainty. Diagnostic rasters have field type `other` and appropriate units;
+field rasters retain selected channel units/type, source references, declared corrections,
+observation metadata and processing parameters through the existing ERS/GeoTIFF provenance.
+
+This is **XY interpolation only**, even when Z varies. The required elevation policy
+acknowledges that heights are ignored; known/missing height counts and ranges are reported.
+No target height, common-surface continuation, drape correction or datum transformation is
+performed. Use a later elevation-aware equivalent-source adapter for that problem. Raw total
+magnetic/gravity observations retain their raw field type, so this does not make them ready
+for operations requiring corrected anomalies.
+
+Validation options are `{"by": "line"}` (every eligible observation needs a line ID), or
+`{"by": "block", "block_size": [dx,dy], "origin": [x,y]}`. At least two groups are needed;
+block indices use floor, including negative coordinates. Each whole group is held out in turn.
+Training observations at **any held-out XY location** are always excluded before training
+aggregation, even when `buffer_distance=0`; a nonnegative buffer excludes a wider halo.
+Test values never enter training means. This deliberately uses spatial holdouts rather
+than a random point split ([background in Verde](https://www.fatiando.org/verde/latest/gallery/blockkfold.html));
+this implementation does not depend on Verde.
+
+Reports include per-fold/per-channel `tested`, `supported`, `unsupported`, `coverage`,
+`rmse`, `mae`, `bias`, observation-level predictions and training/exclusion counts. Errors
+are **predicted minus observed** and only supported pairs enter scores; no supported pairs
+means null scores, never zero error. Pooled scores weight individual supported observations,
+not fold means. Coverage must accompany errors, especially for held-out outer lines that
+fall outside the training hull. Spatial folds/buffers are user choices, not automatically
+selected correlation lengths or a proof of independence.
+
+States are `ok`, `needs_input` (required settings/context/readings/groups missing), and
+`rejected` (bad contracts or resource limits), with actionable issues. Rejected results
+return no partial artifacts/folds. Limits are 100,000 grid cells, 250,000 band values,
+10,000,000 conservative pair evaluations and 64 folds, in addition to observation limits.
+Pair estimates include hull-support checks and validation exclusion work; native baseline
+searches are bounded but are not a large-survey spatial index or a wall-time/peak-memory
+sandbox. Use scientifically meaningful partitions or a later scalable adapter for larger
+problems; no silent truncation or decimation occurs. Minimum-curvature gridding, reprojection,
+grid matching, equivalent sources and observation workflow graphs are separate increments.
+
 ### GeophysicsRaster
 
 ```python

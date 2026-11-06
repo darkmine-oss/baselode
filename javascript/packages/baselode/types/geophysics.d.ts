@@ -22,7 +22,7 @@ export interface GeophysicsRasterMetadata {
   provenance_ignored?: boolean;
   input_lineage?: Array<{ metadata: Record<string, unknown>; sources: string[] }>;
   units?: Array<string | null>;
-  crs_units?: GeophysicsCrsUnits | null;
+  crs_units?: GeophysicsCrsUnits | 'm' | 'ft' | 'us-ft' | 'km' | null;
   processing?: GeophysicsProcessingStep[];
   [key: string]: unknown;
 }
@@ -292,3 +292,60 @@ export function createGeophysicsObservations(payload: GeophysicsObservationsInpu
 export function geophysicsObservationSchema(): Record<string, unknown>;
 export function describeGeophysicsObservationQc(): Record<string, unknown>;
 export function qcGeophysicsObservations(payload: unknown, options?: GeophysicsObservationQcOptions | null): GeophysicsObservationQcReport;
+
+export interface GeophysicsInterpolationOptions {
+  channels: string[];
+  radius: number;
+  duplicate_policy: 'mean' | 'reject';
+  elevation_policy: 'ignore';
+  method?: 'nearest' | 'idw';
+  neighbors?: number;
+  min_neighbors?: number;
+  power?: number;
+  extrapolation?: 'mask' | 'allow';
+}
+export interface GeophysicsGridOptions extends GeophysicsInterpolationOptions {
+  bounds: [number, number, number, number];
+  shape: [number, number];
+}
+export type GeophysicsGriddingValidationOptions =
+  | { by: 'line'; buffer_distance?: number }
+  | { by: 'block'; block_size: [number, number]; origin: [number, number]; buffer_distance?: number };
+export interface GeophysicsGriddingBaseReport {
+  version: 1;
+  state: 'ok' | 'needs_input' | 'rejected';
+  issues: Array<{ code: string; message: string }>;
+  producer: { library: string; version: string; algorithm_version: number };
+  parameters: Record<string, unknown>;
+  diagnostics: Record<string, unknown>;
+  assumptions: string[];
+}
+export interface GeophysicsObservationGridReport extends GeophysicsGriddingBaseReport {
+  schema: 'baselode.geophysics.observation_grid';
+  artifacts: Record<string, GeophysicsRaster>;
+}
+export interface GeophysicsGriddingMetrics {
+  tested: number;
+  supported: number;
+  unsupported: number;
+  coverage: number | null;
+  rmse: number | null;
+  mae: number | null;
+  bias: number | null;
+}
+export interface GeophysicsGriddingValidationReport extends GeophysicsGriddingBaseReport {
+  schema: 'baselode.geophysics.gridding_validation';
+  folds: Array<{
+    group: string;
+    train_records: number;
+    test_records: number;
+    excluded_buffer_records: number;
+    training: Record<string, unknown>;
+    predictions: Array<{ id: string; channel: string; observed: number; predicted: number | null; nearest_distance: number | null; neighbors: number; extrapolated: boolean; supported: boolean }>;
+    metrics: Record<string, GeophysicsGriddingMetrics>;
+  }>;
+  summary: Record<string, GeophysicsGriddingMetrics>;
+}
+export function describeGeophysicsGridding(): Record<string, unknown>;
+export function gridGeophysicsObservations(payload: unknown, options: GeophysicsGridOptions): GeophysicsObservationGridReport;
+export function crossValidateGeophysicsGridding(payload: unknown, options: GeophysicsInterpolationOptions, validation: GeophysicsGriddingValidationOptions): GeophysicsGriddingValidationReport;

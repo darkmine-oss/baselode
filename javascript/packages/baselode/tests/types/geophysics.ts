@@ -49,3 +49,14 @@ const normalizedReading: number | null | undefined = observations.records[0]?.va
 void surveyReport; void normalizedReading; void geophysicsObservationSchema(); void describeGeophysicsObservationQc();
 // @ts-expect-error speed threshold must be numeric
 qcGeophysicsObservations(observations, { max_speed: '20' });
+
+import { describeGeophysicsGridding, gridGeophysicsObservations, crossValidateGeophysicsGridding, type GeophysicsInterpolationOptions } from 'baselode/geophysics';
+const interpolationOptions: GeophysicsInterpolationOptions = { channels: ['mag'], radius: 50, duplicate_policy: 'mean', elevation_policy: 'ignore' };
+const griddedObservations = gridGeophysicsObservations(observations, { ...interpolationOptions, bounds: [0, 0, 100, 100], shape: [10, 10] });
+const gridValidation = crossValidateGeophysicsGridding(observations, interpolationOptions, { by: 'line', buffer_distance: 10 });
+void griddedObservations; void gridValidation; void describeGeophysicsGridding();
+// @ts-expect-error block validation requires an explicit origin
+crossValidateGeophysicsGridding(observations, interpolationOptions, { by: 'block', block_size: [10, 10] });
+// @ts-expect-error elevation treatment must be explicitly acknowledged
+const incompleteInterpolation: GeophysicsInterpolationOptions = { channels: ['mag'], radius: 50, duplicate_policy: 'mean' };
+void incompleteInterpolation;

@@ -1,0 +1,503 @@
+{
+  "input": {
+    "channels": {
+      "mag": {
+        "field_type": "magnetic_anomaly",
+        "units": "nT"
+      }
+    },
+    "crs_units": "m",
+    "records": [
+      {
+        "id": "r0",
+        "x": 0,
+        "y": 0,
+        "values": {
+          "mag": 0
+        }
+      },
+      {
+        "id": "r1",
+        "x": 2,
+        "y": 0,
+        "values": {
+          "mag": 4
+        }
+      },
+      {
+        "id": "r2",
+        "x": 0,
+        "y": 2,
+        "values": {
+          "mag": 2
+        }
+      },
+      {
+        "id": "r3",
+        "x": 2,
+        "y": 2,
+        "values": {
+          "mag": 6
+        }
+      }
+    ],
+    "metadata": {
+      "corrections": {
+        "igrf": "applied"
+      }
+    }
+  },
+  "options": {
+    "channels": [
+      "mag"
+    ],
+    "radius": 1.2,
+    "duplicate_policy": "mean",
+    "elevation_policy": "ignore",
+    "bounds": [
+      -0.5,
+      -0.5,
+      2.5,
+      2.5
+    ],
+    "shape": [
+      3,
+      3
+    ]
+  },
+  "artifacts": {
+    "grid": [
+      [
+        [
+          2.0,
+          4.0,
+          6.0
+        ],
+        [
+          1.0,
+          null,
+          5.0
+        ],
+        [
+          0.0,
+          2.0,
+          4.0
+        ]
+      ]
+    ],
+    "support": [
+      [
+        [
+          1.0,
+          1.0,
+          1.0
+        ],
+        [
+          1.0,
+          0.0,
+          1.0
+        ],
+        [
+          1.0,
+          1.0,
+          1.0
+        ]
+      ]
+    ],
+    "neighbor_count": [
+      [
+        [
+          1.0,
+          2.0,
+          1.0
+        ],
+        [
+          2.0,
+          0.0,
+          2.0
+        ],
+        [
+          1.0,
+          2.0,
+          1.0
+        ]
+      ]
+    ],
+    "nearest_distance": [
+      [
+        [
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          1.0,
+          1.4142135623730951,
+          1.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0
+        ]
+      ]
+    ],
+    "extrapolation": [
+      [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ]
+  },
+  "validation_input": {
+    "channels": {
+      "mag": {
+        "field_type": "magnetic_anomaly",
+        "units": "nT"
+      }
+    },
+    "crs_units": "m",
+    "records": [
+      {
+        "id": "L-1:0",
+        "line_id": "L-1",
+        "x": -1,
+        "y": 0,
+        "values": {
+          "mag": 100
+        }
+      },
+      {
+        "id": "L-1:1",
+        "line_id": "L-1",
+        "x": -1,
+        "y": 1,
+        "values": {
+          "mag": 100
+        }
+      },
+      {
+        "id": "L-1:2",
+        "line_id": "L-1",
+        "x": -1,
+        "y": 2,
+        "values": {
+          "mag": 100
+        }
+      },
+      {
+        "id": "L0:0",
+        "line_id": "L0",
+        "x": 0,
+        "y": 0,
+        "values": {
+          "mag": 110
+        }
+      },
+      {
+        "id": "L0:1",
+        "line_id": "L0",
+        "x": 0,
+        "y": 1,
+        "values": {
+          "mag": 110
+        }
+      },
+      {
+        "id": "L0:2",
+        "line_id": "L0",
+        "x": 0,
+        "y": 2,
+        "values": {
+          "mag": 110
+        }
+      },
+      {
+        "id": "L1:0",
+        "line_id": "L1",
+        "x": 1,
+        "y": 0,
+        "values": {
+          "mag": 100
+        }
+      },
+      {
+        "id": "L1:1",
+        "line_id": "L1",
+        "x": 1,
+        "y": 1,
+        "values": {
+          "mag": 100
+        }
+      },
+      {
+        "id": "L1:2",
+        "line_id": "L1",
+        "x": 1,
+        "y": 2,
+        "values": {
+          "mag": 100
+        }
+      }
+    ],
+    "metadata": {
+      "corrections": {
+        "igrf": "applied"
+      }
+    }
+  },
+  "validation": {
+    "schema": "baselode.geophysics.gridding_validation",
+    "version": 1,
+    "state": "ok",
+    "issues": [],
+    "parameters": {
+      "interpolation": {
+        "channels": [
+          "mag"
+        ],
+        "radius": 10,
+        "duplicate_policy": "mean",
+        "elevation_policy": "ignore",
+        "method": "idw",
+        "neighbors": 8,
+        "min_neighbors": 1,
+        "power": 2,
+        "extrapolation": "mask"
+      },
+      "validation": {
+        "by": "line",
+        "buffer_distance": 0
+      }
+    },
+    "diagnostics": {
+      "input_records": 9,
+      "eligible_records": 9,
+      "skipped_records": 0,
+      "crs": null,
+      "distance_units": "m",
+      "channels": {
+        "mag": {
+          "field_type": "magnetic_anomaly",
+          "units": "nT"
+        }
+      },
+      "elevation": {
+        "policy": "ignore",
+        "known": 0,
+        "missing": 9,
+        "min": null,
+        "max": null
+      },
+      "height_units": null,
+      "height_datum": null,
+      "corrections": {
+        "igrf": "applied"
+      }
+    },
+    "assumptions": [
+      "XY interpolation only: elevation_policy=ignore is required. No continuation, drape correction, calibration or datum transformation is performed.",
+      "Radius is inclusive and measured in native linear CRS units. Grid bounds are outer edges [min_x,min_y,max_x,max_y]; shape is [rows,columns], north-up with cell-centre predictions.",
+      "Per-channel valid observations at identical XY form one location. Mean is an explicit duplicate policy, not QC; min_neighbors counts unique locations among the selected nearest neighbors. Exact samples still require min_neighbors.",
+      "Extrapolation means outside the per-channel convex hull (including degenerate point/segment hulls). It is masked by default; allowing it still requires radius and minimum support. Support diagnostics are not calibrated geological uncertainty.",
+      "Nearest ties and neighbor-cutoff ties use first location occurrence in acquisition order. IDW scales weights by the smallest nonzero distance; exact location values take precedence after support checks.",
+      "Validation leaves out whole declared lines or explicit-origin XY blocks. Training rows at any held-out location are always excluded; buffer_distance can exclude a wider halo. Duplicate aggregation uses only training values.",
+      "Errors are predicted-minus-observed and scored only for supported predictions. Coverage and unsupported counts must accompany RMSE/MAE/bias; they do not establish calibrated uncertainty.",
+      "The direct APIs operate on observation payloads; raster-only workflow v1 is unchanged. No automatic sorting/filtering of the original observations or correction application occurs."
+    ],
+    "folds": [
+      {
+        "group": "L-1",
+        "train_records": 6,
+        "test_records": 3,
+        "excluded_buffer_records": 0,
+        "training": {
+          "mag": {
+            "locations": 6,
+            "readings": 6,
+            "duplicate_locations": 0
+          }
+        },
+        "predictions": [
+          {
+            "id": "L-1:0",
+            "channel": "mag",
+            "observed": 100,
+            "predicted": null,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": true,
+            "supported": false
+          },
+          {
+            "id": "L-1:1",
+            "channel": "mag",
+            "observed": 100,
+            "predicted": null,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": true,
+            "supported": false
+          },
+          {
+            "id": "L-1:2",
+            "channel": "mag",
+            "observed": 100,
+            "predicted": null,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": true,
+            "supported": false
+          }
+        ],
+        "metrics": {
+          "mag": {
+            "tested": 3,
+            "supported": 0,
+            "unsupported": 3,
+            "coverage": 0.0,
+            "rmse": null,
+            "mae": null,
+            "bias": null
+          }
+        }
+      },
+      {
+        "group": "L0",
+        "train_records": 6,
+        "test_records": 3,
+        "excluded_buffer_records": 0,
+        "training": {
+          "mag": {
+            "locations": 6,
+            "readings": 6,
+            "duplicate_locations": 0
+          }
+        },
+        "predictions": [
+          {
+            "id": "L0:0",
+            "channel": "mag",
+            "observed": 110,
+            "predicted": 100.0,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": false,
+            "supported": true
+          },
+          {
+            "id": "L0:1",
+            "channel": "mag",
+            "observed": 110,
+            "predicted": 100.0,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": false,
+            "supported": true
+          },
+          {
+            "id": "L0:2",
+            "channel": "mag",
+            "observed": 110,
+            "predicted": 100.0,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": false,
+            "supported": true
+          }
+        ],
+        "metrics": {
+          "mag": {
+            "tested": 3,
+            "supported": 3,
+            "unsupported": 0,
+            "coverage": 1.0,
+            "rmse": 10.0,
+            "mae": 10.0,
+            "bias": -10.0
+          }
+        }
+      },
+      {
+        "group": "L1",
+        "train_records": 6,
+        "test_records": 3,
+        "excluded_buffer_records": 0,
+        "training": {
+          "mag": {
+            "locations": 6,
+            "readings": 6,
+            "duplicate_locations": 0
+          }
+        },
+        "predictions": [
+          {
+            "id": "L1:0",
+            "channel": "mag",
+            "observed": 100,
+            "predicted": null,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": true,
+            "supported": false
+          },
+          {
+            "id": "L1:1",
+            "channel": "mag",
+            "observed": 100,
+            "predicted": null,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": true,
+            "supported": false
+          },
+          {
+            "id": "L1:2",
+            "channel": "mag",
+            "observed": 100,
+            "predicted": null,
+            "nearest_distance": 1.0,
+            "neighbors": 6,
+            "extrapolated": true,
+            "supported": false
+          }
+        ],
+        "metrics": {
+          "mag": {
+            "tested": 3,
+            "supported": 0,
+            "unsupported": 3,
+            "coverage": 0.0,
+            "rmse": null,
+            "mae": null,
+            "bias": null
+          }
+        }
+      }
+    ],
+    "summary": {
+      "mag": {
+        "tested": 9,
+        "supported": 3,
+        "unsupported": 6,
+        "coverage": 0.3333333333333333,
+        "rmse": 10.0,
+        "mae": 10.0,
+        "bias": -10.0
+      }
+    }
+  }
+}

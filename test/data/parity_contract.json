@@ -641,6 +641,28 @@
           "qc_observations"
         ]
       ]
+    },
+    {
+      "name": "geophysics_gridding",
+      "jsExports": [
+        "describeGeophysicsGridding",
+        "gridGeophysicsObservations",
+        "crossValidateGeophysicsGridding"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_gridding"
+        ],
+        [
+          "baselode.geophysics",
+          "grid_observations"
+        ],
+        [
+          "baselode.geophysics",
+          "cross_validate_gridding"
+        ]
+      ]
     }
   ]
 }

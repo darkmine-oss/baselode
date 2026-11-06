@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+**Geophysics baseline gridding and spatial validation (TRK-535)**
+
+- Matching Python/JavaScript nearest/IDW observation gridders return full-resolution field/support/count/distance/extrapolation rasters, with explicit support radius, duplicate policy and XY-only elevation treatment. Line/block holdout validation excludes colocated/buffered training observations before fitting and reports coverage with paired-only errors. Inputs, units, correction declarations and persisted grid lineage are retained.
+
 **Geophysics observations and survey QC (TRK-533)**
 
 - Portable versioned line/station observations and non-destructive QC in Python/JavaScript: acquisition-order segments, missing readings/positions, coincident XY locations, time reversals/gaps, caller-defined speed/clearance thresholds, window-median spike candidates and repeat-station statistics. Explicit context, coverage, correction-state preservation and resource limits accompany the report.
