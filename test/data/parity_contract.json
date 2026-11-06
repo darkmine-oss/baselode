@@ -709,6 +709,33 @@
           "run_equivalent_sources"
         ]
       ]
+    },
+    {
+      "name": "geophysics_corrections",
+      "jsExports": [
+        "describeGeophysicsCorrections",
+        "inspectGeophysicsCorrections",
+        "declareGeophysicsCorrections",
+        "correctGeophysicsMagneticBase"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_corrections"
+        ],
+        [
+          "baselode.geophysics",
+          "inspect_corrections"
+        ],
+        [
+          "baselode.geophysics",
+          "declare_corrections"
+        ],
+        [
+          "baselode.geophysics",
+          "correct_magnetic_base"
+        ]
+      ]
     }
   ]
 }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Correction ledger and guarded magnetic base correction (TRK-539)**
+
+- Matching Python/JavaScript correction history APIs record evidence-backed per-channel states, legacy aliases and immutable application events with shared SHA-256 data bindings. Unknown/applied history, stale data, conflicting summaries and repeat IDs prevent accidental reapplication.
+- Magnetic base correction subtracts synchronized, linearly interpolated variation relative to an explicit nT reference. Both survey and base histories must be unapplied; missing/null/excessive-gap/exterior coverage prevents an atomic application. Outputs retain full-resolution observations, proposals, parameters and persisted provenance; uncertainty is not propagated. JavaScript APIs use asynchronous native Web Crypto.
+
 **Elevation-aware equivalent sources (TRK-537)**
 
 - Optional Python Harmonica adapter fits scalar magnetic/gravity anomalies at measured XYZ, predicts a common height, and returns support, residuals, backend/source geometry and persisted lineage. Explicit vertical context, depth/damping, duplicate and extrapolation policies accompany bounded execution. Line/block holdouts refit after XY/buffer exclusions; candidate ranking requires complete coverage.

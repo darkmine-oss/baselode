@@ -82,3 +82,14 @@ void readEquivalentState;
 // @ts-expect-error common-surface height is mandatory for a grid request
 const missingEquivalentHeight: GeophysicsEquivalentSourceRequest = { schema: 'baselode.geophysics.equivalent_source_request', version: 1, operation: 'grid', observations, options: equivalentOptions };
 void missingEquivalentHeight;
+
+import { describeGeophysicsCorrections, inspectGeophysicsCorrections, declareGeophysicsCorrections, correctGeophysicsMagneticBase, type GeophysicsCorrectionReport } from 'baselode/geophysics';
+const inspectedCorrections: Promise<GeophysicsCorrectionReport> = inspectGeophysicsCorrections(observations);
+const declaredCorrections = declareGeophysicsCorrections(observations, [{ id: 'source', correction: 'magnetic_diurnal', channels: ['mag'], state: 'unapplied', evidence: 'contractor history checked' }]);
+const baseCorrectionOptions = { channel: 'mag', base_channel: 'base', reference: 50000, max_gap: 30, event_id: 'diurnal-1', evidence: 'base QC checked', clock_policy: 'synchronized' as const };
+const correctedMagnetic = correctGeophysicsMagneticBase(observations, observations, baseCorrectionOptions);
+void inspectedCorrections; void declaredCorrections; void correctedMagnetic; void describeGeophysicsCorrections();
+// @ts-expect-error explicit synchronized-clock policy is required
+correctGeophysicsMagneticBase(observations, observations, { channel: 'mag', base_channel: 'base', reference: 50000, max_gap: 30, event_id: 'diurnal-1', evidence: 'checked' });
+// @ts-expect-error unregistered correction identifiers are not executable aliases
+declareGeophysicsCorrections(observations, [{ id: 'bad', correction: 'custom', channels: ['mag'], state: 'unapplied', evidence: 'checked' }]);

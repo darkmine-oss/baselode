@@ -75,6 +75,14 @@ assert.equal(typeof geophysics.alignGeophysicsRaster, 'function');
 assert.equal(geophysics.describeGeophysicsEquivalentSources().execution.javascript, 'contract_only');
 assert.equal(geophysics.describeGeophysicsEquivalentSources().request_schema.properties.version.const, 1);
 
+assert.equal(geophysics.describeGeophysicsCorrections().version, 1);
+const correctionSurvey = { records: [{ id: 's', time: 0, values: { mag: 100 } }], channels: { mag: { field_type: 'magnetic_total_field', units: 'nT' } }, metadata: { corrections: { diurnal: 'unapplied' } } };
+const correctionBase = { records: [{ id: 'b', time: 0, station_id: 'BASE', values: { base: 1001 } }], channels: { base: { field_type: 'magnetic_total_field', units: 'nT' } }, metadata: { corrections: { diurnal: 'unapplied' } } };
+const correctedBase = await geophysics.correctGeophysicsMagneticBase(correctionSurvey, correctionBase, { channel: 'mag', base_channel: 'base', reference: 1000, max_gap: 10, event_id: 'base-1', evidence: 'synthetic', clock_policy: 'synchronized' });
+assert.equal(correctedBase.state, 'ok');
+assert.equal(correctedBase.observations.records[0].values.mag, 99);
+assert.equal((await geophysics.inspectGeophysicsCorrections(correctedBase.observations)).state, 'ok');
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {
