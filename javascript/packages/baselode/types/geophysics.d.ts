@@ -592,3 +592,41 @@ export interface GeophysicsReprojectionEvent {
 export function describeGeophysicsReprojection(): Record<string, unknown>;
 /** Native asynchronous Web Crypto; inputs unchanged, failures return no output. */
 export function reprojectGeophysicsObservations(payload: unknown, options: GeophysicsReprojectionOptions): Promise<GeophysicsCorrectionReport>;
+
+export type GeophysicsObservationWorkflowReference = { input: string; step?: never; output?: never } | { step: string; output: string; input?: never };
+export type GeophysicsObservationWorkflowOperation = 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
+export interface GeophysicsObservationWorkflowStep {
+  id: string;
+  operation: GeophysicsObservationWorkflowOperation;
+  version: 1;
+  inputs: GeophysicsObservationWorkflowReference[];
+  parameters: Record<string, unknown>;
+}
+export interface GeophysicsObservationWorkflow {
+  schema: 'baselode.geophysics.observation_workflow';
+  version: 1;
+  steps: GeophysicsObservationWorkflowStep[];
+  outputs: Record<string, GeophysicsObservationWorkflowReference>;
+}
+export interface GeophysicsObservationWorkflowResult {
+  schema: 'baselode.geophysics.observation_workflow_result';
+  version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed';
+  issues: Array<{code: string; path: string; message: string}>;
+  workflow: GeophysicsObservationWorkflow | null;
+  plan: GeophysicsObservationWorkflowStep[];
+  completed_steps: string[];
+  /** Native observation, raster or report ports; names/types come from the descriptor. */
+  artifacts: Record<string, GeophysicsObservations | GeophysicsRaster | Record<string, unknown>>;
+  step_reports: Record<string, Record<string, unknown>>;
+  input_bindings: Record<string, string>;
+  resource_estimate: Record<string, unknown>;
+  resource_usage?: Record<string, unknown>;
+  producer: {library: string; version: string; algorithm_version: number};
+}
+export function describeGeophysicsObservationWorkflow(): Record<string, unknown>;
+export function magneticObservationRecipe(): GeophysicsObservationWorkflow;
+/** Structural only; each native operation checks scientific values/context at execution. */
+export function validateGeophysicsObservationWorkflow(workflow: unknown, inputs: Record<string, unknown>): Promise<GeophysicsObservationWorkflowResult>;
+/** Atomic full-resolution outputs. IGRF workflows require Python execution. */
+export function runGeophysicsObservationWorkflow(workflow: unknown, inputs: Record<string, unknown>): Promise<GeophysicsObservationWorkflowResult>;

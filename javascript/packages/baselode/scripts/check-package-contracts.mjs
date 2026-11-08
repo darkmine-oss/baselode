@@ -141,3 +141,10 @@ assert.ok(Math.abs(projected.observations.records[0].x-500000)<1e-7);
 assert.equal(projected.observations.records[0].y,10000000);
 assert.equal((await geophysics.inspectGeophysicsCorrections(projected.observations)).state,'ok');
 assert.equal(geophysics.describeGeophysicsReprojection().version,1);
+
+const observationExample = JSON.parse(readFileSync(resolve(root,'../../../test/data/geophysics_crossovers_reference.json'),'utf8'));
+const observationRun = await geophysics.runGeophysicsObservationWorkflow(geophysics.magneticObservationRecipe(),{survey:observationExample.survey});
+assert.equal(observationRun.state,'ok',JSON.stringify(observationRun.issues));
+assert.deepEqual(observationRun.artifacts.grid.data,[[[134,146],[104,116]]]);
+assert.equal(geophysics.describeGeophysicsObservationWorkflow().version,1);
+assert.equal((await geophysics.inspectGeophysicsCorrections(observationRun.artifacts.corrected)).state,'ok');

@@ -1664,3 +1664,60 @@ remain unchanged, including their original grid-north reference. No heading
 rotation, datum shift, vertical conversion or uncertainty propagation occurs.
 Root uncertainty fields are archived in flat source lineage and marked
 unpropagated. Projected output can feed crossover and gridding APIs.
+
+### Declarative observation-to-grid workflows
+
+`describeGeophysicsObservationWorkflow()` exposes the shared JSON Schema,
+registered operation/parameter contracts, typed output ports, backend support and
+resource limits. `validateGeophysicsObservationWorkflow(workflow, inputs)` is
+asynchronous **structural preflight**. It checks input documents/history, versions,
+parameter keys/required fields, references, backend availability and known resource
+sizes. Native stages validate scientific values/context during execution; preflight
+`ok` is not scientific acceptance.
+
+```javascript
+const workflow = magneticObservationRecipe();
+// Replace synthetic line roles, thresholds and grid geometry for your survey.
+const result = await runGeophysicsObservationWorkflow(workflow, { survey });
+if (result.state === 'ok') {
+  const corrected = result.artifacts.corrected;
+  const grid = result.artifacts.grid; // Full resolution; support is a separate port.
+}
+```
+
+The saved example uses QC → fixed-reference levelling → nearest gridding → total
+horizontal derivative, R1/R2 references, A😀/B targets and synthetic 0–10 m bounds.
+It provides example parameters, not survey calibration. The derived stage requires a
+`magnetic_anomaly` mag channel in nT and known unapplied magnetic_levelling;
+raw total fields require explicit reference-field removal first. Persist the workflow as
+JSON with the original observation inputs; raster artifacts use native raster
+export APIs. Web Crypto requires Node 20+ or a secure browser context.
+
+Workflow fields: `schema: 'baselode.geophysics.observation_workflow'`, `version: 1`,
+ordered `steps`, named `outputs`. A step has `id`, registered `operation`,
+`version: 1`, `inputs` and `parameters`. References are exactly `{ input: 'survey' }`
+or `{ step: 'level', output: 'observations' }`. Only earlier typed ports resolve.
+Operations cover QC, inspection/declarations, native magnetic corrections,
+reprojection, crossovers/levelling, gridding and existing `raster_` operations.
+The descriptor lists `observations`, full-resolution grid/support/distance/count/
+extrapolation, `raster` and `report` ports as applicable.
+
+QC requires explicit `{ qc: {...}, max_flags: 0 }`; exceeding the threshold stops
+for review and truncated QC rejects. Every stage executes in order, including
+report-only gates. First non-`ok` state withholds all final artifacts, including
+requested raw inputs. Bounded native `step_reports`, `completed_steps`, input data
+bindings, copied plan/workflow and resource estimates remain for audit. Backend
+exceptions return `failed`. Native correction ledgers and source lineage survive;
+workflow metadata adds no inferred calibration, correction ordering or uncertainty.
+
+`remove_igrf` is discoverable but requires **Python execution with
+`baselode[magnetics]`**. JavaScript returns `needs_input` during preflight, before
+any preceding stage runs; no remote callback or generated implementation is used.
+Already corrected IGRF observations can feed native JavaScript workflows.
+
+Shared limits: 8 inputs, 16 steps, 32 outputs, 1 MiB workflow JSON, 32 MiB aggregate
+input JSON, 250,000 retained observation records / 1,000,000 readings, 4,000,000
+retained raster values across all ports, 8 MiB report JSON. Native operation limits
+also apply. Unused ports count toward retained budgets; runtime sizes are checked.
+This is not a process sandbox or timeout facility. Existing raster workflows stay
+compatible.

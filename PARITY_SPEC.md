@@ -208,3 +208,16 @@ ledger replay uses exchanged JSON, preserving backend identity and exact floats.
 Shared descriptor: `geophysics_reprojection.json`. Independent central-meridian
 anchors and rounded published PROJ examples cover both hemispheres; live runtime
 tests replay prior levelling across geographic/projected contexts in both languages.
+
+Observation workflows: `describe_observation_workflow`,
+`validate_observation_workflow`, `run_observation_workflow` and
+`magnetic_observation_recipe` match asynchronous JavaScript
+`describeGeophysicsObservationWorkflow`, `validateGeophysicsObservationWorkflow`,
+`runGeophysicsObservationWorkflow` and `magneticObservationRecipe`. Shared contracts
+and example JSON define allowlisted ordered stages, typed references, explicit QC,
+atomic output gates and resource bounds. Python executes optional IGRF; JavaScript
+reports `needs_input` before any execution when IGRF is requested. Preflight checks
+structure/history/backend/budgets, while each native stage validates scientific
+values/context. Independent line-offset recovery, exact nearest grid and analytical
+grid gradient, saved JSON replay, live binding/ledger parity and export persistence
+are tested. Existing raster workflow v1 remains unchanged.

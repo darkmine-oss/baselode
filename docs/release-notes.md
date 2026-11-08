@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add declarative observation-to-grid/derived-product workflows in Python and
+  JavaScript: registered typed ports, explicit QC gates, structural preflight,
+  atomic final outputs, bounded audit reports and preserved native correction
+  history. Optional numerical IGRF workflows execute in Python; shared contracts
+  make that backend requirement explicit before execution.
+
 - Add native WGS84 geographic/UTM observation reprojection in Python and JavaScript,
   preserving correction history and historical levelling context. Explicit event
   bindings, atomic coordinate-domain checks, shared schemas/types and source
