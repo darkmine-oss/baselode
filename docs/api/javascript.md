@@ -1627,3 +1627,40 @@ beyond ties; no polynomial drift, global network solve or microlevelling is
 claimed. Model/context SHA-256 complements the data binding and survives later
 lag masks. Native Web Crypto requires Node 20+ or a secure browser context.
 No new dependency or uncertainty propagation; see Python API for all contracts.
+
+### History-preserving observation reprojection
+
+Import `describeGeophysicsReprojection` and `reprojectGeophysicsObservations`
+from `baselode/geophysics` (also exported by the main bundle):
+
+```javascript
+const projected = await reprojectGeophysicsObservations(geographicObservations, {
+  target_crs: 'EPSG:32750', datum_policy: 'backend',
+  event_id: 'project-utm50s', evidence: 'Survey is WGS84 in UTM zone 50S',
+});
+// Check projected.state === 'ok' before using projected.observations.
+```
+
+Native [Proj4js](https://proj4js.org/) transforms WGS84 XY coordinates between
+`EPSG:4326` and `EPSG:32601`–`32660` / `32701`–`32760`. Always XY:
+longitude/latitude or easting/northing. Source units are `degree`/`degrees` or
+`m`/`metre`/`meter`; output units are `degree` or `m`. Web Crypto requires Node
+20+ or a secure browser context. Explicit backend acknowledgement is required.
+The discoverable descriptor supplies parameter/event schemas, bounds and assumptions.
+
+A reprojection ledger event preserves earlier correction events/bindings and
+per-channel states. Historical levelling checks retain their original coordinate
+context. Python and JavaScript can inspect each other's exact exchanged JSON;
+regenerated coordinates can differ numerically, so regenerated hashes need not
+match. Older readers without this event extension reject the ledger.
+
+Complete null XY pairs survive. Partial pairs, invalid transforms and points
+outside either UTM six-degree zone/hemisphere/latitude domain reject atomically;
+there must be at least one complete pair. Limits: 100,000 records, 64 events,
+16 MiB output with lineage. Latitude limits are 0–84° N and 80–0° S with 1e-8°
+boundary tolerance; Norway/Svalbard exceptions are not inferred.
+Measurements, heights, times, IDs/order/extras and measured acquisition headings
+remain unchanged, including their original grid-north reference. No heading
+rotation, datum shift, vertical conversion or uncertainty propagation occurs.
+Root uncertainty fields are archived in flat source lineage and marked
+unpropagated. Projected output can feed crossover and gridding APIs.

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add native WGS84 geographic/UTM observation reprojection in Python and JavaScript,
+  preserving correction history and historical levelling context. Explicit event
+  bindings, atomic coordinate-domain checks, shared schemas/types and source
+  lineage connect geographic IGRF output with projected crossover/gridding APIs.
+
 **Crossover QC and fixed-reference line levelling (TRK-545)**
 
 - Native Python/JavaScript crossover analysis provides bounded projected/local segment intersections, source interpolation, shared-vertex deduplication and explicit geometry/elevation support diagnostics.

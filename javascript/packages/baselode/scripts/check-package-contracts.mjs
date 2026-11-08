@@ -133,3 +133,11 @@ assert.equal(geophysics.describeGeophysicsIgrf().model.model, 'IGRF14');
 assert.equal(geophysics.describeGeophysicsIgrf().execution.install, "pip install 'baselode[magnetics]'");
 
 console.log('Published Extent, geophysics and Tool UI contracts are present, importable, and typed.');
+
+const projectionSource = geophysics.createGeophysicsObservations({crs:'EPSG:4326',crs_units:'degree',channels:{mag:{field_type:'magnetic_total_field',units:'nT'}},records:[{id:'anchor',x:117,y:0,values:{mag:50000}}]});
+const projected = await geophysics.reprojectGeophysicsObservations(projectionSource,{target_crs:'EPSG:32750',datum_policy:'backend',event_id:'project',evidence:'synthetic anchor'});
+assert.equal(projected.state,'ok');
+assert.ok(Math.abs(projected.observations.records[0].x-500000)<1e-7);
+assert.equal(projected.observations.records[0].y,10000000);
+assert.equal((await geophysics.inspectGeophysicsCorrections(projected.observations)).state,'ok');
+assert.equal(geophysics.describeGeophysicsReprojection().version,1);

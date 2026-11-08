@@ -806,6 +806,12 @@
           "level_magnetic_lines"
         ]
       ]
+    },
+    {
+      "name": "geophysics_observation_reprojection",
+      "description": "Bound WGS84 geographic/UTM horizontal observation derivation preserving correction states and historical contexts.",
+      "jsExports": ["describeGeophysicsReprojection", "reprojectGeophysicsObservations"],
+      "pythonSymbols": [["baselode.geophysics", "describe_reprojection"], ["baselode.geophysics", "reproject_observations"]]
     }
   ]
 }
