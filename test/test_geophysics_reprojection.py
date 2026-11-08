@@ -170,13 +170,16 @@ def test_live_cross_runtime_reprojection_and_original_levelling_context(tmp_path
     subprocess.run(['node',str(ROOT/'test/data/reprojection_parity.mjs'),str(source),str(target)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True)
     result = json.loads(target.read_text())
     assert result['inspected']['state'] == 'ok', result['inspected']['issues']
-    for key in ['first','levelled','back']: assert result[key]['state'] == 'ok', result[key]['issues']
+    for key in ['first','levelled','back','geographic']: assert result[key]['state'] == 'ok', result[key]['issues']
     expected = project()['observations']['records'][0]; actual = result['first']['observations']['records'][0]
     assert actual['x'] == pytest.approx(expected['x'],abs=1e-6)
     assert actual['y'] == pytest.approx(expected['y'],abs=1e-6)
-    for key in ['first','levelled','back']:
+    for key in ['first','levelled','back','geographic']:
         inspected = baselode.geophysics.inspect_corrections(result[key]['observations'])
         assert inspected['state'] == 'ok', inspected['issues']
+    removed = baselode.geophysics.remove_igrf(result['geographic']['observations'], {'channel':'mag','model':'IGRF14','event_id':'igrf-after-js','evidence':'synthetic WGS84 context'})
+    assert removed['state'] == 'ok', removed['issues']
+    assert removed['ledger']['entries'][:-1] == result['geographic']['ledger']['entries']
 
 
 @pytest.mark.parametrize('extension', ['ers', 'tif'])
@@ -258,3 +261,24 @@ def test_malformed_stored_parameters_reject_instead_of_requesting_input(change):
         assert result['state'] == 'rejected'
         assert result['issues'][0]['code'] == 'contract'
         assert result['observations'] is None
+
+
+@pytest.mark.parametrize('identity', [False,True])
+def test_projected_or_identity_geographic_derivation_feeds_igrf_and_return(identity):
+    data = survey(); data['records'] = data['records'][:1]
+    params = {'channel':'mag','model':'IGRF14','event_id':'igrf','evidence':'synthetic checked WGS84 context'}
+    expected = baselode.geophysics.remove_igrf(data, params)
+    assert expected['state'] == 'ok', expected['issues']
+    if identity:
+        geographic = project(data, options('EPSG:4326'))
+    else:
+        projected = project(data)
+        geographic = project(projected['observations'], options('EPSG:4326','geographic'))
+    assert geographic['observations']['crs_units'] == 'degree'
+    removed = baselode.geophysics.remove_igrf(geographic['observations'],params)
+    assert removed['state'] == 'ok', removed['issues']
+    assert removed['ledger']['entries'][:-1] == geographic['ledger']['entries']
+    assert removed['observations']['records'][0]['values']['mag'] == pytest.approx(expected['observations']['records'][0]['values']['mag'],abs=1e-6)
+    out = project(removed['observations'], options('EPSG:32750','return'))
+    assert out['states']['magnetic_igrf']['mag'] == 'applied'
+    assert baselode.geophysics.inspect_corrections(out['observations'])['state'] == 'ok'

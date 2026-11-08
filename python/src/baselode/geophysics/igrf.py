@@ -217,8 +217,8 @@ def remove_igrf(payload, options):
         if channel not in data["channels"] or data["channels"][channel]["field_type"] != "magnetic_total_field" or data["channels"][channel]["units"] != "nT":
             raise ValueError("IGRF removal requires a magnetic_total_field channel in nT")
         metadata = data["metadata"]
-        if data["crs"] != "EPSG:4326" or data["crs_units"] != "degrees" or any(metadata.get(k) != v for k, v in {"height_units": "m", "height_datum": "WGS84_ellipsoid", "z_positive": "up"}.items()):
-            raise corrections._NeedsInput("supply EPSG:4326/degrees and metadata height_units=m, height_datum=WGS84_ellipsoid, z_positive=up; convert explicitly")
+        if data["crs"] != "EPSG:4326" or data["crs_units"] not in ("degree", "degrees") or any(metadata.get(k) != v for k, v in {"height_units": "m", "height_datum": "WGS84_ellipsoid", "z_positive": "up"}.items()):
+            raise corrections._NeedsInput("supply EPSG:4326 with degree/degrees and metadata height_units=m, height_datum=WGS84_ellipsoid, z_positive=up; convert explicitly")
         ledger = corrections._load(data)
         state = corrections._states(data, ledger)["magnetic_igrf"][channel]
         if state == "unknown":

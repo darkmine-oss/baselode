@@ -2041,7 +2041,7 @@ SHA-256 is verified; no model data is downloaded during processing.
 `remove_igrf(observations, {"channel": "mag", "model": "IGRF14",
 "event_id": "igrf-1", "evidence": "source correction history checked"})`
 requires a `magnetic_total_field` channel in `nT`, bound or legacy **unapplied**
-`magnetic_igrf` history, `crs="EPSG:4326"`, `crs_units="degrees"`, and metadata
+`magnetic_igrf` history, `crs="EPSG:4326"`, `crs_units="degree"` or `"degrees"`, and metadata
 `height_units="m"`, `height_datum="WGS84_ellipsoid"`, `z_positive="up"`.
 Use `declare_corrections` with evidence if history is unknown. Heights above
 mean sea level need an explicit datum conversion before this API.

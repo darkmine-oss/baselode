@@ -16,5 +16,6 @@ try {
   const first = await api.reprojectGeophysicsObservations(item.survey,item.options);
   const levelled = await api.reprojectGeophysicsObservations(item.levelled,{...item.options,target_crs:'EPSG:4326'});
   const back = await api.reprojectGeophysicsObservations(item.python_output,{...item.options,event_id:'js-back'});
-  fs.writeFileSync(process.argv[3],JSON.stringify({inspected,first,levelled,back}));
+  const geographic = await api.reprojectGeophysicsObservations(first.observations,{...item.options,target_crs:'EPSG:4326',event_id:'js-geographic'});
+  fs.writeFileSync(process.argv[3],JSON.stringify({inspected,first,levelled,back,geographic}));
 } finally { await server.close(); }
