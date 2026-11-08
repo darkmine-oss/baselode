@@ -89,8 +89,10 @@ describe_corrections = geophysics_corrections.describe_corrections
 inspect_corrections = geophysics_corrections.inspect_corrections
 declare_corrections = geophysics_corrections.declare_corrections
 correct_magnetic_base = geophysics_corrections.correct_magnetic_base
+correct_magnetic_lag = geophysics_corrections.correct_magnetic_lag
 
 __all__ = [
+    "correct_magnetic_lag",
     "describe_igrf",
     "calculate_igrf",
     "remove_igrf",

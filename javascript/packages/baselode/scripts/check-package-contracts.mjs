@@ -83,6 +83,13 @@ assert.equal(correctedBase.state, 'ok');
 assert.equal(correctedBase.observations.records[0].values.mag, 99);
 assert.equal((await geophysics.inspectGeophysicsCorrections(correctedBase.observations)).state, 'ok');
 
+const lagSurvey = { records: [{ id: 'a', line_id: 'L', time: 0, values: { mag: 100 } }, { id: 'b', line_id: 'L', time: 1, values: { mag: 102 } }], channels: { mag: { field_type: 'magnetic_total_field', units: 'nT' } }, metadata: { corrections: { lag: 'unapplied' } } };
+const lagged = await geophysics.correctGeophysicsMagneticLag(lagSurvey, { channel: 'mag', lag_seconds: .5, max_gap: 1, unsupported_policy: 'mask', event_id: 'lag-1', evidence: 'synthetic', clock_policy: 'synchronized' });
+assert.equal(lagged.state, 'ok');
+assert.deepEqual(lagged.observations.records.map((row) => row.values.mag), [101, null]);
+assert.deepEqual(lagged.ledger.entries.at(-1).masked_records, [{ id: 'b', value: 102 }]);
+assert.equal((await geophysics.inspectGeophysicsCorrections(lagged.observations)).state, 'ok');
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {

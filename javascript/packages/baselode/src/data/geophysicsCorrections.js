@@ -81,6 +81,41 @@ function igrfOptions(options) {
   return params;
 }
 
+function lagOptions(options) {
+  const contract = descriptor.lag_parameters;
+  if (!object(options) || Object.keys(options).some((name) => !Object.hasOwn(contract.properties, name))) throw Error('lag correction requires known option names');
+  const params = json(options);
+  if (contract.required.some((name) => !Object.hasOwn(params, name))) throw new NeedsInput('supply channel, lag_seconds, max_gap, unsupported_policy, event_id, evidence and clock_policy');
+  if (typeof params.channel !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params.channel)) throw Error('channel must be a declared channel name');
+  if (!number(params.lag_seconds) || Math.abs(params.lag_seconds) > 3600 || !number(params.max_gap) || params.max_gap <= 0) throw Error('lag_seconds must be within +/-3600 and max_gap finite positive seconds');
+  if (!['reject', 'mask'].includes(params.unsupported_policy) || !label(params.event_id) || !evidence(params.evidence)) throw Error('lag requires explicit reject/mask policy and bounded event_id/evidence');
+  if (params.clock_policy !== 'synchronized') throw new NeedsInput('clock_policy must explicitly acknowledge synchronized UTC Unix seconds');
+  return params;
+}
+function applicationCounts(data, entries) {
+  const counts = Object.fromEntries(Object.keys(data.channels).map((name) => [name, data.records.filter((row) => row.values[name] !== null).length]));
+  const rows = new Map(data.records.map((row) => [row.id, row])); const expected = new Map(); const seen = new Map();
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (!object(entry) || entry.kind !== 'application') continue;
+    const channels = entry.channels;
+    if (!Array.isArray(channels) || channels.length !== 1 || typeof channels[0] !== 'string' || !Object.hasOwn(counts, channels[0])) continue;
+    const channel = channels[0];
+    if (entry.correction === 'magnetic_lag') {
+      if (!Array.isArray(entry.masked_records) || entry.masked_records.length > limits.max_lag_records) throw Error('lag masked_records must be a bounded list');
+      if (!seen.has(channel)) seen.set(channel, new Set());
+      for (const item of entry.masked_records) {
+        if (!keys(item, ['id', 'value']) || !label(item.id) || !rows.has(item.id) || !number(item.value)) throw Error('lag masked_records need existing IDs and finite original values');
+        if (seen.get(channel).has(item.id) || rows.get(item.id).values[channel] !== null) throw Error('lag masks must be unique per channel and remain null in current observations');
+        seen.get(channel).add(item.id);
+      }
+      counts[channel] += entry.masked_records.length;
+    }
+    expected.set(index, counts[channel]);
+  }
+  return expected;
+}
+
 function validate(data, ledger, current, checkSummary = true) {
   if (!keys(ledger, ['schema', 'version', 'algorithm', 'initial_binding', 'current_binding', 'entries']) || ledger.schema !== schema || ledger.version !== 1 || ledger.algorithm !== algorithm) throw Error('unsupported or malformed correction ledger');
   if (!digest(ledger.initial_binding) || !digest(ledger.current_binding)) throw Error('ledger bindings must be lowercase SHA-256 digests');
@@ -89,9 +124,10 @@ function validate(data, ledger, current, checkSummary = true) {
   const common = ['id', 'kind', 'correction', 'channels', 'state', 'evidence', 'producer', 'input_binding', 'output_binding'];
   const baseExtra = ['parameters', 'base_binding', 'base_station_id', 'affected_records'];
   const igrfExtra = ['parameters', 'model', 'affected_records'];
+  const counts = applicationCounts(data, ledger.entries);
   const states = statesFor(data, { entries: [] }); let previous = ledger.initial_binding; const ids = new Set();
-  for (const entry of ledger.entries) {
-    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : baseExtra;
+  for (const [index, entry] of ledger.entries.entries()) {
+    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : baseExtra);
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
     if (typeof correction !== 'string' || !Object.hasOwn(states, correction) || !label(entry.id) || ids.has(entry.id) || !evidence(entry.evidence)) throw Error('ledger events need unique IDs, registered correction and bounded evidence');
@@ -104,14 +140,15 @@ function validate(data, ledger, current, checkSummary = true) {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
       let params;
-      try { params = (correction === 'magnetic_igrf' ? igrfOptions : baseOptions)(entry.parameters); }
+      try { params = (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions))(entry.parameters); }
       catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
-      const count = data.records.filter((row) => row.values[channels[0]] !== null).length;
-      if (!['magnetic_diurnal', 'magnetic_igrf'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
+      const count = counts.get(index);
+      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
       if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence) throw Error('application parameters do not match the ledger event');
       if (correction === 'magnetic_diurnal' && (!digest(entry.base_binding) || !label(entry.base_station_id))) throw Error('invalid base application binding/station');
       if (correction === 'magnetic_igrf' && (!keys(entry.model, Object.keys(descriptor.igrf_model.const)) || Object.entries(descriptor.igrf_model.const).some(([key, value]) => entry.model[key] !== value))) throw Error('invalid IGRF model/coefficient/convention identity');
-      if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading');
+      if (correction === 'magnetic_lag' && ((params.unsupported_policy === 'reject' && entry.masked_records.length) || count <= entry.masked_records.length)) throw Error('lag masks require explicit mask policy and at least one supported reading');
+      if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading immediately before that event');
     }
     for (const name of channels) states[correction][name] = entry.state;
     previous = entry.output_binding;
@@ -133,7 +170,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);
@@ -237,6 +274,71 @@ export async function correctGeophysicsMagneticBase(payload, base, options) {
     metadata.uncertainty_propagated = false;
     metadata.processing = [...(metadata.processing ?? []), { operation: 'magnetic_base_input', version: 1, event_id: params.event_id, input_binding: beforeBinding, operand_lineage: source.operand }, { operation: 'correct_magnetic_base', version: 1, parameters: params, input_binding: beforeBinding, output_binding: outputBinding, base_binding: baseBinding, operand_lineage: monitorInput.operand }];
     const output = await save(data, ledger); validate(output, ledger, outputBinding);
+    Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger) }); return result;
+  } catch (error) { return errorResult(result, error); }
+}
+
+/** corrected(t)=input(t+lag_seconds) within contiguous line segments. Explicit reject/mask coverage; no extrapolation. */
+export async function correctGeophysicsMagneticLag(payload, options) {
+  const result = report('magnetic_lag');
+  try {
+    const params = lagOptions(options); result.parameters = params;
+    const data = createGeophysicsObservations(payload);
+    if (data.records.length > limits.max_lag_records) throw new ResourceError('lag correction accepts at most 4096 records; partition explicitly');
+    const channel = params.channel;
+    if (!Object.hasOwn(data.channels, channel) || !['magnetic_total_field', 'magnetic_anomaly'].includes(data.channels[channel].field_type) || trim(data.channels[channel].units) !== 'nT') throw Error('lag correction requires a magnetic total-field/anomaly channel in nT');
+    const ledger = await load(data);
+    if (ledger.entries.some((entry) => entry.id === params.event_id)) throw Error('event_id already exists in the correction ledger');
+    const state = statesFor(data, ledger).magnetic_lag[channel];
+    if (state === 'unknown') throw new NeedsInput('declare evidence-backed unapplied magnetic_lag history before correction');
+    if (state !== 'unapplied') throw Error('magnetic_lag is already applied; repeated correction is rejected');
+    const segments = [];
+    for (const row of data.records) {
+      if (row.line_id === null || row.time === null) throw new NeedsInput('every lag record needs line_id and UTC time, including null-reading gap markers');
+      if (!segments.length || segments.at(-1).at(-1).line_id !== row.line_id) segments.push([]);
+      const segment = segments.at(-1);
+      if (segment.length && row.time <= segment.at(-1).time) throw Error('times must increase strictly within each contiguous line segment; run acquisition QC');
+      segment.push(row);
+    }
+    const selected = data.records.filter((row) => row.values[channel] !== null).length;
+    if (!selected) throw new NeedsInput('selected channel needs at least one nonnull reading');
+    for (const [segmentIndex, segment] of segments.entries()) {
+      const times = segment.map((row) => row.time);
+      for (const row of segment) {
+        const original = row.values[channel]; if (original === null) continue;
+        const query = row.time + params.lag_seconds;
+        if (!number(query) || (params.lag_seconds !== 0 && query === row.time)) throw Error('lag-shifted UTC time is outside portable range or below timestamp precision');
+        let low = 0; let high = times.length;
+        while (low < high) { const mid = Math.floor((low + high) / 2); if (times[mid] < query) low = mid + 1; else high = mid; }
+        const index = low; let value = null; let reason = null; let sourceIds = []; let weight = null;
+        if (index < times.length && times[index] === query) {
+          value = segment[index].values[channel]; sourceIds = [segment[index].id]; weight = 0;
+          if (value === null) reason = 'missing_source_reading';
+        } else if (index === 0 || index === times.length) reason = 'outside_segment';
+        else {
+          const left = segment[index - 1]; const right = segment[index]; sourceIds = [left.id, right.id]; const gap = times[index] - times[index - 1];
+          if (left.values[channel] === null || right.values[channel] === null) reason = 'missing_source_reading';
+          else if (gap > params.max_gap) reason = 'excessive_gap';
+          else { weight = (query - times[index - 1]) / gap; value = left.values[channel] + (right.values[channel] - left.values[channel]) * weight; }
+        }
+        if (value !== null && !number(value)) throw Error('interpolated magnetic reading exceeds portable numeric range');
+        result.proposals.push({ id: row.id, line_id: row.line_id, segment: segmentIndex, time: row.time, source_time: query, original, corrected: value, source_ids: sourceIds, weight, supported: reason === null, reason });
+      }
+    }
+    const supported = result.proposals.filter((p) => p.supported).length;
+    result.diagnostics = { selected_readings: selected, supported_readings: supported, unsupported_readings: selected - supported, missing_readings: data.records.length - selected, segments: segments.length, uncertainty_propagated: false };
+    if (!supported || (supported !== selected && params.unsupported_policy === 'reject')) throw new NeedsInput('lag coverage is incomplete or empty; no corrected observations or application event committed');
+    const masked = result.proposals.filter((p) => !p.supported).map((p) => ({ id: p.id, value: p.original }));
+    const proposals = new Map(result.proposals.map((p) => [p.id, p])); const before = ledger.current_binding;
+    for (const row of data.records) if (proposals.has(row.id)) row.values[channel] = proposals.get(row.id).corrected;
+    const after = await binding(data);
+    ledger.entries.push({ id: params.event_id, kind: 'application', correction: 'magnetic_lag', channels: [channel], state: 'applied', evidence: params.evidence, producer: producer(), input_binding: before, output_binding: after, parameters: params, masked_records: masked, affected_records: selected });
+    ledger.current_binding = after;
+    const metadata = data.metadata; const source = appendInput(metadata, metadata); metadata.input_lineage = source.nodes;
+    for (const key of ['uncertainty', 'variance', 'standard_deviation']) delete metadata[key];
+    metadata.uncertainty_propagated = false;
+    metadata.processing = [...(metadata.processing ?? []), { operation: 'correct_magnetic_lag', version: 1, parameters: params, input_binding: before, output_binding: after, operand_lineage: source.operand }];
+    const output = await save(data, ledger); validate(output, ledger, after);
     Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger) }); return result;
   } catch (error) { return errorResult(result, error); }
 }

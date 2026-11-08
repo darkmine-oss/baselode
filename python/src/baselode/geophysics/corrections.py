@@ -1,6 +1,6 @@
 # Copyright (C) 2026 Darkmine Pty Ltd
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Bound observation correction history and guarded magnetic base correction."""
+"""Bound observation correction history and scalar magnetic corrections."""
 import bisect
 import copy
 import hashlib
@@ -29,7 +29,7 @@ class _ResourceError(ValueError):
 
 
 def describe_corrections():
-    """Return independent ledger, declaration and base-correction contracts.
+    """Return independent ledger, declaration and magnetic-correction contracts.
 
     Returns
     -------
@@ -147,6 +147,54 @@ def _igrf_options(options):
     return params
 
 
+def _lag_options(options):
+    schema = _DESCRIPTOR["lag_parameters"]
+    if type(options) is not dict or options.keys() - schema["properties"].keys():
+        raise ValueError("lag correction requires known option names")
+    params = _json(options)
+    if any(name not in params for name in schema["required"]):
+        raise _NeedsInput("supply channel, lag_seconds, max_gap, unsupported_policy, event_id, evidence and clock_policy")
+    if not isinstance(params["channel"], str) or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", params["channel"]) is None:
+        raise ValueError("channel must be a declared channel name")
+    if not _number(params["lag_seconds"]) or abs(params["lag_seconds"]) > 3600 or not _number(params["max_gap"]) or params["max_gap"] <= 0:
+        raise ValueError("lag_seconds must be within +/-3600 and max_gap finite positive seconds")
+    if params["unsupported_policy"] not in ("reject", "mask") or not _label(params["event_id"]) or not _evidence(params["evidence"]):
+        raise ValueError("lag requires explicit reject/mask policy and bounded event_id/evidence")
+    if params["clock_policy"] != "synchronized":
+        raise _NeedsInput("clock_policy must explicitly acknowledge synchronized UTC Unix seconds")
+    return params
+
+
+def _application_counts(data, entries):
+    # Reconstruct counts at each application, rather than compare historical
+    # events to today's nonnull count after a later explicit lag mask.
+    counts = {name: sum(row["values"][name] is not None for row in data["records"]) for name in data["channels"]}
+    rows = {row["id"]: row for row in data["records"]}
+    expected, seen_masks = {}, set()
+    for index in range(len(entries) - 1, -1, -1):
+        entry = entries[index]
+        if type(entry) is not dict or entry.get("kind") != "application":
+            continue
+        channels = entry.get("channels")
+        if type(channels) is not list or len(channels) != 1 or not isinstance(channels[0], str) or channels[0] not in counts:
+            continue  # Full event validation below reports the malformed shape.
+        channel = channels[0]
+        if entry.get("correction") == "magnetic_lag":
+            masked = entry.get("masked_records")
+            if type(masked) is not list or len(masked) > _LIMITS["max_lag_records"]:
+                raise ValueError("lag masked_records must be a bounded list")
+            for item in masked:
+                if type(item) is not dict or set(item) != {"id", "value"} or not _label(item["id"]) or item["id"] not in rows or not _number(item["value"]):
+                    raise ValueError("lag masked_records need existing IDs and finite original values")
+                key = (channel, item["id"])
+                if key in seen_masks or rows[item["id"]]["values"][channel] is not None:
+                    raise ValueError("lag masks must be unique per channel and remain null in current observations")
+                seen_masks.add(key)
+            counts[channel] += len(masked)
+        expected[index] = counts[channel]
+    return expected
+
+
 def _validate(data, ledger, current, check_summary=True):
     fields = {"schema", "version", "algorithm", "initial_binding", "current_binding", "entries"}
     if type(ledger) is not dict or set(ledger) != fields or ledger["schema"] != _SCHEMA or type(ledger["version"]) not in (int, float) or ledger["version"] != 1 or ledger["algorithm"] != _ALGORITHM:
@@ -160,10 +208,11 @@ def _validate(data, ledger, current, check_summary=True):
     common = {"id", "kind", "correction", "channels", "state", "evidence", "producer", "input_binding", "output_binding"}
     base_extra = {"parameters", "base_binding", "base_station_id", "affected_records"}
     igrf_extra = {"parameters", "model", "affected_records"}
+    counts = _application_counts(data, ledger["entries"])
     states = _states(data, {"entries": []})
     previous, ids = ledger["initial_binding"], set()
-    for entry in ledger["entries"]:
-        extra = igrf_extra if type(entry) is dict and entry.get("correction") == "magnetic_igrf" else base_extra
+    for index, entry in enumerate(ledger["entries"]):
+        extra = igrf_extra if type(entry) is dict and entry.get("correction") == "magnetic_igrf" else ({"parameters", "masked_records", "affected_records"} if type(entry) is dict and entry.get("correction") == "magnetic_lag" else base_extra)
         if type(entry) is not dict or entry.get("kind") not in ("declaration", "application") or set(entry) != common | (extra if entry["kind"] == "application" else set()):
             raise ValueError("malformed correction ledger event")
         correction = entry["correction"]
@@ -183,11 +232,11 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
             try:
-                params = (_igrf_options if correction == "magnetic_igrf" else _base_options)(entry["parameters"])
+                params = (_igrf_options if correction == "magnetic_igrf" else (_lag_options if correction == "magnetic_lag" else _base_options))(entry["parameters"])
             except _NeedsInput as error:
                 raise ValueError("invalid stored application parameters: " + str(error)) from error
-            count = sum(row["values"][channels[0]] is not None for row in data["records"])
-            if correction not in ("magnetic_diurnal", "magnetic_igrf") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
+            count = counts.get(index)
+            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied supported correction history for one channel")
             if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"]:
                 raise ValueError("application parameters do not match the ledger event")
@@ -195,8 +244,10 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("invalid base application binding/station")
             if correction == "magnetic_igrf" and entry["model"] != _DESCRIPTOR["igrf_model"]["const"]:
                 raise ValueError("invalid IGRF model/coefficient/convention identity")
+            if correction == "magnetic_lag" and ((params["unsupported_policy"] == "reject" and entry["masked_records"]) or count <= len(entry["masked_records"])):
+                raise ValueError("lag masks require explicit mask policy and at least one supported reading")
             if type(entry["affected_records"]) not in (int, float) or entry["affected_records"] != count or count < 1:
-                raise ValueError("application must account for every nonnull channel reading")
+                raise ValueError("application must account for every nonnull channel reading immediately before that event")
         for name in channels:
             states[correction][name] = entry["state"]
         previous = entry["output_binding"]
@@ -224,7 +275,7 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf") for step in data["metadata"].get("processing", [])):
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag") for step in data["metadata"].get("processing", [])):
         raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
@@ -441,6 +492,127 @@ def correct_magnetic_base(payload, base, options):
                                                                         "base_binding": base_binding, "operand_lineage": base_operand}]
         output = _save(data, ledger)
         _validate(output, ledger, output_binding)
+        report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))
+        return report
+    except (ValueError, TypeError, RecursionError) as error:
+        return _error(report, error)
+
+
+def correct_magnetic_lag(payload, options):
+    """Align one magnetic signal to unchanged navigation with a calibrated lag.
+
+    Parameters
+    ----------
+    payload : dict
+        V1 observations, never modified. Selected channel is total field or
+        magnetic anomaly in nT. Every record needs line_id and UTC Unix time;
+        times must increase within each acquisition-contiguous line segment.
+    options : dict
+        channel, lag_seconds (within +/-3600), positive max_gap in seconds,
+        unsupported_policy='reject' or 'mask', event_id, calibration evidence,
+        clock_policy='synchronized'. corrected(t)=input(t+lag_seconds): positive
+        lag advances delayed magnetic readings. No automatic lag estimation.
+
+    Returns
+    -------
+    dict
+        V1 correction report with per-reading original/proposed values, support
+        and diagnostics. No extrapolation, cross-segment interpolation or
+        bridging null source readings/excessive gaps. Existing target nulls
+        stay null. Reject policy commits nothing on incomplete coverage; mask
+        explicitly archives unsupported original values in the ledger and
+        requires at least one supported reading. Records, order, XYZ/time and
+        other channels are retained. No uncertainty propagation is inferred.
+    """
+    report = _report("magnetic_lag")
+    try:
+        params = _lag_options(options)
+        report["parameters"] = params
+        data = baselode.geophysics.observations.create_observations(payload)
+        if len(data["records"]) > _LIMITS["max_lag_records"]:
+            raise _ResourceError("lag correction accepts at most 4096 records; partition explicitly")
+        channel = params["channel"]
+        if channel not in data["channels"] or data["channels"][channel]["field_type"] not in ("magnetic_total_field", "magnetic_anomaly") or baselode.geophysics.observations._trim(data["channels"][channel]["units"]) != "nT":
+            raise ValueError("lag correction requires a magnetic total-field/anomaly channel in nT")
+        ledger = _load(data)
+        if any(entry["id"] == params["event_id"] for entry in ledger["entries"]):
+            raise ValueError("event_id already exists in the correction ledger")
+        state = _states(data, ledger)["magnetic_lag"][channel]
+        if state == "unknown":
+            raise _NeedsInput("declare evidence-backed unapplied magnetic_lag history before correction")
+        if state != "unapplied":
+            raise ValueError("magnetic_lag is already applied; repeated correction is rejected")
+        segments = []
+        for row in data["records"]:
+            if row["line_id"] is None or row["time"] is None:
+                raise _NeedsInput("every lag record needs line_id and UTC time, including null-reading gap markers")
+            if not segments or segments[-1][-1]["line_id"] != row["line_id"]:
+                segments.append([])
+            segment = segments[-1]
+            if segment and row["time"] <= segment[-1]["time"]:
+                raise ValueError("times must increase strictly within each contiguous line segment; run acquisition QC")
+            segment.append(row)
+        selected = sum(row["values"][channel] is not None for row in data["records"])
+        if selected == 0:
+            raise _NeedsInput("selected channel needs at least one nonnull reading")
+        # Build all proposals against the untouched source, before assignment.
+        for segment_index, segment in enumerate(segments):
+            times = [float(row["time"]) for row in segment]
+            for row in segment:
+                original = row["values"][channel]
+                if original is None:
+                    continue
+                query = float(row["time"]) + params["lag_seconds"]
+                if not _number(query) or (params["lag_seconds"] != 0 and query == float(row["time"])):
+                    raise ValueError("lag-shifted UTC time is outside portable range or below timestamp precision")
+                index = bisect.bisect_left(times, query)
+                value, reason, source_ids, weight = None, None, [], None
+                if index < len(times) and times[index] == query:
+                    value = segment[index]["values"][channel]
+                    source_ids, weight = [segment[index]["id"]], 0.0
+                    if value is None:
+                        reason = "missing_source_reading"
+                elif index == 0 or index == len(times):
+                    reason = "outside_segment"
+                else:
+                    left, right = segment[index - 1], segment[index]
+                    source_ids = [left["id"], right["id"]]
+                    gap = times[index] - times[index - 1]
+                    if left["values"][channel] is None or right["values"][channel] is None:
+                        reason = "missing_source_reading"
+                    elif gap > params["max_gap"]:
+                        reason = "excessive_gap"
+                    else:
+                        weight = (query - times[index - 1]) / gap
+                        value = float(left["values"][channel]) + (float(right["values"][channel]) - float(left["values"][channel])) * weight
+                if value is not None and not _number(value):
+                    raise ValueError("interpolated magnetic reading exceeds portable numeric range")
+                report["proposals"].append({"id": row["id"], "line_id": row["line_id"], "segment": segment_index, "time": row["time"], "source_time": query,
+                                            "original": original, "corrected": value, "source_ids": source_ids, "weight": weight, "supported": reason is None, "reason": reason})
+        supported = sum(p["supported"] for p in report["proposals"])
+        report["diagnostics"] = {"selected_readings": selected, "supported_readings": supported, "unsupported_readings": selected - supported,
+                                  "missing_readings": len(data["records"]) - selected, "segments": len(segments), "uncertainty_propagated": False}
+        if supported == 0 or (supported != selected and params["unsupported_policy"] == "reject"):
+            raise _NeedsInput("lag coverage is incomplete or empty; no corrected observations or application event committed")
+        masked = [{"id": p["id"], "value": p["original"]} for p in report["proposals"] if not p["supported"]]
+        proposals = {p["id"]: p for p in report["proposals"]}
+        before = ledger["current_binding"]
+        for row in data["records"]:
+            if row["id"] in proposals:
+                row["values"][channel] = proposals[row["id"]]["corrected"]
+        after = _binding(data)
+        ledger["entries"].append({"id": params["event_id"], "kind": "application", "correction": "magnetic_lag", "channels": [channel], "state": "applied", "evidence": params["evidence"],
+                                  "producer": _producer(), "input_binding": before, "output_binding": after, "parameters": params, "masked_records": masked, "affected_records": selected})
+        ledger["current_binding"] = after
+        metadata = data["metadata"]
+        nodes, source_operand = baselode.geophysics.provenance.append_input(metadata, metadata)
+        metadata["input_lineage"] = nodes
+        for key in ("uncertainty", "variance", "standard_deviation"):
+            metadata.pop(key, None)
+        metadata["uncertainty_propagated"] = False
+        metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "correct_magnetic_lag", "version": 1, "parameters": params, "input_binding": before, "output_binding": after, "operand_lineage": source_operand}]
+        output = _save(data, ledger)
+        _validate(output, ledger, after)
         report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))
         return report
     except (ValueError, TypeError, RecursionError) as error:

@@ -1544,3 +1544,29 @@ legacy summaries and known-state guards. Requests use WGS84 geodetic degrees,
 ellipsoidal metres and UTC Unix seconds; results use geodetic north/east/down
 nT and east/down-positive declination/inclination degrees. See the Python API
 for supported dates, resource bounds and scalar-removal assumptions.
+
+### Magnetic survey lag correction
+
+`correctGeophysicsMagneticLag(observations, options)` is an asynchronous native
+API exported from `baselode` and `baselode/geophysics`. It shares the Python
+lag options, scalar interpolation, support/mask semantics and correction ledger.
+`describeGeophysicsCorrections().lag_parameters` describes required options:
+`channel`, `lag_seconds`, `max_gap`, `unsupported_policy` (`reject` or `mask`),
+`event_id`, calibration `evidence` and `clock_policy="synchronized"`.
+
+Positive lag advances delayed readings: **corrected(t)=input(t+lag_seconds)**.
+Navigation XYZ/time and other channels remain unchanged. Only original values
+within a contiguous line segment are interpolated, with no extrapolation or
+bridging nulls/excessive gaps. Timestamp comparisons use binary64 with no
+implicit snapping tolerance. All records need line IDs and strictly increasing
+per-segment UTC times. Explicit masks archive unsupported original values in
+`masked_records`; reject mode commits no output on incomplete coverage. A run
+needs at least one supported reading. Existing target nulls stay null.
+
+TypeScript exports `GeophysicsMagneticLagOptions`,
+`GeophysicsMagneticLagProposal` and `GeophysicsMagneticLagReport`; application
+events narrow on `correction="magnetic_lag"`. Native Web Crypto supplies the
+ledger binding (Node 20+ or secure browser context). Work is bounded to 4096
+records and +/-3600 seconds. Ledger validators reconstruct pre-event nonnull
+counts across later masks, preserving earlier base/IGRF history. See the Python
+API for calibration, processing-order and uncertainty assumptions.

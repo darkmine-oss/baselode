@@ -2057,3 +2057,54 @@ IGRF describes the main internal field. This scalar residual does not remove
 external/diurnal fields or supply a geological interpretation. See the
 [official IGRF14 model](https://www.ncei.noaa.gov/products/international-geomagnetic-reference-field)
 and [ppigrf backend](https://github.com/IAGA-VMOD/ppigrf).
+
+### Magnetic survey lag correction
+
+`correct_magnetic_lag(observations, options)` aligns one recorded magnetic
+signal to the unchanged navigation coordinates and times. Options and ledger
+schemas are discoverable through `describe_corrections()`.
+
+```python
+lagged = baselode.geophysics.correct_magnetic_lag(observations, {
+    "channel": "mag", "lag_seconds": 0.5, "max_gap": 1,
+    "unsupported_policy": "mask", "event_id": "lag-1",
+    "evidence": "Calibrated sensor delay checked against navigation clock",
+    "clock_policy": "synchronized",
+})
+```
+
+The sign convention is **corrected(t) = input(t + lag_seconds)**. Positive lag
+advances delayed magnetic readings; negative lag delays them. A pulse recorded
+at time 2 appears at time 1 with lag_seconds=1. The caller supplies a calibrated
+constant time lag; the library does not estimate it or convert a sensor offset
+in metres into a time lag. See the [BGS processing description](https://earthwise.bgs.ac.uk/index.php/OR/14/014_Part_3:_Data_processing).
+
+The selected channel must be `magnetic_total_field` or `magnetic_anomaly` in
+`nT`, with known `unapplied` magnetic_lag history. All records require nonnull
+`line_id` and UTC Unix seconds, including missing-reading gap markers. Times
+must increase strictly within each acquisition-contiguous line segment. A line
+ID reused after another line starts a separate segment. Interpolation uses the
+original selected values, never crosses a segment boundary, never extrapolates,
+and never bridges null source readings or a bracket wider than max_gap.
+Existing target nulls stay null; exact valid source samples remain usable.
+Timestamp comparisons use binary64 arithmetic with no implicit snapping tolerance.
+
+Coverage is explicit: `unsupported_policy="reject"` returns `needs_input`,
+proposals and diagnostics with no committed observations or ledger if any
+nonnull reading lacks support. `"mask"` replaces unsupported readings with null
+and archives their original IDs/values in the application event's
+`masked_records`; at least one reading must remain supported. Record IDs/order,
+XYZ/time, other channels, field types and extensions are preserved. Reports
+include originals, proposed values, source IDs/times, interpolation weights,
+segment indices and reasons. Input is never modified. An application requires
+a unique event ID and cannot reset known history or run again on that channel.
+
+Lag execution is bounded to 4096 records and +/-3600 seconds, alongside existing
+correction option, ledger, binding and output limits. Normally align lag before
+time/location-dependent base or IGRF corrections; existing stages are processed
+as supplied and are never inverted or reordered. This API makes no claim that
+those operations commute. Prior application counts are checked at the original
+event position by accounting backwards for later masks. Mask originals and
+ledger/source metadata persist through gridding and ERS/GeoTIFF exports.
+Supported uncertainty fields move into standard flat source lineage, with
+`uncertainty_propagated=false`; no calibrated uncertainty is calculated.

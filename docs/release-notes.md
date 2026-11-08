@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Magnetic survey lag correction (TRK-541)**
+
+- Matching native Python/JavaScript APIs apply a calibrated scalar time lag with an explicit sign convention, per-segment linear interpolation, gap checks and reject/mask coverage. Geometry/time, records/order, missing targets and other channels are retained; unsupported originals are archived when masking is selected.
+- Shared parameters/types and bound correction history prevent repeat application. Historical ledger counts remain valid across later masks, with source uncertainty retained in remappable lineage. No inferred lag, spatial sensor-position correction, operation reordering or uncertainty propagation is claimed.
+
 **IGRF14 reference fields and guarded scalar removal (TRK-540)**
 
 - Optional Python `baselode[magnetics]` calculates dated WGS84 reference vectors and scalar intensity using verified local IGRF14 coefficients. Explicit UTC/ellipsoidal-height conventions, decimal-year interpolation, model provenance and bounded execution accompany independent official-model regression tests.

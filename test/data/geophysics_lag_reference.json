@@ -1,0 +1,144 @@
+{
+  "method": "Independent affine signal B(t)=100+2t. At original navigation times [0,1,3,6,7], positive half-second shift evaluates B(t+0.5) and masks the exterior end; negative shift evaluates B(t-0.5) and masks the exterior start. Linear interpolation is exact for this affine signal. Source IDs/order/XYZ/time and other channel are retained.",
+  "survey": {
+    "crs": "EPSG:28350",
+    "crs_units": "m",
+    "records": [
+      {
+        "id": "r0",
+        "line_id": "L1",
+        "time": 0,
+        "x": 0,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 100,
+          "other": 500
+        },
+        "extra": {
+          "acquisition": 0
+        }
+      },
+      {
+        "id": "r1",
+        "line_id": "L1",
+        "time": 1,
+        "x": 10,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 102,
+          "other": 501
+        },
+        "extra": {
+          "acquisition": 1
+        }
+      },
+      {
+        "id": "r2",
+        "line_id": "L1",
+        "time": 3,
+        "x": 30,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 106,
+          "other": 502
+        },
+        "extra": {
+          "acquisition": 2
+        }
+      },
+      {
+        "id": "r3",
+        "line_id": "L1",
+        "time": 6,
+        "x": 60,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 112,
+          "other": 503
+        },
+        "extra": {
+          "acquisition": 3
+        }
+      },
+      {
+        "id": "r4",
+        "line_id": "L1",
+        "time": 7,
+        "x": 70,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 114,
+          "other": 504
+        },
+        "extra": {
+          "acquisition": 4
+        }
+      }
+    ],
+    "channels": {
+      "mag": {
+        "field_type": "magnetic_total_field",
+        "units": "nT"
+      },
+      "other": {
+        "field_type": "magnetic_total_field",
+        "units": "nT"
+      }
+    },
+    "metadata": {
+      "source": "lag-test.xyz",
+      "corrections": {
+        "lag": "unapplied"
+      },
+      "uncertainty": {
+        "mag": 2
+      },
+      "variance": {
+        "mag": 4
+      },
+      "standard_deviation": {
+        "mag": 2
+      }
+    }
+  },
+  "options": {
+    "channel": "mag",
+    "lag_seconds": 0.5,
+    "max_gap": 3,
+    "unsupported_policy": "mask",
+    "event_id": "lag-calibration-1",
+    "evidence": "Synthetic independently specified calibrated half-second delay",
+    "clock_policy": "synchronized"
+  },
+  "expected_positive": [
+    101,
+    103,
+    107,
+    113,
+    null
+  ],
+  "expected_negative": [
+    null,
+    101,
+    105,
+    111,
+    113
+  ],
+  "expected_positive_masked": [
+    {
+      "id": "r4",
+      "value": 114
+    }
+  ],
+  "expected_negative_masked": [
+    {
+      "id": "r0",
+      "value": 100
+    }
+  ]
+}
