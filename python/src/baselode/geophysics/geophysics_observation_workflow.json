@@ -59,7 +59,8 @@
                 "raster_analytic_signal",
                 "raster_upward_continuation",
                 "raster_reduce_to_pole",
-                "raster_combine"
+                "raster_combine",
+                "remove_normal_gravity"
               ]
             },
             "version": {
@@ -1316,6 +1317,64 @@
         "python": true,
         "javascript": true
       }
+    },
+    {
+      "id": "remove_normal_gravity",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "model",
+          "reference_policy",
+          "event_id",
+          "evidence"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "model": {
+            "enum": [
+              "WGS84",
+              "GRS80"
+            ]
+          },
+          "reference_policy": {
+            "const": "caller_verified"
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "height_policy": {
+            "enum": [
+              "external_only",
+              "analytic_continuation"
+            ],
+            "default": "external_only"
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": false
+      }
     }
   ],
   "resources": {
@@ -1337,6 +1396,7 @@
     "Python IGRF requires baselode[magnetics]; JavaScript cannot execute remove_igrf and returns needs_input before any stage. Use Python for such workflows. No remote backend or caller callback is inferred.",
     "Correction states, clocks, datums, line roles, coverage thresholds and ordering are caller supplied and validated by native kernels. A workflow does not infer prior corrections or guarantee physical validity of a chosen sequence.",
     "Full-resolution observation/raster/report ports preserve native correction bindings and source lineage; workflow-step metadata is appended. No uncertainty propagation is added.",
-    "Retained versions and every raster port count toward budgets, even unused intermediate ports. Bounds are conservative work/output limits, not exact peak bytes, wall-clock guarantees or a process sandbox. Existing native limits still apply."
+    "Retained versions and every raster port count toward budgets, even unused intermediate ports. Bounds are conservative work/output limits, not exact peak bytes, wall-clock guarantees or a process sandbox. Existing native limits still apply.",
+    "Normal gravity removal requires the optional Python gravity extra; JavaScript returns needs_input before every stage."
   ]
 }

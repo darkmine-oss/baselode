@@ -82,7 +82,7 @@
         "gravity_normal",
         "normal_gravity"
       ],
-      "calculator": null
+      "calculator": "remove_normal_gravity"
     },
     "gravity_free_air": {
       "family": "gravity",
@@ -1590,6 +1590,168 @@
                   "pattern": "^[0-9a-f]{64}$"
                 }
               }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "correction",
+                "channels",
+                "state",
+                "evidence",
+                "producer",
+                "input_binding",
+                "output_binding",
+                "parameters",
+                "model",
+                "normal_binding",
+                "affected_records"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "kind": {
+                  "const": "application"
+                },
+                "correction": {
+                  "const": "gravity_normal"
+                },
+                "channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "state": {
+                  "const": "applied"
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "producer": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "library",
+                    "version",
+                    "algorithm_version"
+                  ],
+                  "properties": {
+                    "library": {
+                      "const": "baselode"
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "algorithm_version": {
+                      "const": 1
+                    }
+                  }
+                },
+                "input_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "output_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "parameters": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "model",
+                    "reference_policy",
+                    "event_id",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "model": {
+                      "enum": [
+                        "WGS84",
+                        "GRS80"
+                      ]
+                    },
+                    "reference_policy": {
+                      "const": "caller_verified"
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "height_policy": {
+                      "enum": [
+                        "external_only",
+                        "analytic_continuation"
+                      ],
+                      "default": "external_only"
+                    }
+                  }
+                },
+                "model": {
+                  "oneOf": [
+                    {
+                      "const": {
+                        "model": "WGS84",
+                        "backend": "boule",
+                        "backend_version": "0.6.0",
+                        "algorithm": "external_normal_gravity_full_gradient",
+                        "coordinate_system": "geodetic",
+                        "units": "mGal",
+                        "semimajor_axis": 6378137,
+                        "flattening": 0.0033528106647474805,
+                        "geocentric_grav_const": 398600441800000.0,
+                        "angular_velocity": 7.292115e-05
+                      }
+                    },
+                    {
+                      "const": {
+                        "model": "GRS80",
+                        "backend": "boule",
+                        "backend_version": "0.6.0",
+                        "algorithm": "external_normal_gravity_full_gradient",
+                        "coordinate_system": "geodetic",
+                        "units": "mGal",
+                        "semimajor_axis": 6378137,
+                        "flattening": 0.003352810681182319,
+                        "geocentric_grav_const": 398600500000000.0,
+                        "angular_velocity": 7.292115e-05
+                      }
+                    }
+                  ]
+                },
+                "normal_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "affected_records": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 512
+                }
+              }
             }
           ]
         }
@@ -1642,7 +1804,8 @@
     "Calibrated heading bias applies only under the instrument/configuration/reference conditions verified by caller evidence. This scalar model does not compensate attitude, manoeuvres, eddy currents or geographic/temporal variation. No calibration parameter estimation, operation reordering or uncertainty propagation is claimed; original uncertainty remains in remappable source lineage.",
     "Fixed-reference levelling holds caller-designated reference lines at zero bias and fits each target with the equally weighted mean target-minus-reference crossover residual. One constant DC bias applies to every nonnull reading on a target, including beyond tie locations. This is an empirical fixed-reference strategy, not global network levelling, polynomial drift, outlier removal, microlevelling or geological interpretation.",
     "Every line must be explicitly classified reference/target. All targets must satisfy min_crossovers, min_reference_lines, max_abs_correction and max_rms_residual before one atomic magnetic_levelling event. Missing readings stay null; geometry/time, field type, order/extras/other channels remain. Native model/context binding supplements the existing observation binding. References/evidence and source corrections must be independently verified; no operation reordering or calibrated uncertainty propagation.",
-    "Explicit reprojection events link unchanged correction states across horizontal frames. Earlier events remain unchanged; historical levelling bindings use the original horizontal context. Unsupported readers must reject the extension."
+    "Explicit reprojection events link unchanged correction states across horizontal frames. Earlier events remain unchanged; historical levelling bindings use the original horizontal context. Unsupported readers must reject the extension.",
+    "gravity_normal applications retain fixed Boule/model identity, semantic parameters and gravity/height/tide context binding; historical geographic context replays across later supported horizontal reprojections. Output is gravity_disturbance, not a fully reduced anomaly."
   ],
   "references": [
     "https://archive.epa.gov/esd/archive-geophysics/web/html/magnetic_methods.html",
@@ -2052,5 +2215,74 @@
       "canonical reference-then-target offsets [line_id,bias hex]"
     ],
     "numbers": "Big-endian 16-digit IEEE-754 float64 hex, signed zero normalized. Compact UTF-8 JSON arrays then SHA-256. Model roles, zero references, finite bounded offsets and current context validate at replay. Original observation binding already protects geometry/line IDs/readings; fit is not recomputed against changed values. Later lag masks use historical pre-event counts."
+  },
+  "gravity_models": {
+    "WGS84": {
+      "model": "WGS84",
+      "backend": "boule",
+      "backend_version": "0.6.0",
+      "algorithm": "external_normal_gravity_full_gradient",
+      "coordinate_system": "geodetic",
+      "units": "mGal",
+      "semimajor_axis": 6378137,
+      "flattening": 0.0033528106647474805,
+      "geocentric_grav_const": 398600441800000.0,
+      "angular_velocity": 7.292115e-05
+    },
+    "GRS80": {
+      "model": "GRS80",
+      "backend": "boule",
+      "backend_version": "0.6.0",
+      "algorithm": "external_normal_gravity_full_gradient",
+      "coordinate_system": "geodetic",
+      "units": "mGal",
+      "semimajor_axis": 6378137,
+      "flattening": 0.003352810681182319,
+      "geocentric_grav_const": 398600500000000.0,
+      "angular_velocity": 7.292115e-05
+    }
+  },
+  "normal_gravity_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "model",
+      "reference_policy",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "model": {
+        "enum": [
+          "WGS84",
+          "GRS80"
+        ]
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "height_policy": {
+        "enum": [
+          "external_only",
+          "analytic_continuation"
+        ],
+        "default": "external_only"
+      }
+    }
   }
 }

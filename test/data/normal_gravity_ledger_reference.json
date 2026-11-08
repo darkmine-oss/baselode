@@ -1,0 +1,312 @@
+{
+  "method": "Portable ledger interoperability fixture only; scientific reference values are independent potential derivatives.",
+  "params": {
+    "channel": "g",
+    "model": "WGS84",
+    "reference_policy": "caller_verified",
+    "event_id": "normal",
+    "evidence": "synthetic calibrated absolute gravity; reference and tide compatibility checked"
+  },
+  "survey": {
+    "crs": "EPSG:4326",
+    "crs_units": "degrees",
+    "channels": {
+      "g": {
+        "field_type": "gravity_observed",
+        "units": "mGal"
+      },
+      "other": {
+        "field_type": "gravity_observed",
+        "units": "mGal"
+      }
+    },
+    "records": [
+      {
+        "id": "station\ud83d\ude00",
+        "x": 117,
+        "y": -32,
+        "z": 100,
+        "time": 100,
+        "line_id": "A",
+        "station_id": "s",
+        "values": {
+          "g": 979478.3323191223,
+          "other": 979443.3323191223
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "missing",
+        "values": {
+          "g": null,
+          "other": null
+        }
+      }
+    ],
+    "metadata": {
+      "height_units": "m",
+      "height_datum": "WGS84_ellipsoid",
+      "z_positive": "up",
+      "gravity_datum": "synthetic absolute reference",
+      "tide_system": "tide_free",
+      "corrections": {
+        "gravity_normal": "unapplied",
+        "gravity_free_air": "unapplied",
+        "gravity_bouguer": "unapplied",
+        "gravity_terrain": "unapplied"
+      },
+      "uncertainty": {
+        "g": 0.01
+      },
+      "variance": {
+        "g": 0.0001
+      },
+      "standard_deviation": {
+        "g": 0.01
+      }
+    }
+  },
+  "observations": {
+    "crs": "EPSG:4326",
+    "crs_units": "degrees",
+    "channels": {
+      "g": {
+        "field_type": "gravity_disturbance",
+        "units": "mGal"
+      },
+      "other": {
+        "field_type": "gravity_observed",
+        "units": "mGal"
+      }
+    },
+    "records": [
+      {
+        "id": "station\ud83d\ude00",
+        "x": 117,
+        "y": -32,
+        "z": 100,
+        "time": 100,
+        "line_id": "A",
+        "station_id": "s",
+        "values": {
+          "g": 25.00000000675209,
+          "other": 979443.3323191223
+        },
+        "extra": {
+          "keep": true
+        },
+        "clearance": null
+      },
+      {
+        "id": "missing",
+        "values": {
+          "g": null,
+          "other": null
+        },
+        "line_id": null,
+        "station_id": null,
+        "x": null,
+        "y": null,
+        "z": null,
+        "time": null,
+        "clearance": null,
+        "extra": {}
+      }
+    ],
+    "metadata": {
+      "height_units": "m",
+      "height_datum": "WGS84_ellipsoid",
+      "z_positive": "up",
+      "gravity_datum": "synthetic absolute reference",
+      "tide_system": "tide_free",
+      "corrections": {
+        "gravity_normal": "unknown",
+        "gravity_free_air": "unapplied",
+        "gravity_bouguer": "unapplied",
+        "gravity_terrain": "unapplied"
+      },
+      "input_lineage": [
+        {
+          "metadata": {
+            "height_units": "m",
+            "height_datum": "WGS84_ellipsoid",
+            "z_positive": "up",
+            "gravity_datum": "synthetic absolute reference",
+            "tide_system": "tide_free",
+            "corrections": {
+              "gravity_normal": "unapplied",
+              "gravity_free_air": "unapplied",
+              "gravity_bouguer": "unapplied",
+              "gravity_terrain": "unapplied"
+            },
+            "uncertainty": {
+              "g": 0.01
+            },
+            "variance": {
+              "g": 0.0001
+            },
+            "standard_deviation": {
+              "g": 0.01
+            }
+          },
+          "sources": []
+        }
+      ],
+      "uncertainty_propagated": false,
+      "processing": [
+        {
+          "operation": "remove_normal_gravity",
+          "version": 1,
+          "parameters": {
+            "channel": "g",
+            "model": "WGS84",
+            "reference_policy": "caller_verified",
+            "event_id": "normal",
+            "evidence": "synthetic calibrated absolute gravity; reference and tide compatibility checked",
+            "height_policy": "external_only"
+          },
+          "model": {
+            "model": "WGS84",
+            "backend": "boule",
+            "backend_version": "0.6.0",
+            "algorithm": "external_normal_gravity_full_gradient",
+            "coordinate_system": "geodetic",
+            "units": "mGal",
+            "semimajor_axis": 6378137,
+            "flattening": 0.0033528106647474805,
+            "geocentric_grav_const": 398600441800000.0,
+            "angular_velocity": 7.292115e-05
+          },
+          "normal_binding": "b819bcf5ece347b02dba85c817cd044a1ff6e06aeef697845ef525fa4b35bbb2",
+          "input_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f",
+          "output_binding": "025ca81e1678fa217ccdf7649c1839637c19c8962b550b01304fd364642734c9",
+          "operand_lineage": 0
+        }
+      ],
+      "correction_ledger": {
+        "schema": "baselode.geophysics.correction_ledger",
+        "version": 1,
+        "algorithm": "sha256-float64-v1",
+        "initial_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f",
+        "current_binding": "025ca81e1678fa217ccdf7649c1839637c19c8962b550b01304fd364642734c9",
+        "entries": [
+          {
+            "id": "legacy:gravity_bouguer",
+            "kind": "declaration",
+            "correction": "gravity_bouguer",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_bouguer (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.1.83.post6",
+              "algorithm_version": 1
+            },
+            "input_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f",
+            "output_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f"
+          },
+          {
+            "id": "legacy:gravity_free_air",
+            "kind": "declaration",
+            "correction": "gravity_free_air",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_free_air (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.1.83.post6",
+              "algorithm_version": 1
+            },
+            "input_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f",
+            "output_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f"
+          },
+          {
+            "id": "legacy:gravity_normal",
+            "kind": "declaration",
+            "correction": "gravity_normal",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_normal (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.1.83.post6",
+              "algorithm_version": 1
+            },
+            "input_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f",
+            "output_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f"
+          },
+          {
+            "id": "legacy:gravity_terrain",
+            "kind": "declaration",
+            "correction": "gravity_terrain",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_terrain (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.1.83.post6",
+              "algorithm_version": 1
+            },
+            "input_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f",
+            "output_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f"
+          },
+          {
+            "id": "normal",
+            "kind": "application",
+            "correction": "gravity_normal",
+            "channels": [
+              "g"
+            ],
+            "state": "applied",
+            "evidence": "synthetic calibrated absolute gravity; reference and tide compatibility checked",
+            "producer": {
+              "library": "baselode",
+              "version": "0.1.83.post6",
+              "algorithm_version": 1
+            },
+            "input_binding": "20f5ad0909a679684ab9e81de829513a1abd5a6e1572e950e2725c7ee6d9dd6f",
+            "output_binding": "025ca81e1678fa217ccdf7649c1839637c19c8962b550b01304fd364642734c9",
+            "parameters": {
+              "channel": "g",
+              "model": "WGS84",
+              "reference_policy": "caller_verified",
+              "event_id": "normal",
+              "evidence": "synthetic calibrated absolute gravity; reference and tide compatibility checked",
+              "height_policy": "external_only"
+            },
+            "model": {
+              "model": "WGS84",
+              "backend": "boule",
+              "backend_version": "0.6.0",
+              "algorithm": "external_normal_gravity_full_gradient",
+              "coordinate_system": "geodetic",
+              "units": "mGal",
+              "semimajor_axis": 6378137,
+              "flattening": 0.0033528106647474805,
+              "geocentric_grav_const": 398600441800000.0,
+              "angular_velocity": 7.292115e-05
+            },
+            "normal_binding": "b819bcf5ece347b02dba85c817cd044a1ff6e06aeef697845ef525fa4b35bbb2",
+            "affected_records": 1
+          }
+        ]
+      }
+    },
+    "schema": "baselode.geophysics.observations",
+    "version": 1
+  }
+}

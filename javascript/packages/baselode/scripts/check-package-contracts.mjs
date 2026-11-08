@@ -148,3 +148,5 @@ assert.equal(observationRun.state,'ok',JSON.stringify(observationRun.issues));
 assert.deepEqual(observationRun.artifacts.grid.data,[[[134,146],[104,116]]]);
 assert.equal(geophysics.describeGeophysicsObservationWorkflow().version,1);
 assert.equal((await geophysics.inspectGeophysicsCorrections(observationRun.artifacts.corrected)).state,'ok');
+
+assert.equal(geophysics.describeGeophysicsNormalGravity().models.WGS84.backend_version,'0.6.0');

@@ -1,0 +1,271 @@
+{
+  "method": "Generate independent reference values by differentiating the normal potential.\n\nRun manually with the test extra installed. This never imports Boule or Baselode.\nThe standard external ellipsoidal normal potential is evaluated at 80 decimal\nplaces, differentiated numerically by mpmath, then scaled with the confocal\ncoordinate metric. This is independent of Boule's binary64 acceleration formulas.\nReferences: Hofmann-Wellenhof & Moritz (2006), Physical Geodesy, normal potential;\nLi & Goetze (2001), Journal of Geodesy 75, 460-470, doi:10.1007/s001900100198.\n",
+  "tolerance_mGal": 1e-05,
+  "sensitivity_tolerance_mGal_per_m": 1e-05,
+  "cases": [
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_0_0",
+        "longitude": 117,
+        "latitude": 0,
+        "height_m": 0
+      },
+      "normal_gravity": 978032.5335903892,
+      "height_sensitivity_mGal_per_m": -0.3087796941445554
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_90_0",
+        "longitude": 117,
+        "latitude": 90,
+        "height_m": 0
+      },
+      "normal_gravity": 983218.49378634,
+      "height_sensitivity_mGal_per_m": -0.30833871643314054
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_-90_0",
+        "longitude": 117,
+        "latitude": -90,
+        "height_m": 0
+      },
+      "normal_gravity": 983218.49378634,
+      "height_sensitivity_mGal_per_m": -0.30833871643314054
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_45_0",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": 0
+      },
+      "normal_gravity": 980619.7769377376,
+      "height_sensitivity_mGal_per_m": -0.3085597044031476
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_-32_100",
+        "longitude": 117,
+        "latitude": -32,
+        "height_m": 100
+      },
+      "normal_gravity": 979453.3323191223,
+      "height_sensitivity_mGal_per_m": -0.3086417462217749
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_60_10000",
+        "longitude": 117,
+        "latitude": 60,
+        "height_m": 10000
+      },
+      "normal_gravity": 978840.4356858617,
+      "height_sensitivity_mGal_per_m": -0.30700395373312106
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_0_100000",
+        "longitude": 117,
+        "latitude": 0,
+        "height_m": 100000
+      },
+      "normal_gravity": 947866.1321437189,
+      "height_sensitivity_mGal_per_m": -0.2946946594645084
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_90_100000",
+        "longitude": 117,
+        "latitude": 90,
+        "height_m": 100000
+      },
+      "normal_gravity": 953094.2199932253,
+      "height_sensitivity_mGal_per_m": -0.29429200104446795
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_45_100000",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": 100000
+      },
+      "normal_gravity": 950474.3997378481,
+      "height_sensitivity_mGal_per_m": -0.29449362514157895
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_-60_100000",
+        "longitude": 117,
+        "latitude": -60,
+        "height_m": 100000
+      },
+      "normal_gravity": 951782.8599103445,
+      "height_sensitivity_mGal_per_m": -0.29439288700760036
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_45_-50",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": -50
+      },
+      "normal_gravity": 980635.205107957,
+      "height_sensitivity_mGal_per_m": -0.3085669593104285
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_-32_-1000",
+        "longitude": 117,
+        "latitude": -32,
+        "height_m": -1000
+      },
+      "normal_gravity": 979792.9261725405,
+      "height_sensitivity_mGal_per_m": -0.3088014967958949
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_0_0",
+        "longitude": 117,
+        "latitude": 0,
+        "height_m": 0
+      },
+      "normal_gravity": 978032.677153488,
+      "height_sensitivity_mGal_per_m": -0.3087797393185844
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_90_0",
+        "longitude": 117,
+        "latitude": 90,
+        "height_m": 0
+      },
+      "normal_gravity": 983218.6368519575,
+      "height_sensitivity_mGal_per_m": -0.30833876113890746
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_-90_0",
+        "longitude": 117,
+        "latitude": -90,
+        "height_m": 0
+      },
+      "normal_gravity": 983218.6368519575,
+      "height_sensitivity_mGal_per_m": -0.30833876113890746
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_45_0",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": 0
+      },
+      "normal_gravity": 980619.9202522765,
+      "height_sensitivity_mGal_per_m": -0.3085597493427857
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_-32_100",
+        "longitude": 117,
+        "latitude": -32,
+        "height_m": 100
+      },
+      "normal_gravity": 979453.4757381629,
+      "height_sensitivity_mGal_per_m": -0.30864179126197705
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_60_10000",
+        "longitude": 117,
+        "latitude": 60,
+        "height_m": 10000
+      },
+      "normal_gravity": 978840.5784288072,
+      "height_sensitivity_mGal_per_m": -0.3070039983462585
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_0_100000",
+        "longitude": 117,
+        "latitude": 0,
+        "height_m": 100000
+      },
+      "normal_gravity": 947866.2712939467,
+      "height_sensitivity_mGal_per_m": -0.29469470256945995
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_90_100000",
+        "longitude": 117,
+        "latitude": 90,
+        "height_m": 100000
+      },
+      "normal_gravity": 953094.3586906694,
+      "height_sensitivity_mGal_per_m": -0.29429204372300566
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_45_100000",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": 100000
+      },
+      "normal_gravity": 950474.5386618854,
+      "height_sensitivity_mGal_per_m": -0.29449366803316607
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_-60_100000",
+        "longitude": 117,
+        "latitude": -60,
+        "height_m": 100000
+      },
+      "normal_gravity": 951782.9987211355,
+      "height_sensitivity_mGal_per_m": -0.2943929297926232
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_45_-50",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": -50
+      },
+      "normal_gravity": 980635.3484247428,
+      "height_sensitivity_mGal_per_m": -0.30856700425112277
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_-32_-1000",
+        "longitude": 117,
+        "latitude": -32,
+        "height_m": -1000
+      },
+      "normal_gravity": 979793.0696411382,
+      "height_sensitivity_mGal_per_m": -0.30880154185944797
+    }
+  ]
+}

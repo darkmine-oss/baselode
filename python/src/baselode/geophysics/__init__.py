@@ -177,3 +177,10 @@ validate_observation_workflow = geophysics_observation_workflows.validate_observ
 run_observation_workflow = geophysics_observation_workflows.run_observation_workflow
 magnetic_observation_recipe = geophysics_observation_workflows.magnetic_observation_recipe
 __all__ += ["describe_observation_workflow", "validate_observation_workflow", "run_observation_workflow", "magnetic_observation_recipe"]
+
+import baselode.geophysics.normal_gravity as geophysics_normal_gravity
+
+describe_normal_gravity = geophysics_normal_gravity.describe_normal_gravity
+calculate_normal_gravity = geophysics_normal_gravity.calculate_normal_gravity
+remove_normal_gravity = geophysics_normal_gravity.remove_normal_gravity
+__all__ += ["describe_normal_gravity", "calculate_normal_gravity", "remove_normal_gravity"]

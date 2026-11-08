@@ -1721,3 +1721,27 @@ retained raster values across all ports, 8 MiB report JSON. Native operation lim
 also apply. Unused ports count toward retained budgets; runtime sizes are checked.
 This is not a process sandbox or timeout facility. Existing raster workflows stay
 compatible.
+
+### Normal-gravity contracts and history replay
+
+`describeGeophysicsNormalGravity()` exposes the shared WGS84/GRS80 request/result
+schemas, pinned Boule model identity and removal parameters. Numerical
+`calculate_normal_gravity` / `remove_normal_gravity` execute in Python with
+`baselode[gravity]`; JavaScript validates/replays their correction ledgers and
+supports native subsequent reprojection, gridding and raster processing.
+The observation-workflow `remove_normal_gravity` stage returns `needs_input`
+during JavaScript preflight, before any earlier stage executes.
+
+Normal gravity is the full external normal-potential gradient magnitude in mGal,
+using Boule's u-component plus the analytic beta component. Requests use geodetic
+degrees and ellipsoidal heights 0–100,000 m by default; exact poles supported.
+Explicit `height_policy: "analytic_continuation"` permits −1,000–0 m with per-point
+`height_extrapolated` flags. This is mathematical external-potential continuation,
+not an interior-density model. Results expose
+both components and forward-1-m height sensitivity, not propagated uncertainty.
+Removal requires calibrated positive absolute `gravity_observed/mGal`, explicit
+matching geographic/height datum, gravity datum/tide-system compatibility and
+known unapplied normal/free-air/Bouguer/terrain history. It produces
+`gravity_disturbance`, preserving native data/model/context bindings, drift/tide
+states and source lineage. No silent tide, geoid or absolute-datum conversion.
+All assumptions and limits are discoverable in the shared descriptor.

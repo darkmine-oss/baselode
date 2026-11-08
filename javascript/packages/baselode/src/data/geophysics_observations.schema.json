@@ -131,6 +131,7 @@
               "magnetic_anomaly",
               "gravity_observed",
               "gravity_anomaly",
+              "gravity_disturbance",
               "radiometric",
               "radiometric_counts",
               "other"

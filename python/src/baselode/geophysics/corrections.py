@@ -402,7 +402,7 @@ def _validate(data, ledger, current, check_summary=True):
             ids.add(entry["id"])
             previous = entry["output_binding"]
             continue
-        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}}
+        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}, "gravity_normal": {"parameters", "model", "normal_binding", "affected_records"}}
         name = entry.get("correction") if type(entry) is dict else None
         extra = extras.get(name, base_extra) if isinstance(name, str) else base_extra
         if type(entry) is not dict or entry.get("kind") not in ("declaration", "application") or set(entry) != common | (extra if entry["kind"] == "application" else set()):
@@ -424,11 +424,11 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
             try:
-                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options, "magnetic_levelling": _levelling_options}.get(correction, _base_options)(entry["parameters"])
+                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options, "magnetic_levelling": _levelling_options, "gravity_normal": _normal_options}.get(correction, _base_options)(entry["parameters"])
             except _NeedsInput as error:
                 raise ValueError("invalid stored application parameters: " + str(error)) from error
             count = counts.get(index)
-            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading", "magnetic_levelling") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
+            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading", "magnetic_levelling", "gravity_normal") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied supported correction history for one channel")
             if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"]:
                 raise ValueError("application parameters do not match the ledger event")
@@ -452,6 +452,17 @@ def _validate(data, ledger, current, check_summary=True):
                     raise ValueError("invalid stored levelling context: " + str(error)) from error
                 if not _digest(entry["levelling_binding"]) or entry["levelling_binding"] != model_binding:
                     raise ValueError("stale levelling binding: line roles/model, semantic options or context changed")
+            if correction == "gravity_normal":
+                if any(states[k][channels[0]] != "unapplied" for k in ("gravity_free_air", "gravity_bouguer", "gravity_terrain")):
+                    raise ValueError("normal-at-height application requires unapplied height reductions")
+                if entry["model"] != _DESCRIPTOR["gravity_models"][params["model"]]:
+                    raise ValueError("invalid normal gravity model/backend identity")
+                try:
+                    normal_binding = _normal_binding({**data, **frames[index]}, params)
+                except _NeedsInput as error:
+                    raise ValueError("invalid stored gravity context: " + str(error)) from error
+                if not _digest(entry["normal_binding"]) or entry["normal_binding"] != normal_binding:
+                    raise ValueError("stale normal gravity context/model binding")
             if type(entry["affected_records"]) not in (int, float) or entry["affected_records"] != count or count < 1:
                 raise ValueError("application must account for every nonnull channel reading immediately before that event")
         for name in channels:
@@ -481,7 +492,7 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines", "reproject_observations") for step in data["metadata"].get("processing", [])):
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines", "reproject_observations", "remove_normal_gravity") for step in data["metadata"].get("processing", [])):
         raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
@@ -1269,3 +1280,45 @@ def reproject_observations(payload, options):
         return report
     except (ValueError, TypeError, RecursionError, pyproj.exceptions.ProjError) as error:
         return _error(report, error)
+
+
+
+def _normal_options(options):
+    schema = _DESCRIPTOR["normal_gravity_parameters"]
+    if type(options) is not dict or options.keys() - schema["properties"].keys():
+        raise ValueError("normal gravity removal requires known option names")
+    params = _json(options)
+    if any(name not in params for name in schema["required"]):
+        raise _NeedsInput("supply channel, model, reference_policy, event_id and evidence")
+    if not isinstance(params["channel"], str) or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", params["channel"]) is None:
+        raise ValueError("channel must be a declared observation channel")
+    params.setdefault("height_policy", "external_only")
+    if params["height_policy"] not in ("external_only", "analytic_continuation"):
+        raise ValueError("height_policy must be external_only or analytic_continuation")
+    if params["model"] not in ("WGS84", "GRS80") or params["reference_policy"] != "caller_verified":
+        raise ValueError("select WGS84/GRS80 and acknowledge reference_policy=caller_verified")
+    if not _label(params["event_id"]) or not _evidence(params["evidence"]):
+        raise ValueError("event_id/evidence require bounded nonempty strings")
+    return params
+
+
+def _gravity_context(data, params):
+    if len(data["records"]) > 512:
+        raise _ResourceError("normal gravity removal accepts at most 512 records")
+    model = params["model"]
+    metadata = data["metadata"]
+    crs = ("EPSG:4326",) if model == "WGS84" else ("EPSG:4283", "EPSG:7844")
+    if data["crs"] not in crs or data["crs_units"] not in ("degree", "degrees") or metadata.get("height_units") != "m" or metadata.get("height_datum") != model + "_ellipsoid" or metadata.get("z_positive") != "up":
+        raise _NeedsInput("supply matching model geographic CRS, degree/degrees, height_units=m, model_ellipsoid height_datum and z_positive=up")
+    datum = metadata.get("gravity_datum")
+    if not _label(datum) or baselode.geophysics.observations._trim(datum).lower() in ("unknown", "unspecified") or metadata.get("tide_system") not in ("tide_free", "zero_tide", "mean_tide"):
+        raise _NeedsInput("declare gravity_datum and tide_system=tide_free/zero_tide/mean_tide; caller verifies normal-reference comparability")
+    return [data["crs"], data["crs_units"], metadata["height_units"], metadata["height_datum"], metadata["z_positive"], datum, metadata["tide_system"]]
+
+
+def _normal_binding(data, params):
+    context = _gravity_context(data, params)
+    model = _DESCRIPTOR["gravity_models"][params["model"]]
+    numbers = [struct.pack(">d", float(model[k])).hex() for k in ("semimajor_axis", "flattening", "geocentric_grav_const", "angular_velocity")]
+    snapshot = ["baselode.gravity_normal_binding.v1", params["channel"], params["model"], params["reference_policy"], params["height_policy"], context, model["backend"], model["backend_version"], model["algorithm"], numbers]
+    return hashlib.sha256(json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()

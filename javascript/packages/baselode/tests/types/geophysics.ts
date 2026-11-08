@@ -169,3 +169,12 @@ const missingPort: GeophysicsObservationWorkflowReference = {step:'level'};
 // @ts-expect-error references cannot mix input and step namespaces
 const mixedReference: GeophysicsObservationWorkflowReference = {input:'survey',step:'level',output:'observations'};
 void missingPort; void mixedReference;
+
+import { describeGeophysicsNormalGravity, type GeophysicsNormalGravityRequest, type GeophysicsNormalGravityRemovalOptions } from 'baselode/geophysics';
+const normalRequest: GeophysicsNormalGravityRequest = {model:'WGS84',points:[{id:'station',longitude:117,latitude:-32,height_m:100}]};
+const normalOptions: GeophysicsNormalGravityRemovalOptions = {channel:'g',model:'GRS80',reference_policy:'caller_verified',event_id:'normal',evidence:'datum checked'};
+void normalRequest; void normalOptions; void describeGeophysicsNormalGravity();
+if(correctionEvent.kind==='application'&&correctionEvent.correction==='gravity_normal') {const digest:string=correctionEvent.normal_binding;void digest;}
+// @ts-expect-error ellipsoidal height required
+const missingNormalHeight: GeophysicsNormalGravityRequest = {model:'WGS84',points:[{id:'station',longitude:117,latitude:-32}]};
+void missingNormalHeight;
