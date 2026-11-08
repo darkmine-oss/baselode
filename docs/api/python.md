@@ -2291,3 +2291,68 @@ lineage; root uncertainty fields are archived and marked unpropagated. Use
 projected results with crossover/gridding APIs after checking their own contracts.
 The projection backend contract follows [pyproj](https://pyproj4.github.io/pyproj/stable/api/transformer.html)
 and [PROJ UTM](https://proj.org/en/stable/operations/projections/utm.html).
+
+### Declarative observation-to-grid workflows
+
+`describe_observation_workflow()` returns the saved-workflow JSON Schema,
+registered operation/parameter contracts, typed output ports, backend support and
+resource limits. `validate_observation_workflow(workflow, inputs)` performs
+**structural preflight**: document/history validation, versions, parameter keys
+and required fields, references, backend availability and known resource sizes.
+It runs no numerical kernels. An `ok` preflight does not establish that later
+scientific contexts or parameter values are valid; each native stage checks them
+when executed.
+
+```python
+workflow = baselode.geophysics.magnetic_observation_recipe()
+# Synthetic example: replace line roles, calibration/quality thresholds,
+# gridding geometry/radius and processing choices for your survey.
+result = baselode.geophysics.run_observation_workflow(workflow, {"survey": survey})
+if result["state"] == "ok":
+    corrected = result["artifacts"]["corrected"]
+    edges = result["artifacts"]["edges"]
+    baselode.geophysics.save_raster(edges, "edges.tif", dtype="float64")
+```
+
+The example executes QC, fixed-reference DC levelling, nearest gridding and total
+horizontal derivative. It requires a `magnetic_anomaly` mag channel in nT and known unapplied
+magnetic_levelling; raw total-field inputs need explicit reference-field removal
+before the derived stage. It expects R1/R2 reference lines, A😀/B targets and synthetic
+0–10 m bounds; these are example choices, not supplied survey calibration.
+Persist the workflow as ordinary JSON alongside original observation inputs.
+Results contain native full-resolution objects, so export raster artifacts with
+`save_raster`; do not treat the whole result as a JSON raster transport format.
+
+A workflow has `schema="baselode.geophysics.observation_workflow"`, `version=1`,
+ordered `steps` and named `outputs`. Every step has `id`, `operation`, `version=1`,
+`inputs` and `parameters`. Input references are exactly `{"input": "survey"}`;
+step references are `{"step": "level", "output": "observations"}`. References
+must resolve to earlier typed ports. Input and step IDs are distinct. Operations
+include QC, correction inspection/declarations, magnetic base/lag/heading/IGRF,
+reprojection, crossover analysis/levelling, gridding and the existing raster
+operations under `raster_` names. The descriptor lists each operation's ports:
+corrections expose `observations`/`report`; gridding exposes `grid`, `support`,
+`neighbor_count`, `nearest_distance`, `extrapolation` and `report`; raster stages
+expose `raster`/`report`. QC, inspection and crossover analysis expose `report`.
+
+QC requires `parameters={"qc": {...}, "max_flags": 0}` (choose the threshold
+explicitly). More flags stop the workflow for review; truncated QC rejects.
+Execution follows all supplied stages in order, including report-only gates.
+The first non-`ok` stage stops execution and withholds **all** final artifacts,
+including requested raw inputs. `completed_steps`, bounded `step_reports`,
+`input_bindings`, the copied workflow/plan and resource estimates remain for audit.
+They are not an automatic resume mechanism. A backend exception returns `failed`.
+
+No corrections, clocks, datums, line roles, calibration, order or uncertainty are
+inferred. Native correction ledgers, assumptions and source lineage remain intact;
+workflow-step metadata is added. A valid workflow can still embody an unsuitable
+physical sequence. IGRF execution requires `baselode[magnetics]`; known missing
+backends stop preflight before any earlier stage executes.
+
+Limits: 8 observation inputs, 16 stages, 32 named outputs, 1 MiB workflow JSON,
+32 MiB aggregate input JSON, 250,000 retained observation records / 1,000,000
+readings across versions, 4,000,000 retained raster values across **all** ports,
+and 8 MiB step-report JSON. Native kernel/provenance/FFT limits also apply.
+Estimates include unused intermediate ports; runtime checks actual retained sizes.
+These are work/output budgets, not a timeout facility or process sandbox.
+The existing raster workflow v1 API is unchanged.

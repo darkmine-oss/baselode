@@ -1,0 +1,1342 @@
+{
+  "id": "geophysics_observation_workflow",
+  "version": 1,
+  "workflow_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "steps",
+      "outputs"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.observation_workflow"
+      },
+      "version": {
+        "const": 1
+      },
+      "steps": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 16,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "operation",
+            "version",
+            "inputs",
+            "parameters"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+            },
+            "operation": {
+              "enum": [
+                "qc_observations",
+                "inspect_corrections",
+                "declare_corrections",
+                "correct_magnetic_base",
+                "remove_igrf",
+                "correct_magnetic_lag",
+                "correct_magnetic_heading",
+                "reproject_observations",
+                "analyze_crossovers",
+                "level_magnetic_lines",
+                "grid_observations",
+                "raster_low_pass",
+                "raster_high_pass",
+                "raster_band_pass",
+                "raster_vertical_derivative",
+                "raster_horizontal_derivative",
+                "raster_total_horizontal_derivative",
+                "raster_tilt_derivative",
+                "raster_analytic_signal",
+                "raster_upward_continuation",
+                "raster_reduce_to_pole",
+                "raster_combine"
+              ]
+            },
+            "version": {
+              "const": 1
+            },
+            "inputs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "input"
+                    ],
+                    "properties": {
+                      "input": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "step",
+                      "output"
+                    ],
+                    "properties": {
+                      "step": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                      },
+                      "output": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "parameters": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "outputs": {
+        "type": "object",
+        "minProperties": 1,
+        "maxProperties": 32,
+        "propertyNames": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+        },
+        "additionalProperties": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "input"
+              ],
+              "properties": {
+                "input": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "step",
+                "output"
+              ],
+              "properties": {
+                "step": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                },
+                "output": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "operations": [
+    {
+      "id": "qc_observations",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "qc",
+          "max_flags"
+        ],
+        "properties": {
+          "qc": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "max_speed": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100
+              },
+              "max_distance_gap": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100
+              },
+              "max_time_gap": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1e+100
+              },
+              "min_clearance": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              },
+              "spike_window": {
+                "type": "integer",
+                "minimum": 3,
+                "maximum": 101,
+                "default": 5,
+                "not": {
+                  "multipleOf": 2
+                }
+              },
+              "spike_thresholds": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1e+100
+                },
+                "default": {}
+              }
+            }
+          },
+          "max_flags": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "inspect_corrections",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {}
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "declare_corrections",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "declarations"
+        ],
+        "properties": {
+          "declarations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "correction",
+                "channels",
+                "state",
+                "evidence"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "correction": {
+                  "enum": [
+                    "magnetic_diurnal",
+                    "magnetic_igrf",
+                    "magnetic_lag",
+                    "magnetic_heading",
+                    "magnetic_levelling",
+                    "magnetic_microlevelling",
+                    "gravity_drift",
+                    "gravity_tide",
+                    "gravity_normal",
+                    "gravity_free_air",
+                    "gravity_bouguer",
+                    "gravity_terrain",
+                    "radiometric_dead_time",
+                    "radiometric_energy_calibration",
+                    "radiometric_background",
+                    "radiometric_stripping",
+                    "radiometric_height",
+                    "radiometric_concentration"
+                  ]
+                },
+                "channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 32,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "state": {
+                  "enum": [
+                    "unknown",
+                    "unapplied",
+                    "applied"
+                  ]
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                }
+              }
+            }
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "correct_magnetic_base",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "base_channel",
+          "reference",
+          "max_gap",
+          "event_id",
+          "evidence",
+          "clock_policy"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string"
+          },
+          "base_channel": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "number",
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          },
+          "max_gap": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1e+100
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "clock_policy": {
+            "const": "synchronized"
+          }
+        }
+      },
+      "inputs": [
+        "observations",
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "remove_igrf",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "event_id",
+          "evidence",
+          "model"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "model": {
+            "const": "IGRF14"
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": false
+      }
+    },
+    {
+      "id": "correct_magnetic_lag",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "lag_seconds",
+          "max_gap",
+          "unsupported_policy",
+          "event_id",
+          "evidence",
+          "clock_policy"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "lag_seconds": {
+            "type": "number",
+            "minimum": -3600,
+            "maximum": 3600
+          },
+          "max_gap": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1e+100
+          },
+          "unsupported_policy": {
+            "enum": [
+              "reject",
+              "mask"
+            ]
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "clock_policy": {
+            "const": "synchronized"
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "correct_magnetic_heading",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "heading_key",
+          "heading_reference",
+          "calibration_id",
+          "calibration",
+          "max_heading_gap",
+          "bias_convention",
+          "event_id",
+          "evidence"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "heading_key": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "heading_reference": {
+            "enum": [
+              "true_north",
+              "magnetic_north",
+              "grid_north"
+            ]
+          },
+          "calibration_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "calibration": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 72,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "heading_degrees",
+                "bias_nT"
+              ],
+              "properties": {
+                "heading_degrees": {
+                  "type": "number",
+                  "minimum": 0,
+                  "exclusiveMaximum": 360
+                },
+                "bias_nT": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                }
+              }
+            }
+          },
+          "max_heading_gap": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 180
+          },
+          "bias_convention": {
+            "const": "observed_minus_reference"
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "reproject_observations",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_crs",
+          "datum_policy",
+          "event_id",
+          "evidence"
+        ],
+        "properties": {
+          "target_crs": {
+            "type": "string",
+            "pattern": "^EPSG:(4326|32[67](0[1-9]|[1-5][0-9]|60))$"
+          },
+          "datum_policy": {
+            "const": "backend"
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "analyze_crossovers",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "max_segment_length",
+          "min_crossing_angle",
+          "intersection_tolerance",
+          "elevation_policy",
+          "max_height_difference"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "max_segment_length": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000000.0
+          },
+          "min_crossing_angle": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 90
+          },
+          "intersection_tolerance": {
+            "type": "number",
+            "minimum": 1e-09,
+            "maximum": 1000000.0
+          },
+          "elevation_policy": {
+            "enum": [
+              "ignore",
+              "limit"
+            ]
+          },
+          "max_height_difference": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1e+100
+              }
+            ]
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "level_magnetic_lines",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "max_segment_length",
+          "min_crossing_angle",
+          "intersection_tolerance",
+          "elevation_policy",
+          "max_height_difference",
+          "reference_lines",
+          "target_lines",
+          "min_crossovers",
+          "min_reference_lines",
+          "max_abs_correction",
+          "max_rms_residual",
+          "event_id",
+          "evidence"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "max_segment_length": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000000.0
+          },
+          "min_crossing_angle": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 90
+          },
+          "intersection_tolerance": {
+            "type": "number",
+            "minimum": 1e-09,
+            "maximum": 1000000.0
+          },
+          "elevation_policy": {
+            "enum": [
+              "ignore",
+              "limit"
+            ]
+          },
+          "max_height_difference": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1e+100
+              }
+            ]
+          },
+          "reference_lines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "target_lines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "min_crossovers": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 8192
+          },
+          "min_reference_lines": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 128
+          },
+          "max_abs_correction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          },
+          "max_rms_residual": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "grid_observations",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "channels": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "radius": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1e+100
+          },
+          "method": {
+            "enum": [
+              "nearest",
+              "idw"
+            ],
+            "default": "idw"
+          },
+          "neighbors": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64,
+            "default": 8
+          },
+          "min_neighbors": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64,
+            "default": 1
+          },
+          "power": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 16,
+            "default": 2
+          },
+          "duplicate_policy": {
+            "enum": [
+              "mean",
+              "reject"
+            ]
+          },
+          "elevation_policy": {
+            "const": "ignore"
+          },
+          "extrapolation": {
+            "enum": [
+              "mask",
+              "allow"
+            ],
+            "default": "mask"
+          },
+          "bounds": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          },
+          "shape": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          }
+        },
+        "required": [
+          "channels",
+          "radius",
+          "duplicate_policy",
+          "elevation_policy",
+          "bounds",
+          "shape"
+        ]
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "grid": "raster",
+        "support": "raster",
+        "neighbor_count": "raster",
+        "nearest_distance": "raster",
+        "extrapolation": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_low_pass",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "wavelength": {
+            "type": "number",
+            "description": "Cut-off wavelength in CRS linear units.",
+            "exclusiveMinimum": 0
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "gaussian",
+              "butterworth"
+            ],
+            "default": "gaussian"
+          },
+          "order": {
+            "type": "integer",
+            "description": "Filter order.",
+            "default": 4,
+            "minimum": 1,
+            "maximum": 32
+          },
+          "detrend": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "wavelength"
+        ],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_high_pass",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "wavelength": {
+            "type": "number",
+            "description": "Cut-off wavelength in CRS linear units.",
+            "exclusiveMinimum": 0
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "gaussian",
+              "butterworth"
+            ],
+            "default": "gaussian"
+          },
+          "order": {
+            "type": "integer",
+            "description": "Filter order.",
+            "default": 4,
+            "minimum": 1,
+            "maximum": 32
+          },
+          "detrend": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "wavelength"
+        ],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_band_pass",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "long_wavelength": {
+            "type": "number",
+            "description": "Cut-off wavelength in CRS linear units.",
+            "exclusiveMinimum": 0
+          },
+          "short_wavelength": {
+            "type": "number",
+            "description": "Cut-off wavelength in CRS linear units.",
+            "exclusiveMinimum": 0
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "gaussian",
+              "butterworth"
+            ],
+            "default": "gaussian"
+          },
+          "order": {
+            "type": "integer",
+            "description": "Filter order.",
+            "default": 4,
+            "minimum": 1,
+            "maximum": 32
+          },
+          "detrend": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "long_wavelength",
+          "short_wavelength"
+        ],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_vertical_derivative",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "type": "integer",
+            "enum": [
+              1,
+              2
+            ],
+            "default": 1
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_horizontal_derivative",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "east",
+              "north"
+            ],
+            "default": "east"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_total_horizontal_derivative",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_tilt_derivative",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_analytic_signal",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_upward_continuation",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "height": {
+            "type": "number",
+            "description": "Positive continuation distance in CRS linear units.",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "height"
+        ],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_reduce_to_pole",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "inclination": {
+            "type": "number",
+            "description": "Field inclination in degrees, positive down.",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "declination": {
+            "type": "number",
+            "description": "Field declination in degrees east of grid north, after caller applies convergence.",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": [
+          "inclination",
+          "declination"
+        ],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "raster_combine",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "add",
+              "subtract"
+            ],
+            "default": "subtract"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "inputs": [
+        "raster",
+        "raster"
+      ],
+      "outputs": {
+        "raster": "raster",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    }
+  ],
+  "resources": {
+    "max_steps": 16,
+    "max_inputs": 8,
+    "max_outputs": 32,
+    "max_workflow_json_bytes": 1048576,
+    "max_input_json_bytes": 33554432,
+    "max_retained_records": 250000,
+    "max_retained_readings": 1000000,
+    "max_retained_cell_values": 4000000,
+    "max_reports_json_bytes": 8388608
+  },
+  "assumptions": [
+    "Only registered version-1 operations execute, in supplied order, with explicit in-memory inputs and earlier typed output references. No generated code, arbitrary functions, imports, file I/O or implicit calibration.",
+    "Structural preflight checks contracts, keys/required parameters, references, input documents/history, backend availability and statically known budgets. Scientific parameter values/context/support are checked by each native operation at its stage; preflight ok is not scientific acceptance.",
+    "QC is an explicit gate: require qc options and max_flags, fail if flags exceed it; truncated QC rejects. No automatic deletion or repair of flagged data.",
+    "First non-ok stage stops execution and withholds every final artifact, including requested raw inputs. Bounded reports and completed step IDs remain for audit, not resumable partial scientific products.",
+    "Python IGRF requires baselode[magnetics]; JavaScript cannot execute remove_igrf and returns needs_input before any stage. Use Python for such workflows. No remote backend or caller callback is inferred.",
+    "Correction states, clocks, datums, line roles, coverage thresholds and ordering are caller supplied and validated by native kernels. A workflow does not infer prior corrections or guarantee physical validity of a chosen sequence.",
+    "Full-resolution observation/raster/report ports preserve native correction bindings and source lineage; workflow-step metadata is appended. No uncertainty propagation is added.",
+    "Retained versions and every raster port count toward budgets, even unused intermediate ports. Bounds are conservative work/output limits, not exact peak bytes, wall-clock guarantees or a process sandbox. Existing native limits still apply."
+  ]
+}

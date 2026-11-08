@@ -812,6 +812,12 @@
       "description": "Bound WGS84 geographic/UTM horizontal observation derivation preserving correction states and historical contexts.",
       "jsExports": ["describeGeophysicsReprojection", "reprojectGeophysicsObservations"],
       "pythonSymbols": [["baselode.geophysics", "describe_reprojection"], ["baselode.geophysics", "reproject_observations"]]
+    },
+    {
+      "name": "geophysics_observation_workflows",
+      "description": "Declarative typed-port observation-to-grid/raster workflows with explicit QC, backend and atomic output gates; numerical IGRF remains Python-only.",
+      "jsExports": ["describeGeophysicsObservationWorkflow", "validateGeophysicsObservationWorkflow", "runGeophysicsObservationWorkflow", "magneticObservationRecipe"],
+      "pythonSymbols": [["baselode.geophysics", "describe_observation_workflow"], ["baselode.geophysics", "validate_observation_workflow"], ["baselode.geophysics", "run_observation_workflow"], ["baselode.geophysics", "magnetic_observation_recipe"]]
     }
   ]
 }

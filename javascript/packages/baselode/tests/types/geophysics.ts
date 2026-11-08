@@ -159,3 +159,13 @@ if (correctionEvent.kind === 'reprojection') {
 }
 // @ts-expect-error explicit backend acknowledgement required
 reprojectGeophysicsObservations(observations,{target_crs:'EPSG:32750',event_id:'projection',evidence:'checked'});
+
+import { describeGeophysicsObservationWorkflow, magneticObservationRecipe, runGeophysicsObservationWorkflow, validateGeophysicsObservationWorkflow, type GeophysicsObservationWorkflow, type GeophysicsObservationWorkflowReference, type GeophysicsObservationWorkflowResult } from 'baselode/geophysics';
+const observationRecipe: GeophysicsObservationWorkflow = magneticObservationRecipe();
+const observationResult: Promise<GeophysicsObservationWorkflowResult> = runGeophysicsObservationWorkflow(observationRecipe,{survey:observations});
+void observationResult; void validateGeophysicsObservationWorkflow(observationRecipe,{survey:observations}); void describeGeophysicsObservationWorkflow();
+// @ts-expect-error output port required for a step reference
+const missingPort: GeophysicsObservationWorkflowReference = {step:'level'};
+// @ts-expect-error references cannot mix input and step namespaces
+const mixedReference: GeophysicsObservationWorkflowReference = {input:'survey',step:'level',output:'observations'};
+void missingPort; void mixedReference;

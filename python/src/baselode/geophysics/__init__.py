@@ -169,3 +169,11 @@ __all__ = [
 describe_reprojection = geophysics_corrections.describe_reprojection
 reproject_observations = geophysics_corrections.reproject_observations
 __all__ += ["describe_reprojection", "reproject_observations"]
+
+import baselode.geophysics.observation_workflows as geophysics_observation_workflows
+
+describe_observation_workflow = geophysics_observation_workflows.describe_observation_workflow
+validate_observation_workflow = geophysics_observation_workflows.validate_observation_workflow
+run_observation_workflow = geophysics_observation_workflows.run_observation_workflow
+magnetic_observation_recipe = geophysics_observation_workflows.magnetic_observation_recipe
+__all__ += ["describe_observation_workflow", "validate_observation_workflow", "run_observation_workflow", "magnetic_observation_recipe"]

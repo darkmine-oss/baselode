@@ -689,3 +689,5 @@ export { describeGeophysicsIgrf } from './data/geophysicsIgrf.js';
 export { describeGeophysicsCrossovers, analyzeGeophysicsCrossovers, levelGeophysicsMagneticLines } from './data/geophysicsCorrections.js';
 
 export { describeGeophysicsReprojection, reprojectGeophysicsObservations } from './data/geophysicsCorrections.js';
+
+export { describeGeophysicsObservationWorkflow, validateGeophysicsObservationWorkflow, runGeophysicsObservationWorkflow, magneticObservationRecipe } from './data/geophysicsObservationWorkflows.js';

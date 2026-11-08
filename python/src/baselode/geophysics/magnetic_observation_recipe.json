@@ -1,0 +1,121 @@
+{
+  "schema": "baselode.geophysics.observation_workflow",
+  "version": 1,
+  "steps": [
+    {
+      "id": "qc",
+      "operation": "qc_observations",
+      "version": 1,
+      "inputs": [
+        {
+          "input": "survey"
+        }
+      ],
+      "parameters": {
+        "qc": {},
+        "max_flags": 0
+      }
+    },
+    {
+      "id": "level",
+      "operation": "level_magnetic_lines",
+      "version": 1,
+      "inputs": [
+        {
+          "input": "survey"
+        }
+      ],
+      "parameters": {
+        "channel": "mag",
+        "max_segment_length": 20,
+        "min_crossing_angle": 30,
+        "intersection_tolerance": 1e-06,
+        "elevation_policy": "limit",
+        "max_height_difference": 0,
+        "reference_lines": [
+          "R1",
+          "R2"
+        ],
+        "target_lines": [
+          "A\ud83d\ude00",
+          "B"
+        ],
+        "min_crossovers": 2,
+        "min_reference_lines": 2,
+        "max_abs_correction": 10,
+        "max_rms_residual": 0,
+        "event_id": "level-1",
+        "evidence": "Independent synthetic affine field and fixed reference lines"
+      }
+    },
+    {
+      "id": "grid",
+      "operation": "grid_observations",
+      "version": 1,
+      "inputs": [
+        {
+          "step": "level",
+          "output": "observations"
+        }
+      ],
+      "parameters": {
+        "channels": [
+          "mag"
+        ],
+        "method": "nearest",
+        "radius": 3,
+        "duplicate_policy": "mean",
+        "elevation_policy": "ignore",
+        "bounds": [
+          0,
+          0,
+          10,
+          10
+        ],
+        "shape": [
+          2,
+          2
+        ],
+        "extrapolation": "allow"
+      }
+    },
+    {
+      "id": "edges",
+      "operation": "raster_total_horizontal_derivative",
+      "version": 1,
+      "inputs": [
+        {
+          "step": "grid",
+          "output": "grid"
+        }
+      ],
+      "parameters": {}
+    }
+  ],
+  "outputs": {
+    "corrected": {
+      "step": "level",
+      "output": "observations"
+    },
+    "grid": {
+      "step": "grid",
+      "output": "grid"
+    },
+    "support": {
+      "step": "grid",
+      "output": "support"
+    },
+    "edges": {
+      "step": "edges",
+      "output": "raster"
+    },
+    "qc": {
+      "step": "qc",
+      "output": "report"
+    },
+    "levelling": {
+      "step": "level",
+      "output": "report"
+    }
+  }
+}
