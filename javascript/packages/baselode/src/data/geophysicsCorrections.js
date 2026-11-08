@@ -239,7 +239,7 @@ async function validate(data, ledger, current, checkSummary = true) {
       if (ids.has(entry.id) || entry.input_binding !== previous) throw Error('duplicate event ID or broken reprojection binding chain');
       ids.add(entry.id); previous = entry.output_binding; continue;
     }
-    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : (entry?.correction === 'magnetic_heading' ? ['parameters', 'heading_binding', 'affected_records'] : (entry?.correction === 'magnetic_levelling' ? ['parameters','line_offsets','levelling_binding','affected_records'] : baseExtra)));
+    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : (entry?.correction === 'magnetic_heading' ? ['parameters', 'heading_binding', 'affected_records'] : (entry?.correction === 'magnetic_levelling' ? ['parameters','line_offsets','levelling_binding','affected_records'] : (entry?.correction === 'gravity_normal' ? ['parameters','model','normal_binding','affected_records'] : baseExtra))));
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
     if (typeof correction !== 'string' || !Object.hasOwn(states, correction) || !label(entry.id) || ids.has(entry.id) || !evidence(entry.evidence)) throw Error('ledger events need unique IDs, registered correction and bounded evidence');
@@ -252,10 +252,10 @@ async function validate(data, ledger, current, checkSummary = true) {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
       let params;
-      try { params = (correction === 'magnetic_levelling' ? levellingOptions : (correction === 'magnetic_heading' ? headingOptions : (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions))))(entry.parameters); }
+      try { params = (correction === 'gravity_normal' ? normalOptions : (correction === 'magnetic_levelling' ? levellingOptions : (correction === 'magnetic_heading' ? headingOptions : (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions)))))(entry.parameters); }
       catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
       const count = counts.get(index);
-      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading', 'magnetic_levelling'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
+      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading', 'magnetic_levelling', 'gravity_normal'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
       if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence) throw Error('application parameters do not match the ledger event');
       if (correction === 'magnetic_diurnal' && (!digest(entry.base_binding) || !label(entry.base_station_id))) throw Error('invalid base application binding/station');
       if (correction === 'magnetic_igrf' && (!keys(entry.model, Object.keys(descriptor.igrf_model.const)) || Object.entries(descriptor.igrf_model.const).some(([key, value]) => entry.model[key] !== value))) throw Error('invalid IGRF model/coefficient/convention identity');
@@ -271,6 +271,15 @@ async function validate(data, ledger, current, checkSummary = true) {
         try { currentModel = await levellingBinding({...data,...frames[index]},params,entry.line_offsets); }
         catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored levelling context: ${error.message}`); throw error; }
         if (!digest(entry.levelling_binding) || entry.levelling_binding !== currentModel) throw Error('stale levelling binding: line roles/model, semantic options or context changed');
+      }
+      if(correction==='gravity_normal') {
+        if(['gravity_free_air','gravity_bouguer','gravity_terrain'].some(k=>states[k][channels[0]]!=='unapplied'))throw Error('normal-at-height application requires unapplied height reductions');
+        const model=descriptor.gravity_models[params.model];
+        if(!keys(entry.model,Object.keys(model))||Object.entries(model).some(([key,value])=>entry.model[key]!==value))throw Error('invalid normal gravity model/backend identity');
+        let normal;
+        try{normal=await normalBinding({...data,...frames[index]},params);}
+        catch(error){if(error instanceof NeedsInput)throw Error(`invalid stored gravity context: ${error.message}`);throw error;}
+        if(!digest(entry.normal_binding)||entry.normal_binding!==normal)throw Error('stale normal gravity context/model binding');
       }
       if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading immediately before that event');
     }
@@ -294,7 +303,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines', 'reproject_observations'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines', 'reproject_observations','remove_normal_gravity'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);
@@ -691,4 +700,30 @@ export async function reprojectGeophysicsObservations(payload,options) {
     const output=await save(data,ledger); await validate(output,ledger,after);
     Object.assign(result,{observations:output,ledger:clone(ledger),states:statesFor(output,ledger),diagnostics:{transformed_records:count,missing_xy_records:data.records.length-count,backend}}); return result;
   } catch(error) { return errorResult(result,error); }
+}
+
+
+function normalOptions(options) {
+  const contract=descriptor.normal_gravity_parameters;
+  if(!object(options)||Object.keys(options).some(key=>!Object.hasOwn(contract.properties,key)))throw Error('normal gravity removal requires known option names');
+  const params=json(options);
+  if(contract.required.some(key=>!Object.hasOwn(params,key)))throw new NeedsInput('supply channel, model, reference_policy, event_id and evidence');
+  if(typeof params.channel!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params.channel))throw Error('channel must be a declared observation channel');
+  if(!['WGS84','GRS80'].includes(params.model)||params.reference_policy!=='caller_verified')throw Error('select WGS84/GRS80 and acknowledge reference_policy=caller_verified');
+  if(!label(params.event_id)||!evidence(params.evidence))throw Error('event_id/evidence require bounded nonempty strings');
+  return params;
+}
+function gravityContext(data,params) {
+  if(data.records.length>512)throw new ResourceError('normal gravity removal accepts at most 512 records');
+  const model=params.model;const metadata=data.metadata;const crs=model==='WGS84'?['EPSG:4326']:['EPSG:4283','EPSG:7844'];
+  if(!crs.includes(data.crs)||!['degree','degrees'].includes(data.crs_units)||metadata.height_units!=='m'||metadata.height_datum!==model+'_ellipsoid'||metadata.z_positive!=='up')throw new NeedsInput('supply matching model geographic CRS, degree/degrees, height_units=m, model_ellipsoid height_datum and z_positive=up');
+  if(!label(metadata.gravity_datum)||['unknown','unspecified'].includes(trim(metadata.gravity_datum).toLowerCase())||!['tide_free','zero_tide','mean_tide'].includes(metadata.tide_system))throw new NeedsInput('declare gravity_datum and tide_system=tide_free/zero_tide/mean_tide; caller verifies normal-reference comparability');
+  return [data.crs,data.crs_units,metadata.height_units,metadata.height_datum,metadata.z_positive,metadata.gravity_datum,metadata.tide_system];
+}
+async function normalBinding(data,params) {
+  const context=gravityContext(data,params);const model=descriptor.gravity_models[params.model];const buffer=new ArrayBuffer(8);const view=new DataView(buffer);
+  const numbers=['semimajor_axis','flattening','geocentric_grav_const','angular_velocity'].map(key=>{view.setFloat64(0,model[key],false);return [...new Uint8Array(buffer)].map(byte=>byte.toString(16).padStart(2,'0')).join('');});
+  const snapshot=['baselode.gravity_normal_binding.v1',params.channel,params.model,params.reference_policy,context,model.backend,model.backend_version,model.algorithm,numbers];
+  if(!globalThis.crypto?.subtle)throw new NeedsInput('SHA-256 binding requires Web Crypto (Node 20+ or secure browser)');
+  return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(snapshot))))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }

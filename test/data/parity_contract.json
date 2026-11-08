@@ -818,6 +818,12 @@
       "description": "Declarative typed-port observation-to-grid/raster workflows with explicit QC, backend and atomic output gates; numerical IGRF remains Python-only.",
       "jsExports": ["describeGeophysicsObservationWorkflow", "validateGeophysicsObservationWorkflow", "runGeophysicsObservationWorkflow", "magneticObservationRecipe"],
       "pythonSymbols": [["baselode.geophysics", "describe_observation_workflow"], ["baselode.geophysics", "validate_observation_workflow"], ["baselode.geophysics", "run_observation_workflow"], ["baselode.geophysics", "magnetic_observation_recipe"]]
+    },
+    {
+      "name": "geophysics_normal_gravity",
+      "description": "Explicit WGS84/GRS80 external normal gravity and guarded disturbance removal, optional Python Boule execution with shared JS schemas/types and bound ledger replay.",
+      "jsExports": ["describeGeophysicsNormalGravity"],
+      "pythonSymbols": [["baselode.geophysics", "describe_normal_gravity"], ["baselode.geophysics", "calculate_normal_gravity"], ["baselode.geophysics", "remove_normal_gravity"]]
     }
   ]
 }

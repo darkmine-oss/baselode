@@ -24,7 +24,7 @@
     "properties": {
       "channel": {
         "type": "string",
-        "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+        "description": "One declared magnetic_anomaly, gravity_anomaly or gravity_disturbance channel."
       },
       "depth": {
         "type": "number",
@@ -100,7 +100,7 @@
     "properties": {
       "channel": {
         "type": "string",
-        "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+        "description": "One declared magnetic_anomaly, gravity_anomaly or gravity_disturbance channel."
       },
       "depth": {
         "type": "number",
@@ -217,7 +217,7 @@
     "max_prediction_pairs": 10000000
   },
   "assumptions": [
-    "One scalar magnetic_anomaly or gravity_anomaly channel is modeled with the generic harmonic 1/r kernel. Equivalent source coefficients represent a field, not recovered geology, masses or magnetization. No reduction-to-pole or joint inversion occurs.",
+    "One scalar magnetic_anomaly, gravity_anomaly or gravity_disturbance channel is modeled with the generic harmonic 1/r kernel. Equivalent source coefficients represent a field, not recovered geology, masses or magnetization. No reduction-to-pole or joint inversion occurs.",
     "Coordinates are local/projected Cartesian XY and positive-up z with explicit shared height datum and matching linear coordinate/height units. No coordinate, datum, height or field-unit conversion is performed.",
     "Exact XYZ duplicates are explicitly averaged or rejected; different heights at one XY remain separate measurements. Sources occupy unique training XY on one plane min(training z)-depth. Source geometry is derived from training data only.",
     "Grid predictions use a caller-specified common height at or above the maximum used observation elevation. Downward continuation, draped target surfaces and gradient-boosted/windowed large-survey fitting are outside this bounded adapter.",
@@ -379,6 +379,7 @@
                     "magnetic_anomaly",
                     "gravity_observed",
                     "gravity_anomaly",
+                    "gravity_disturbance",
                     "radiometric",
                     "radiometric_counts",
                     "other"
@@ -529,7 +530,7 @@
             "properties": {
               "channel": {
                 "type": "string",
-                "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+                "description": "One declared magnetic_anomaly, gravity_anomaly or gravity_disturbance channel."
               },
               "depth": {
                 "type": "number",
@@ -629,7 +630,7 @@
             "properties": {
               "channel": {
                 "type": "string",
-                "description": "One declared magnetic_anomaly or gravity_anomaly channel."
+                "description": "One declared magnetic_anomaly, gravity_anomaly or gravity_disturbance channel."
               },
               "depth": {
                 "type": "number",

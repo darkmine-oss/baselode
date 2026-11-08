@@ -97,8 +97,8 @@ def _prepare(payload, options, grid):
     channel = params["channel"]
     if not isinstance(channel, str) or channel not in data["channels"]:
         raise ValueError("channel must identify one declared observation channel")
-    if data["channels"][channel]["field_type"] not in ("magnetic_anomaly", "gravity_anomaly"):
-        raise ValueError("equivalent sources require magnetic_anomaly or gravity_anomaly; correct raw fields first")
+    if data["channels"][channel]["field_type"] not in ("magnetic_anomaly", "gravity_anomaly", "gravity_disturbance"):
+        raise ValueError("equivalent sources require magnetic_anomaly, gravity_anomaly or gravity_disturbance; correct raw fields first")
     _tuning(params)
     if not _number(params["radius"]) or params["radius"] <= 0:
         raise ValueError("radius must be a finite positive XY distance")

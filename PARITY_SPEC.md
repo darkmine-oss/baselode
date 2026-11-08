@@ -221,3 +221,14 @@ structure/history/backend/budgets, while each native stage validates scientific
 values/context. Independent line-offset recovery, exact nearest grid and analytical
 grid gradient, saved JSON replay, live binding/ledger parity and export persistence
 are tested. Existing raster workflow v1 remains unchanged.
+
+Normal gravity: Python `describe_normal_gravity`, `calculate_normal_gravity` and
+`remove_normal_gravity` use the optional pinned Boule 0.6.0 backend plus the analytic
+normal-potential beta component to return full gradient magnitude. JavaScript
+`describeGeophysicsNormalGravity` exposes identical schemas/models; native ledger
+inspection/reprojection validates Python applications and supplementary context
+bindings. Numerical execution stays Python-only with an explicit observation-
+workflow preflight gate. `gravity_disturbance` is distinct from `gravity_anomaly`
+and accepted consistently by observation, gridding, generic raster and equivalent-
+source contracts. Independent high-precision potential differentiation, published
+surface anchors, cross-runtime replay and export persistence are tested.

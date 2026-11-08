@@ -211,7 +211,7 @@ def validate_workflow(workflow, inputs):
         field = raster.metadata.get("field_type")
         if field is None:
             issue("needs_input", "field_type", path, "supply scalar metadata.field_type for all bands")
-        elif field not in ("magnetic_anomaly", "gravity_anomaly", "radiometric", "other"):
+        elif field not in ("magnetic_anomaly", "gravity_anomaly", "gravity_disturbance", "radiometric", "other"):
             issue("rejected", "field_type", path, "unsupported field_type; total fields require correction before this workflow")
         units = raster.metadata.get("units")
         if not isinstance(units, list) or len(units) != raster.band_count or not all(isinstance(unit, str) and unit.strip() for unit in units):

@@ -13,3 +13,8 @@ harmonica>=0.7,<0.8
 jsonschema>=4.18
 # Optional IGRF14 backend used by scientific CI
 ppigrf==2.1.0
+
+# Optional gravity backend exercised in CI
+boule==0.6.0
+# Independent numerical-reference generator
+mpmath==1.3.0

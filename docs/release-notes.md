@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add optional WGS84/GRS80 full-gradient normal gravity, height sensitivity and
+  guarded absolute-observation subtraction. Distinct gravity_disturbance field,
+  model/context/history bindings and workflow registration preserve reduction
+  semantics; JavaScript exposes shared contracts and native ledger replay.
+
 - Add declarative observation-to-grid/derived-product workflows in Python and
   JavaScript: registered typed ports, explicit QC gates, structural preflight,
   atomic final outputs, bounded audit reports and preserved native correction

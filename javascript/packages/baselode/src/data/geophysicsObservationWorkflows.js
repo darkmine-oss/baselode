@@ -82,7 +82,7 @@ async function prepare(workflow,inputs) {
       requireValue((contract.parameters.required??[]).every(key=>Object.hasOwn(params,key)),'supply required operation parameters','parameter',path,'needs_input');
       requireValue(Array.isArray(step.inputs)&&step.inputs.length===contract.inputs.length,'wrong operation input count','input',path);
       const sources=step.inputs.map(ref=>contexts.get(reference(ref,contexts)));requireValue(sources.every((item,i)=>item.kind===contract.inputs[i]),'input reference types do not match operation ports','input',path);
-      requireValue(operation!=='remove_igrf','remove_igrf requires Python execution with baselode[magnetics]; JavaScript has no numerical IGRF backend','backend',path,'needs_input');
+      requireValue(contract.execution.javascript,`${operation} requires Python execution with its declared optional backend`,'backend',path,'needs_input');
       for(const [port,kind] of Object.entries(contract.outputs)) {
         const context={kind,records:0,readings:0,cells:0};
         if(kind==='observations')Object.assign(context,sources[0]);

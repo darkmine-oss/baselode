@@ -2356,3 +2356,47 @@ and 8 MiB step-report JSON. Native kernel/provenance/FFT limits also apply.
 Estimates include unused intermediate ports; runtime checks actual retained sizes.
 These are work/output budgets, not a timeout facility or process sandbox.
 The existing raster workflow v1 API is unchanged.
+
+### Normal gravity and gravity disturbances
+
+Install `baselode[gravity]` for the pinned Boule 0.6.0 backend.
+`describe_normal_gravity()` returns shared schemas, constants and conventions.
+`calculate_normal_gravity({"model": "WGS84", "points": [...]})` accepts up to
+512 `{id, longitude, latitude, height_m}` points: geodetic degrees, ellipsoidal
+metres on or above the reference ellipsoid, heights 0–100,000 m, poles included.
+Models are WGS84 and GRS80. Results contain full normal-gravity magnitude in mGal,
+ellipsoidal u/beta components, and the forward-1-m height sensitivity in mGal/m.
+Boule supplies the u-component and coordinate conversion; the adapter adds the
+analytic beta derivative of the normal potential before taking the orthogonal
+norm. This matters above the surface. Independent 80-digit potential-gradient
+benchmarks and published surface values test both models. Sensitivity is not
+propagated uncertainty; no constant free-air or geoid conversion is applied.
+
+```python
+result = baselode.geophysics.remove_normal_gravity(observations, {
+    "channel": "g", "model": "WGS84", "reference_policy": "caller_verified",
+    "event_id": "normal-1", "evidence": "Calibrated absolute data; datums checked",
+})
+```
+
+Removal requires positive calibrated absolute `gravity_observed` in `mGal`,
+known unapplied `gravity_normal`, `gravity_free_air`, `gravity_bouguer` and
+`gravity_terrain` history. WGS84 requires EPSG:4326 and `WGS84_ellipsoid` height
+datum; GRS80 requires EPSG:4283/7844 and `GRS80_ellipsoid`. Declare degree/degrees,
+`height_units="m"`, `z_positive="up"`, a non-unknown `gravity_datum`, and
+`tide_system` (`tide_free`, `zero_tide`, `mean_tide`). `caller_verified` records
+that reference comparability was checked; no absolute-datum/permanent-tide
+transformation is inferred. Drift/tide correction states remain visible.
+
+Success subtracts normal gravity at the observation's actual height and labels
+the selected channel `gravity_disturbance`, distinct from a reduced anomaly.
+All nonnull selected readings must succeed atomically; nulls, other channels,
+geometry/time/order/extras remain. Fixed model/context/data bindings reject stale
+or repeated applications, including after supported horizontal reprojection.
+Source uncertainty is archived in flat lineage, not propagated. The field works
+with gridding, generic potential-field products and equivalent sources.
+The `remove_normal_gravity` observation-workflow operation exposes the same
+contract; missing optional backends block preflight before any earlier stage.
+[Boule conventions](https://www.fatiando.org/boule/latest/api/generated/boule.Ellipsoid.html)
+and [gravity disturbances](https://www.fatiando.org/boule/latest/user_guide/gravity_disturbance.html)
+provide the reference context.

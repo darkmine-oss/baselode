@@ -1,0 +1,298 @@
+{
+  "id": "geophysics_normal_gravity",
+  "version": 1,
+  "execution": {
+    "python": "calculate_normal_gravity / remove_normal_gravity",
+    "javascript": "descriptor and correction-ledger replay only",
+    "install": "pip install baselode[gravity]"
+  },
+  "models": {
+    "WGS84": {
+      "model": "WGS84",
+      "backend": "boule",
+      "backend_version": "0.6.0",
+      "algorithm": "external_normal_gravity_full_gradient",
+      "coordinate_system": "geodetic",
+      "units": "mGal",
+      "semimajor_axis": 6378137,
+      "flattening": 0.0033528106647474805,
+      "geocentric_grav_const": 398600441800000.0,
+      "angular_velocity": 7.292115e-05
+    },
+    "GRS80": {
+      "model": "GRS80",
+      "backend": "boule",
+      "backend_version": "0.6.0",
+      "algorithm": "external_normal_gravity_full_gradient",
+      "coordinate_system": "geodetic",
+      "units": "mGal",
+      "semimajor_axis": 6378137,
+      "flattening": 0.003352810681182319,
+      "geocentric_grav_const": 398600500000000.0,
+      "angular_velocity": 7.292115e-05
+    }
+  },
+  "request_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "model",
+      "points"
+    ],
+    "properties": {
+      "model": {
+        "enum": [
+          "WGS84",
+          "GRS80"
+        ]
+      },
+      "points": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "longitude",
+            "latitude",
+            "height_m"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "longitude": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "latitude": {
+              "type": "number",
+              "minimum": -90,
+              "maximum": 90
+            },
+            "height_m": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100000
+            }
+          }
+        }
+      }
+    }
+  },
+  "result_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "model",
+      "fields",
+      "producer",
+      "assumptions"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.normal_gravity"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "model": {
+        "oneOf": [
+          {
+            "const": {
+              "model": "WGS84",
+              "backend": "boule",
+              "backend_version": "0.6.0",
+              "algorithm": "external_normal_gravity_full_gradient",
+              "coordinate_system": "geodetic",
+              "units": "mGal",
+              "semimajor_axis": 6378137,
+              "flattening": 0.0033528106647474805,
+              "geocentric_grav_const": 398600441800000.0,
+              "angular_velocity": 7.292115e-05
+            }
+          },
+          {
+            "const": {
+              "model": "GRS80",
+              "backend": "boule",
+              "backend_version": "0.6.0",
+              "algorithm": "external_normal_gravity_full_gradient",
+              "coordinate_system": "geodetic",
+              "units": "mGal",
+              "semimajor_axis": 6378137,
+              "flattening": 0.003352810681182319,
+              "geocentric_grav_const": 398600500000000.0,
+              "angular_velocity": 7.292115e-05
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "fields": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "normal_gravity",
+            "height_sensitivity_mGal_per_m",
+            "ellipsoidal_u_component_mGal",
+            "ellipsoidal_beta_component_mGal"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "normal_gravity": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            },
+            "height_sensitivity_mGal_per_m": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            },
+            "ellipsoidal_u_component_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            },
+            "ellipsoidal_beta_component_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          }
+        }
+      },
+      "producer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "library",
+          "version",
+          "algorithm_version"
+        ],
+        "properties": {
+          "library": {
+            "const": "baselode"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "algorithm_version": {
+            "const": 1
+          }
+        }
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "removal_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "model",
+      "reference_policy",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "model": {
+        "enum": [
+          "WGS84",
+          "GRS80"
+        ]
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "resources": {
+    "max_points": 512,
+    "max_height_m": 100000,
+    "sensitivity_step_m": 1
+  },
+  "assumptions": [
+    "Normal gravity is the magnitude of gravitational plus centrifugal acceleration of the selected rotating reference ellipsoid at geodetic latitude and ellipsoidal height, using Boule 0.6.0 for the ellipsoidal u-component plus the analytic beta derivative of the normal potential. Their orthogonal norm is the full magnitude; no constant free-air approximation.",
+    "Longitude/latitude in degrees, ellipsoidal height in metres, normal gravity in mGal. Heights 0..100000 m, including exact poles; points below the ellipsoid reject because the external formula is not valid inside. No geoid/datum conversion.",
+    "Height sensitivity is the explicitly labelled forward finite difference gamma(h+1 m)-gamma(h), mGal/m; backend evaluation reaches 100001 m at the workload boundary. It is sensitivity, not propagated uncertainty.",
+    "WGS84 removal requires EPSG:4326 and WGS84_ellipsoid height datum. GRS80 requires EPSG:4283/7844 and GRS80_ellipsoid. degree/degrees, height_units=m and z_positive=up are mandatory. Horizontal reprojection follows its own supported-CRS contract.",
+    "Removal requires positive calibrated absolute gravity_observed/mGal, not relative/dial readings, and known unapplied gravity_normal, gravity_free_air, gravity_bouguer and gravity_terrain history for the selected channel. Declare histories from source evidence; none are inferred. Drift/tide states survive and are not claimed corrected.",
+    "Require declared non-unknown gravity_datum and tide_system=tide_free/zero_tide/mean_tide, plus reference_policy=caller_verified. Caller verifies comparability to the selected normal model; the adapter performs no absolute-gravity-datum or permanent-tide-system transformation.",
+    "Subtract observed minus normal gravity at the same location/height; label gravity_disturbance, distinct from a classical reduced gravity anomaly. Missing selected readings are retained; every nonnull selected reading needs complete context before one atomic application.",
+    "Strict model/context/data bindings, existing ledger state/ID/count checks and standard source lineage protect replay. History guards detect accidental edits, not deliberate authenticated rewriting. Uncertainty fields are archived, not propagated."
+  ],
+  "references": [
+    "https://www.fatiando.org/boule/latest/api/generated/boule.Ellipsoid.html",
+    "https://www.fatiando.org/boule/latest/user_guide/gravity_disturbance.html",
+    "https://www.ngs.noaa.gov/grav-d/data/NGS_GRAV-D_General_Airborne_Gravity_Data_User_Manual_v1.1.pdf"
+  ]
+}

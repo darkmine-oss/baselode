@@ -8,6 +8,7 @@
       "field_types": [
         "magnetic_anomaly",
         "gravity_anomaly",
+        "gravity_disturbance",
         "radiometric",
         "other"
       ],
@@ -80,6 +81,7 @@
       "field_types": [
         "magnetic_anomaly",
         "gravity_anomaly",
+        "gravity_disturbance",
         "radiometric",
         "other"
       ],
@@ -152,6 +154,7 @@
       "field_types": [
         "magnetic_anomaly",
         "gravity_anomaly",
+        "gravity_disturbance",
         "radiometric",
         "other"
       ],
@@ -229,7 +232,8 @@
       "kind": "GeophysicsRaster",
       "field_types": [
         "magnetic_anomaly",
-        "gravity_anomaly"
+        "gravity_anomaly",
+        "gravity_disturbance"
       ],
       "units": "Explicit per-band metadata.units; combine requires matching units.",
       "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
@@ -283,6 +287,7 @@
       "field_types": [
         "magnetic_anomaly",
         "gravity_anomaly",
+        "gravity_disturbance",
         "radiometric",
         "other"
       ],
@@ -337,6 +342,7 @@
       "field_types": [
         "magnetic_anomaly",
         "gravity_anomaly",
+        "gravity_disturbance",
         "radiometric",
         "other"
       ],
@@ -381,7 +387,8 @@
       "kind": "GeophysicsRaster",
       "field_types": [
         "magnetic_anomaly",
-        "gravity_anomaly"
+        "gravity_anomaly",
+        "gravity_disturbance"
       ],
       "units": "Explicit per-band metadata.units; combine requires matching units.",
       "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
@@ -425,7 +432,8 @@
       "kind": "GeophysicsRaster",
       "field_types": [
         "magnetic_anomaly",
-        "gravity_anomaly"
+        "gravity_anomaly",
+        "gravity_disturbance"
       ],
       "units": "Explicit per-band metadata.units; combine requires matching units.",
       "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
@@ -469,7 +477,8 @@
       "kind": "GeophysicsRaster",
       "field_types": [
         "magnetic_anomaly",
-        "gravity_anomaly"
+        "gravity_anomaly",
+        "gravity_disturbance"
       ],
       "units": "Explicit per-band metadata.units; combine requires matching units.",
       "coordinates": "Projected or explicitly declared local Cartesian coordinates; finite invertible affine."
@@ -582,6 +591,7 @@
       "field_types": [
         "magnetic_anomaly",
         "gravity_anomaly",
+        "gravity_disturbance",
         "radiometric",
         "other"
       ],

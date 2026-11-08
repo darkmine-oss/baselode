@@ -137,7 +137,7 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
     } catch (error) { issue('rejected', 'input', path, error.message); spacing = [1, 1]; }
     const field = raster.metadata.field_type;
     if (field === undefined || field === null) issue('needs_input', 'field_type', path, 'supply scalar metadata.field_type for all bands');
-    else if (!['magnetic_anomaly', 'gravity_anomaly', 'radiometric', 'other'].includes(field)) {
+    else if (!['magnetic_anomaly', 'gravity_anomaly', 'gravity_disturbance', 'radiometric', 'other'].includes(field)) {
       issue('rejected', 'field_type', path, 'unsupported field_type; total fields require correction before this workflow');
     }
     let { units } = raster.metadata;
