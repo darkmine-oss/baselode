@@ -1292,6 +1292,9 @@ def _normal_options(options):
         raise _NeedsInput("supply channel, model, reference_policy, event_id and evidence")
     if not isinstance(params["channel"], str) or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", params["channel"]) is None:
         raise ValueError("channel must be a declared observation channel")
+    params.setdefault("height_policy", "external_only")
+    if params["height_policy"] not in ("external_only", "analytic_continuation"):
+        raise ValueError("height_policy must be external_only or analytic_continuation")
     if params["model"] not in ("WGS84", "GRS80") or params["reference_policy"] != "caller_verified":
         raise ValueError("select WGS84/GRS80 and acknowledge reference_policy=caller_verified")
     if not _label(params["event_id"]) or not _evidence(params["evidence"]):
@@ -1317,5 +1320,5 @@ def _normal_binding(data, params):
     context = _gravity_context(data, params)
     model = _DESCRIPTOR["gravity_models"][params["model"]]
     numbers = [struct.pack(">d", float(model[k])).hex() for k in ("semimajor_axis", "flattening", "geocentric_grav_const", "angular_velocity")]
-    snapshot = ["baselode.gravity_normal_binding.v1", params["channel"], params["model"], params["reference_policy"], context, model["backend"], model["backend_version"], model["algorithm"], numbers]
+    snapshot = ["baselode.gravity_normal_binding.v1", params["channel"], params["model"], params["reference_policy"], params["height_policy"], context, model["backend"], model["backend_version"], model["algorithm"], numbers]
     return hashlib.sha256(json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()

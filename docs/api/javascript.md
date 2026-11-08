@@ -1734,7 +1734,10 @@ during JavaScript preflight, before any earlier stage executes.
 
 Normal gravity is the full external normal-potential gradient magnitude in mGal,
 using Boule's u-component plus the analytic beta component. Requests use geodetic
-degrees and ellipsoidal heights 0–100,000 m; exact poles supported. Results expose
+degrees and ellipsoidal heights 0–100,000 m by default; exact poles supported.
+Explicit `height_policy: "analytic_continuation"` permits −1,000–0 m with per-point
+`height_extrapolated` flags. This is mathematical external-potential continuation,
+not an interior-density model. Results expose
 both components and forward-1-m height sensitivity, not propagated uncertainty.
 Removal requires calibrated positive absolute `gravity_observed/mGal`, explicit
 matching geographic/height datum, gravity datum/tide-system compatibility and

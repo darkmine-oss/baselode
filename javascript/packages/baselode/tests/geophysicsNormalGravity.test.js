@@ -34,3 +34,6 @@ it('grids and differentiates disturbances with preserved field semantics and exp
  const edge=runGeophysicsWorkflow({schema:'baselode.geophysics.workflow',version:1,steps:[{id:'edge',operation:'total_horizontal_derivative',version:1,inputs:['g'],parameters:{}}],outputs:['edge']},{g:g.artifacts.grid});expect(edge.state,JSON.stringify(edge.issues)).toBe('ok');expect(edge.artifacts.edge.data).toEqual([[[0,0],[0,0]]]);
  const ers=encodeErs(g.artifacts.grid,{dtype:'float64'});for(const back of [readErs(ers.header,ers.data),await loadGeoTiff(encodeGeoTiff(g.artifacts.grid,{dtype:'float64'}))])expect(back.metadata.observation_metadata.correction_ledger).toEqual(p.ledger);
 });
+it('binds the explicit height policy and exposes continuation flags in the shared result contract',async()=>{
+ const d=describeGeophysicsNormalGravity();expect(d.request_schema.properties.height_policy.enum).toContain('analytic_continuation');expect(d.result_schema.properties.fields.items.properties.height_extrapolated.type).toBe('boolean');const out=clone(reference.observations);out.metadata.correction_ledger.entries.at(-1).parameters.height_policy='analytic_continuation';expect((await inspectGeophysicsCorrections(out)).state).toBe('rejected');
+});

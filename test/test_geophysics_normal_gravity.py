@@ -34,7 +34,7 @@ def removed(data=None,options=None):
 
 @pytest.mark.parametrize('model',['WGS84','GRS80'])
 def test_independent_80_digit_normal_potential_gradient_and_height_sensitivity(model):
-    cases=[c for c in REFERENCE['cases'] if c['model']==model];request={'model':model,'points':[c['point'] for c in cases]};before=copy.deepcopy(request)
+    cases=[c for c in REFERENCE['cases'] if c['model']==model and c['point']['height_m']>=0];request={'model':model,'points':[c['point'] for c in cases]};before=copy.deepcopy(request)
     r=baselode.geophysics.calculate_normal_gravity(request);assert r['state']=='ok',r['issues'];assert request==before
     for actual,expected in zip(r['fields'],cases):
         assert actual['normal_gravity']==pytest.approx(expected['normal_gravity'],abs=REFERENCE['tolerance_mGal'],rel=0)
@@ -169,3 +169,27 @@ def test_relative_or_zero_readings_are_not_mislabeled_absolute_magnitude():
     for value in [0,-10]:
         data=survey();data['records'][0]['values']['g']=value
         r=baselode.geophysics.remove_normal_gravity(data,PARAMS);assert r['state']=='rejected' and r['observations'] is None
+
+
+@pytest.mark.parametrize('model',['WGS84','GRS80'])
+def test_below_ellipsoid_requires_explicit_flagged_analytic_continuation(model):
+    cases=[c for c in REFERENCE['cases'] if c['model']==model and c['point']['height_m']<0]
+    request={'model':model,'points':[c['point'] for c in cases]}
+    default=baselode.geophysics.calculate_normal_gravity(request)
+    assert default['state']=='needs_input' and default['fields']==[]
+    request['height_policy']='analytic_continuation'
+    r=baselode.geophysics.calculate_normal_gravity(request);assert r['state']=='ok',r['issues']
+    for actual,expected in zip(r['fields'],cases):
+        assert actual['height_extrapolated'] is True
+        assert actual['normal_gravity']==pytest.approx(expected['normal_gravity'],abs=1e-5,rel=0)
+    data=survey();data['records'][0]['z']=-50
+    if model=='GRS80':data['crs']='EPSG:7844';data['metadata']['height_datum']='GRS80_ellipsoid'
+    assert baselode.geophysics.remove_normal_gravity(data,{**PARAMS,'model':model})['state']=='needs_input'
+    out=removed(data,{**PARAMS,'model':model,'height_policy':'analytic_continuation'})
+    assert out['proposals'][0]['height_extrapolated'] is True and out['diagnostics']['continued_height_records']==1
+    assert out['ledger']['entries'][-1]['parameters']['height_policy']=='analytic_continuation'
+    assert baselode.geophysics.inspect_corrections(out['observations'])['state']=='ok'
+    out['observations']['metadata']['correction_ledger']['entries'][-1]['parameters']['height_policy']='external_only'
+    assert baselode.geophysics.inspect_corrections(out['observations'])['state']=='rejected'
+    request['points'][0]['height_m']=-1001
+    assert baselode.geophysics.calculate_normal_gravity(request)['state']=='rejected'

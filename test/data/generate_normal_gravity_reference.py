@@ -48,7 +48,7 @@ def normal(model, latitude, height):
 def generate():
     cases = []
     for model in ['WGS84','GRS80']:
-        for latitude,height in [(0,0),(90,0),(-90,0),(45,0),(-32,100),(60,10000),(0,100000),(90,100000),(45,100000),(-60,100000)]:
+        for latitude,height in [(0,0),(90,0),(-90,0),(45,0),(-32,100),(60,10000),(0,100000),(90,100000),(45,100000),(-60,100000),(45,-50),(-32,-1000)]:
             gravity = normal(model,latitude,mpmath.mpf(height))
             sensitivity = normal(model,latitude,mpmath.mpf(height)+1)-gravity
             cases.append({'model':model,'point':{'id':model+'_'+str(latitude)+'_'+str(height),'longitude':117,'latitude':latitude,'height_m':height},'normal_gravity':float(gravity),'height_sensitivity_mGal_per_m':float(sensitivity)})

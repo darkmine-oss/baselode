@@ -77,11 +77,18 @@
             },
             "height_m": {
               "type": "number",
-              "minimum": 0,
+              "minimum": -1000,
               "maximum": 100000
             }
           }
         }
+      },
+      "height_policy": {
+        "enum": [
+          "external_only",
+          "analytic_continuation"
+        ],
+        "default": "external_only"
       }
     }
   },
@@ -178,7 +185,8 @@
             "normal_gravity",
             "height_sensitivity_mGal_per_m",
             "ellipsoidal_u_component_mGal",
-            "ellipsoidal_beta_component_mGal"
+            "ellipsoidal_beta_component_mGal",
+            "height_extrapolated"
           ],
           "properties": {
             "id": {
@@ -205,6 +213,9 @@
               "type": "number",
               "minimum": -1e+100,
               "maximum": 1e+100
+            },
+            "height_extrapolated": {
+              "type": "boolean"
             }
           }
         }
@@ -272,17 +283,25 @@
         "type": "string",
         "minLength": 1,
         "maxLength": 4096
+      },
+      "height_policy": {
+        "enum": [
+          "external_only",
+          "analytic_continuation"
+        ],
+        "default": "external_only"
       }
     }
   },
   "resources": {
     "max_points": 512,
     "max_height_m": 100000,
-    "sensitivity_step_m": 1
+    "sensitivity_step_m": 1,
+    "min_continued_height_m": -1000
   },
   "assumptions": [
     "Normal gravity is the magnitude of gravitational plus centrifugal acceleration of the selected rotating reference ellipsoid at geodetic latitude and ellipsoidal height, using Boule 0.6.0 for the ellipsoidal u-component plus the analytic beta derivative of the normal potential. Their orthogonal norm is the full magnitude; no constant free-air approximation.",
-    "Longitude/latitude in degrees, ellipsoidal height in metres, normal gravity in mGal. Heights 0..100000 m, including exact poles; points below the ellipsoid reject because the external formula is not valid inside. No geoid/datum conversion.",
+    "Longitude/latitude in degrees, ellipsoidal height in metres, normal gravity in mGal. Default height_policy=external_only accepts 0..100000 m, poles included. Explicit height_policy=analytic_continuation also allows -1000..0 m with per-point height_extrapolated=true. This continues the external normal potential mathematically; it is not an interior-density/mass model. No geoid/datum conversion.",
     "Height sensitivity is the explicitly labelled forward finite difference gamma(h+1 m)-gamma(h), mGal/m; backend evaluation reaches 100001 m at the workload boundary. It is sensitivity, not propagated uncertainty.",
     "WGS84 removal requires EPSG:4326 and WGS84_ellipsoid height datum. GRS80 requires EPSG:4283/7844 and GRS80_ellipsoid. degree/degrees, height_units=m and z_positive=up are mandatory. Horizontal reprojection follows its own supported-CRS contract.",
     "Removal requires positive calibrated absolute gravity_observed/mGal, not relative/dial readings, and known unapplied gravity_normal, gravity_free_air, gravity_bouguer and gravity_terrain history for the selected channel. Declare histories from source evidence; none are inferred. Drift/tide states survive and are not claimed corrected.",

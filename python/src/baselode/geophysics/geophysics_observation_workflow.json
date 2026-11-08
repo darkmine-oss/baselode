@@ -1354,6 +1354,13 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 4096
+          },
+          "height_policy": {
+            "enum": [
+              "external_only",
+              "analytic_continuation"
+            ],
+            "default": "external_only"
           }
         }
       },

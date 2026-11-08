@@ -2362,8 +2362,11 @@ The existing raster workflow v1 API is unchanged.
 Install `baselode[gravity]` for the pinned Boule 0.6.0 backend.
 `describe_normal_gravity()` returns shared schemas, constants and conventions.
 `calculate_normal_gravity({"model": "WGS84", "points": [...]})` accepts up to
-512 `{id, longitude, latitude, height_m}` points: geodetic degrees, ellipsoidal
-metres on or above the reference ellipsoid, heights 0–100,000 m, poles included.
+512 `{id, longitude, latitude, height_m}` points: geodetic degrees and ellipsoidal metres, heights 0–100,000 m by
+default, poles included. Explicit `height_policy="analytic_continuation"` also
+allows −1,000–0 m for below-ellipsoid stations; results flag each continued point
+with `height_extrapolated`. This mathematically continues the external potential
+and does not specify an interior-Earth density model.
 Models are WGS84 and GRS80. Results contain full normal-gravity magnitude in mGal,
 ellipsoidal u/beta components, and the forward-1-m height sensitivity in mGal/m.
 Boule supplies the u-component and coordinate conversion; the adapter adds the

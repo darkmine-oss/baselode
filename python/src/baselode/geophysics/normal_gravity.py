@@ -44,12 +44,15 @@ def _require_backend():
 
 
 def _points(request):
-    if type(request) is not dict or request.keys() - {'model', 'points'}:
+    if type(request) is not dict or request.keys() - {'model', 'points', 'height_policy'}:
         raise ValueError('normal gravity request requires known model/points fields')
     if 'model' not in request or 'points' not in request:
         raise baselode.geophysics.corrections._NeedsInput('supply model and explicit geodetic points')
     if request['model'] not in ('WGS84', 'GRS80'):
         raise ValueError('normal gravity model must be WGS84 or GRS80')
+    policy = request.get('height_policy', 'external_only')
+    if policy not in ('external_only', 'analytic_continuation'):
+        raise ValueError('height_policy must be external_only or analytic_continuation')
     rows = request['points']
     if type(rows) is not list or not rows:
         raise ValueError('points must be a nonempty list')
@@ -68,8 +71,10 @@ def _points(request):
         ids.add(row['id'])
         if not all(baselode.geophysics.corrections._number(row[k]) for k in required - {'id'}):
             raise ValueError('coordinates/heights require finite binary64 values')
-        if not -180 <= row['longitude'] <= 180 or not -90 <= row['latitude'] <= 90 or not 0 <= row['height_m'] <= 100000:
-            raise ValueError('longitude [-180,180], latitude [-90,90], external ellipsoidal height [0,100000] m required')
+        if not -180 <= row['longitude'] <= 180 or not -90 <= row['latitude'] <= 90 or not -1000 <= row['height_m'] <= 100000:
+            raise ValueError('longitude [-180,180], latitude [-90,90], ellipsoidal height [-1000,100000] m required')
+        if row['height_m'] < 0 and policy != 'analytic_continuation':
+            raise baselode.geophysics.corrections._NeedsInput('negative ellipsoidal height requires explicit height_policy=analytic_continuation; external potential continuation is not an interior mass model')
     return rows
 
 
@@ -89,7 +94,7 @@ def _magnitude(ellipsoid, longitude, latitude, height):
     tangential = ellipsoid.angular_velocity**2 * (ellipsoid.semimajor_axis**2 * q(u) / q(ellipsoid.semiminor_axis) - (u*u + eccentricity**2)) * np.sin(beta) * np.cos(beta) / scale * 100000
     return np.hypot(radial, tangential), radial, tangential
 
-def _evaluate(model_name, rows):
+def _evaluate(model_name, rows, height_policy='external_only'):
     expected = _DESCRIPTOR['models'][model_name]
     try:
         if importlib.metadata.version('boule') != expected['backend_version']:
@@ -102,11 +107,13 @@ def _evaluate(model_name, rows):
         height = np.array([row['height_m'] for row in rows], dtype=float)
         with warnings.catch_warnings():
             warnings.simplefilter('error')
+            if height_policy == 'analytic_continuation':
+                warnings.filterwarnings('ignore', message=r'Formulas used are valid for points outside the ellipsoid\.Height must be greater than or equal to zero\.', category=UserWarning, module=r'boule\._ellipsoid')
             gravity, radial, tangential = _magnitude(ellipsoid, longitude, latitude, height)
             elevated, _, _ = _magnitude(ellipsoid, longitude, latitude, height + 1)
         if gravity.shape != height.shape or elevated.shape != height.shape or not np.all(np.isfinite(gravity)) or not np.all(np.isfinite(elevated)):
             raise _BackendError('Boule returned incompatible or nonfinite normal gravity')
-        return [{'id': row['id'], 'normal_gravity': float(value), 'height_sensitivity_mGal_per_m': float(upper - value), 'ellipsoidal_u_component_mGal': float(gu), 'ellipsoidal_beta_component_mGal': float(gb)} for row, value, upper, gu, gb in zip(rows, gravity, elevated, radial, tangential)]
+        return [{'id': row['id'], 'normal_gravity': float(value), 'height_sensitivity_mGal_per_m': float(upper - value), 'ellipsoidal_u_component_mGal': float(gu), 'ellipsoidal_beta_component_mGal': float(gb), 'height_extrapolated': row['height_m'] < 0} for row, value, upper, gu, gb in zip(rows, gravity, elevated, radial, tangential)]
     except _BackendError:
         raise
     except (ValueError, TypeError, AttributeError, RuntimeError, Warning, OSError, importlib.metadata.PackageNotFoundError) as error:
@@ -120,8 +127,10 @@ def calculate_normal_gravity(request):
     ----------
     request : dict
         model WGS84/GRS80, points [{id, longitude, latitude, height_m}].
-        Geodetic degrees and external ellipsoidal metres 0..100000, up to
-        512 points. Exact poles supported. Inputs are not modified.
+        Geodetic degrees and ellipsoidal metres 0..100000 by default, up to
+        512 points. Explicit height_policy='analytic_continuation' allows
+        -1000..0 m, flagged per point; the external potential is continued,
+        not an interior-density model. Exact poles supported. Inputs unchanged.
 
     Returns
     -------
@@ -141,7 +150,7 @@ def calculate_normal_gravity(request):
     try:
         rows = _points(request)
         report['model'] = copy.deepcopy(_DESCRIPTOR['models'][request['model']])
-        report['fields'] = _evaluate(request['model'], rows)
+        report['fields'] = _evaluate(request['model'], rows, request.get('height_policy', 'external_only'))
     except (ValueError, TypeError, RuntimeError, RecursionError) as error:
         report['state'] = 'needs_input' if isinstance(error, baselode.geophysics.corrections._NeedsInput) else ('failed' if isinstance(error, _BackendError) else 'rejected')
         report['issues'].append({'code': 'backend' if isinstance(error, _BackendError) else ('context' if isinstance(error, baselode.geophysics.corrections._NeedsInput) else ('resource' if isinstance(error, baselode.geophysics.corrections._ResourceError) else 'contract')), 'message': str(error)})
@@ -159,7 +168,8 @@ def remove_normal_gravity(payload, options):
         CRS and ellipsoidal height context; declared gravity datum/tide system.
         Known unapplied normal/free-air/Bouguer/terrain history required.
     options : dict
-        channel, model, reference_policy='caller_verified', event_id, evidence.
+        channel, model, reference_policy='caller_verified', event_id, evidence,
+        optional height_policy='external_only' or 'analytic_continuation'.
         Caller verifies reference compatibility; no datum/tide conversion.
 
     Returns
@@ -201,10 +211,10 @@ def remove_normal_gravity(payload, options):
             raise baselode.geophysics.corrections._NeedsInput('selected channel needs at least one nonnull reading')
         if any(row['values'][channel] <= 0 for row in readings):
             raise ValueError('gravity_observed requires positive calibrated absolute magnitude in mGal; calibrate/tie relative or dial readings first')
-        points = _points({'model': params['model'], 'points': [{'id': row['id'], 'longitude': row['x'], 'latitude': row['y'], 'height_m': row['z']} for row in readings]})
+        points = _points({'model': params['model'], 'height_policy': params['height_policy'], 'points': [{'id': row['id'], 'longitude': row['x'], 'latitude': row['y'], 'height_m': row['z']} for row in readings]})
         if len(ledger['entries']) >= baselode.geophysics.corrections._LIMITS['max_events']:
             raise baselode.geophysics.corrections._ResourceError('correction ledger exceeds event limit')
-        fields = _evaluate(params['model'], points)
+        fields = _evaluate(params['model'], points, params['height_policy'])
         before = ledger['current_binding']
         normal_binding = baselode.geophysics.corrections._normal_binding(data, params)
         metadata = data['metadata']
@@ -214,7 +224,7 @@ def remove_normal_gravity(payload, options):
             if not baselode.geophysics.corrections._number(corrected):
                 raise ValueError('disturbance exceeds finite portable numeric range')
             row['values'][channel] = corrected
-            report['proposals'].append({'id': row['id'], 'normal_gravity': field['normal_gravity'], 'corrected_value': corrected, 'height_sensitivity_mGal_per_m': field['height_sensitivity_mGal_per_m']})
+            report['proposals'].append({'id': row['id'], 'normal_gravity': field['normal_gravity'], 'corrected_value': corrected, 'height_sensitivity_mGal_per_m': field['height_sensitivity_mGal_per_m'], 'height_extrapolated': field['height_extrapolated']})
         data['channels'][channel]['field_type'] = 'gravity_disturbance'
         after = baselode.geophysics.corrections._binding(data)
         model = copy.deepcopy(_DESCRIPTOR['models'][params['model']])
@@ -226,7 +236,7 @@ def remove_normal_gravity(payload, options):
         metadata['uncertainty_propagated'] = False
         metadata['processing'] = list(metadata.get('processing', [])) + [{'operation': 'remove_normal_gravity', 'version': 1, 'parameters': params, 'model': model, 'normal_binding': normal_binding, 'input_binding': before, 'output_binding': after, 'operand_lineage': operand}]
         output = baselode.geophysics.corrections._save(data, ledger)
-        report.update(observations=output, ledger=copy.deepcopy(ledger), states=baselode.geophysics.corrections._states(output, ledger), diagnostics={'affected_records': len(readings), 'missing_readings': len(data['records']) - len(readings), 'uncertainty_propagated': False})
+        report.update(observations=output, ledger=copy.deepcopy(ledger), states=baselode.geophysics.corrections._states(output, ledger), diagnostics={'affected_records': len(readings), 'missing_readings': len(data['records']) - len(readings), 'continued_height_records': sum(p['height_extrapolated'] for p in report['proposals']), 'uncertainty_propagated': False})
     except (ValueError, TypeError, RuntimeError, RecursionError) as error:
         baselode.geophysics.corrections._error(report, error)
         if isinstance(error, _BackendError):

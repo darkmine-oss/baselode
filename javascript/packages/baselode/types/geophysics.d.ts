@@ -633,20 +633,21 @@ export function validateGeophysicsObservationWorkflow(workflow: unknown, inputs:
 export function runGeophysicsObservationWorkflow(workflow: unknown, inputs: Record<string, unknown>): Promise<GeophysicsObservationWorkflowResult>;
 
 export interface GeophysicsNormalGravityPoint { id: string; longitude: number; latitude: number; height_m: number }
-export interface GeophysicsNormalGravityRequest { model: 'WGS84' | 'GRS80'; points: GeophysicsNormalGravityPoint[] }
+export interface GeophysicsNormalGravityRequest { model: 'WGS84' | 'GRS80'; height_policy?: 'external_only' | 'analytic_continuation'; points: GeophysicsNormalGravityPoint[] }
 export interface GeophysicsNormalGravityModel {
   model: 'WGS84' | 'GRS80'; backend: 'boule'; backend_version: '0.6.0';
   algorithm: 'external_normal_gravity_full_gradient'; coordinate_system: 'geodetic'; units: 'mGal';
   semimajor_axis: number; flattening: number; geocentric_grav_const: number; angular_velocity: number;
 }
 export interface GeophysicsNormalGravityRemovalOptions {
+  height_policy?: 'external_only' | 'analytic_continuation';
   channel: string; model: 'WGS84' | 'GRS80'; reference_policy: 'caller_verified'; event_id: string; evidence: string;
 }
 export interface GeophysicsNormalGravityReport {
   schema: 'baselode.geophysics.normal_gravity'; version: 1;
   state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
   model: GeophysicsNormalGravityModel | null;
-  fields: Array<{id: string; normal_gravity: number; height_sensitivity_mGal_per_m: number; ellipsoidal_u_component_mGal: number; ellipsoidal_beta_component_mGal: number}>;
+  fields: Array<{id: string; normal_gravity: number; height_sensitivity_mGal_per_m: number; ellipsoidal_u_component_mGal: number; ellipsoidal_beta_component_mGal: number; height_extrapolated: boolean}>;
   producer: {library: string; version: string; algorithm_version: number}; assumptions: string[];
 }
 /** Numerical execution requires Python baselode[gravity]. Ledger replay is native. */

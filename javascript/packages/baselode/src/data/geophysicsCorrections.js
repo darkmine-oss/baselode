@@ -709,6 +709,8 @@ function normalOptions(options) {
   const params=json(options);
   if(contract.required.some(key=>!Object.hasOwn(params,key)))throw new NeedsInput('supply channel, model, reference_policy, event_id and evidence');
   if(typeof params.channel!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params.channel))throw Error('channel must be a declared observation channel');
+  if(!Object.hasOwn(params,'height_policy'))params.height_policy='external_only';
+  if(!['external_only','analytic_continuation'].includes(params.height_policy))throw Error('height_policy must be external_only or analytic_continuation');
   if(!['WGS84','GRS80'].includes(params.model)||params.reference_policy!=='caller_verified')throw Error('select WGS84/GRS80 and acknowledge reference_policy=caller_verified');
   if(!label(params.event_id)||!evidence(params.evidence))throw Error('event_id/evidence require bounded nonempty strings');
   return params;
@@ -723,7 +725,7 @@ function gravityContext(data,params) {
 async function normalBinding(data,params) {
   const context=gravityContext(data,params);const model=descriptor.gravity_models[params.model];const buffer=new ArrayBuffer(8);const view=new DataView(buffer);
   const numbers=['semimajor_axis','flattening','geocentric_grav_const','angular_velocity'].map(key=>{view.setFloat64(0,model[key],false);return [...new Uint8Array(buffer)].map(byte=>byte.toString(16).padStart(2,'0')).join('');});
-  const snapshot=['baselode.gravity_normal_binding.v1',params.channel,params.model,params.reference_policy,context,model.backend,model.backend_version,model.algorithm,numbers];
+  const snapshot=['baselode.gravity_normal_binding.v1',params.channel,params.model,params.reference_policy,params.height_policy,context,model.backend,model.backend_version,model.algorithm,numbers];
   if(!globalThis.crypto?.subtle)throw new NeedsInput('SHA-256 binding requires Web Crypto (Node 20+ or secure browser)');
   return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(snapshot))))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
 }

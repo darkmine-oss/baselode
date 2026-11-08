@@ -114,6 +114,28 @@
       "height_sensitivity_mGal_per_m": -0.29439288700760036
     },
     {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_45_-50",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": -50
+      },
+      "normal_gravity": 980635.205107957,
+      "height_sensitivity_mGal_per_m": -0.3085669593104285
+    },
+    {
+      "model": "WGS84",
+      "point": {
+        "id": "WGS84_-32_-1000",
+        "longitude": 117,
+        "latitude": -32,
+        "height_m": -1000
+      },
+      "normal_gravity": 979792.9261725405,
+      "height_sensitivity_mGal_per_m": -0.3088014967958949
+    },
+    {
       "model": "GRS80",
       "point": {
         "id": "GRS80_0_0",
@@ -222,6 +244,28 @@
       },
       "normal_gravity": 951782.9987211355,
       "height_sensitivity_mGal_per_m": -0.2943929297926232
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_45_-50",
+        "longitude": 117,
+        "latitude": 45,
+        "height_m": -50
+      },
+      "normal_gravity": 980635.3484247428,
+      "height_sensitivity_mGal_per_m": -0.30856700425112277
+    },
+    {
+      "model": "GRS80",
+      "point": {
+        "id": "GRS80_-32_-1000",
+        "longitude": 117,
+        "latitude": -32,
+        "height_m": -1000
+      },
+      "normal_gravity": 979793.0696411382,
+      "height_sensitivity_mGal_per_m": -0.30880154185944797
     }
   ]
 }
