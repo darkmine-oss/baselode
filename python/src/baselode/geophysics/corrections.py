@@ -189,7 +189,7 @@ def _validate(data, ledger, current, check_summary=True):
             count = sum(row["values"][channels[0]] is not None for row in data["records"])
             if correction not in ("magnetic_diurnal", "magnetic_igrf") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied supported correction history for one channel")
-            if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"] :
+            if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"]:
                 raise ValueError("application parameters do not match the ledger event")
             if correction == "magnetic_diurnal" and (not _digest(entry["base_binding"]) or not _label(entry["base_station_id"])):
                 raise ValueError("invalid base application binding/station")

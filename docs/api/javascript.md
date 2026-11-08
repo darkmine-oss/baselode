@@ -1534,7 +1534,7 @@ result schemas, removal options, fixed model/coefficient identity, scientific
 conventions, domain limits and Python installation instructions. TypeScript
 exports `GeophysicsIgrfRequest`, `GeophysicsIgrfPoint`,
 `GeophysicsIgrfRemovalOptions`, `GeophysicsIgrfField`, `GeophysicsIgrfModel` and
-`GeophysicsIgrfReport`.
+`GeophysicsIgrfReport` and `GeophysicsIgrfRemovalReport`.
 
 Execute `calculate_igrf` / `remove_igrf` in Python with `baselode[magnetics]`.
 JavaScript has no IGRF numerical backend. Its existing asynchronous

@@ -78,16 +78,15 @@ def test_missing_point_context_is_not_inferred(field):
 
 
 def test_limits_id_uniqueness_and_strict_models():
-    for change in ['points', 'times', 'duplicate', 'model', 'unknown']:
+    for change in ['points', 'duplicate', 'model', 'unknown']:
         item = request()
         if change == 'points': item['points'] = [item['points'][0]] * 513
-        if change == 'times': item['points'] = [{**item['points'][1], 'id': str(i), 'time': item['points'][1]['time'] + i} for i in range(65)]
         if change == 'duplicate': item['points'][1]['id'] = item['points'][0]['id']
         if change == 'model': item['model'] = 'latest'
         if change == 'unknown': item['hidden_conversion'] = True
         result = baselode.geophysics.calculate_igrf(item)
         assert result['state'] == 'rejected' and not result['fields']
-        if change in ['points', 'times']: assert result['issues'][0]['code'] == 'resource'
+        if change == 'points': assert result['issues'][0]['code'] == 'resource'
 
 
 def test_backend_integrity_and_nonfinite_result_fail_without_partial_fields(monkeypatch):
@@ -194,3 +193,55 @@ def test_python_igrf_ledger_replayed_in_javascript_and_returned_to_python(tmp_pa
     assert all(r['state'] == 'rejected' for r in result['invalid'])
     assert result['declared']['state'] == 'ok', result['declared']['issues']
     assert baselode.geophysics.inspect_corrections(result['declared']['observations'])['state'] == 'ok'
+
+
+def test_512_distinct_survey_timestamps_commit_one_bound_application():
+    item = survey(); row = item['records'][0]
+    item['records'] = [{**copy.deepcopy(row), 'id': 'sample-' + str(i), 'time': row['time'] + i} for i in range(512)]
+    result = baselode.geophysics.remove_igrf(item, OPTIONS)
+    assert result['state'] == 'ok', result['issues']
+    assert result['diagnostics']['unique_times'] == 512
+    assert result['ledger']['entries'][-1]['affected_records'] == 512
+    assert len([e for e in result['ledger']['entries'] if e['kind'] == 'application']) == 1
+    assert baselode.geophysics.inspect_corrections(result['observations'])['state'] == 'ok'
+
+
+def test_missing_distribution_metadata_is_a_failed_backend_report(monkeypatch):
+    def missing(name): raise baselode.geophysics.igrf.importlib.metadata.PackageNotFoundError(name)
+    monkeypatch.setattr(baselode.geophysics.igrf.importlib.metadata, 'version', missing)
+    result = baselode.geophysics.calculate_igrf(request())
+    assert result['state'] == 'failed' and result['issues'][0]['code'] == 'backend' and result['fields'] == []
+    result = baselode.geophysics.remove_igrf(survey(), OPTIONS)
+    assert result['state'] == 'failed' and result['observations'] is None and result['ledger'] is None
+
+
+def test_pre_1970_dates_do_not_depend_on_platform_timestamp_conversion(monkeypatch):
+    original = baselode.geophysics.igrf.datetime.datetime
+    class WindowsDatetime(original):
+        @classmethod
+        def fromtimestamp(cls, *args, **kwargs):
+            raise OSError('platform negative timestamp conversion unavailable')
+    monkeypatch.setattr(baselode.geophysics.igrf.datetime, 'datetime', WindowsDatetime)
+    result = baselode.geophysics.calculate_igrf({'model': 'IGRF14', 'points': [request()['points'][0]]})
+    assert result['state'] == 'ok', result['issues']
+    assert result['fields'][0]['north'] == pytest.approx(REFERENCE['cases'][0]['expected']['north'], abs=0.05)
+
+
+@pytest.mark.parametrize('igrf_first', [True, False])
+def test_igrf_and_base_corrections_chain_with_one_valid_ledger(igrf_first):
+    item = survey(); item['metadata']['corrections']['diurnal'] = 'unapplied'
+    # Missing selected readings do not require support from either correction.
+    times = [r['time'] for r in item['records'] if 'time' in r]
+    base = {'channels': {'base': {'field_type': 'magnetic_total_field', 'units': 'nT'}}, 'records': [{'id': str(i), 'time': t, 'station_id': 'BASE', 'values': {'base': 50001}} for i, t in enumerate(sorted(set(times)))], 'metadata': {'corrections': {'diurnal': 'unapplied'}}}
+    options = {'channel': 'mag', 'base_channel': 'base', 'reference': 50000, 'max_gap': 1, 'event_id': 'base-remove', 'evidence': 'synthetic stationary monitor', 'clock_policy': 'synchronized'}
+    if igrf_first:
+        first = baselode.geophysics.remove_igrf(item, OPTIONS)
+        final = baselode.geophysics.correct_magnetic_base(first['observations'], base, options)
+    else:
+        first = baselode.geophysics.correct_magnetic_base(item, base, options)
+        final = baselode.geophysics.remove_igrf(first['observations'], OPTIONS)
+    assert first['state'] == 'ok' and final['state'] == 'ok', (first['issues'], final['issues'])
+    assert [r['values']['mag'] for r in final['observations']['records'][:3]] == pytest.approx([99] * 3, abs=0.05)
+    assert baselode.geophysics.inspect_corrections(final['observations'])['state'] == 'ok'
+    for correction in ['magnetic_diurnal', 'magnetic_igrf']:
+        assert final['states'][correction]['mag'] == 'applied'

@@ -80,7 +80,7 @@ def _points(request):
             raise ValueError("IGRF14 dates must be 1900-01-01 through 2030-01-01 UTC inclusive; no extrapolation")
         times.add(row["time"])
     if len(times) > _DESCRIPTOR["resources"]["max_unique_times"]:
-        raise corrections._ResourceError("IGRF accepts at most 64 distinct UTC times per request; partition explicitly")
+        raise corrections._ResourceError("IGRF accepts at most 512 distinct UTC times per request; partition explicitly")
     return rows
 
 
@@ -88,7 +88,7 @@ def _coefficient_date(timestamp):
     # Official IGRF interpolates in decimal years. ppigrf interpolates elapsed
     # time between five-year epochs, whose leap-day counts differ. Map the
     # actual UTC year fraction onto that interval instead of shifting the model.
-    utc = datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).replace(tzinfo=None)
+    utc = datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=timestamp)
     year_start = datetime.datetime(utc.year, 1, 1)
     year_end = datetime.datetime(utc.year + 1, 1, 1)
     decimal = utc.year + (utc - year_start).total_seconds() / (year_end - year_start).total_seconds()
@@ -99,15 +99,15 @@ def _coefficient_date(timestamp):
 
 
 def _evaluate(rows):
-    model = _DESCRIPTOR["model"]
-    coeff = pathlib.Path(_ppigrf.__file__).parent / model["coefficients"]
-    if importlib.metadata.version("ppigrf") != model["backend_version"] or hashlib.sha256(coeff.read_bytes()).hexdigest() != model["coefficients_sha256"]:
-        raise _BackendError("unsupported ppigrf version or changed IGRF14 coefficients; install the declared magnetics extra")
     groups = {}
     for index, row in enumerate(rows):
         groups.setdefault(row["time"], []).append((index, row))
     fields = [None] * len(rows)
     try:
+        model = _DESCRIPTOR["model"]
+        coeff = pathlib.Path(_ppigrf.__file__).parent / model["coefficients"]
+        if importlib.metadata.version("ppigrf") != model["backend_version"] or hashlib.sha256(coeff.read_bytes()).hexdigest() != model["coefficients_sha256"]:
+            raise _BackendError("unsupported ppigrf version or changed IGRF14 coefficients; install the declared magnetics extra")
         with warnings.catch_warnings():
             warnings.simplefilter("error", RuntimeWarning)
             for timestamp, group in groups.items():
@@ -124,6 +124,8 @@ def _evaluate(rows):
                 for position, (index, row) in enumerate(group):
                     n, e, d = (float(a[0, position]) for a in arrays)
                     h = math.hypot(n, e)
+                    if not math.isfinite(math.hypot(h, d)):
+                        raise _BackendError("IGRF backend returned overflowing derived intensity")
                     fields[index] = {"id": row["id"], "north": n, "east": e, "down": d, "horizontal": h,
                                      "total": math.hypot(h, d), "declination": math.degrees(math.atan2(e, n)) if h else None,
                                      "inclination": math.degrees(math.atan2(d, h))}
@@ -141,7 +143,7 @@ def calculate_igrf(request):
         ``model='IGRF14'``, ``points=[{id, longitude, latitude, height_m,
         time}, ...]``. Longitude/latitude are WGS84 degrees, height is metres
         above the ellipsoid, time is UTC Unix seconds. At most 512 points and
-        64 distinct times. See ``describe_igrf`` for schemas and domain limits.
+        512 distinct times. See ``describe_igrf`` for schemas and domain limits.
 
     Returns
     -------

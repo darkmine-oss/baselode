@@ -245,7 +245,7 @@
   },
   "resources": {
     "max_points": 512,
-    "max_unique_times": 64,
+    "max_unique_times": 512,
     "max_request_bytes": 262144
   },
   "assumptions": [

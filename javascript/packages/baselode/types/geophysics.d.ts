@@ -486,3 +486,9 @@ export interface GeophysicsIgrfReport {
   diagnostics: Record<string, unknown>; producer: { library: string; version: string; algorithm_version: number }; assumptions: string[];
 }
 export function describeGeophysicsIgrf(): Record<string, unknown>;
+
+/** JSON response from Python remove_igrf; no JavaScript numerical execution. */
+export type GeophysicsIgrfRemovalReport = Omit<GeophysicsCorrectionReport, 'operation' | 'state' | 'proposals'> & {
+  operation: 'remove_igrf'; state: 'ok' | 'needs_input' | 'rejected' | 'failed';
+  proposals: Array<{ id: string; reference_total: number; corrected_value: number }>;
+};

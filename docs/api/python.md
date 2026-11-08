@@ -2034,7 +2034,7 @@ declination is east-positive and inclination down-positive, in degrees.
 The adapter maps UTC dates to official decimal-year interpolation. Supported
 dates are 1900-01-01 through 2030-01-01 inclusive, without extrapolation.
 The first adapter accepts heights -1000 to 100000 m, excludes exact poles,
-and limits a request to 512 points and 64 distinct times. Partition explicitly.
+and limits a request to 512 points and 512 distinct times. Partition explicitly.
 The local ppigrf 2.1.0 IGRF14 coefficient file is selected explicitly and its
 SHA-256 is verified; no model data is downloaded during processing.
 
