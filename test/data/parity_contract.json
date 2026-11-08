@@ -736,6 +736,27 @@
           "correct_magnetic_base"
         ]
       ]
+    },
+    {
+      "name": "geophysics_igrf_contract",
+      "description": "IGRF14 shared schemas and ledger replay; optional Python numerical backend, JavaScript contracts only.",
+      "jsExports": [
+        "describeGeophysicsIgrf"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_igrf"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_igrf"
+        ],
+        [
+          "baselode.geophysics",
+          "remove_igrf"
+        ]
+      ]
     }
   ]
 }

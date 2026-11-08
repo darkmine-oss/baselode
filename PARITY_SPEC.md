@@ -121,3 +121,18 @@ Both selected survey and base stream must have known unapplied magnetic_diurnal 
 Correction input and base snapshots use two ordinary processing steps (`magnetic_base_input`, then `correct_magnetic_base`), each with the standard `operand_lineage` reference. Existing graph-merging/remapping/bounds checks therefore apply to both references without a new provenance field/version. Option/declaration limits count compact UTF-8 JSON identically in Python and JS; tests exercise one byte below and above 256 KiB.
 
 Successful inspect/declaration/application reports all return an independent ledger copy. Output observation JSON includes lineage in its 16 MiB budget; overflow is an atomic resource rejection in both runtimes.
+
+### IGRF14 reference field contracts
+
+Python `describe_igrf` and JavaScript `describeGeophysicsIgrf` expose identical
+packaged JSON schemas, model/coefficient/convention identity and bounds.
+`calculate_igrf` / `remove_igrf` execute only in Python through the optional,
+version-pinned ppigrf backend (`baselode[magnetics]`). This is an intentional
+numerical execution gap; JavaScript publishes request/result types and validates
+IGRF application events with its existing correction-ledger APIs. A live
+Python-to-JavaScript-to-Python integration test verifies replay, model integrity,
+state guards and subsequent declarations. Official BGS IGRF14SYN fixture values
+independently check all field components within 0.05 nT and angles within 0.001
+degree, covering historical/forecast epochs, hemispheres and heights. UTC dates
+map to decimal-year coefficient interpolation to match the official model.
+Raster workflow v1 remains unchanged.

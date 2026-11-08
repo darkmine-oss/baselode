@@ -438,6 +438,7 @@ export type GeophysicsCorrectionEvent = GeophysicsCorrectionDeclaration & {
   output_binding: string;
 } & (
   | { kind: 'declaration' }
+  | { kind: 'application'; correction: 'magnetic_igrf'; state: 'applied'; parameters: GeophysicsIgrfRemovalOptions; model: GeophysicsIgrfModel; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_diurnal'; state: 'applied'; parameters: GeophysicsMagneticBaseOptions; base_binding: string; base_station_id: string; affected_records: number }
 );
 export interface GeophysicsCorrectionLedger {
@@ -468,3 +469,26 @@ export function describeGeophysicsCorrections(): Record<string, unknown>;
 export function inspectGeophysicsCorrections(payload: unknown): Promise<GeophysicsCorrectionReport>;
 export function declareGeophysicsCorrections(payload: unknown, declarations: GeophysicsCorrectionDeclaration[]): Promise<GeophysicsCorrectionReport>;
 export function correctGeophysicsMagneticBase(payload: unknown, base: unknown, options: GeophysicsMagneticBaseOptions): Promise<GeophysicsCorrectionReport>;
+
+/** Python-only scientific backend; JavaScript exposes the contract and validates its ledger events. */
+export interface GeophysicsIgrfPoint { id: string; longitude: number; latitude: number; height_m: number; time: number; }
+export interface GeophysicsIgrfRequest { model: 'IGRF14'; points: GeophysicsIgrfPoint[]; }
+export interface GeophysicsIgrfRemovalOptions { channel: string; model: 'IGRF14'; event_id: string; evidence: string; }
+export interface GeophysicsIgrfField { id: string; north: number; east: number; down: number; horizontal: number; total: number; declination: number | null; inclination: number; }
+export interface GeophysicsIgrfModel {
+  model: 'IGRF14'; backend: 'ppigrf'; backend_version: '2.1.0'; coefficients: 'IGRF14.shc'; coefficients_sha256: string;
+  height_datum: 'WGS84_ellipsoid'; height_units: 'm'; z_positive: 'up'; time_units: 'UTC Unix seconds';
+  time_interpolation: 'decimal-year'; component_frame: 'geodetic north/east/down'; field_units: 'nT'; angle_units: 'degrees';
+}
+export interface GeophysicsIgrfReport {
+  schema: 'baselode.geophysics.igrf'; version: 1; state: 'ok' | 'needs_input' | 'rejected' | 'failed';
+  issues: Array<{ code: string; message: string }>; fields: GeophysicsIgrfField[]; model: GeophysicsIgrfModel | null;
+  diagnostics: Record<string, unknown>; producer: { library: string; version: string; algorithm_version: number }; assumptions: string[];
+}
+export function describeGeophysicsIgrf(): Record<string, unknown>;
+
+/** JSON response from Python remove_igrf; no JavaScript numerical execution. */
+export type GeophysicsIgrfRemovalReport = Omit<GeophysicsCorrectionReport, 'operation' | 'state' | 'proposals'> & {
+  operation: 'remove_igrf'; state: 'ok' | 'needs_input' | 'rejected' | 'failed';
+  proposals: Array<{ id: string; reference_total: number; corrected_value: number }>;
+};

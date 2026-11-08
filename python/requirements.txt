@@ -11,3 +11,5 @@ rasterio>=1.4
 harmonica>=0.7,<0.8
 # Shared request-schema validation in tests
 jsonschema>=4.18
+# Optional IGRF14 backend used by scientific CI
+ppigrf==2.1.0

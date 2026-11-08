@@ -93,3 +93,21 @@ void inspectedCorrections; void declaredCorrections; void correctedMagnetic; voi
 correctGeophysicsMagneticBase(observations, observations, { channel: 'mag', base_channel: 'base', reference: 50000, max_gap: 30, event_id: 'diurnal-1', evidence: 'checked' });
 // @ts-expect-error unregistered correction identifiers are not executable aliases
 declareGeophysicsCorrections(observations, [{ id: 'bad', correction: 'custom', channels: ['mag'], state: 'unapplied', evidence: 'checked' }]);
+
+import { describeGeophysicsIgrf, type GeophysicsIgrfRequest, type GeophysicsIgrfReport, type GeophysicsCorrectionEvent } from 'baselode/geophysics';
+const igrfRequest: GeophysicsIgrfRequest = { model: 'IGRF14', points: [{ id: 'station', longitude: 115, latitude: -32, height_m: 100, time: 1735689600 }] };
+void igrfRequest; void describeGeophysicsIgrf();
+declare const igrfReport: GeophysicsIgrfReport;
+const northField: number | undefined = igrfReport.fields[0]?.north;
+void northField;
+declare const correctionEvent: GeophysicsCorrectionEvent;
+if (correctionEvent.kind === 'application' && correctionEvent.correction === 'magnetic_igrf') {
+  const model: 'IGRF14' = correctionEvent.model.model;
+  const interpolation: 'decimal-year' = correctionEvent.model.time_interpolation;
+  void model; void interpolation;
+}
+// @ts-expect-error ellipsoidal height is required
+const ambiguousHeight: GeophysicsIgrfRequest = { model: 'IGRF14', points: [{ id: 'station', longitude: 115, latitude: -32, time: 1735689600 }] };
+// @ts-expect-error no implicit latest-model selection
+const implicitIgrf: GeophysicsIgrfRequest = { model: 'latest', points: [] };
+void ambiguousHeight; void implicitIgrf;

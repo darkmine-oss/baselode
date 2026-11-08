@@ -1,0 +1,265 @@
+{
+  "schema": "baselode.geophysics.igrf_descriptor",
+  "version": 1,
+  "execution": {
+    "python": "calculate_igrf / remove_igrf",
+    "javascript": "descriptor, types and correction-ledger validation only; execute scientific calculation in Python",
+    "install": "pip install 'baselode[magnetics]'"
+  },
+  "model": {
+    "model": "IGRF14",
+    "backend": "ppigrf",
+    "backend_version": "2.1.0",
+    "coefficients": "IGRF14.shc",
+    "coefficients_sha256": "717f6dce821a8f2bfcc6a77f79cc227ba91f61aeb458d5433e8c72450d48f8e0",
+    "height_datum": "WGS84_ellipsoid",
+    "height_units": "m",
+    "z_positive": "up",
+    "time_units": "UTC Unix seconds",
+    "component_frame": "geodetic north/east/down",
+    "field_units": "nT",
+    "angle_units": "degrees",
+    "time_interpolation": "decimal-year"
+  },
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "model",
+      "points"
+    ],
+    "properties": {
+      "model": {
+        "const": "IGRF14"
+      },
+      "points": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "longitude",
+            "latitude",
+            "height_m",
+            "time"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "longitude": {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            "latitude": {
+              "type": "number",
+              "exclusiveMinimum": -90,
+              "exclusiveMaximum": 90
+            },
+            "height_m": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 100000
+            },
+            "time": {
+              "type": "number",
+              "minimum": -2208988800,
+              "maximum": 1893456000
+            }
+          }
+        }
+      }
+    }
+  },
+  "result_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "fields",
+      "model",
+      "diagnostics",
+      "producer",
+      "assumptions"
+    ],
+    "additionalProperties": false,
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.igrf"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "fields": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "north",
+            "east",
+            "down",
+            "horizontal",
+            "total",
+            "declination",
+            "inclination"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "north": {
+              "type": "number"
+            },
+            "east": {
+              "type": "number"
+            },
+            "down": {
+              "type": "number"
+            },
+            "horizontal": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            },
+            "inclination": {
+              "type": "number"
+            },
+            "declination": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "model": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "const": {
+              "model": "IGRF14",
+              "backend": "ppigrf",
+              "backend_version": "2.1.0",
+              "coefficients": "IGRF14.shc",
+              "coefficients_sha256": "717f6dce821a8f2bfcc6a77f79cc227ba91f61aeb458d5433e8c72450d48f8e0",
+              "height_datum": "WGS84_ellipsoid",
+              "height_units": "m",
+              "z_positive": "up",
+              "time_units": "UTC Unix seconds",
+              "component_frame": "geodetic north/east/down",
+              "field_units": "nT",
+              "angle_units": "degrees",
+              "time_interpolation": "decimal-year"
+            }
+          }
+        ]
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "removal_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "event_id",
+      "evidence",
+      "model"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "model": {
+        "const": "IGRF14"
+      }
+    }
+  },
+  "resources": {
+    "max_points": 512,
+    "max_unique_times": 512,
+    "max_request_bytes": 262144
+  },
+  "assumptions": [
+    "Inputs are WGS84 geodetic longitude east and latitude north in degrees, ellipsoidal height metres, UTC Unix seconds. No reprojection or geoid conversion. Exact poles are unsupported by this adapter. Heights -1000 to 100000 m are the adapter workload/domain contract, not a claimed physical validity limit.",
+    "Dates 1900-01-01T00:00:00Z through 2030-01-01T00:00:00Z inclusive; no extrapolation. UTC dates become decimal years using the actual calendar-year duration. Backend times are mapped onto each five-year coefficient interval to reproduce official decimal-year interpolation. 2025-2030 is predictive secular variation.",
+    "Each point uses its own time, with equal times grouped into bounded batches; no coordinate/date Cartesian product. Model coefficients are local package data, explicitly selected and verified by SHA-256; no runtime downloads.",
+    "North/east/down, horizontal and total intensity are nT. Declination is east-positive, inclination down-positive, in degrees. Declination is null if horizontal intensity is zero.",
+    "IGRF models the main internal field. Scalar removal is observed total intensity minus model total intensity; it is not vector subtraction or a removal of crustal, external or diurnal fields.",
+    "Removal requires magnetic_total_field/nT, known unapplied magnetic_igrf history, EPSG:4326/degrees and explicit metadata.height_units=m, height_datum=WGS84_ellipsoid, z_positive=up. Missing selected readings are preserved; every nonnull reading must be supported before output is committed. The corrected channel becomes magnetic_anomaly.",
+    "No calibrated uncertainty propagation. Source metadata is retained in flat input lineage. Calculate and remove are separate from raster workflow v1."
+  ],
+  "references": [
+    "https://www.ncei.noaa.gov/products/international-geomagnetic-reference-field",
+    "https://www.ngdc.noaa.gov/IAGA/vmod/igrf14.f",
+    "https://github.com/IAGA-VMOD/ppigrf"
+  ]
+}

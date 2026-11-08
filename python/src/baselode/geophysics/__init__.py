@@ -22,6 +22,12 @@ import baselode.geophysics.alignment as geophysics_alignment
 import baselode.geophysics.equivalent_sources as geophysics_equivalent_sources
 import baselode.geophysics.corrections as geophysics_corrections
 
+import baselode.geophysics.igrf as geophysics_igrf
+
+describe_igrf = geophysics_igrf.describe_igrf
+calculate_igrf = geophysics_igrf.calculate_igrf
+remove_igrf = geophysics_igrf.remove_igrf
+
 GeophysicsRaster = geophysics_raster.GeophysicsRaster
 load_raster = geophysics_raster.load_raster
 read_ers = geophysics_ers.read_ers
@@ -85,6 +91,9 @@ declare_corrections = geophysics_corrections.declare_corrections
 correct_magnetic_base = geophysics_corrections.correct_magnetic_base
 
 __all__ = [
+    "describe_igrf",
+    "calculate_igrf",
+    "remove_igrf",
     "describe_corrections",
     "inspect_corrections",
     "declare_corrections",

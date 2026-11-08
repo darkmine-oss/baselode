@@ -63,3 +63,5 @@ export { describeGeophysicsAlignment, alignGeophysicsRaster, matchGeophysicsRast
 export { describeGeophysicsEquivalentSources } from './data/geophysicsEquivalentSources.js';
 
 export { describeGeophysicsCorrections, inspectGeophysicsCorrections, declareGeophysicsCorrections, correctGeophysicsMagneticBase } from './data/geophysicsCorrections.js';
+
+export { describeGeophysicsIgrf } from './data/geophysicsIgrf.js';

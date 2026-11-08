@@ -1525,3 +1525,22 @@ Incomplete base coverage returns proposals and no corrected observations; existi
 applied history cannot be reset or forced. Preserve raw data and ledger metadata.
 Only magnetic base correction is executable here; the other registered names
 record history for future calculators.
+
+### IGRF14 contracts and correction history
+
+`describeGeophysicsIgrf()` is exported from `baselode` and
+`baselode/geophysics`. It returns independent copies of the shared request and
+result schemas, removal options, fixed model/coefficient identity, scientific
+conventions, domain limits and Python installation instructions. TypeScript
+exports `GeophysicsIgrfRequest`, `GeophysicsIgrfPoint`,
+`GeophysicsIgrfRemovalOptions`, `GeophysicsIgrfField`, `GeophysicsIgrfModel` and
+`GeophysicsIgrfReport` and `GeophysicsIgrfRemovalReport`.
+
+Execute `calculate_igrf` / `remove_igrf` in Python with `baselode[magnetics]`.
+JavaScript has no IGRF numerical backend. Its existing asynchronous
+`inspectGeophysicsCorrections` and `declareGeophysicsCorrections` validate and
+replay Python IGRF application events, including model identity, bindings,
+legacy summaries and known-state guards. Requests use WGS84 geodetic degrees,
+ellipsoidal metres and UTC Unix seconds; results use geodetic north/east/down
+nT and east/down-positive declination/inclination degrees. See the Python API
+for supported dates, resource bounds and scalar-removal assumptions.
