@@ -1,0 +1,257 @@
+{
+  "method": "Independent affine field F(x,y)=100+2x+3y nT. A has +5 nT error, B -4 nT, R1/R2 zero. Both straight target lines cross both fixed references: differences +5,+5,-4,-4. Uniform fixed-reference DC least squares therefore subtracts +5 from A and -4 from B, restoring exact F. Other channel has independent +2/-3 biases. No library-generated goldens.",
+  "survey": {
+    "crs": "EPSG:28350",
+    "crs_units": "m",
+    "channels": {
+      "mag": {
+        "field_type": "magnetic_anomaly",
+        "units": "nT"
+      },
+      "other": {
+        "field_type": "magnetic_anomaly",
+        "units": "nT"
+      }
+    },
+    "records": [
+      {
+        "id": "A\ud83d\ude000",
+        "line_id": "A\ud83d\ude00",
+        "time": 0,
+        "x": 2,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 109,
+          "other": 106
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "A\ud83d\ude001",
+        "line_id": "A\ud83d\ude00",
+        "time": 1,
+        "x": 2,
+        "y": 10,
+        "z": 100,
+        "values": {
+          "mag": 139,
+          "other": 136
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "B0",
+        "line_id": "B",
+        "time": 2,
+        "x": 8,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 112,
+          "other": 113
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "B1",
+        "line_id": "B",
+        "time": 3,
+        "x": 8,
+        "y": 10,
+        "z": 100,
+        "values": {
+          "mag": 142,
+          "other": 143
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "R10",
+        "line_id": "R1",
+        "time": 4,
+        "x": 0,
+        "y": 2,
+        "z": 100,
+        "values": {
+          "mag": 106,
+          "other": 106
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "R11",
+        "line_id": "R1",
+        "time": 5,
+        "x": 10,
+        "y": 2,
+        "z": 100,
+        "values": {
+          "mag": 126,
+          "other": 126
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "R20",
+        "line_id": "R2",
+        "time": 6,
+        "x": 0,
+        "y": 8,
+        "z": 100,
+        "values": {
+          "mag": 124,
+          "other": 124
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "R21",
+        "line_id": "R2",
+        "time": 7,
+        "x": 10,
+        "y": 8,
+        "z": 100,
+        "values": {
+          "mag": 144,
+          "other": 144
+        },
+        "extra": {
+          "keep": true
+        }
+      }
+    ],
+    "metadata": {
+      "source": "crossover-fixture.xyz",
+      "height_units": "m",
+      "height_datum": "synthetic-common",
+      "z_positive": "up",
+      "corrections": {
+        "levelling": "unapplied"
+      },
+      "uncertainty": {
+        "mag": 2
+      },
+      "variance": {
+        "mag": 4
+      },
+      "standard_deviation": {
+        "mag": 2
+      }
+    }
+  },
+  "analysis": {
+    "channel": "mag",
+    "max_segment_length": 20,
+    "min_crossing_angle": 30,
+    "intersection_tolerance": 1e-06,
+    "elevation_policy": "limit",
+    "max_height_difference": 0
+  },
+  "options": {
+    "channel": "mag",
+    "max_segment_length": 20,
+    "min_crossing_angle": 30,
+    "intersection_tolerance": 1e-06,
+    "elevation_policy": "limit",
+    "max_height_difference": 0,
+    "reference_lines": [
+      "R1",
+      "R2"
+    ],
+    "target_lines": [
+      "A\ud83d\ude00",
+      "B"
+    ],
+    "min_crossovers": 2,
+    "min_reference_lines": 2,
+    "max_abs_correction": 10,
+    "max_rms_residual": 0,
+    "event_id": "level-1",
+    "evidence": "Independent synthetic affine field and fixed reference lines"
+  },
+  "expected_values": [
+    104,
+    134,
+    116,
+    146,
+    106,
+    126,
+    124,
+    144
+  ],
+  "expected_offsets": [
+    {
+      "line_id": "R1",
+      "bias_nT": 0
+    },
+    {
+      "line_id": "R2",
+      "bias_nT": 0
+    },
+    {
+      "line_id": "A\ud83d\ude00",
+      "bias_nT": 5
+    },
+    {
+      "line_id": "B",
+      "bias_nT": -4
+    }
+  ],
+  "expected_other_offsets": [
+    {
+      "line_id": "R1",
+      "bias_nT": 0
+    },
+    {
+      "line_id": "R2",
+      "bias_nT": 0
+    },
+    {
+      "line_id": "A\ud83d\ude00",
+      "bias_nT": 2
+    },
+    {
+      "line_id": "B",
+      "bias_nT": -3
+    }
+  ],
+  "expected_xy": [
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      8
+    ],
+    [
+      8,
+      2
+    ],
+    [
+      8,
+      8
+    ]
+  ],
+  "expected_differences": [
+    5,
+    5,
+    -4,
+    -4
+  ]
+}

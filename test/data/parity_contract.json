@@ -783,6 +783,29 @@
           "correct_magnetic_heading"
         ]
       ]
+    },
+    {
+      "name": "geophysics_crossovers_levelling",
+      "description": "Scalar crossover QC and fixed-reference DC magnetic line levelling, bounded geometry/support/quality policies and bound model/history.",
+      "jsExports": [
+        "describeGeophysicsCrossovers",
+        "analyzeGeophysicsCrossovers",
+        "levelGeophysicsMagneticLines"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_crossovers"
+        ],
+        [
+          "baselode.geophysics",
+          "analyze_crossovers"
+        ],
+        [
+          "baselode.geophysics",
+          "level_magnetic_lines"
+        ]
+      ]
     }
   ]
 }

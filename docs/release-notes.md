@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Crossover QC and fixed-reference line levelling (TRK-545)**
+
+- Native Python/JavaScript crossover analysis provides bounded projected/local segment intersections, source interpolation, shared-vertex deduplication and explicit geometry/elevation support diagnostics.
+- Guarded magnetic levelling holds specified references fixed and applies one constant target-line bias only after coverage/correction/residual gates pass. Model/context bindings, historical mask counts and source lineage preserve traceability. No network/polynomial/microlevelling or uncertainty propagation is claimed.
+
 **Calibrated magnetic heading bias (TRK-542)**
 
 - Native Python/JavaScript heading-bias subtraction uses a supplied circular calibration table, explicit north-reference/angle/sign conventions and bounded angular support. Exact nodes and north-seam interpolation are supported; incomplete heading coverage commits no observations or event.

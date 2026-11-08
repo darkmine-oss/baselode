@@ -1,0 +1,399 @@
+{
+  "schema": "baselode.geophysics.crossovers_descriptor",
+  "version": 1,
+  "analysis_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "max_segment_length",
+      "min_crossing_angle",
+      "intersection_tolerance",
+      "elevation_policy",
+      "max_height_difference"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "max_segment_length": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000000.0
+      },
+      "min_crossing_angle": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 90
+      },
+      "intersection_tolerance": {
+        "type": "number",
+        "minimum": 1e-09,
+        "maximum": 1000000.0
+      },
+      "elevation_policy": {
+        "enum": [
+          "ignore",
+          "limit"
+        ]
+      },
+      "max_height_difference": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          }
+        ]
+      }
+    }
+  },
+  "levelling_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "max_segment_length",
+      "min_crossing_angle",
+      "intersection_tolerance",
+      "elevation_policy",
+      "max_height_difference",
+      "reference_lines",
+      "target_lines",
+      "min_crossovers",
+      "min_reference_lines",
+      "max_abs_correction",
+      "max_rms_residual",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "max_segment_length": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000000.0
+      },
+      "min_crossing_angle": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 90
+      },
+      "intersection_tolerance": {
+        "type": "number",
+        "minimum": 1e-09,
+        "maximum": 1000000.0
+      },
+      "elevation_policy": {
+        "enum": [
+          "ignore",
+          "limit"
+        ]
+      },
+      "max_height_difference": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          }
+        ]
+      },
+      "reference_lines": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "target_lines": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "min_crossovers": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8192
+      },
+      "min_reference_lines": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 128
+      },
+      "max_abs_correction": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "max_rms_residual": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "analysis_result": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "operation",
+      "state",
+      "issues",
+      "parameters",
+      "crossovers",
+      "diagnostics",
+      "summary",
+      "units",
+      "observation_binding",
+      "producer",
+      "assumptions"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.crossovers"
+      },
+      "version": {
+        "const": 1
+      },
+      "operation": {
+        "const": "analyze"
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "parameters": {
+        "type": "object"
+      },
+      "crossovers": {
+        "type": "array",
+        "maxItems": 8192,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "line_a",
+            "line_b",
+            "x",
+            "y",
+            "segment_a",
+            "segment_b",
+            "fraction_a",
+            "fraction_b",
+            "angle_degrees",
+            "value_a",
+            "value_b",
+            "height_a",
+            "height_b",
+            "height_difference",
+            "difference",
+            "eligible",
+            "reason"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "line_a": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "line_b": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "segment_a": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "segment_b": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "fraction_a": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "fraction_b": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "angle_degrees": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 90
+            },
+            "value_a": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "value_b": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "height_a": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "height_b": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "height_difference": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "difference": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "eligible": {
+              "type": "boolean"
+            },
+            "reason": {
+              "enum": [
+                null,
+                "missing_reading",
+                "shallow_angle",
+                "missing_height",
+                "height_difference"
+              ]
+            }
+          }
+        }
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "summary": {
+        "type": "object"
+      },
+      "units": {
+        "type": "object"
+      },
+      "observation_binding": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        ]
+      },
+      "producer": {
+        "type": "object"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "resources": {
+    "max_records": 4096,
+    "max_segments": 4096,
+    "max_lines": 128,
+    "max_pair_tests": 1000000,
+    "max_crossovers": 8192,
+    "max_raw_crossovers": 32768,
+    "coordinate_bound": 1000000000000.0,
+    "parallel_threshold": 1e-12
+  },
+  "assumptions": [
+    "Adjacent acquisition samples form straight XY segments within each unique contiguous line_id. No sorting/reprojection, missing XY inference, line joining across runs or self-crossovers. All records need XY/line IDs; repeated/disjoint line IDs and consecutive segments <=2*intersection_tolerance require QC. Coordinates are bounded to +/-1e12 and units must be explicitly linear or resolved projected Cartesian.",
+    "max_segment_length excludes geometry spanning acquisition gaps. X-bounds sweep and scaled cross products use binary64. Near-parallel/collinear overlap candidates are excluded at dimensionless 1e-12; min_crossing_angle is the acute angle in degrees. Explicit intersection_tolerance>=1e-9, <=1e6 and <=max_segment_length/100 snaps near endpoints and allows at most that XY separation, never extrapolating sample values.",
+    "Shared-vertex intersections deduplicate by line/record/segment topology, not XY alone. Distinct repeat-path crossings remain distinct. Eligible representatives are preferred, then larger angle, then acquisition segment indices. Exact endpoint values/heights do not require a nonnull far endpoint; interior interpolation needs both. Null readings are never bridged.",
+    "elevation_policy=ignore explicitly acknowledges XY-only comparison; native Z differences are informational, with no height reduction or comparability claim. limit requires nonnegative max_height_difference in declared linear height units plus known height_datum and up/down z_positive. Missing heights or excess differences make a crossover ineligible. No geoid/height conversion or external/temporal correction is inferred.",
+    "Crossover difference is interpolated value_a-value_b. Ineligible comparisons remain visible with reasons. Resource failures return no partial crossing table. Binary64 numeric parity is tolerance-based; no exact-arithmetic claim.",
+    "Fixed-reference levelling holds caller-designated reference lines at zero bias and fits each target with the equally weighted mean target-minus-reference crossover residual. One constant DC bias applies to every nonnull reading on a target, including beyond tie locations. This is an empirical fixed-reference strategy, not global network levelling, polynomial drift, outlier removal, microlevelling or geological interpretation.",
+    "Every line must be explicitly classified reference/target. All targets must satisfy min_crossovers, min_reference_lines, max_abs_correction and max_rms_residual before one atomic magnetic_levelling event. Missing readings stay null; geometry/time, field type, order/extras/other channels remain. Native model/context binding supplements the existing observation binding. References/evidence and source corrections must be independently verified; no operation reordering or calibrated uncertainty propagation."
+  ],
+  "references": [
+    "https://help.seequent.com/Oasismontaj/2023.2/Content/levelling/xlevel_gx.htm",
+    "https://pubs.usgs.gov/of/2001/ofr-01-0145/data/dvalley-4254/655dvreport.pdf"
+  ]
+}

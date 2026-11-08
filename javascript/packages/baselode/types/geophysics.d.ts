@@ -438,6 +438,7 @@ export type GeophysicsCorrectionEvent = GeophysicsCorrectionDeclaration & {
   output_binding: string;
 } & (
   | { kind: 'declaration' }
+  | { kind: 'application'; correction: 'magnetic_levelling'; state: 'applied'; parameters: GeophysicsMagneticLevellingOptions; line_offsets: GeophysicsLineOffset[]; levelling_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_heading'; state: 'applied'; parameters: GeophysicsMagneticHeadingOptions; heading_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_lag'; state: 'applied'; parameters: GeophysicsMagneticLagOptions; masked_records: Array<{ id: string; value: number }>; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_igrf'; state: 'applied'; parameters: GeophysicsIgrfRemovalOptions; model: GeophysicsIgrfModel; affected_records: number }
@@ -527,3 +528,38 @@ export type GeophysicsMagneticHeadingReport = Omit<GeophysicsCorrectionReport, '
 };
 /** Apply supplied scalar heading bias; native async Web Crypto validates heading/calibration and data bindings. */
 export function correctGeophysicsMagneticHeading(payload: unknown, options: GeophysicsMagneticHeadingOptions): Promise<GeophysicsMagneticHeadingReport>;
+
+export interface GeophysicsCrossoverOptions {
+  channel: string; max_segment_length: number; min_crossing_angle: number; intersection_tolerance: number;
+  elevation_policy: 'ignore' | 'limit'; max_height_difference: number | null;
+}
+export interface GeophysicsMagneticLevellingOptions extends GeophysicsCrossoverOptions {
+  reference_lines: string[]; target_lines: string[]; min_crossovers: number; min_reference_lines: number;
+  max_abs_correction: number; max_rms_residual: number; event_id: string; evidence: string;
+}
+export interface GeophysicsLineOffset { line_id: string; bias_nT: number; }
+export interface GeophysicsCrossover {
+  id: string; line_a: string; line_b: string; x: number; y: number;
+  segment_a: [string, string]; segment_b: [string, string]; fraction_a: number; fraction_b: number; angle_degrees: number;
+  value_a: number | null; value_b: number | null; height_a: number | null; height_b: number | null;
+  height_difference: number | null; difference: number | null; eligible: boolean;
+  reason: 'missing_reading' | 'shallow_angle' | 'missing_height' | 'height_difference' | null;
+  used_for_fit?: boolean; difference_after?: number | null;
+}
+export interface GeophysicsCrossoverReport {
+  schema: 'baselode.geophysics.crossovers'; version: 1; operation: 'analyze'; state: 'ok' | 'needs_input' | 'rejected';
+  issues: Array<{code: string; message: string}>; parameters: Record<string, unknown>; crossovers: GeophysicsCrossover[];
+  diagnostics: Record<string, unknown>; summary: Record<string, unknown>; units: {xy?: string; height?: string | null; field?: string};
+  observation_binding: string | null; producer: {library: string; version: string; algorithm_version: number}; assumptions: string[];
+}
+export interface GeophysicsLevellingProposal {
+  line_id: string; bias_nT: number | null; crossovers: number; reference_lines: string[];
+  rms_before: number | null; rms_after: number | null; supported: boolean;
+  reason: 'insufficient_crossovers' | 'excessive_correction' | 'excessive_residual' | null;
+}
+export type GeophysicsMagneticLevellingReport = Omit<GeophysicsCorrectionReport, 'operation' | 'proposals'> & {
+  operation: 'magnetic_levelling'; proposals: GeophysicsLevellingProposal[]; crossovers: GeophysicsCrossover[];
+};
+export function describeGeophysicsCrossovers(): Record<string, unknown>;
+export function analyzeGeophysicsCrossovers(payload: unknown, options: GeophysicsCrossoverOptions): Promise<GeophysicsCrossoverReport>;
+export function levelGeophysicsMagneticLines(payload: unknown, options: GeophysicsMagneticLevellingOptions): Promise<GeophysicsMagneticLevellingReport>;

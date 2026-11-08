@@ -1601,3 +1601,29 @@ in addition to observation values/geometry. All public correction methods remain
 asynchronous; ledger inspection also awaits heading-binding verification.
 This detects edited heading/model metadata through subsequent lag masks.
 Execution is bounded to 4096 records/72 nodes; see Python API for full semantics.
+
+### Crossover QC and fixed-reference line levelling
+
+`describeGeophysicsCrossovers()`, `analyzeGeophysicsCrossovers(observations,
+options)` and `levelGeophysicsMagneticLines(observations, options)` are exported
+from main and `baselode/geophysics`. Numerical execution is native JavaScript,
+matching Python. Shared schemas describe geometry/elevation policies, resource
+bounds and the constant-offset strategy. TypeScript exports crossover options,
+records/reports, magnetic levelling options/proposals/report and line offsets.
+
+Analysis interpolates scalar values at straight-segment XY intersections in a
+common projected/local frame. Explicit segment-length, acute-angle, endpoint
+intersection-tolerance and elevation policies control support. Shared vertices
+count once; repeat-path measurements remain distinct. Null source readings are
+not bridged; exact endpoint readings remain usable. Geographic coordinates,
+missing XY/line context, repeated/disjoint line IDs or tiny consecutive geometry
+require preprocessing/QC. Resource failures return no partial crossing table.
+
+Levelling fixes explicit reference lines and subtracts one equally weighted
+mean target-minus-reference bias from each target line. Every target must pass
+minimum crossing/reference counts, correction-size and post-fit RMS gates before
+an atomic application. The constant applies over the whole target, including
+beyond ties; no polynomial drift, global network solve or microlevelling is
+claimed. Model/context SHA-256 complements the data binding and survives later
+lag masks. Native Web Crypto requires Node 20+ or a secure browser context.
+No new dependency or uncertainty propagation; see Python API for all contracts.

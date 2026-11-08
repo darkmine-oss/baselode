@@ -65,3 +65,5 @@ export { describeGeophysicsEquivalentSources } from './data/geophysicsEquivalent
 export { describeGeophysicsCorrections, inspectGeophysicsCorrections, declareGeophysicsCorrections, correctGeophysicsMagneticBase, correctGeophysicsMagneticLag, correctGeophysicsMagneticHeading } from './data/geophysicsCorrections.js';
 
 export { describeGeophysicsIgrf } from './data/geophysicsIgrf.js';
+
+export { describeGeophysicsCrossovers, analyzeGeophysicsCrossovers, levelGeophysicsMagneticLines } from './data/geophysicsCorrections.js';
