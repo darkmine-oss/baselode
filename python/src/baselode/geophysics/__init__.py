@@ -91,8 +91,14 @@ declare_corrections = geophysics_corrections.declare_corrections
 correct_magnetic_base = geophysics_corrections.correct_magnetic_base
 correct_magnetic_lag = geophysics_corrections.correct_magnetic_lag
 correct_magnetic_heading = geophysics_corrections.correct_magnetic_heading
+describe_crossovers = geophysics_corrections.describe_crossovers
+analyze_crossovers = geophysics_corrections.analyze_crossovers
+level_magnetic_lines = geophysics_corrections.level_magnetic_lines
 
 __all__ = [
+    "describe_crossovers",
+    "analyze_crossovers",
+    "level_magnetic_lines",
     "correct_magnetic_heading",
     "correct_magnetic_lag",
     "describe_igrf",

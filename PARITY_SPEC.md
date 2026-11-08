@@ -178,3 +178,22 @@ JS internal validation awaits Web Crypto; existing public APIs stay asynchronous
 Neither runtime fits calibration, derives heading from track, changes reference
 frame, masks unsupported heading records or claims 3D compensation/uncertainty
 propagation. Existing raster workflow v1 remains unchanged.
+
+### Crossover QC and fixed-reference DC line levelling
+
+Python describe_crossovers/analyze_crossovers/level_magnetic_lines correspond to
+JS describeGeophysicsCrossovers/analyzeGeophysicsCrossovers/levelGeophysicsMagneticLines
+(main and geophysics entries). Packaged descriptors, parameter/result schemas,
+geometry/elevation policies and strict bound model events match. Independent
+analytical affine-field fixtures recover known signed target-line offsets with
+fixed references. Shared-vertex topology, endpoint support, oblique angles,
+height/null/gap/quality policies, ledger replay and source exports are tested.
+
+Both runtimes use scaled binary64 cross products and the same bounded X sweep,
+Neumaier sums and topology dedup rules. Geometry/fit values compare at 1e-10;
+no general bitwise arithmetic guarantee across language math libraries is made.
+Actual generated data/model bindings remain portable for replay, and analytical
+fixture outputs/bindings match exactly in live bidirectional execution. Native
+JS correction APIs remain asynchronous for Web Crypto. Raster workflow v1 stays
+unchanged. This is fixed-reference one-DC-bias-per-target levelling; higher-order,
+network, outlier-removal and microlevelling methods remain separate increments.

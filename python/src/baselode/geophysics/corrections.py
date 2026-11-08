@@ -8,9 +8,12 @@ import json
 import pathlib
 import re
 import struct
+import types
 
 import baselode
 import baselode.geophysics.observations
+import baselode.geophysics.crossovers
+import baselode.geophysics.processing
 import baselode.geophysics.provenance
 
 _DESCRIPTOR = json.loads((pathlib.Path(__file__).parent / "geophysics_corrections.json").read_text())
@@ -51,7 +54,7 @@ def _report(operation):
 
 def _error(report, error):
     report["state"] = "needs_input" if isinstance(error, _NeedsInput) else "rejected"
-    report["issues"].append({"code": "context" if isinstance(error, _NeedsInput) else ("resource" if isinstance(error, _ResourceError) else "contract"), "message": str(error)})
+    report["issues"].append({"code": "context" if isinstance(error, _NeedsInput) else ("resource" if isinstance(error, (_ResourceError, baselode.geophysics.crossovers._ResourceError)) else "contract"), "message": str(error)})
     report.update(observations=None, ledger=None, states={})
     return report
 
@@ -216,6 +219,130 @@ def _heading_binding(data, params):
     return hashlib.sha256(encoded).hexdigest()
 
 
+def describe_crossovers():
+    """Return independent crossover/levelling schemas, bounds and assumptions.
+
+    Returns
+    -------
+    dict
+        Discoverable native analysis and fixed-reference DC levelling contracts.
+    """
+    return baselode.geophysics.crossovers.describe_crossovers()
+
+
+def _crossover_values(params):
+    if not isinstance(params["channel"], str) or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", params["channel"]) is None:
+        raise ValueError("channel must be a declared scalar observation channel")
+    if not _number(params["max_segment_length"]) or not 0 < params["max_segment_length"] <= 1e9 or not _number(params["min_crossing_angle"]) or not 0 < params["min_crossing_angle"] <= 90:
+        raise ValueError("supply positive max_segment_length<=1e9 and min_crossing_angle<=90")
+    tolerance = params["intersection_tolerance"]
+    if not _number(tolerance) or not 1e-9 <= tolerance <= 1e6 or tolerance > params["max_segment_length"] / 100:
+        raise ValueError("intersection_tolerance must be [1e-9,1e6] and <=max_segment_length/100")
+    if params["elevation_policy"] not in ("ignore", "limit"):
+        raise ValueError("elevation_policy must be explicitly ignore or limit")
+    height = params["max_height_difference"]
+    if params["elevation_policy"] == "ignore" and height is not None:
+        raise ValueError("ignore elevation requires max_height_difference=null")
+    if params["elevation_policy"] == "limit" and (not _number(height) or height < 0):
+        raise ValueError("limit elevation requires a nonnegative native-height-unit difference")
+    return params
+
+
+def _crossover_options(options, level=False):
+    schema = _DESCRIPTOR["levelling_parameters" if level else "crossover_parameters"]
+    if type(options) is not dict or options.keys() - schema["properties"].keys():
+        raise ValueError("crossover/levelling options require known names")
+    params = _json(options)
+    if any(name not in params for name in schema["required"]):
+        raise _NeedsInput("supply all explicit geometry, elevation and (for levelling) role/quality/event options")
+    _crossover_values(params)
+    if not level:
+        return params
+    for name in ("reference_lines", "target_lines"):
+        values = params[name]
+        if type(values) is not list or not values or not all(_label(v) for v in values) or len(values) != len(set(values)):
+            raise ValueError("reference_lines/target_lines must be nonempty unique label lists")
+    if len(params["reference_lines"]) + len(params["target_lines"]) > _LIMITS["max_crossover_lines"]:
+        raise _ResourceError("levelling accepts at most 128 lines")
+    if set(params["reference_lines"]) & set(params["target_lines"]):
+        raise ValueError("reference and target line roles must be disjoint")
+    for name, upper in (("min_crossovers", 8192), ("min_reference_lines", len(params["reference_lines"]))):
+        value = params[name]
+        if not _number(value) or value != int(value) or not 1 <= value <= upper:
+            raise ValueError("min_crossovers/min_reference_lines must be positive integers within available bounds")
+        params[name] = int(value)
+    if not all(_number(params[name]) and params[name] >= 0 for name in ("max_abs_correction", "max_rms_residual")):
+        raise ValueError("levelling quality bounds must be finite nonnegative nT")
+    if not _label(params["event_id"]) or not _evidence(params["evidence"]):
+        raise ValueError("event_id/evidence require nonempty bounded strings")
+    return params
+
+
+def _levelling_options(options):
+    return _crossover_options(options, level=True)
+
+
+def _crossover_context(data, params):
+    if len(data["records"]) > _LIMITS["max_crossover_records"]:
+        raise _ResourceError("crossovers/levelling accept at most 4096 records")
+    if params["channel"] not in data["channels"]:
+        raise ValueError("select a declared scalar observation channel")
+    trim = baselode.geophysics.observations._trim
+    try:
+        unit = baselode.geophysics.processing._coordinate_unit(types.SimpleNamespace(crs=trim(data["crs"]), metadata={"crs_units": trim(data["crs_units"])}))
+    except ValueError as error:
+        raise _NeedsInput("crossovers require projected/local Cartesian coordinates with matching linear units") from error
+    if unit not in ("m", "ft", "us-ft", "km"):
+        raise _NeedsInput("declare projected/local linear coordinate units")
+    height = None
+    if params["elevation_policy"] == "limit":
+        metadata = data["metadata"]
+        if not _label(metadata.get("height_datum")) or trim(metadata["height_datum"]).lower() in ("unknown", "unspecified") or metadata.get("z_positive") not in ("up", "down"):
+            raise _NeedsInput("height-limited crossovers need a known height_datum and explicit up/down z_positive")
+        try:
+            hunit = baselode.geophysics.processing._coordinate_unit(types.SimpleNamespace(crs=None, metadata={"crs_units": trim(metadata.get("height_units"))}))
+        except ValueError as error:
+            raise _NeedsInput("height-limited crossovers require declared linear height_units") from error
+        if hunit not in ("m", "ft", "us-ft", "km"):
+            raise _NeedsInput("height-limited crossovers require declared linear height_units")
+        height = [hunit, metadata["height_datum"], metadata["z_positive"]]
+    return [unit, height]
+
+
+def _crossover_prepare(data, params):
+    context = _crossover_context(data, params)
+    for row in data["records"]:
+        if row["x"] is None or row["y"] is None or row["line_id"] is None:
+            raise _NeedsInput("every crossover record requires XY and a line_id, including missing-reading markers")
+        if abs(row["x"]) > 1e12 or abs(row["y"]) > 1e12:
+            raise ValueError("crossover XY coordinates must be within +/-1e12")
+    return context
+
+
+def _levelling_binding(data, params, offsets):
+    context = _crossover_context(data, params)
+    roles = params["reference_lines"] + params["target_lines"]
+    actual = {row["line_id"] for row in data["records"]}
+    if actual != set(roles):
+        raise ValueError("reference/target roles must cover exactly every observation line_id")
+    if type(offsets) is not list or len(offsets) != len(roles):
+        raise ValueError("line_offsets must contain every reference then target in declared order")
+    for index, item in enumerate(offsets):
+        if type(item) is not dict or set(item) != {"line_id", "bias_nT"} or item["line_id"] != roles[index] or not _number(item["bias_nT"]):
+            raise ValueError("invalid canonical line-offset model")
+        if (index < len(params["reference_lines"]) and item["bias_nT"] != 0) or abs(item["bias_nT"]) > params["max_abs_correction"]:
+            raise ValueError("reference offsets must be zero and target offsets within the declared limit")
+    def hex_number(value):
+        return struct.pack(">d", 0.0 if value == 0 else float(value)).hex()
+    snapshot = ["baselode.levelling_binding.v1", params["channel"], *[hex_number(params[k]) for k in ("max_segment_length", "min_crossing_angle", "intersection_tolerance")], params["elevation_policy"],
+                None if params["max_height_difference"] is None else hex_number(params["max_height_difference"]), params["reference_lines"], params["target_lines"], params["min_crossovers"], params["min_reference_lines"],
+                hex_number(params["max_abs_correction"]), hex_number(params["max_rms_residual"]), context, [[item["line_id"], hex_number(item["bias_nT"])] for item in offsets]]
+    encoded = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > _LIMITS["max_binding_bytes"]:
+        raise _ResourceError("levelling model binding exceeds 32 MiB")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _application_counts(data, entries):
     # Reconstruct counts at each application, rather than compare historical
     # events to today's nonnull count after a later explicit lag mask.
@@ -263,7 +390,7 @@ def _validate(data, ledger, current, check_summary=True):
     states = _states(data, {"entries": []})
     previous, ids = ledger["initial_binding"], set()
     for index, entry in enumerate(ledger["entries"]):
-        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}}
+        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}}
         name = entry.get("correction") if type(entry) is dict else None
         extra = extras.get(name, base_extra) if isinstance(name, str) else base_extra
         if type(entry) is not dict or entry.get("kind") not in ("declaration", "application") or set(entry) != common | (extra if entry["kind"] == "application" else set()):
@@ -285,11 +412,11 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
             try:
-                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options}.get(correction, _base_options)(entry["parameters"])
+                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options, "magnetic_levelling": _levelling_options}.get(correction, _base_options)(entry["parameters"])
             except _NeedsInput as error:
                 raise ValueError("invalid stored application parameters: " + str(error)) from error
             count = counts.get(index)
-            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
+            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading", "magnetic_levelling") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied supported correction history for one channel")
             if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"]:
                 raise ValueError("application parameters do not match the ledger event")
@@ -306,6 +433,13 @@ def _validate(data, ledger, current, check_summary=True):
                     raise ValueError("invalid stored heading context: " + str(error)) from error
                 if not _digest(entry["heading_binding"]) or entry["heading_binding"] != heading_binding:
                     raise ValueError("stale heading binding: heading inputs, context or calibration changed")
+            if correction == "magnetic_levelling":
+                try:
+                    model_binding = _levelling_binding(data, params, entry["line_offsets"])
+                except _NeedsInput as error:
+                    raise ValueError("invalid stored levelling context: " + str(error)) from error
+                if not _digest(entry["levelling_binding"]) or entry["levelling_binding"] != model_binding:
+                    raise ValueError("stale levelling binding: line roles/model, semantic options or context changed")
             if type(entry["affected_records"]) not in (int, float) or entry["affected_records"] != count or count < 1:
                 raise ValueError("application must account for every nonnull channel reading immediately before that event")
         for name in channels:
@@ -335,7 +469,7 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading") for step in data["metadata"].get("processing", [])):
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines") for step in data["metadata"].get("processing", [])):
         raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
@@ -779,6 +913,159 @@ def correct_magnetic_heading(payload, options):
             metadata.pop(key, None)
         metadata["uncertainty_propagated"] = False
         metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "correct_magnetic_heading", "version": 1, "parameters": params, "heading_binding": heading_binding, "input_binding": before, "output_binding": after, "operand_lineage": source_operand}]
+        output = _save(data, ledger)
+        _validate(output, ledger, after)
+        report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))
+        return report
+    except (ValueError, TypeError, RecursionError) as error:
+        return _error(report, error)
+
+
+def analyze_crossovers(payload, options):
+    """Report scalar mis-ties at bounded XY intersections of observation lines.
+
+    Parameters
+    ----------
+    payload : dict
+        V1 observations in one projected/local Cartesian frame. All records need
+        XY and one contiguous run per line_id. Values/heights may be missing.
+    options : dict
+        channel, max_segment_length, min_crossing_angle, intersection_tolerance,
+        elevation_policy (ignore/limit), max_height_difference (null for ignore).
+        Distances use native XY/height units. See describe_crossovers.
+
+    Returns
+    -------
+    dict
+        Independent JSON report with signed A-B differences, geometry, source
+        brackets/fractions, support/reasons, summary and source binding. Atomic
+        failures return no partial crossing table. No inputs are modified.
+    """
+    report = {"schema": "baselode.geophysics.crossovers", "version": 1, "operation": "analyze", "state": "ok", "issues": [], "parameters": {}, "crossovers": [], "diagnostics": {}, "summary": {}, "units": {}, "observation_binding": None, "producer": _producer(), "assumptions": describe_crossovers()["assumptions"]}
+    try:
+        params = _crossover_options(options)
+        report["parameters"] = params
+        data = baselode.geophysics.observations.create_observations(payload)
+        context = _crossover_prepare(data, params)
+        ledger = _load(data)
+        result = baselode.geophysics.crossovers._compute(data, params)
+        report.update(crossovers=result["crossovers"], diagnostics=result["diagnostics"], summary=result["summary"], observation_binding=ledger["current_binding"],
+                      units={"xy": context[0], "height": context[1][0] if context[1] else (data["metadata"].get("height_units") if isinstance(data["metadata"].get("height_units"), str) else None), "field": data["channels"][params["channel"]]["units"]})
+    except (ValueError, TypeError, RecursionError) as error:
+        missing = isinstance(error, _NeedsInput)
+        resource = isinstance(error, (_ResourceError, baselode.geophysics.crossovers._ResourceError))
+        report.update(state="needs_input" if missing else "rejected", crossovers=[], observation_binding=None)
+        report["issues"].append({"code": "context" if missing else ("resource" if resource else "contract"), "message": str(error)})
+    return report
+
+
+def level_magnetic_lines(payload, options):
+    """Fit/apply one target-line DC bias relative to explicit fixed reference lines.
+
+    Parameters
+    ----------
+    payload : dict
+        V1 nT magnetic total-field/anomaly observations, never modified. Known
+        unapplied magnetic_levelling history is required for selected channel.
+    options : dict
+        Crossover options plus disjoint reference_lines/target_lines covering all
+        lines, min_crossovers, min_reference_lines, max_abs_correction and
+        max_rms_residual in nT, event_id and evidence. See describe_crossovers.
+
+    Returns
+    -------
+    dict
+        Correction report with crossing diagnostics and per-line proposals. Each
+        target bias is the equally weighted mean target-reference difference;
+        corrected=observed-bias for the entire target line, including beyond tie
+        positions. References stay fixed. Every target must pass coverage and
+        quality bounds before any output/event is committed. Nulls, geometry,
+        field types, extras, order and other channels remain. One DC error per
+        line is assumed; no drift/microlevelling or uncertainty propagation.
+    """
+    report = _report("magnetic_levelling")
+    report.update(crossovers=[])
+    report["assumptions"] = describe_crossovers()["assumptions"]
+    try:
+        params = _levelling_options(options)
+        report["parameters"] = params
+        data = baselode.geophysics.observations.create_observations(payload)
+        _crossover_prepare(data, params)
+        channel = params["channel"]
+        if data["channels"][channel]["field_type"] not in ("magnetic_total_field", "magnetic_anomaly") or baselode.geophysics.observations._trim(data["channels"][channel]["units"]) != "nT":
+            raise ValueError("line levelling requires a magnetic total-field/anomaly channel in nT")
+        ledger = _load(data)
+        if any(entry["id"] == params["event_id"] for entry in ledger["entries"]):
+            raise ValueError("event_id already exists in the correction ledger")
+        state = _states(data, ledger)["magnetic_levelling"][channel]
+        if state == "unknown":
+            raise _NeedsInput("declare evidence-backed unapplied magnetic_levelling history")
+        if state != "unapplied":
+            raise ValueError("magnetic_levelling is already applied; repeated levelling rejected")
+        roles = params["reference_lines"] + params["target_lines"]
+        if {row["line_id"] for row in data["records"]} != set(roles):
+            raise ValueError("reference/target roles must cover exactly every line")
+        result = baselode.geophysics.crossovers._compute(data, params)
+        crossings = result["crossovers"]
+        report["crossovers"] = crossings
+        refs, targets = set(params["reference_lines"]), set(params["target_lines"])
+        errors = {line: [] for line in params["target_lines"]}
+        ties = {line: set() for line in params["target_lines"]}
+        for row in crossings:
+            a, b = row["line_a"], row["line_b"]
+            used = row["eligible"] and ((a in targets and b in refs) or (b in targets and a in refs))
+            row["used_for_fit"] = used
+            if used:
+                target, reference, difference = (a, b, row["difference"]) if a in targets else (b, a, -row["difference"])
+                errors[target].append(difference)
+                ties[target].add(reference)
+        biases = {line: 0.0 for line in params["reference_lines"]}
+        for line in params["target_lines"]:
+            values = errors[line]
+            bias = baselode.geophysics.crossovers._sum(values) / len(values) if values else None
+            residuals = [v - bias for v in values] if values else []
+            rms = baselode.geophysics.crossovers._rms(residuals)
+            if bias is not None and (not _number(bias) or not _number(rms)):
+                raise ValueError("fitted line bias/residual exceeds portable numeric range")
+            reason = None
+            if len(values) < params["min_crossovers"] or len(ties[line]) < params["min_reference_lines"]:
+                reason = "insufficient_crossovers"
+            elif abs(bias) > params["max_abs_correction"]:
+                reason = "excessive_correction"
+            elif rms > params["max_rms_residual"]:
+                reason = "excessive_residual"
+            report["proposals"].append({"line_id": line, "bias_nT": bias, "crossovers": len(values), "reference_lines": [ref for ref in params["reference_lines"] if ref in ties[line]], "rms_before": baselode.geophysics.crossovers._rms(values), "rms_after": rms, "supported": reason is None, "reason": reason})
+            if bias is not None:
+                biases[line] = bias
+        report["diagnostics"] = {**result["diagnostics"], "reference_lines": params["reference_lines"], "target_lines": params["target_lines"], "uncertainty_propagated": False}
+        if any(not p["supported"] for p in report["proposals"]):
+            raise _NeedsInput("every target must pass crossover coverage and correction/residual gates; no application committed")
+        offsets = [{"line_id": line, "bias_nT": biases[line]} for line in roles]
+        model_binding = _levelling_binding(data, params, offsets)
+        before = ledger["current_binding"]
+        readings = [row for row in data["records"] if row["values"][channel] is not None]
+        for row in readings:
+            value = float(row["values"][channel]) - biases[row["line_id"]]
+            if not _number(value):
+                raise ValueError("levelled values exceed portable numeric range")
+            row["values"][channel] = value
+        for row in crossings:
+            row["difference_after"] = None if row["difference"] is None else row["difference"] - biases[row["line_a"]] + biases[row["line_b"]]
+            if row["difference_after"] is not None and not _number(row["difference_after"]):
+                raise ValueError("levelled crossover difference exceeds portable numeric range")
+        fit_before = [row["difference"] for row in crossings if row["used_for_fit"]]
+        fit_after = [row["difference_after"] for row in crossings if row["used_for_fit"]]
+        report["diagnostics"].update(rms_before=baselode.geophysics.crossovers._rms(fit_before), rms_after=baselode.geophysics.crossovers._rms(fit_after), levelling_binding=model_binding)
+        after = _binding(data)
+        ledger["entries"].append({"id": params["event_id"], "kind": "application", "correction": "magnetic_levelling", "channels": [channel], "state": "applied", "evidence": params["evidence"], "producer": _producer(), "input_binding": before, "output_binding": after, "parameters": params, "line_offsets": offsets, "levelling_binding": model_binding, "affected_records": len(readings)})
+        ledger["current_binding"] = after
+        metadata = data["metadata"]
+        nodes, source_operand = baselode.geophysics.provenance.append_input(metadata, metadata)
+        metadata["input_lineage"] = nodes
+        for key in ("uncertainty", "variance", "standard_deviation"):
+            metadata.pop(key, None)
+        metadata["uncertainty_propagated"] = False
+        metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "level_magnetic_lines", "version": 1, "parameters": params, "line_offsets": offsets, "levelling_binding": model_binding, "input_binding": before, "output_binding": after, "operand_lineage": source_operand}]
         output = _save(data, ledger)
         _validate(output, ledger, after)
         report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))

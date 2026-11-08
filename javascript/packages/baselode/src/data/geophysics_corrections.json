@@ -48,7 +48,7 @@
         "leveling",
         "tie_line_levelling"
       ],
-      "calculator": null
+      "calculator": "level_magnetic_lines"
     },
     "magnetic_microlevelling": {
       "family": "magnetic",
@@ -601,6 +601,117 @@
                       "maxLength": 4096
                     }
                   }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "max_segment_length",
+                    "min_crossing_angle",
+                    "intersection_tolerance",
+                    "elevation_policy",
+                    "max_height_difference",
+                    "reference_lines",
+                    "target_lines",
+                    "min_crossovers",
+                    "min_reference_lines",
+                    "max_abs_correction",
+                    "max_rms_residual",
+                    "event_id",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "max_segment_length": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 1000000000.0
+                    },
+                    "min_crossing_angle": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 90
+                    },
+                    "intersection_tolerance": {
+                      "type": "number",
+                      "minimum": 1e-09,
+                      "maximum": 1000000.0
+                    },
+                    "elevation_policy": {
+                      "enum": [
+                        "ignore",
+                        "limit"
+                      ]
+                    },
+                    "max_height_difference": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "number",
+                          "minimum": 0,
+                          "maximum": 1e+100
+                        }
+                      ]
+                    },
+                    "reference_lines": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 128,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      }
+                    },
+                    "target_lines": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 128,
+                      "uniqueItems": true,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      }
+                    },
+                    "min_crossovers": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8192
+                    },
+                    "min_reference_lines": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 128
+                    },
+                    "max_abs_correction": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "max_rms_residual": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  }
                 }
               ]
             },
@@ -662,6 +773,35 @@
             "heading_binding": {
               "type": "string",
               "pattern": "^[0-9a-f]{64}$"
+            },
+            "levelling_binding": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "line_offsets": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 128,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "line_id",
+                  "bias_nT"
+                ],
+                "properties": {
+                  "line_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "bias_nT": {
+                    "type": "number",
+                    "minimum": -1e+100,
+                    "maximum": 1e+100
+                  }
+                }
+              }
             }
           },
           "allOf": [
@@ -757,6 +897,16 @@
                           "required": [
                             "heading_binding"
                           ]
+                        },
+                        {
+                          "required": [
+                            "line_offsets"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "levelling_binding"
+                          ]
                         }
                       ]
                     }
@@ -819,6 +969,16 @@
                         {
                           "required": [
                             "heading_binding"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "line_offsets"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "levelling_binding"
                           ]
                         }
                       ]
@@ -901,6 +1061,16 @@
                         {
                           "required": [
                             "heading_binding"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "line_offsets"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "levelling_binding"
                           ]
                         }
                       ]
@@ -1016,6 +1186,167 @@
                           "required": [
                             "masked_records"
                           ]
+                        },
+                        {
+                          "required": [
+                            "line_offsets"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "levelling_binding"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "line_offsets",
+                      "levelling_binding"
+                    ],
+                    "properties": {
+                      "correction": {
+                        "const": "magnetic_levelling"
+                      },
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "channel",
+                          "max_segment_length",
+                          "min_crossing_angle",
+                          "intersection_tolerance",
+                          "elevation_policy",
+                          "max_height_difference",
+                          "reference_lines",
+                          "target_lines",
+                          "min_crossovers",
+                          "min_reference_lines",
+                          "max_abs_correction",
+                          "max_rms_residual",
+                          "event_id",
+                          "evidence"
+                        ],
+                        "properties": {
+                          "channel": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                          },
+                          "max_segment_length": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1000000000.0
+                          },
+                          "min_crossing_angle": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 90
+                          },
+                          "intersection_tolerance": {
+                            "type": "number",
+                            "minimum": 1e-09,
+                            "maximum": 1000000.0
+                          },
+                          "elevation_policy": {
+                            "enum": [
+                              "ignore",
+                              "limit"
+                            ]
+                          },
+                          "max_height_difference": {
+                            "anyOf": [
+                              {
+                                "type": "null"
+                              },
+                              {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1e+100
+                              }
+                            ]
+                          },
+                          "reference_lines": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 128,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            }
+                          },
+                          "target_lines": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 128,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            }
+                          },
+                          "min_crossovers": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 8192
+                          },
+                          "min_reference_lines": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 128
+                          },
+                          "max_abs_correction": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1e+100
+                          },
+                          "max_rms_residual": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1e+100
+                          },
+                          "event_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          }
+                        }
+                      }
+                    },
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "model"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "base_binding"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "base_station_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "masked_records"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "heading_binding"
+                          ]
                         }
                       ]
                     }
@@ -1059,6 +1390,16 @@
                       "required": [
                         "heading_binding"
                       ]
+                    },
+                    {
+                      "required": [
+                        "line_offsets"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "levelling_binding"
+                      ]
                     }
                   ]
                 }
@@ -1078,7 +1419,9 @@
     "max_output_json_bytes": 16777216,
     "max_lag_records": 4096,
     "max_heading_records": 4096,
-    "max_heading_nodes": 72
+    "max_heading_nodes": 72,
+    "max_crossover_records": 4096,
+    "max_crossover_lines": 128
   },
   "binding": {
     "algorithm": "sha256-float64-v1",
@@ -1110,14 +1453,18 @@
     "metadata.heading declares key, units=degrees, reference=true_north|magnetic_north|grid_north, positive=clockwise. It must match heading_key/reference options. Heading values come from record.extra[heading_key]; any supplied nonnull value must be a valid angle. Missing headings on missing magnetic readings are allowed. Each nonnull selected reading needs supported heading before an atomic application is committed.",
     "Circular piecewise-linear calibration includes the north seam. Exact nodes remain supported independent of neighbouring gaps; interpolation requires an angular bracket no wider than explicit max_heading_gap (0<gap<=180). Missing headings/context or inadequate angular coverage returns needs_input and proposals but no observations or application event. No heading masks or extrapolation are provided.",
     "Heading execution is bounded to 4096 records. Selected nT total-field/anomaly type, other channels, null readings, geometry/time, order and extras are retained. Known unapplied per-channel magnetic_heading history, unique event ID, calibration_id and evidence are required. Heading/calibration bindings detect accidental edits even after later lag masking; history is a provenance guard, not authentication against deliberate rewriting.",
-    "Calibrated heading bias applies only under the instrument/configuration/reference conditions verified by caller evidence. This scalar model does not compensate attitude, manoeuvres, eddy currents or geographic/temporal variation. No calibration parameter estimation, operation reordering or uncertainty propagation is claimed; original uncertainty remains in remappable source lineage."
+    "Calibrated heading bias applies only under the instrument/configuration/reference conditions verified by caller evidence. This scalar model does not compensate attitude, manoeuvres, eddy currents or geographic/temporal variation. No calibration parameter estimation, operation reordering or uncertainty propagation is claimed; original uncertainty remains in remappable source lineage.",
+    "Fixed-reference levelling holds caller-designated reference lines at zero bias and fits each target with the equally weighted mean target-minus-reference crossover residual. One constant DC bias applies to every nonnull reading on a target, including beyond tie locations. This is an empirical fixed-reference strategy, not global network levelling, polynomial drift, outlier removal, microlevelling or geological interpretation.",
+    "Every line must be explicitly classified reference/target. All targets must satisfy min_crossovers, min_reference_lines, max_abs_correction and max_rms_residual before one atomic magnetic_levelling event. Missing readings stay null; geometry/time, field type, order/extras/other channels remain. Native model/context binding supplements the existing observation binding. References/evidence and source corrections must be independently verified; no operation reordering or calibrated uncertainty propagation."
   ],
   "references": [
     "https://archive.epa.gov/esd/archive-geophysics/web/html/magnetic_methods.html",
     "https://nodejs.org/api/webcrypto.html",
     "https://earthwise.bgs.ac.uk/index.php/OR/14/014_Part_3:_Data_processing",
     "https://help.seequent.com/UXO/2026.1/Content/usace_rtf/uceheading_gx.htm",
-    "https://www.usgs.gov/software/uasmagpy-python-code-compensating-rotary-wing-sling-load-uas-aeromagnetic-data"
+    "https://www.usgs.gov/software/uasmagpy-python-code-compensating-rotary-wing-sling-load-uas-aeromagnetic-data",
+    "https://help.seequent.com/Oasismontaj/2023.2/Content/levelling/xlevel_gx.htm",
+    "https://pubs.usgs.gov/of/2001/ofr-01-0145/data/dvalley-4254/655dvreport.pdf"
   ],
   "igrf_parameters": {
     "type": "object",
@@ -1338,5 +1685,185 @@
       "all acquisition-order [record ID,raw heading float64 hex or null]"
     ],
     "numbers": "Big-endian 16-digit IEEE-754 float64 hexadecimal, signed zero canonicalized to +0. Compact UTF-8 JSON array then SHA-256. Absent and null headings bind as null; 360 and 0 raw headings bind distinctly. All supplied headings must be [0,360] finite numbers, even on missing magnetic readings. Model nodes canonicalize in ascending angle order. Metadata/context and semantic parameters are bound alongside extra heading inputs. This supplements, and does not change, the general observation binding."
+  },
+  "crossover_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "max_segment_length",
+      "min_crossing_angle",
+      "intersection_tolerance",
+      "elevation_policy",
+      "max_height_difference"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "max_segment_length": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000000.0
+      },
+      "min_crossing_angle": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 90
+      },
+      "intersection_tolerance": {
+        "type": "number",
+        "minimum": 1e-09,
+        "maximum": 1000000.0
+      },
+      "elevation_policy": {
+        "enum": [
+          "ignore",
+          "limit"
+        ]
+      },
+      "max_height_difference": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          }
+        ]
+      }
+    }
+  },
+  "levelling_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "max_segment_length",
+      "min_crossing_angle",
+      "intersection_tolerance",
+      "elevation_policy",
+      "max_height_difference",
+      "reference_lines",
+      "target_lines",
+      "min_crossovers",
+      "min_reference_lines",
+      "max_abs_correction",
+      "max_rms_residual",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "max_segment_length": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000000.0
+      },
+      "min_crossing_angle": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 90
+      },
+      "intersection_tolerance": {
+        "type": "number",
+        "minimum": 1e-09,
+        "maximum": 1000000.0
+      },
+      "elevation_policy": {
+        "enum": [
+          "ignore",
+          "limit"
+        ]
+      },
+      "max_height_difference": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          }
+        ]
+      },
+      "reference_lines": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "target_lines": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "min_crossovers": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 8192
+      },
+      "min_reference_lines": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 128
+      },
+      "max_abs_correction": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "max_rms_residual": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "levelling_binding": {
+    "algorithm": "sha256-float64-v1",
+    "prefix": "baselode.levelling_binding.v1",
+    "snapshot": [
+      "prefix",
+      "channel",
+      "hex max_segment_length,min_crossing_angle,intersection_tolerance",
+      "elevation_policy",
+      "hex max_height_difference or null",
+      "reference_lines",
+      "target_lines",
+      "min_crossovers,min_reference_lines",
+      "hex max_abs_correction,max_rms_residual",
+      "canonical horizontal unit and optional [height unit,datum,z_positive]",
+      "canonical reference-then-target offsets [line_id,bias hex]"
+    ],
+    "numbers": "Big-endian 16-digit IEEE-754 float64 hex, signed zero normalized. Compact UTF-8 JSON arrays then SHA-256. Model roles, zero references, finite bounded offsets and current context validate at replay. Original observation binding already protects geometry/line IDs/readings; fit is not recomputed against changed values. Later lag masks use historical pre-event counts."
   }
 }

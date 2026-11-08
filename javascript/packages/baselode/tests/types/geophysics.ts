@@ -133,3 +133,15 @@ if (correctionEvent.kind === 'application' && correctionEvent.correction === 'ma
 }
 // @ts-expect-error explicit observed-minus-reference bias convention is required
 correctGeophysicsMagneticHeading(observations, { channel: 'mag', heading_key: 'sensor_heading', heading_reference: 'true_north', calibration_id: 'cal-1', calibration: [], max_heading_gap: 180, event_id: 'heading-1', evidence: 'calibration' });
+
+import { describeGeophysicsCrossovers, analyzeGeophysicsCrossovers, levelGeophysicsMagneticLines, type GeophysicsCrossoverReport, type GeophysicsMagneticLevellingReport } from 'baselode/geophysics';
+const crossingOptions = { channel: 'mag', max_segment_length: 100, min_crossing_angle: 30, intersection_tolerance: 1e-6, elevation_policy: 'ignore' as const, max_height_difference: null };
+const crossingReport: Promise<GeophysicsCrossoverReport> = analyzeGeophysicsCrossovers(observations, crossingOptions);
+const levelReport: Promise<GeophysicsMagneticLevellingReport> = levelGeophysicsMagneticLines(observations, { ...crossingOptions, reference_lines: ['R'], target_lines: ['A'], min_crossovers: 1, min_reference_lines: 1, max_abs_correction: 10, max_rms_residual: 1, event_id: 'tie-1', evidence: 'checked' });
+void crossingReport; void levelReport; void describeGeophysicsCrossovers();
+if (correctionEvent.kind === 'application' && correctionEvent.correction === 'magnetic_levelling') {
+  const lineBias: number | undefined = correctionEvent.line_offsets[0]?.bias_nT;
+  void lineBias;
+}
+// @ts-expect-error reference/target roles and quality policies must be explicit
+levelGeophysicsMagneticLines(observations, crossingOptions);

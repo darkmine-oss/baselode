@@ -3,6 +3,9 @@
 import descriptor from './geophysics_corrections.json';
 import { createGeophysicsObservations, unicodeStrings } from './geophysicsObservations.js';
 import { jsonValue, appendInput, encodeProvenance } from './geophysicsProvenance.js';
+import { geophysicsCoordinateUnit } from './geophysicsProcessing.js';
+import { computeCrossovers, crossoverSum, crossoverRms, describeGeophysicsCrossovers, CrossoverResourceError } from './geophysicsCrossovers.js';
+export { describeGeophysicsCrossovers };
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const object = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const keys = (value, names) => object(value) && Object.keys(value).length === names.length && names.every((name) => Object.hasOwn(value, name));
@@ -27,7 +30,7 @@ export function describeGeophysicsCorrections() { return clone(descriptor); }
 function report(operation) { return { schema: 'baselode.geophysics.corrections', version: 1, operation, state: 'ok', issues: [], observations: null, ledger: null, states: {}, proposals: [], diagnostics: {}, parameters: {}, producer: producer(), assumptions: clone(descriptor.assumptions) }; }
 function errorResult(result, error) {
   result.state = error instanceof NeedsInput ? 'needs_input' : 'rejected';
-  result.issues.push({ code: error instanceof NeedsInput ? 'context' : (error instanceof ResourceError ? 'resource' : 'contract'), message: error.message });
+  result.issues.push({ code: error instanceof NeedsInput ? 'context' : ((error instanceof ResourceError || error instanceof CrossoverResourceError) ? 'resource' : 'contract'), message: error.message });
   Object.assign(result, { observations: null, ledger: null, states: {} }); return result;
 }
 function json(value) {
@@ -128,6 +131,72 @@ async function headingBinding(data, params) {
   return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', encoded))].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+function crossoverOptions(options, level = false) {
+  const schema = level ? descriptor.levelling_parameters : descriptor.crossover_parameters;
+  if (!object(options) || Object.keys(options).some((n) => !Object.hasOwn(schema.properties,n))) throw Error('crossover/levelling options require known names');
+  const params = json(options);
+  if (schema.required.some((n) => !Object.hasOwn(params,n))) throw new NeedsInput('supply all explicit geometry, elevation and (for levelling) role/quality/event options');
+  if (typeof params.channel !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params.channel)) throw Error('channel must be a declared scalar observation channel');
+  if (!number(params.max_segment_length) || params.max_segment_length <= 0 || params.max_segment_length > 1e9 || !number(params.min_crossing_angle) || params.min_crossing_angle <= 0 || params.min_crossing_angle > 90) throw Error('supply positive max_segment_length<=1e9 and min_crossing_angle<=90');
+  const tol = params.intersection_tolerance;
+  if (!number(tol) || tol < 1e-9 || tol > 1e6 || tol > params.max_segment_length/100) throw Error('intersection_tolerance must be [1e-9,1e6] and <=max_segment_length/100');
+  if (!['ignore','limit'].includes(params.elevation_policy)) throw Error('elevation_policy must be explicitly ignore or limit');
+  if (params.elevation_policy === 'ignore' && params.max_height_difference !== null) throw Error('ignore elevation requires max_height_difference=null');
+  if (params.elevation_policy === 'limit' && (!number(params.max_height_difference) || params.max_height_difference < 0)) throw Error('limit elevation requires a nonnegative native-height-unit difference');
+  if (!level) return params;
+  for (const n of ['reference_lines','target_lines']) if (!Array.isArray(params[n]) || !params[n].length || !params[n].every(label) || new Set(params[n]).size !== params[n].length) throw Error('reference_lines/target_lines must be nonempty unique label lists');
+  if (params.reference_lines.length+params.target_lines.length > limits.max_crossover_lines) throw new ResourceError('levelling accepts at most 128 lines');
+  if (params.reference_lines.some((line) => params.target_lines.includes(line))) throw Error('reference and target line roles must be disjoint');
+  for (const [n,upper] of [['min_crossovers',8192],['min_reference_lines',params.reference_lines.length]]) if (!Number.isInteger(params[n]) || params[n] < 1 || params[n] > upper) throw Error('min_crossovers/min_reference_lines must be positive integers within available bounds');
+  if (!['max_abs_correction','max_rms_residual'].every((n) => number(params[n]) && params[n] >= 0)) throw Error('levelling quality bounds must be finite nonnegative nT');
+  if (!label(params.event_id) || !evidence(params.evidence)) throw Error('event_id/evidence require nonempty bounded strings');
+  return params;
+}
+const levellingOptions = (options) => crossoverOptions(options,true);
+function crossoverContext(data, params) {
+  if (data.records.length > limits.max_crossover_records) throw new ResourceError('crossovers/levelling accept at most 4096 records');
+  if (!Object.hasOwn(data.channels,params.channel)) throw Error('select a declared scalar observation channel');
+  let unit;
+  try { unit = geophysicsCoordinateUnit({crs:trim(data.crs),metadata:{crs_units:trim(data.crs_units)}}); }
+  catch { throw new NeedsInput('crossovers require projected/local Cartesian coordinates with matching linear units'); }
+  if (!['m','ft','us-ft','km'].includes(unit)) throw new NeedsInput('declare projected/local linear coordinate units');
+  let height = null;
+  if (params.elevation_policy === 'limit') {
+    const meta = data.metadata;
+    if (!label(meta.height_datum) || ['unknown','unspecified'].includes(trim(meta.height_datum).toLowerCase()) || !['up','down'].includes(meta.z_positive)) throw new NeedsInput('height-limited crossovers need a known height_datum and explicit up/down z_positive');
+    let hunit; try { hunit = geophysicsCoordinateUnit({crs:null,metadata:{crs_units:trim(meta.height_units)}}); }
+    catch { throw new NeedsInput('height-limited crossovers require declared linear height_units'); }
+    if (!['m','ft','us-ft','km'].includes(hunit)) throw new NeedsInput('height-limited crossovers require declared linear height_units');
+    height = [hunit,meta.height_datum,meta.z_positive];
+  }
+  return [unit,height];
+}
+function crossoverPrepare(data,params) {
+  const context = crossoverContext(data,params);
+  for (const row of data.records) {
+    if (row.x === null || row.y === null || row.line_id === null) throw new NeedsInput('every crossover record requires XY and a line_id, including missing-reading markers');
+    if (Math.abs(row.x) > 1e12 || Math.abs(row.y) > 1e12) throw Error('crossover XY coordinates must be within +/-1e12');
+  }
+  return context;
+}
+async function levellingBinding(data,params,offsets) {
+  const context = crossoverContext(data,params); const roles = [...params.reference_lines,...params.target_lines];
+  const actual = new Set(data.records.map((row) => row.line_id));
+  if (actual.size !== roles.length || roles.some((line) => !actual.has(line))) throw Error('reference/target roles must cover exactly every observation line_id');
+  if (!Array.isArray(offsets) || offsets.length !== roles.length) throw Error('line_offsets must contain every reference then target in declared order');
+  offsets.forEach((item,index) => {
+    if (!keys(item,['line_id','bias_nT']) || item.line_id !== roles[index] || !number(item.bias_nT)) throw Error('invalid canonical line-offset model');
+    if ((index < params.reference_lines.length && item.bias_nT !== 0) || Math.abs(item.bias_nT) > params.max_abs_correction) throw Error('reference offsets must be zero and target offsets within the declared limit');
+  });
+  const buffer = new ArrayBuffer(8); const view = new DataView(buffer);
+  const hex = (value) => { view.setFloat64(0,value === 0 ? 0 : value,false); return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2,'0')).join(''); };
+  const snapshot = ['baselode.levelling_binding.v1',params.channel,...['max_segment_length','min_crossing_angle','intersection_tolerance'].map((n) => hex(params[n])),params.elevation_policy,params.max_height_difference === null ? null : hex(params.max_height_difference),params.reference_lines,params.target_lines,params.min_crossovers,params.min_reference_lines,hex(params.max_abs_correction),hex(params.max_rms_residual),context,offsets.map((item) => [item.line_id,hex(item.bias_nT)])];
+  const encoded = new TextEncoder().encode(JSON.stringify(snapshot));
+  if (encoded.length > limits.max_binding_bytes) throw new ResourceError('levelling model binding exceeds 32 MiB');
+  if (!globalThis.crypto?.subtle) throw new NeedsInput('SHA-256 binding requires Web Crypto (Node 20+ or a secure browser context)');
+  return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',encoded))].map((b) => b.toString(16).padStart(2,'0')).join('');
+}
+
 function applicationCounts(data, entries) {
   const counts = Object.fromEntries(Object.keys(data.channels).map((name) => [name, data.records.filter((row) => row.values[name] !== null).length]));
   const rows = new Map(data.records.map((row) => [row.id, row])); const expected = new Map(); const seen = new Map();
@@ -163,7 +232,7 @@ async function validate(data, ledger, current, checkSummary = true) {
   const counts = applicationCounts(data, ledger.entries);
   const states = statesFor(data, { entries: [] }); let previous = ledger.initial_binding; const ids = new Set();
   for (const [index, entry] of ledger.entries.entries()) {
-    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : (entry?.correction === 'magnetic_heading' ? ['parameters', 'heading_binding', 'affected_records'] : baseExtra));
+    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : (entry?.correction === 'magnetic_heading' ? ['parameters', 'heading_binding', 'affected_records'] : (entry?.correction === 'magnetic_levelling' ? ['parameters','line_offsets','levelling_binding','affected_records'] : baseExtra)));
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
     if (typeof correction !== 'string' || !Object.hasOwn(states, correction) || !label(entry.id) || ids.has(entry.id) || !evidence(entry.evidence)) throw Error('ledger events need unique IDs, registered correction and bounded evidence');
@@ -176,10 +245,10 @@ async function validate(data, ledger, current, checkSummary = true) {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
       let params;
-      try { params = (correction === 'magnetic_heading' ? headingOptions : (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions)))(entry.parameters); }
+      try { params = (correction === 'magnetic_levelling' ? levellingOptions : (correction === 'magnetic_heading' ? headingOptions : (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions))))(entry.parameters); }
       catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
       const count = counts.get(index);
-      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
+      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading', 'magnetic_levelling'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
       if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence) throw Error('application parameters do not match the ledger event');
       if (correction === 'magnetic_diurnal' && (!digest(entry.base_binding) || !label(entry.base_station_id))) throw Error('invalid base application binding/station');
       if (correction === 'magnetic_igrf' && (!keys(entry.model, Object.keys(descriptor.igrf_model.const)) || Object.entries(descriptor.igrf_model.const).some(([key, value]) => entry.model[key] !== value))) throw Error('invalid IGRF model/coefficient/convention identity');
@@ -189,6 +258,12 @@ async function validate(data, ledger, current, checkSummary = true) {
         try { currentHeading = await headingBinding(data, params); }
         catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored heading context: ${error.message}`); throw error; }
         if (!digest(entry.heading_binding) || entry.heading_binding !== currentHeading) throw Error('stale heading binding: heading inputs, context or calibration changed');
+      }
+      if (correction === 'magnetic_levelling') {
+        let currentModel;
+        try { currentModel = await levellingBinding(data,params,entry.line_offsets); }
+        catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored levelling context: ${error.message}`); throw error; }
+        if (!digest(entry.levelling_binding) || entry.levelling_binding !== currentModel) throw Error('stale levelling binding: line roles/model, semantic options or context changed');
       }
       if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading immediately before that event');
     }
@@ -212,7 +287,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);
@@ -438,4 +513,68 @@ export async function correctGeophysicsMagneticHeading(payload, options) {
     const output = await save(data, ledger); await validate(output, ledger, after);
     Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger) }); return result;
   } catch (error) { return errorResult(result, error); }
+}
+
+/** Read-only bounded scalar mis-ties at projected/local XY line intersections. */
+export async function analyzeGeophysicsCrossovers(payload,options) {
+  const result = {schema:'baselode.geophysics.crossovers',version:1,operation:'analyze',state:'ok',issues:[],parameters:{},crossovers:[],diagnostics:{},summary:{},units:{},observation_binding:null,producer:producer(),assumptions:describeGeophysicsCrossovers().assumptions};
+  try {
+    const params = crossoverOptions(options); result.parameters = params;
+    const data = createGeophysicsObservations(payload); const context = crossoverPrepare(data,params); const ledger = await load(data);
+    const analysis = computeCrossovers(data,params);
+    Object.assign(result,{crossovers:analysis.crossovers,diagnostics:analysis.diagnostics,summary:analysis.summary,observation_binding:ledger.current_binding,units:{xy:context[0],height:context[1] ? context[1][0] : (typeof data.metadata.height_units === 'string' ? data.metadata.height_units : null),field:data.channels[params.channel].units}});
+  } catch (error) {
+    const missing = error instanceof NeedsInput; const resource = error instanceof ResourceError || error instanceof CrossoverResourceError;
+    Object.assign(result,{state:missing ? 'needs_input' : 'rejected',crossovers:[],observation_binding:null}); result.issues.push({code:missing ? 'context' : (resource ? 'resource' : 'contract'),message:error.message});
+  }
+  return result;
+}
+
+/** Fit a constant target-minus-reference bias per target, holding explicit references fixed. */
+export async function levelGeophysicsMagneticLines(payload,options) {
+  const result = report('magnetic_levelling'); result.crossovers = []; result.assumptions = describeGeophysicsCrossovers().assumptions;
+  try {
+    const params = levellingOptions(options); result.parameters = params; const data = createGeophysicsObservations(payload); crossoverPrepare(data,params);
+    const channel = params.channel;
+    if (!['magnetic_total_field','magnetic_anomaly'].includes(data.channels[channel].field_type) || trim(data.channels[channel].units) !== 'nT') throw Error('line levelling requires a magnetic total-field/anomaly channel in nT');
+    const ledger = await load(data);
+    if (ledger.entries.some((e) => e.id === params.event_id)) throw Error('event_id already exists in the correction ledger');
+    const state = statesFor(data,ledger).magnetic_levelling[channel];
+    if (state === 'unknown') throw new NeedsInput('declare evidence-backed unapplied magnetic_levelling history');
+    if (state !== 'unapplied') throw Error('magnetic_levelling is already applied; repeated levelling rejected');
+    const roles = [...params.reference_lines,...params.target_lines]; const actual = new Set(data.records.map((row) => row.line_id));
+    if (actual.size !== roles.length || roles.some((line) => !actual.has(line))) throw Error('reference/target roles must cover exactly every line');
+    const analysis = computeCrossovers(data,params); const crossings = analysis.crossovers; result.crossovers = crossings;
+    const refs = new Set(params.reference_lines); const targets = new Set(params.target_lines);
+    const errors = new Map(params.target_lines.map((line) => [line,[]])); const ties = new Map(params.target_lines.map((line) => [line,new Set()]));
+    for (const row of crossings) {
+      const a = row.line_a; const b = row.line_b; const used = row.eligible && ((targets.has(a) && refs.has(b)) || (targets.has(b) && refs.has(a))); row.used_for_fit = used;
+      if (used) { const [target,reference,diff] = targets.has(a) ? [a,b,row.difference] : [b,a,-row.difference]; errors.get(target).push(diff); ties.get(target).add(reference); }
+    }
+    const biases = new Map(params.reference_lines.map((line) => [line,0]));
+    for (const line of params.target_lines) {
+      const values = errors.get(line); const bias = values.length ? crossoverSum(values)/values.length : null; const residuals = values.map((v) => v-bias); const rms = crossoverRms(residuals);
+      if (bias !== null && (!number(bias) || !number(rms))) throw Error('fitted line bias/residual exceeds portable numeric range');
+      let reason = null;
+      if (values.length < params.min_crossovers || ties.get(line).size < params.min_reference_lines) reason = 'insufficient_crossovers';
+      else if (Math.abs(bias) > params.max_abs_correction) reason = 'excessive_correction';
+      else if (rms > params.max_rms_residual) reason = 'excessive_residual';
+      result.proposals.push({line_id:line,bias_nT:bias,crossovers:values.length,reference_lines:params.reference_lines.filter((ref) => ties.get(line).has(ref)),rms_before:crossoverRms(values),rms_after:rms,supported:reason === null,reason});
+      if (bias !== null) biases.set(line,bias);
+    }
+    result.diagnostics = {...analysis.diagnostics,reference_lines:params.reference_lines,target_lines:params.target_lines,uncertainty_propagated:false};
+    if (result.proposals.some((p) => !p.supported)) throw new NeedsInput('every target must pass crossover coverage and correction/residual gates; no application committed');
+    const offsets = roles.map((line) => ({line_id:line,bias_nT:biases.get(line)})); const modelBinding = await levellingBinding(data,params,offsets); const before = ledger.current_binding;
+    const readings = data.records.filter((row) => row.values[channel] !== null);
+    for (const row of readings) { const value = row.values[channel]-biases.get(row.line_id); if (!number(value)) throw Error('levelled values exceed portable numeric range'); row.values[channel] = value; }
+    for (const row of crossings) { row.difference_after = row.difference === null ? null : row.difference-biases.get(row.line_a)+biases.get(row.line_b); if (row.difference_after !== null && !number(row.difference_after)) throw Error('levelled crossover difference exceeds portable numeric range'); }
+    result.diagnostics = {...result.diagnostics,rms_before:crossoverRms(crossings.filter((row) => row.used_for_fit).map((row) => row.difference)),rms_after:crossoverRms(crossings.filter((row) => row.used_for_fit).map((row) => row.difference_after)),levelling_binding:modelBinding};
+    const after = await binding(data);
+    ledger.entries.push({id:params.event_id,kind:'application',correction:'magnetic_levelling',channels:[channel],state:'applied',evidence:params.evidence,producer:producer(),input_binding:before,output_binding:after,parameters:params,line_offsets:offsets,levelling_binding:modelBinding,affected_records:readings.length}); ledger.current_binding = after;
+    const metadata = data.metadata; const source = appendInput(metadata,metadata); metadata.input_lineage = source.nodes;
+    for (const key of ['uncertainty','variance','standard_deviation']) delete metadata[key]; metadata.uncertainty_propagated = false;
+    metadata.processing = [...(metadata.processing ?? []),{operation:'level_magnetic_lines',version:1,parameters:params,line_offsets:offsets,levelling_binding:modelBinding,input_binding:before,output_binding:after,operand_lineage:source.operand}];
+    const output = await save(data,ledger); await validate(output,ledger,after);
+    Object.assign(result,{observations:output,ledger:clone(ledger),states:statesFor(output,ledger)}); return result;
+  } catch (error) { return errorResult(result,error); }
 }

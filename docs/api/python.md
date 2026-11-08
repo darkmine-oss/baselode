@@ -2172,3 +2172,81 @@ This supplied scalar table is distinct from full aircraft magnetic compensation:
 it does not model attitude, manoeuvres, altitude or eddy currents, nor reorder
 previous corrections. See [heading-table processing](https://help.seequent.com/UXO/2026.1/Content/usace_rtf/uceheading_gx.htm)
 and the [USGS compensation workflow](https://www.usgs.gov/software/uasmagpy-python-code-compensating-rotary-wing-sling-load-uas-aeromagnetic-data).
+
+### Crossover QC and fixed-reference line levelling
+
+`describe_crossovers()` returns shared parameter/result schemas, limits and
+assumptions. `analyze_crossovers(observations, options)` reports scalar mis-ties
+without modifying the dataset:
+
+```python
+crossing_options = {
+    "channel": "mag", "max_segment_length": 100, "min_crossing_angle": 30,
+    "intersection_tolerance": 0.000001,
+    "elevation_policy": "limit", "max_height_difference": 5,
+}
+qc = baselode.geophysics.analyze_crossovers(observations, crossing_options)
+levelled = baselode.geophysics.level_magnetic_lines(observations, {
+    **crossing_options, "reference_lines": ["T1", "T2"],
+    "target_lines": ["L1", "L2"], "min_crossovers": 2,
+    "min_reference_lines": 2, "max_abs_correction": 20,
+    "max_rms_residual": 2, "event_id": "level-1",
+    "evidence": "Fixed references and survey corrections checked",
+})
+```
+
+All records require XY and `line_id`. Each line ID must have one contiguous
+acquisition run; no cross-run joining or same-line self-crossovers is inferred.
+Coordinates must describe a common projected/local Cartesian frame with linear
+units (`m`, `ft`, `us-ft`, `km`), bounded to +/-1e12. Geographic coordinates need
+explicit reprojection before this API; it does not transform observation data
+or repair a stale ledger after external edits.
+
+Adjacent points form straight segments. `max_segment_length` excludes geometry
+across acquisition gaps. `intersection_tolerance` is in XY units, from 1e-9 to
+1e6 and at most max_segment_length/100. It snaps near endpoints and allows at
+most that separation between evaluated points, without extrapolating values.
+Consecutive geometry no longer than twice the tolerance requires QC. A scaled
+cross-product threshold of 1e-12 excludes near-parallel/collinear overlap
+candidates. `min_crossing_angle` is an acute angle in `(0,90]` degrees.
+Shared-vertex intersections count once by measurement topology; distinct
+repeat-path measurements stay distinct. Eligible representatives are preferred,
+then larger angle, then acquisition segment order. Exact endpoint values need
+no valid far endpoint; interior interpolation needs both readings.
+
+Crossovers expose coordinates, line IDs, source record brackets/fractions,
+angle, interpolated values/heights and signed **value_a-value_b** differences.
+Ineligible comparisons remain visible with reasons for missing readings,
+shallow angle, missing heights or height mismatch. `elevation_policy="limit"`
+requires linear metadata.height_units, a known height_datum and up/down
+z_positive; max_height_difference uses those native height units.
+`"ignore"` requires max_height_difference=null and explicitly acknowledges an
+XY-only comparison. No height reduction, datum conversion or comparability
+inference is performed. Geometry resource failures return no partial table.
+
+Levelling requires a magnetic total-field/anomaly channel in nT and known
+unapplied magnetic_levelling history. Reference and target lists must be disjoint
+and cover every line. References stay fixed at zero bias. Each target bias is
+the equally weighted mean of eligible **target-minus-reference** crossover
+differences; corrected=observed-bias. One constant DC error is assumed for the
+entire target line, including beyond tie positions. Every target must pass
+minimum crossing/distinct-reference counts, maximum absolute correction and
+post-fit RMS residual bounds before an output/event is committed. Quality
+failures return reviewable crossing/proposal tables and no corrected data.
+Nulls, references, XYZ/time, field type, order/extras and other channels remain.
+
+A strict application stores the canonical reference-then-target line-offset
+model and a supplementary levelling_binding over semantic options, roles,
+offsets and horizontal/elevation context. Existing observation bindings protect
+geometry/line IDs/readings. Editing the model or relevant context invalidates
+history; later lag masks preserve historical application counts. Source
+uncertainty is retained in remappable lineage, without propagation.
+
+Execution is bounded to 4096 records/segments, 128 lines, one million active
+pair tests, 8192 unique and 32768 raw crossing candidates, plus existing
+correction limits. Numerical geometry uses binary64; no exact-arithmetic claim
+is made. Partition complete lines with their required references, not arbitrary
+point blocks. This is fixed-reference constant-offset levelling, without a global
+network solve, polynomial drift, robust outlier removal or microlevelling. The
+caller verifies reference quality, preprocessing order and physical compatibility.
+See the [crossover/levelling methodology context](https://help.seequent.com/Oasismontaj/2023.2/Content/levelling/xlevel_gx.htm).

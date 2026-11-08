@@ -96,6 +96,15 @@ assert.equal(headingCorrected.state, 'ok');
 assert.deepEqual(headingCorrected.observations.records.map((row) => row.values.mag), [100, 100]);
 assert.equal((await geophysics.inspectGeophysicsCorrections(headingCorrected.observations)).state, 'ok');
 
+const tieSurvey = { channels: { mag: { field_type: 'magnetic_anomaly', units: 'nT' } }, crs: 'LOCAL', crs_units: 'm', metadata: { corrections: { levelling: 'unapplied' } }, records: [{ id: 'a0', line_id: 'A', x: 0, y: -1, values: { mag: 105 } }, { id: 'a1', line_id: 'A', x: 0, y: 1, values: { mag: 105 } }, { id: 'r0', line_id: 'R', x: -1, y: 0, values: { mag: 100 } }, { id: 'r1', line_id: 'R', x: 1, y: 0, values: { mag: 100 } }] };
+const crossingOptions = { channel: 'mag', max_segment_length: 10, min_crossing_angle: 30, intersection_tolerance: 1e-6, elevation_policy: 'ignore', max_height_difference: null };
+assert.equal((await geophysics.analyzeGeophysicsCrossovers(tieSurvey, crossingOptions)).crossovers[0].difference, 5);
+const tied = await geophysics.levelGeophysicsMagneticLines(tieSurvey, { ...crossingOptions, reference_lines: ['R'], target_lines: ['A'], min_crossovers: 1, min_reference_lines: 1, max_abs_correction: 10, max_rms_residual: 0, event_id: 'tie-1', evidence: 'synthetic' });
+assert.equal(tied.state, 'ok');
+assert.deepEqual(tied.observations.records.map((row) => row.values.mag), [100, 100, 100, 100]);
+assert.equal((await geophysics.inspectGeophysicsCorrections(tied.observations)).state, 'ok');
+assert.equal(geophysics.describeGeophysicsCrossovers().version, 1);
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {
