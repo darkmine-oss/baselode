@@ -30,7 +30,7 @@
         "lag",
         "time_lag"
       ],
-      "calculator": null
+      "calculator": "correct_magnetic_lag"
     },
     "magnetic_heading": {
       "family": "magnetic",
@@ -473,6 +473,54 @@
                       "const": "IGRF14"
                     }
                   }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "lag_seconds",
+                    "max_gap",
+                    "unsupported_policy",
+                    "event_id",
+                    "evidence",
+                    "clock_policy"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "lag_seconds": {
+                      "type": "number",
+                      "minimum": -3600,
+                      "maximum": 3600
+                    },
+                    "max_gap": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "unsupported_policy": {
+                      "enum": [
+                        "reject",
+                        "mask"
+                      ]
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "clock_policy": {
+                      "const": "synchronized"
+                    }
+                  }
                 }
               ]
             },
@@ -505,6 +553,30 @@
                 "field_units": "nT",
                 "angle_units": "degrees",
                 "time_interpolation": "decimal-year"
+              }
+            },
+            "masked_records": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "value"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": -1e+100,
+                    "maximum": 1e+100
+                  }
+                }
               }
             }
           },
@@ -586,8 +658,17 @@
                       }
                     },
                     "not": {
-                      "required": [
-                        "model"
+                      "anyOf": [
+                        {
+                          "required": [
+                            "model"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "masked_records"
+                          ]
+                        }
                       ]
                     }
                   },
@@ -640,6 +721,88 @@
                           "required": [
                             "base_station_id"
                           ]
+                        },
+                        {
+                          "required": [
+                            "masked_records"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "masked_records"
+                    ],
+                    "properties": {
+                      "correction": {
+                        "const": "magnetic_lag"
+                      },
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "channel",
+                          "lag_seconds",
+                          "max_gap",
+                          "unsupported_policy",
+                          "event_id",
+                          "evidence",
+                          "clock_policy"
+                        ],
+                        "properties": {
+                          "channel": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                          },
+                          "lag_seconds": {
+                            "type": "number",
+                            "minimum": -3600,
+                            "maximum": 3600
+                          },
+                          "max_gap": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1e+100
+                          },
+                          "unsupported_policy": {
+                            "enum": [
+                              "reject",
+                              "mask"
+                            ]
+                          },
+                          "event_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          },
+                          "clock_policy": {
+                            "const": "synchronized"
+                          }
+                        }
+                      }
+                    },
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "model"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "base_binding"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "base_station_id"
+                          ]
                         }
                       ]
                     }
@@ -673,6 +836,11 @@
                       "required": [
                         "model"
                       ]
+                    },
+                    {
+                      "required": [
+                        "masked_records"
+                      ]
                     }
                   ]
                 }
@@ -689,7 +857,8 @@
     "max_binding_bytes": 33554432,
     "max_options_bytes": 262144,
     "numeric_bound": 1e+100,
-    "max_output_json_bytes": 16777216
+    "max_output_json_bytes": 16777216,
+    "max_lag_records": 4096
   },
   "binding": {
     "algorithm": "sha256-float64-v1",
@@ -712,11 +881,16 @@
     "Base station IDs must agree; available base XYZ positions must be stationary. The library cannot establish geographic suitability, disturbance-free recording, clock synchronization or calibration truth; caller evidence/QC is required.",
     "Bindings cover normalized data identities/order, geometry/time/clearance, channel definitions and readings, not arbitrary metadata/extensions. Editing data invalidates the ledger. Finite binary64 values up to +/-1e100 are supported. Python integers must be exactly representable; JS numbers already use binary64.",
     "Existing field units, correction declarations and source history are preserved; legacy aggregate states remain synchronized with per-channel states. Numeric changes move uncertainty into flat input lineage and mark uncertainty_propagated=false. No calibrated uncertainty is calculated. Raster workflow v1 is unchanged.",
-    "IGRF application events carry the fixed IGRF14 model/coefficient/convention identity and removal parameters. Python executes the optional backend; both runtimes validate/replay the ledger. Retained remove_igrf processing prevents initializing a replacement ledger. See describe_igrf / describeGeophysicsIgrf for execution requirements."
+    "IGRF application events carry the fixed IGRF14 model/coefficient/convention identity and removal parameters. Python executes the optional backend; both runtimes validate/replay the ledger. Retained remove_igrf processing prevents initializing a replacement ledger. See describe_igrf / describeGeophysicsIgrf for execution requirements.",
+    "Lag correction uses corrected(t)=input(t+lag_seconds), on unchanged navigation XYZ/time. Positive lag advances delayed magnetic readings. A calibrated constant time lag is supplied explicitly, not inferred from flight speed or sensor geometry. Normally apply lag before time/location-dependent corrections; existing processing stages are preserved as supplied, never inverted or reordered.",
+    "Lag interpolation uses only the original selected channel within each acquisition-contiguous line_id segment, including repeated line IDs as separate segments. All records need line_id and strictly increasing UTC times within each segment, including null-reading gap markers. No extrapolation, cross-line interpolation, bridging null source readings or excessive gaps. Existing target nulls stay null.",
+    "Lag unsupported_policy=reject returns needs_input and proposals without committing observations. Explicit mask sets unsupported nonnull readings to null and persists their original IDs/values in masked_records; at least one selected reading must be supported. No records or other channels are dropped. Application affected_records counts nonnull readings immediately BEFORE the application. Validators reconstruct historical counts backwards across lag masks, so earlier base/IGRF ledger applications remain valid.",
+    "Lag is bounded to 4096 records and +/-3600 seconds. It requires known unapplied per-channel magnetic_lag history, nT total-field/anomaly data, explicit synchronized clock policy, gap limit and calibration evidence. Source metadata/uncertainty moves into standard remappable lineage; no uncertainty propagation is claimed."
   ],
   "references": [
     "https://archive.epa.gov/esd/archive-geophysics/web/html/magnetic_methods.html",
-    "https://nodejs.org/api/webcrypto.html"
+    "https://nodejs.org/api/webcrypto.html",
+    "https://earthwise.bgs.ac.uk/index.php/OR/14/014_Part_3:_Data_processing"
   ],
   "igrf_parameters": {
     "type": "object",
@@ -762,6 +936,54 @@
       "field_units": "nT",
       "angle_units": "degrees",
       "time_interpolation": "decimal-year"
+    }
+  },
+  "lag_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "lag_seconds",
+      "max_gap",
+      "unsupported_policy",
+      "event_id",
+      "evidence",
+      "clock_policy"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "lag_seconds": {
+        "type": "number",
+        "minimum": -3600,
+        "maximum": 3600
+      },
+      "max_gap": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "unsupported_policy": {
+        "enum": [
+          "reject",
+          "mask"
+        ]
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "clock_policy": {
+        "const": "synchronized"
+      }
     }
   }
 }

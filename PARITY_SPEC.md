@@ -136,3 +136,25 @@ independently check all field components within 0.05 nT and angles within 0.001
 degree, covering historical/forecast epochs, hemispheres and heights. UTC dates
 map to decimal-year coefficient interpolation to match the official model.
 Raster workflow v1 remains unchanged.
+
+### Magnetic survey lag correction
+
+Python `correct_magnetic_lag` corresponds to asynchronous JavaScript
+`correctGeophysicsMagneticLag` in both main/geophysics entries. Both publish the
+same correction descriptor, lag parameters, strict application-event union and
+mask semantics. Independently specified affine/pulse fixtures cover sign,
+fractional/integer/zero lag and irregular times; live bidirectional execution
+checks shared binary64 bindings and subsequent per-channel masks. Numerical
+interpolation compares at 1e-12 tolerance; structural support, masks, source IDs
+and history match exactly. Timestamp equality/exterior decisions are binary64
+with no implicit tolerance. Producer library versions may differ.
+
+Lag affects one selected nT total-field/anomaly signal on unchanged XYZ/time,
+inside acquisition-contiguous line segments. Explicit reject/mask policy,
+calibration/clock context and gap/resource bounds prevent silent extrapolation
+or data drops. Ledger affected_records counts readings immediately before each
+application; validators reconstruct historical counts backwards across archived
+lag masks, so prior base/IGRF applications remain valid. Source metadata,
+uncertainty and remappable lineage persist through exports. Raster workflow v1
+remains unchanged; no heading, inferred lag, physical sensor-path calculation,
+operation reordering or uncertainty propagation is claimed.

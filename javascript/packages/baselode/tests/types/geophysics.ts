@@ -111,3 +111,15 @@ const ambiguousHeight: GeophysicsIgrfRequest = { model: 'IGRF14', points: [{ id:
 // @ts-expect-error no implicit latest-model selection
 const implicitIgrf: GeophysicsIgrfRequest = { model: 'latest', points: [] };
 void ambiguousHeight; void implicitIgrf;
+
+import { correctGeophysicsMagneticLag, type GeophysicsMagneticLagReport } from 'baselode/geophysics';
+const lagReport: Promise<GeophysicsMagneticLagReport> = correctGeophysicsMagneticLag(observations, { channel: 'mag', lag_seconds: .5, max_gap: 1, unsupported_policy: 'mask', event_id: 'lag-1', evidence: 'calibration', clock_policy: 'synchronized' });
+void lagReport;
+if (correctionEvent.kind === 'application' && correctionEvent.correction === 'magnetic_lag') {
+  const original: number | undefined = correctionEvent.masked_records[0]?.value;
+  void original;
+}
+// @ts-expect-error boundary handling must be explicit
+correctGeophysicsMagneticLag(observations, { channel: 'mag', lag_seconds: .5, max_gap: 1, event_id: 'lag-1', evidence: 'calibration', clock_policy: 'synchronized' });
+// @ts-expect-error no unbounded extrapolation policy
+correctGeophysicsMagneticLag(observations, { channel: 'mag', lag_seconds: .5, max_gap: 1, unsupported_policy: 'extrapolate', event_id: 'lag-1', evidence: 'calibration', clock_policy: 'synchronized' });

@@ -757,6 +757,19 @@
           "remove_igrf"
         ]
       ]
+    },
+    {
+      "name": "geophysics_magnetic_lag",
+      "description": "Native scalar magnetic lag correction with explicit sign, per-segment time interpolation, reject/mask coverage and historical ledger mask accounting.",
+      "jsExports": [
+        "correctGeophysicsMagneticLag"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "correct_magnetic_lag"
+        ]
+      ]
     }
   ]
 }
