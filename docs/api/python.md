@@ -2010,3 +2010,50 @@ No rows/history are silently truncated. Correction IDs for later magnetic,
 gravity and radiometric operations can be declared/inspected, but only magnetic
 base correction is numerically implemented here. These direct APIs leave raster
 workflow v1 unchanged.
+
+### IGRF14 reference fields and scalar removal
+
+Install `pip install 'baselode[magnetics]'`. `describe_igrf()` exposes shared
+request/result schemas, removal options, model identity and limits; it works
+without the optional backend. `calculate_igrf(request)` returns a JSON report:
+
+```python
+import baselode.geophysics
+
+reference = baselode.geophysics.calculate_igrf({
+    "model": "IGRF14",
+    "points": [{"id": "station-1", "longitude": 115.86, "latitude": -31.95,
+                "height_m": 100, "time": 1735689600}],  # 2025-01-01 UTC
+})
+```
+
+Coordinates are WGS84 geodetic longitude east/latitude north in degrees, height
+in metres above the WGS84 ellipsoid, and time in UTC Unix seconds. Each point
+has its own date. North/east/down, horizontal and total intensity are nT;
+declination is east-positive and inclination down-positive, in degrees.
+The adapter maps UTC dates to official decimal-year interpolation. Supported
+dates are 1900-01-01 through 2030-01-01 inclusive, without extrapolation.
+The first adapter accepts heights -1000 to 100000 m, excludes exact poles,
+and limits a request to 512 points and 64 distinct times. Partition explicitly.
+The local ppigrf 2.1.0 IGRF14 coefficient file is selected explicitly and its
+SHA-256 is verified; no model data is downloaded during processing.
+
+`remove_igrf(observations, {"channel": "mag", "model": "IGRF14",
+"event_id": "igrf-1", "evidence": "source correction history checked"})`
+requires a `magnetic_total_field` channel in `nT`, bound or legacy **unapplied**
+`magnetic_igrf` history, `crs="EPSG:4326"`, `crs_units="degrees"`, and metadata
+`height_units="m"`, `height_datum="WGS84_ellipsoid"`, `z_positive="up"`.
+Use `declare_corrections` with evidence if history is unknown. Heights above
+mean sea level need an explicit datum conversion before this API.
+
+Removal subtracts model **F** from each nonnull reading and relabels the selected
+channel `magnetic_anomaly`. Every such reading needs valid XYZ/time; failures
+return no observations/ledger. Nulls, other channels, acquisition order and
+extensions are preserved. Ledger events record bindings, options and the fixed
+model identity, reject repeat removal, and remain inspectable in JavaScript.
+Source metadata is retained in flat input lineage; uncertainty is not propagated.
+
+IGRF describes the main internal field. This scalar residual does not remove
+external/diurnal fields or supply a geological interpretation. See the
+[official IGRF14 model](https://www.ncei.noaa.gov/products/international-geomagnetic-reference-field)
+and [ppigrf backend](https://github.com/IAGA-VMOD/ppigrf).

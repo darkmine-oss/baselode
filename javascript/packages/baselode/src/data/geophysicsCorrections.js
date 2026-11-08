@@ -71,15 +71,27 @@ function baseOptions(options) {
   if (params.clock_policy !== 'synchronized') throw new NeedsInput('clock_policy must explicitly acknowledge synchronized UTC Unix seconds');
   return params;
 }
+function igrfOptions(options) {
+  const contract = descriptor.igrf_parameters;
+  if (!object(options) || Object.keys(options).some((name) => !Object.hasOwn(contract.properties, name))) throw Error('IGRF removal requires known option names');
+  const params = json(options);
+  if (contract.required.some((name) => !Object.hasOwn(params, name))) throw new NeedsInput('supply channel, event_id, evidence and explicit model=IGRF14');
+  if (typeof params.channel !== 'string' || !/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params.channel)) throw Error('channel must be a declared channel name');
+  if (!label(params.event_id) || !evidence(params.evidence) || params.model !== 'IGRF14') throw Error('IGRF removal requires bounded event_id/evidence and model=IGRF14');
+  return params;
+}
+
 function validate(data, ledger, current, checkSummary = true) {
   if (!keys(ledger, ['schema', 'version', 'algorithm', 'initial_binding', 'current_binding', 'entries']) || ledger.schema !== schema || ledger.version !== 1 || ledger.algorithm !== algorithm) throw Error('unsupported or malformed correction ledger');
   if (!digest(ledger.initial_binding) || !digest(ledger.current_binding)) throw Error('ledger bindings must be lowercase SHA-256 digests');
   if (!Array.isArray(ledger.entries)) throw Error('correction ledger entries must be a list');
   if (ledger.entries.length > limits.max_events) throw new ResourceError('correction ledger exceeds 64 events');
   const common = ['id', 'kind', 'correction', 'channels', 'state', 'evidence', 'producer', 'input_binding', 'output_binding'];
-  const extra = ['parameters', 'base_binding', 'base_station_id', 'affected_records'];
+  const baseExtra = ['parameters', 'base_binding', 'base_station_id', 'affected_records'];
+  const igrfExtra = ['parameters', 'model', 'affected_records'];
   const states = statesFor(data, { entries: [] }); let previous = ledger.initial_binding; const ids = new Set();
   for (const entry of ledger.entries) {
+    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : baseExtra;
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
     if (typeof correction !== 'string' || !Object.hasOwn(states, correction) || !label(entry.id) || ids.has(entry.id) || !evidence(entry.evidence)) throw Error('ledger events need unique IDs, registered correction and bounded evidence');
@@ -92,11 +104,13 @@ function validate(data, ledger, current, checkSummary = true) {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
       let params;
-      try { params = baseOptions(entry.parameters); }
+      try { params = (correction === 'magnetic_igrf' ? igrfOptions : baseOptions)(entry.parameters); }
       catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
       const count = data.records.filter((row) => row.values[channels[0]] !== null).length;
-      if (correction !== 'magnetic_diurnal' || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied magnetic_diurnal history for one channel');
-      if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence || !digest(entry.base_binding) || !label(entry.base_station_id)) throw Error('application parameters/base binding do not match the ledger event');
+      if (!['magnetic_diurnal', 'magnetic_igrf'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
+      if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence) throw Error('application parameters do not match the ledger event');
+      if (correction === 'magnetic_diurnal' && (!digest(entry.base_binding) || !label(entry.base_station_id))) throw Error('invalid base application binding/station');
+      if (correction === 'magnetic_igrf' && (!keys(entry.model, Object.keys(descriptor.igrf_model.const)) || Object.entries(descriptor.igrf_model.const).some(([key, value]) => entry.model[key] !== value))) throw Error('invalid IGRF model/coefficient/convention identity');
       if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading');
     }
     for (const name of channels) states[correction][name] = entry.state;
@@ -119,7 +133,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => step.operation === 'correct_magnetic_base')) throw Error('processing records magnetic base correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);

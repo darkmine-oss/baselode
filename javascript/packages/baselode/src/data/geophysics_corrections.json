@@ -21,7 +21,7 @@
         "igrf",
         "igrf_removal"
       ],
-      "calculator": null
+      "calculator": "remove_igrf"
     },
     "magnetic_lag": {
       "family": "magnetic",
@@ -400,48 +400,81 @@
               "pattern": "^[0-9a-f]{64}$"
             },
             "parameters": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "channel",
-                "base_channel",
-                "reference",
-                "max_gap",
-                "event_id",
-                "evidence",
-                "clock_policy"
-              ],
-              "properties": {
-                "channel": {
-                  "type": "string"
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "base_channel",
+                    "reference",
+                    "max_gap",
+                    "event_id",
+                    "evidence",
+                    "clock_policy"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string"
+                    },
+                    "base_channel": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "number",
+                      "minimum": -1e+100,
+                      "maximum": 1e+100
+                    },
+                    "max_gap": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "clock_policy": {
+                      "const": "synchronized"
+                    }
+                  }
                 },
-                "base_channel": {
-                  "type": "string"
-                },
-                "reference": {
-                  "type": "number",
-                  "minimum": -1e+100,
-                  "maximum": 1e+100
-                },
-                "max_gap": {
-                  "type": "number",
-                  "exclusiveMinimum": 0,
-                  "maximum": 1e+100
-                },
-                "event_id": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 128
-                },
-                "evidence": {
-                  "type": "string",
-                  "minLength": 1,
-                  "maxLength": 4096
-                },
-                "clock_policy": {
-                  "const": "synchronized"
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "event_id",
+                    "evidence",
+                    "model"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "model": {
+                      "const": "IGRF14"
+                    }
+                  }
                 }
-              }
+              ]
             },
             "base_binding": {
               "type": "string",
@@ -456,6 +489,23 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 100000
+            },
+            "model": {
+              "const": {
+                "model": "IGRF14",
+                "backend": "ppigrf",
+                "backend_version": "2.1.0",
+                "coefficients": "IGRF14.shc",
+                "coefficients_sha256": "717f6dce821a8f2bfcc6a77f79cc227ba91f61aeb458d5433e8c72450d48f8e0",
+                "height_datum": "WGS84_ellipsoid",
+                "height_units": "m",
+                "z_positive": "up",
+                "time_units": "UTC Unix seconds",
+                "component_frame": "geodetic north/east/down",
+                "field_units": "nT",
+                "angle_units": "degrees",
+                "time_interpolation": "decimal-year"
+              }
             }
           },
           "allOf": [
@@ -470,21 +520,131 @@
               "then": {
                 "required": [
                   "parameters",
-                  "base_binding",
-                  "base_station_id",
                   "affected_records"
                 ],
                 "properties": {
                   "state": {
                     "const": "applied"
                   },
-                  "correction": {
-                    "const": "magnetic_diurnal"
-                  },
                   "channels": {
                     "maxItems": 1
                   }
-                }
+                },
+                "oneOf": [
+                  {
+                    "required": [
+                      "base_binding",
+                      "base_station_id"
+                    ],
+                    "properties": {
+                      "correction": {
+                        "const": "magnetic_diurnal"
+                      },
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "channel",
+                          "base_channel",
+                          "reference",
+                          "max_gap",
+                          "event_id",
+                          "evidence",
+                          "clock_policy"
+                        ],
+                        "properties": {
+                          "channel": {
+                            "type": "string"
+                          },
+                          "base_channel": {
+                            "type": "string"
+                          },
+                          "reference": {
+                            "type": "number",
+                            "minimum": -1e+100,
+                            "maximum": 1e+100
+                          },
+                          "max_gap": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1e+100
+                          },
+                          "event_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          },
+                          "clock_policy": {
+                            "const": "synchronized"
+                          }
+                        }
+                      }
+                    },
+                    "not": {
+                      "required": [
+                        "model"
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "model"
+                    ],
+                    "properties": {
+                      "correction": {
+                        "const": "magnetic_igrf"
+                      },
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "channel",
+                          "event_id",
+                          "evidence",
+                          "model"
+                        ],
+                        "properties": {
+                          "channel": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                          },
+                          "event_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          },
+                          "model": {
+                            "const": "IGRF14"
+                          }
+                        }
+                      }
+                    },
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "base_binding"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "base_station_id"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ]
               },
               "else": {
                 "not": {
@@ -507,6 +667,11 @@
                     {
                       "required": [
                         "affected_records"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "model"
                       ]
                     }
                   ]
@@ -546,10 +711,57 @@
     "Every nonnull selected survey reading must have supported time coverage before any output/ledger application is committed. Missing survey readings stay null, with original record order and other fields preserved. Unsupported runs return needs_input and proposals but no corrected observations.",
     "Base station IDs must agree; available base XYZ positions must be stationary. The library cannot establish geographic suitability, disturbance-free recording, clock synchronization or calibration truth; caller evidence/QC is required.",
     "Bindings cover normalized data identities/order, geometry/time/clearance, channel definitions and readings, not arbitrary metadata/extensions. Editing data invalidates the ledger. Finite binary64 values up to +/-1e100 are supported. Python integers must be exactly representable; JS numbers already use binary64.",
-    "Existing field units, correction declarations and source history are preserved; legacy aggregate states remain synchronized with per-channel states. Numeric changes move uncertainty into flat input lineage and mark uncertainty_propagated=false. No calibrated uncertainty is calculated. Raster workflow v1 is unchanged."
+    "Existing field units, correction declarations and source history are preserved; legacy aggregate states remain synchronized with per-channel states. Numeric changes move uncertainty into flat input lineage and mark uncertainty_propagated=false. No calibrated uncertainty is calculated. Raster workflow v1 is unchanged.",
+    "IGRF application events carry the fixed IGRF14 model/coefficient/convention identity and removal parameters. Python executes the optional backend; both runtimes validate/replay the ledger. Retained remove_igrf processing prevents initializing a replacement ledger. See describe_igrf / describeGeophysicsIgrf for execution requirements."
   ],
   "references": [
     "https://archive.epa.gov/esd/archive-geophysics/web/html/magnetic_methods.html",
     "https://nodejs.org/api/webcrypto.html"
-  ]
+  ],
+  "igrf_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "event_id",
+      "evidence",
+      "model"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "model": {
+        "const": "IGRF14"
+      }
+    }
+  },
+  "igrf_model": {
+    "const": {
+      "model": "IGRF14",
+      "backend": "ppigrf",
+      "backend_version": "2.1.0",
+      "coefficients": "IGRF14.shc",
+      "coefficients_sha256": "717f6dce821a8f2bfcc6a77f79cc227ba91f61aeb458d5433e8c72450d48f8e0",
+      "height_datum": "WGS84_ellipsoid",
+      "height_units": "m",
+      "z_positive": "up",
+      "time_units": "UTC Unix seconds",
+      "component_frame": "geodetic north/east/down",
+      "field_units": "nT",
+      "angle_units": "degrees",
+      "time_interpolation": "decimal-year"
+    }
+  }
 }

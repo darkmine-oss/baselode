@@ -133,6 +133,20 @@ def _base_options(options):
     return params
 
 
+def _igrf_options(options):
+    schema = _DESCRIPTOR["igrf_parameters"]
+    if type(options) is not dict or options.keys() - schema["properties"].keys():
+        raise ValueError("IGRF removal requires known option names")
+    params = _json(options)
+    if any(name not in params for name in schema["required"]):
+        raise _NeedsInput("supply channel, event_id, evidence and explicit model=IGRF14")
+    if not isinstance(params["channel"], str) or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", params["channel"]) is None:
+        raise ValueError("channel must be a declared channel name")
+    if not _label(params["event_id"]) or not _evidence(params["evidence"]) or params["model"] != "IGRF14":
+        raise ValueError("IGRF removal requires bounded event_id/evidence and model=IGRF14")
+    return params
+
+
 def _validate(data, ledger, current, check_summary=True):
     fields = {"schema", "version", "algorithm", "initial_binding", "current_binding", "entries"}
     if type(ledger) is not dict or set(ledger) != fields or ledger["schema"] != _SCHEMA or type(ledger["version"]) not in (int, float) or ledger["version"] != 1 or ledger["algorithm"] != _ALGORITHM:
@@ -144,10 +158,12 @@ def _validate(data, ledger, current, check_summary=True):
     if len(ledger["entries"]) > _LIMITS["max_events"]:
         raise _ResourceError("correction ledger exceeds 64 events")
     common = {"id", "kind", "correction", "channels", "state", "evidence", "producer", "input_binding", "output_binding"}
-    extra = {"parameters", "base_binding", "base_station_id", "affected_records"}
+    base_extra = {"parameters", "base_binding", "base_station_id", "affected_records"}
+    igrf_extra = {"parameters", "model", "affected_records"}
     states = _states(data, {"entries": []})
     previous, ids = ledger["initial_binding"], set()
     for entry in ledger["entries"]:
+        extra = igrf_extra if type(entry) is dict and entry.get("correction") == "magnetic_igrf" else base_extra
         if type(entry) is not dict or entry.get("kind") not in ("declaration", "application") or set(entry) != common | (extra if entry["kind"] == "application" else set()):
             raise ValueError("malformed correction ledger event")
         correction = entry["correction"]
@@ -167,14 +183,18 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
             try:
-                params = _base_options(entry["parameters"])
+                params = (_igrf_options if correction == "magnetic_igrf" else _base_options)(entry["parameters"])
             except _NeedsInput as error:
                 raise ValueError("invalid stored application parameters: " + str(error)) from error
             count = sum(row["values"][channels[0]] is not None for row in data["records"])
-            if correction != "magnetic_diurnal" or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
-                raise ValueError("application requires unapplied magnetic_diurnal history for one channel")
-            if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"] or not _digest(entry["base_binding"]) or not _label(entry["base_station_id"]):
-                raise ValueError("application parameters/base binding do not match the ledger event")
+            if correction not in ("magnetic_diurnal", "magnetic_igrf") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
+                raise ValueError("application requires unapplied supported correction history for one channel")
+            if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"] :
+                raise ValueError("application parameters do not match the ledger event")
+            if correction == "magnetic_diurnal" and (not _digest(entry["base_binding"]) or not _label(entry["base_station_id"])):
+                raise ValueError("invalid base application binding/station")
+            if correction == "magnetic_igrf" and entry["model"] != _DESCRIPTOR["igrf_model"]["const"]:
+                raise ValueError("invalid IGRF model/coefficient/convention identity")
             if type(entry["affected_records"]) not in (int, float) or entry["affected_records"] != count or count < 1:
                 raise ValueError("application must account for every nonnull channel reading")
         for name in channels:
@@ -204,8 +224,8 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] == "correct_magnetic_base" for step in data["metadata"].get("processing", [])):
-        raise ValueError("processing records magnetic base correction but its ledger is missing; restore the bound document instead of declaring unapplied")
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf") for step in data["metadata"].get("processing", [])):
+        raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
     for alias, state in data["metadata"].get("corrections", {}).items():

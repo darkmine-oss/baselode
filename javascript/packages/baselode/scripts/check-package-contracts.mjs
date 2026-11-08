@@ -107,4 +107,7 @@ assert(files.has('dist/style.css'));
 assert(files.has('src/tool-ui/style.css'));
 assert(files.has('README.md'));
 
+assert.equal(geophysics.describeGeophysicsIgrf().model.model, 'IGRF14');
+assert.equal(geophysics.describeGeophysicsIgrf().execution.install, "pip install 'baselode[magnetics]'");
+
 console.log('Published Extent, geophysics and Tool UI contracts are present, importable, and typed.');

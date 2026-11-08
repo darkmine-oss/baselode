@@ -1,0 +1,161 @@
+{
+  "source": "https://www.ngdc.noaa.gov/IAGA/vmod/igrf14.f",
+  "source_sha256": "0c4fe0664d837b86c1d1fb4d2a354d6a14a29bbf028b550ab1342e1b828dd2c0",
+  "method": "Official BGS IGRF14SYN, isv=0, itype=1; compiled unmodified subroutine with gfortran -std=legacy; heights km above WGS84 ellipsoid, colatitude=90-lat, longitude east; output double-precision X,Y,Z,F; H,D,I derived analytically. No runtime Fortran dependency. Decimal years converted to UTC with actual calendar-year duration.",
+  "tolerance_nT": 0.05,
+  "tolerance_degrees": 0.001,
+  "cases": [
+    {
+      "point": {
+        "id": "origin-1900",
+        "longitude": 0,
+        "latitude": 0,
+        "height_m": 0,
+        "time": -2208988800.0
+      },
+      "decimal_year": 1900.0,
+      "expected": {
+        "north": 28027.9366445413,
+        "east": -8560.305825174,
+        "down": -5589.797703619,
+        "total": 29834.3745826574,
+        "horizontal": 29306.04149950875,
+        "declination": -16.98374456240642,
+        "inclination": -10.798813993667862
+      }
+    },
+    {
+      "point": {
+        "id": "australia-2025",
+        "longitude": 115.86,
+        "latitude": -31.95,
+        "height_m": 100.0,
+        "time": 1735689600.0
+      },
+      "decimal_year": 2025.0,
+      "expected": {
+        "north": 23893.6905715695,
+        "east": -656.315989053,
+        "down": -53339.3575634616,
+        "total": 58450.2032938313,
+        "horizontal": 23902.70277201714,
+        "declination": -1.5734146602578751,
+        "inclination": -65.86165304239437
+      }
+    },
+    {
+      "point": {
+        "id": "north-2020",
+        "longitude": 5.32,
+        "latitude": 60.39,
+        "height_m": 0,
+        "time": 1577836800.0
+      },
+      "decimal_year": 2020.0,
+      "expected": {
+        "north": 15000.9704612809,
+        "east": 390.8492635124,
+        "down": 48966.741669157,
+        "total": 51214.4868920989,
+        "horizontal": 15006.061372892298,
+        "declination": 1.4924999608000513,
+        "inclination": 72.96209913045121
+      }
+    },
+    {
+      "point": {
+        "id": "south-2030",
+        "longitude": -120,
+        "latitude": -65,
+        "height_m": 1000,
+        "time": 1893456000.0
+      },
+      "decimal_year": 2030.0,
+      "expected": {
+        "north": 13956.9176410274,
+        "east": 13624.3155547013,
+        "down": -46106.5021771719,
+        "total": 50062.2319457099,
+        "horizontal": 19504.29502372484,
+        "declination": 44.30910369341182,
+        "inclination": -67.07032601380641
+      }
+    },
+    {
+      "point": {
+        "id": "historic-1997",
+        "longitude": -100,
+        "latitude": 45,
+        "height_m": 400.0,
+        "time": 867844800.0
+      },
+      "decimal_year": 1997.5,
+      "expected": {
+        "north": 17526.4305114353,
+        "east": 2468.2321303904,
+        "down": 54488.9900000254,
+        "total": 57291.5174135275,
+        "horizontal": 17699.376721276425,
+        "declination": 8.016198061351465,
+        "inclination": 72.00491671695087
+      }
+    },
+    {
+      "point": {
+        "id": "predictive-2027",
+        "longitude": 80,
+        "latitude": 15,
+        "height_m": 2000,
+        "time": 1814529600.0
+      },
+      "decimal_year": 2027.5,
+      "expected": {
+        "north": 40254.9140268548,
+        "east": -553.9719513784,
+        "down": 14070.7234154357,
+        "total": 42646.8081533199,
+        "horizontal": 40258.72561609949,
+        "declination": -0.7884317257722714,
+        "inclination": 19.26489971013797
+      }
+    },
+    {
+      "point": {
+        "id": "high-2024",
+        "longitude": 179,
+        "latitude": 0,
+        "height_m": 100000,
+        "time": 1704067200.0
+      },
+      "decimal_year": 2024.0,
+      "expected": {
+        "north": 31916.2585193073,
+        "east": 5531.1325600013,
+        "down": -3324.9300777082,
+        "total": 32562.1888897109,
+        "horizontal": 32391.989523145414,
+        "declination": 9.831788157473653,
+        "inclination": -5.860695447469737
+      }
+    },
+    {
+      "point": {
+        "id": "south-near-pole",
+        "longitude": 15,
+        "latitude": -89,
+        "height_m": 0,
+        "time": 1735689600.0
+      },
+      "decimal_year": 2025.0,
+      "expected": {
+        "north": 12109.3619131494,
+        "east": -12125.6153163843,
+        "down": -50896.025231204,
+        "total": 53703.5620520643,
+        "horizontal": 17136.720594809463,
+        "declination": -45.03842591885454,
+        "inclination": -71.39159143951845
+      }
+    }
+  ]
+}

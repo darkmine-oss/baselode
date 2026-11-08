@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**IGRF14 reference fields and guarded scalar removal (TRK-540)**
+
+- Optional Python `baselode[magnetics]` calculates dated WGS84 reference vectors and scalar intensity using verified local IGRF14 coefficients. Explicit UTC/ellipsoidal-height conventions, decimal-year interpolation, model provenance and bounded execution accompany independent official-model regression tests.
+- Guarded total-field removal preserves missing readings, records a bound application event and relabels the result magnetic_anomaly. Shared JavaScript schemas/types and ledger replay support Python execution; no JavaScript numerical backend or uncertainty propagation is implied.
+
 **Correction ledger and guarded magnetic base correction (TRK-539)**
 
 - Matching Python/JavaScript correction history APIs record evidence-backed per-channel states, legacy aliases and immutable application events with shared SHA-256 data bindings. Unknown/applied history, stale data, conflicting summaries and repeat IDs prevent accidental reapplication.
