@@ -27,7 +27,7 @@ def survey():
     points = [c['point'] for c in REFERENCE['cases'][1:4]]
     return {'crs': 'EPSG:4326', 'crs_units': 'degrees', 'channels': {'mag': {'field_type': 'magnetic_total_field', 'units': 'nT'}, 'other': {'field_type': 'magnetic_total_field', 'units': 'nT'}},
             'records': [{'id': p['id'], 'x': p['longitude'], 'y': p['latitude'], 'z': p['height_m'], 'time': p['time'], 'values': {'mag': REFERENCE['cases'][i + 1]['expected']['total'] + 100, 'other': 42}, 'extra': {'keep': True}} for i, p in enumerate(points)] + [{'id': 'missing', 'values': {'mag': None, 'other': 50}}],
-            'metadata': {'height_units': 'm', 'height_datum': 'WGS84_ellipsoid', 'z_positive': 'up', 'corrections': {'igrf': 'unapplied'}, 'source': 'survey.xyz', 'uncertainty': {'mag': 1}}}
+            'metadata': {'height_units': 'm', 'height_datum': 'WGS84_ellipsoid', 'z_positive': 'up', 'corrections': {'igrf': 'unapplied'}, 'source': 'survey.xyz', 'uncertainty': {'mag': 1}, 'variance': {'mag': 1}, 'standard_deviation': {'mag': 1}}}
 
 
 def corrected():
@@ -124,7 +124,9 @@ def test_removal_uses_scalar_F_relabels_preserves_other_data_and_source_uncertai
     assert result['states']['magnetic_igrf'] == {'mag': 'applied', 'other': 'unapplied'}
     assert 'uncertainty' not in out['metadata'] and out['metadata']['uncertainty_propagated'] is False
     step = out['metadata']['processing'][-1]
-    assert out['metadata']['input_lineage'][step['operand_lineage']]['metadata']['uncertainty'] == {'mag': 1}
+    for key in ['uncertainty', 'variance', 'standard_deviation']:
+        assert key not in out['metadata']
+        assert out['metadata']['input_lineage'][step['operand_lineage']]['metadata'][key] == {'mag': 1}
     assert result['ledger']['entries'][-1]['model'] == baselode.geophysics.describe_igrf()['model']
     jsonschema.validate(result['ledger'], baselode.geophysics.describe_corrections()['ledger_schema'])
     assert baselode.geophysics.inspect_corrections(out)['state'] == 'ok'

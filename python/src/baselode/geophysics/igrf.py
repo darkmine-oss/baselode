@@ -245,7 +245,7 @@ def remove_igrf(payload, options):
         ledger["entries"].append({"id": params["event_id"], "kind": "application", "correction": "magnetic_igrf", "channels": [channel], "state": "applied", "evidence": params["evidence"], "producer": corrections._producer(), "input_binding": before, "output_binding": after, "parameters": params, "model": model, "affected_records": len(readings)})
         ledger["current_binding"] = after
         metadata["input_lineage"] = source_nodes
-        for name in ("uncertainty", "variance", "stddev"):
+        for name in ("uncertainty", "variance", "standard_deviation"):
             metadata.pop(name, None)
         metadata["uncertainty_propagated"] = False
         metadata["processing"] = [*metadata.get("processing", []), {"operation": "remove_igrf", "version": 1, "parameters": params, "model": model, "input_binding": before, "output_binding": after, "operand_lineage": source_operand}]
