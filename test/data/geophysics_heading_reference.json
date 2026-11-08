@@ -1,0 +1,262 @@
+{
+  "method": "Independent synthetic table: observed-minus-reference biases at N/E/S/W are 10,-6,2,-2 nT. Linear midpoints are 2,-2,0,4 nT; north=360 repeats 0. Observed=100+bias, so subtracting bias must give exactly 100. No third-party calibration values copied.",
+  "survey": {
+    "crs": "EPSG:28350",
+    "crs_units": "m",
+    "channels": {
+      "mag": {
+        "field_type": "magnetic_total_field",
+        "units": "nT"
+      },
+      "other": {
+        "field_type": "magnetic_total_field",
+        "units": "nT"
+      }
+    },
+    "records": [
+      {
+        "id": "Å😀",
+        "line_id": "L1",
+        "time": 0,
+        "x": 0,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 110,
+          "other": 200
+        },
+        "extra": {
+          "sensor_heading": 0,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h1",
+        "line_id": "L1",
+        "time": 1,
+        "x": 10,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 102,
+          "other": 201
+        },
+        "extra": {
+          "sensor_heading": 45,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h2",
+        "line_id": "L1",
+        "time": 2,
+        "x": 20,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 94,
+          "other": 202
+        },
+        "extra": {
+          "sensor_heading": 90,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h3",
+        "line_id": "L1",
+        "time": 3,
+        "x": 30,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 98,
+          "other": 203
+        },
+        "extra": {
+          "sensor_heading": 135,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h4",
+        "line_id": "L1",
+        "time": 4,
+        "x": 40,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 102,
+          "other": 204
+        },
+        "extra": {
+          "sensor_heading": 180,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h5",
+        "line_id": "L1",
+        "time": 5,
+        "x": 50,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 100,
+          "other": 205
+        },
+        "extra": {
+          "sensor_heading": 225,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h6",
+        "line_id": "L1",
+        "time": 6,
+        "x": 60,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 98,
+          "other": 206
+        },
+        "extra": {
+          "sensor_heading": 270,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h7",
+        "line_id": "L1",
+        "time": 7,
+        "x": 70,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 104,
+          "other": 207
+        },
+        "extra": {
+          "sensor_heading": 315,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "h8",
+        "line_id": "L1",
+        "time": 8,
+        "x": 80,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": 110,
+          "other": 208
+        },
+        "extra": {
+          "sensor_heading": 360,
+          "note": "preserve"
+        }
+      },
+      {
+        "id": "missing",
+        "line_id": "L1",
+        "time": 9,
+        "x": 90,
+        "y": 0,
+        "z": 100,
+        "values": {
+          "mag": null,
+          "other": null
+        },
+        "extra": {
+          "note": "preserve missing"
+        }
+      }
+    ],
+    "metadata": {
+      "source": "heading-test.xyz",
+      "heading": {
+        "key": "sensor_heading",
+        "units": "degrees",
+        "reference": "true_north",
+        "positive": "clockwise"
+      },
+      "corrections": {
+        "heading": "unapplied"
+      },
+      "uncertainty": {
+        "mag": 2
+      },
+      "variance": {
+        "mag": 4
+      },
+      "standard_deviation": {
+        "mag": 2
+      }
+    }
+  },
+  "options": {
+    "channel": "mag",
+    "heading_key": "sensor_heading",
+    "heading_reference": "true_north",
+    "calibration_id": "synthetic-cardinal-bias",
+    "calibration": [
+      {
+        "heading_degrees": 270,
+        "bias_nT": -2
+      },
+      {
+        "heading_degrees": 0,
+        "bias_nT": 10
+      },
+      {
+        "heading_degrees": 180,
+        "bias_nT": 2
+      },
+      {
+        "heading_degrees": 90,
+        "bias_nT": -6
+      }
+    ],
+    "max_heading_gap": 90,
+    "bias_convention": "observed_minus_reference",
+    "event_id": "heading-1",
+    "evidence": "Independent synthetic calibration, clockwise true-north degrees"
+  },
+  "expected_bias": [
+    10,
+    2,
+    -6,
+    -2,
+    2,
+    0,
+    -2,
+    4,
+    10
+  ],
+  "expected_values": [
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    100,
+    null
+  ],
+  "expected_other_values": [
+    190,
+    199,
+    208,
+    205,
+    202,
+    205,
+    208,
+    203,
+    198,
+    null
+  ]
+}

@@ -1570,3 +1570,34 @@ ledger binding (Node 20+ or secure browser context). Work is bounded to 4096
 records and +/-3600 seconds. Ledger validators reconstruct pre-event nonnull
 counts across later masks, preserving earlier base/IGRF history. See the Python
 API for calibration, processing-order and uncertainty assumptions.
+
+### Calibrated magnetic heading bias
+
+`correctGeophysicsMagneticHeading(observations, options)` is a native asynchronous
+API in `baselode` and `baselode/geophysics`, matching Python's scalar heading
+correction. Types include `GeophysicsHeadingCalibrationNode`,
+`GeophysicsMagneticHeadingOptions`, `GeophysicsMagneticHeadingProposal` and
+`GeophysicsMagneticHeadingReport`. `describeGeophysicsCorrections()` publishes
+`heading_parameters`, `heading_context` and the supplementary binding protocol.
+
+The supplied calibration is observed-minus-reference bias in nT:
+**corrected=observed-bias(heading)**. Circular linear interpolation includes the
+north seam and enforces `max_heading_gap`; exact nodes remain usable. Options
+name the channel, extra heading key, reference frame, calibration ID/table,
+gap limit, sign convention, event ID and evidence. Metadata declares
+`heading={key,units:'degrees',reference,positive:'clockwise'}` matching options.
+References are explicitly true, magnetic or grid north. Recorded headings are
+[0,360], where 360 evaluates as 0; calibration nodes are unique in [0,360).
+
+Every nonnull selected reading must be supported before committing output.
+Missing magnetic readings stay null; all supplied nonnull headings must be
+valid. Unsupported/missing headings return proposals and `needs_input`, with
+no output/event. There is no inferred heading, automatic calibration fit,
+frame conversion, heading masking, 3D compensation or uncertainty propagation.
+Input, other channels, geometry/time, field types and acquisition order remain.
+
+Native Web Crypto binds source headings/context and semantic calibration/options
+in addition to observation values/geometry. All public correction methods remain
+asynchronous; ledger inspection also awaits heading-binding verification.
+This detects edited heading/model metadata through subsequent lag masks.
+Execution is bounded to 4096 records/72 nodes; see Python API for full semantics.

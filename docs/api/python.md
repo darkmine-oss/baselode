@@ -2108,3 +2108,67 @@ event position by accounting backwards for later masks. Mask originals and
 ledger/source metadata persist through gridding and ERS/GeoTIFF exports.
 Supported uncertainty fields move into standard flat source lineage, with
 `uncertainty_propagated=false`; no calibrated uncertainty is calculated.
+
+### Calibrated magnetic heading bias
+
+`correct_magnetic_heading(observations, options)` subtracts a supplied scalar
+heading bias from one magnetic channel. Shared options, context schema and
+binding protocol are available in `describe_corrections()`.
+
+Headings come from `record.extra[heading_key]`, with this explicit metadata:
+
+```python
+# Required declaration for the selected recorded heading field:
+# metadata.heading = {"key": "sensor_heading", "units": "degrees",
+#                     "reference": "true_north", "positive": "clockwise"}
+heading_result = baselode.geophysics.correct_magnetic_heading(observations, {
+    "channel": "mag", "heading_key": "sensor_heading",
+    "heading_reference": "true_north", "calibration_id": "calibration-2026-01",
+    "calibration": [{"heading_degrees": 0, "bias_nT": 2},
+                    {"heading_degrees": 180, "bias_nT": -2}],
+    "max_heading_gap": 180, "bias_convention": "observed_minus_reference",
+    "event_id": "heading-1", "evidence": "Instrument calibration checked",
+})
+```
+
+**corrected = observed - bias(heading)**. Positive bias means the instrument
+reads too high. An external additive correction table therefore needs an
+explicit sign conversion before use. The caller supplies a calibration valid
+for the instrument/configuration and conditions; this API does not fit a model.
+
+Calibration accepts 2–72 unique `heading_degrees` in `[0,360)`, paired with
+finite nT biases. The copied table is sorted without changing input. Recorded
+headings must be in `[0,360]`; 360 evaluates as north (0). Interpolation is
+piecewise linear around the circle, including the north seam. Exact calibrated
+headings remain supported; other headings need a bracketing arc no wider than
+`max_heading_gap` in `(0,180]` degrees. Missing headings or unsupported arcs
+return `needs_input` and proposals with no committed observations or event.
+There is no heading masking or extrapolation in this API.
+
+`metadata.heading` contains exactly `key`, `units`, `reference` and `positive`,
+matching the selected key/reference, `degrees` and `clockwise`. Reference can
+be `true_north`, `magnetic_north` or `grid_north`, and must match the supplied
+calibration. No yaw, north-reference or coordinate conversion is inferred.
+Every supplied nonnull heading must be valid, even on missing magnetic rows;
+missing headings on already-null magnetic readings are permitted. Missing
+magnetic readings remain null. No heading is derived from the flight track.
+
+Selected data must be magnetic total field/anomaly in nT, with known unapplied
+`magnetic_heading` history. A unique event ID and calibration evidence are
+required. The result retains records/order, geometry/time, field type, extras
+and other channels. Proposals report original/corrected values, bias, normalized
+heading, calibration bracket, angular gap, weight and support reason.
+
+A supplementary `heading_binding` SHA-256 covers the semantic model/options,
+declared heading context and all record IDs/raw headings. Generic observation
+bindings intentionally exclude metadata/extra fields; this additional binding
+detects later heading, calibration or frame edits, including after lag masking.
+Absent and null headings bind identically; raw 0/360 headings bind distinctly.
+History remains a provenance guard, without authentication against rewriting.
+Source uncertainty moves into standard remappable flat lineage; uncertainty is
+not propagated. Work is bounded to 4096 records plus existing correction limits.
+
+This supplied scalar table is distinct from full aircraft magnetic compensation:
+it does not model attitude, manoeuvres, altitude or eddy currents, nor reorder
+previous corrections. See [heading-table processing](https://help.seequent.com/UXO/2026.1/Content/usace_rtf/uceheading_gx.htm)
+and the [USGS compensation workflow](https://www.usgs.gov/software/uasmagpy-python-code-compensating-rotary-wing-sling-load-uas-aeromagnetic-data).

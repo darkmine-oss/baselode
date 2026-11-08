@@ -90,6 +90,12 @@ assert.deepEqual(lagged.observations.records.map((row) => row.values.mag), [101,
 assert.deepEqual(lagged.ledger.entries.at(-1).masked_records, [{ id: 'b', value: 102 }]);
 assert.equal((await geophysics.inspectGeophysicsCorrections(lagged.observations)).state, 'ok');
 
+const headingSurvey = { records: [{ id: 'a', values: { mag: 102 }, extra: { sensor_heading: 0 } }, { id: 'b', values: { mag: 98 }, extra: { sensor_heading: 180 } }], channels: { mag: { field_type: 'magnetic_total_field', units: 'nT' } }, metadata: { corrections: { heading: 'unapplied' }, heading: { key: 'sensor_heading', units: 'degrees', reference: 'true_north', positive: 'clockwise' } } };
+const headingCorrected = await geophysics.correctGeophysicsMagneticHeading(headingSurvey, { channel: 'mag', heading_key: 'sensor_heading', heading_reference: 'true_north', calibration_id: 'synthetic', calibration: [{ heading_degrees: 0, bias_nT: 2 }, { heading_degrees: 180, bias_nT: -2 }], max_heading_gap: 180, bias_convention: 'observed_minus_reference', event_id: 'heading-1', evidence: 'synthetic' });
+assert.equal(headingCorrected.state, 'ok');
+assert.deepEqual(headingCorrected.observations.records.map((row) => row.values.mag), [100, 100]);
+assert.equal((await geophysics.inspectGeophysicsCorrections(headingCorrected.observations)).state, 'ok');
+
 const npmCache = mkdtempSync(join(tmpdir(), 'baselode-pack-'));
 let pack;
 try {

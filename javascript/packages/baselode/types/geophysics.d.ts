@@ -438,6 +438,7 @@ export type GeophysicsCorrectionEvent = GeophysicsCorrectionDeclaration & {
   output_binding: string;
 } & (
   | { kind: 'declaration' }
+  | { kind: 'application'; correction: 'magnetic_heading'; state: 'applied'; parameters: GeophysicsMagneticHeadingOptions; heading_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_lag'; state: 'applied'; parameters: GeophysicsMagneticLagOptions; masked_records: Array<{ id: string; value: number }>; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_igrf'; state: 'applied'; parameters: GeophysicsIgrfRemovalOptions; model: GeophysicsIgrfModel; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_diurnal'; state: 'applied'; parameters: GeophysicsMagneticBaseOptions; base_binding: string; base_station_id: string; affected_records: number }
@@ -509,3 +510,20 @@ export type GeophysicsMagneticLagReport = Omit<GeophysicsCorrectionReport, 'oper
 };
 /** Native async Web Crypto ledger binding. No navigation geometry or timestamps are shifted. */
 export function correctGeophysicsMagneticLag(payload: unknown, options: GeophysicsMagneticLagOptions): Promise<GeophysicsMagneticLagReport>;
+
+export interface GeophysicsHeadingCalibrationNode { heading_degrees: number; bias_nT: number; }
+export interface GeophysicsMagneticHeadingOptions {
+  channel: string; heading_key: string; heading_reference: 'true_north' | 'magnetic_north' | 'grid_north';
+  calibration_id: string; calibration: GeophysicsHeadingCalibrationNode[]; max_heading_gap: number;
+  bias_convention: 'observed_minus_reference'; event_id: string; evidence: string;
+}
+export interface GeophysicsMagneticHeadingProposal {
+  id: string; heading_degrees: number | null; original: number; bias_nT: number | null; corrected: number | null;
+  calibration_headings: number[]; angular_gap: number | null; weight: number | null; supported: boolean;
+  reason: 'missing_heading' | 'excessive_heading_gap' | null;
+}
+export type GeophysicsMagneticHeadingReport = Omit<GeophysicsCorrectionReport, 'operation' | 'proposals'> & {
+  operation: 'magnetic_heading'; proposals: GeophysicsMagneticHeadingProposal[];
+};
+/** Apply supplied scalar heading bias; native async Web Crypto validates heading/calibration and data bindings. */
+export function correctGeophysicsMagneticHeading(payload: unknown, options: GeophysicsMagneticHeadingOptions): Promise<GeophysicsMagneticHeadingReport>;

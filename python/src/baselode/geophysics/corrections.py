@@ -165,6 +165,57 @@ def _lag_options(options):
     return params
 
 
+def _heading_options(options):
+    schema = _DESCRIPTOR["heading_parameters"]
+    if type(options) is not dict or options.keys() - schema["properties"].keys():
+        raise ValueError("heading correction requires known option names")
+    params = _json(options)
+    if any(name not in params for name in schema["required"]):
+        raise _NeedsInput("supply all heading/calibration, gap, sign, event and evidence options")
+    if not all(isinstance(params[name], str) and re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", params[name]) for name in ("channel", "heading_key")):
+        raise ValueError("channel and heading_key must be named fields")
+    if params["heading_reference"] not in ("true_north", "magnetic_north", "grid_north") or params["bias_convention"] != "observed_minus_reference":
+        raise ValueError("declare a supported heading reference and observed_minus_reference bias convention")
+    if not _label(params["calibration_id"]) or not _label(params["event_id"]) or not _evidence(params["evidence"]):
+        raise ValueError("calibration_id/event_id/evidence require nonempty bounded strings")
+    if not _number(params["max_heading_gap"]) or not 0 < params["max_heading_gap"] <= 180:
+        raise ValueError("max_heading_gap must be finite degrees in (0,180]")
+    nodes = params["calibration"]
+    if type(nodes) is not list or len(nodes) < 2:
+        raise ValueError("calibration requires at least two heading/bias nodes")
+    if len(nodes) > _LIMITS["max_heading_nodes"]:
+        raise _ResourceError("heading calibration accepts at most 72 nodes")
+    for node in nodes:
+        if type(node) is not dict or set(node) != {"heading_degrees", "bias_nT"} or not _number(node["heading_degrees"]) or not 0 <= node["heading_degrees"] < 360 or not _number(node["bias_nT"]):
+            raise ValueError("calibration nodes require finite unique headings in [0,360) and bias_nT")
+    nodes.sort(key=lambda node: node["heading_degrees"])
+    if any(left["heading_degrees"] == right["heading_degrees"] for left, right in zip(nodes, nodes[1:])):
+        raise ValueError("calibration headings must be unique")
+    return params
+
+
+def _heading_binding(data, params):
+    if len(data["records"]) > _LIMITS["max_heading_records"]:
+        raise _ResourceError("heading correction accepts at most 4096 records")
+    context = data["metadata"].get("heading")
+    if type(context) is not dict or set(context) != {"key", "units", "reference", "positive"} or context != {"key": params["heading_key"], "units": "degrees", "reference": params["heading_reference"], "positive": "clockwise"}:
+        raise _NeedsInput("declare metadata.heading key/units=degrees/reference/positive=clockwise matching heading options")
+    def hex_number(value):
+        return struct.pack(">d", 0.0 if value == 0 else float(value)).hex()
+    rows = []
+    for row in data["records"]:
+        heading = row["extra"].get(params["heading_key"])
+        if heading is not None and (not _number(heading) or not 0 <= heading <= 360):
+            raise ValueError("every supplied heading must be a finite clockwise angle in [0,360] degrees")
+        rows.append([row["id"], None if heading is None else hex_number(heading)])
+    snapshot = ["baselode.heading_binding.v1", params["channel"], params["heading_key"], params["heading_reference"], params["calibration_id"], params["bias_convention"], hex_number(params["max_heading_gap"]),
+                [[hex_number(n["heading_degrees"]), hex_number(n["bias_nT"])] for n in params["calibration"]], [context[n] for n in ("key", "units", "reference", "positive")], rows]
+    encoded = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > _LIMITS["max_binding_bytes"]:
+        raise _ResourceError("heading input binding exceeds 32 MiB")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _application_counts(data, entries):
     # Reconstruct counts at each application, rather than compare historical
     # events to today's nonnull count after a later explicit lag mask.
@@ -212,7 +263,9 @@ def _validate(data, ledger, current, check_summary=True):
     states = _states(data, {"entries": []})
     previous, ids = ledger["initial_binding"], set()
     for index, entry in enumerate(ledger["entries"]):
-        extra = igrf_extra if type(entry) is dict and entry.get("correction") == "magnetic_igrf" else ({"parameters", "masked_records", "affected_records"} if type(entry) is dict and entry.get("correction") == "magnetic_lag" else base_extra)
+        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}}
+        name = entry.get("correction") if type(entry) is dict else None
+        extra = extras.get(name, base_extra) if isinstance(name, str) else base_extra
         if type(entry) is not dict or entry.get("kind") not in ("declaration", "application") or set(entry) != common | (extra if entry["kind"] == "application" else set()):
             raise ValueError("malformed correction ledger event")
         correction = entry["correction"]
@@ -232,11 +285,11 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
             try:
-                params = (_igrf_options if correction == "magnetic_igrf" else (_lag_options if correction == "magnetic_lag" else _base_options))(entry["parameters"])
+                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options}.get(correction, _base_options)(entry["parameters"])
             except _NeedsInput as error:
                 raise ValueError("invalid stored application parameters: " + str(error)) from error
             count = counts.get(index)
-            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
+            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied supported correction history for one channel")
             if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"]:
                 raise ValueError("application parameters do not match the ledger event")
@@ -246,6 +299,13 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("invalid IGRF model/coefficient/convention identity")
             if correction == "magnetic_lag" and ((params["unsupported_policy"] == "reject" and entry["masked_records"]) or count <= len(entry["masked_records"])):
                 raise ValueError("lag masks require explicit mask policy and at least one supported reading")
+            if correction == "magnetic_heading":
+                try:
+                    heading_binding = _heading_binding(data, params)
+                except _NeedsInput as error:
+                    raise ValueError("invalid stored heading context: " + str(error)) from error
+                if not _digest(entry["heading_binding"]) or entry["heading_binding"] != heading_binding:
+                    raise ValueError("stale heading binding: heading inputs, context or calibration changed")
             if type(entry["affected_records"]) not in (int, float) or entry["affected_records"] != count or count < 1:
                 raise ValueError("application must account for every nonnull channel reading immediately before that event")
         for name in channels:
@@ -275,7 +335,7 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag") for step in data["metadata"].get("processing", [])):
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading") for step in data["metadata"].get("processing", [])):
         raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
@@ -611,6 +671,114 @@ def correct_magnetic_lag(payload, options):
             metadata.pop(key, None)
         metadata["uncertainty_propagated"] = False
         metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "correct_magnetic_lag", "version": 1, "parameters": params, "input_binding": before, "output_binding": after, "operand_lineage": source_operand}]
+        output = _save(data, ledger)
+        _validate(output, ledger, after)
+        report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))
+        return report
+    except (ValueError, TypeError, RecursionError) as error:
+        return _error(report, error)
+
+
+def correct_magnetic_heading(payload, options):
+    """Subtract a calibrated scalar heading bias with atomic circular support.
+
+    Parameters
+    ----------
+    payload : dict
+        V1 observations, never modified. One nT total-field/anomaly channel;
+        headings in record.extra[heading_key], degrees clockwise from the
+        declared north reference. metadata.heading declares key, units,
+        reference and positive. Missing magnetic readings remain null.
+    options : dict
+        channel, heading_key, heading_reference, calibration_id, calibration
+        [{heading_degrees,bias_nT}], max_heading_gap in (0,180] degrees,
+        bias_convention='observed_minus_reference', event_id and evidence.
+        Calibration nodes are copied, checked and sorted; 360 is not a node,
+        but recorded 360-degree headings evaluate as north (0).
+
+    Returns
+    -------
+    dict
+        Correction report with original/proposed values, bias, circular bracket,
+        weights and support. Every nonnull selected reading must be supported
+        before observations/ledger are committed. Exact nodes are supported;
+        interpolated brackets must meet the gap limit, including through north.
+        Model/headings/context are bound alongside standard observation data;
+        editing them invalidates history, including after later lag masks.
+        Geometry/time, field types, other channels, order and extras remain.
+        No fitted calibration, frame conversion or uncertainty propagation.
+    """
+    report = _report("magnetic_heading")
+    try:
+        params = _heading_options(options)
+        report["parameters"] = params
+        data = baselode.geophysics.observations.create_observations(payload)
+        if len(data["records"]) > _LIMITS["max_heading_records"]:
+            raise _ResourceError("heading correction accepts at most 4096 records")
+        channel = params["channel"]
+        if channel not in data["channels"] or data["channels"][channel]["field_type"] not in ("magnetic_total_field", "magnetic_anomaly") or baselode.geophysics.observations._trim(data["channels"][channel]["units"]) != "nT":
+            raise ValueError("heading correction requires a magnetic total-field/anomaly channel in nT")
+        ledger = _load(data)
+        if any(entry["id"] == params["event_id"] for entry in ledger["entries"]):
+            raise ValueError("event_id already exists in the correction ledger")
+        state = _states(data, ledger)["magnetic_heading"][channel]
+        if state == "unknown":
+            raise _NeedsInput("declare evidence-backed unapplied magnetic_heading history before correction")
+        if state != "unapplied":
+            raise ValueError("magnetic_heading is already applied; repeated correction is rejected")
+        heading_binding = _heading_binding(data, params)
+        nodes = params["calibration"]
+        angles = [node["heading_degrees"] for node in nodes]
+        readings = [row for row in data["records"] if row["values"][channel] is not None]
+        if not readings:
+            raise _NeedsInput("selected channel needs at least one nonnull reading")
+        for row in readings:
+            heading = row["extra"].get(params["heading_key"])
+            h = 0.0 if heading == 360 else heading
+            bias, reason, bracket, gap, weight = None, None, [], None, None
+            if h is None:
+                reason = "missing_heading"
+            else:
+                index = bisect.bisect_left(angles, h)
+                if index < len(angles) and angles[index] == h:
+                    bias, bracket, gap, weight = nodes[index]["bias_nT"], [h], 0.0, 0.0
+                else:
+                    left, right = nodes[index - 1], nodes[index % len(nodes)]
+                    start = left["heading_degrees"]
+                    end = right["heading_degrees"] + (360 if index in (0, len(nodes)) else 0)
+                    query = h + (360 if index == 0 else 0)
+                    gap = end - start
+                    bracket = [left["heading_degrees"], right["heading_degrees"]]
+                    if gap > params["max_heading_gap"]:
+                        reason = "excessive_heading_gap"
+                    else:
+                        weight = (query - start) / gap
+                        bias = float(left["bias_nT"]) + (float(right["bias_nT"]) - float(left["bias_nT"])) * weight
+            original = row["values"][channel]
+            value = float(original) - float(bias) if bias is not None else None
+            if bias is not None and (not _number(bias) or not _number(value)):
+                raise ValueError("heading bias/corrected value exceeds portable numeric range")
+            report["proposals"].append({"id": row["id"], "heading_degrees": h, "original": original, "bias_nT": bias, "corrected": value,
+                                        "calibration_headings": bracket, "angular_gap": gap, "weight": weight, "supported": reason is None, "reason": reason})
+        supported = sum(p["supported"] for p in report["proposals"])
+        report["diagnostics"] = {"selected_readings": len(readings), "supported_readings": supported, "missing_readings": len(data["records"]) - len(readings),
+                                  "calibration_nodes": len(nodes), "heading_binding": heading_binding, "uncertainty_propagated": False}
+        if supported != len(readings):
+            raise _NeedsInput("heading support is incomplete; no corrected observations or application event committed")
+        before = ledger["current_binding"]
+        for row, proposal in zip(readings, report["proposals"]):
+            row["values"][channel] = proposal["corrected"]
+        after = _binding(data)
+        ledger["entries"].append({"id": params["event_id"], "kind": "application", "correction": "magnetic_heading", "channels": [channel], "state": "applied", "evidence": params["evidence"],
+                                  "producer": _producer(), "input_binding": before, "output_binding": after, "parameters": params, "heading_binding": heading_binding, "affected_records": len(readings)})
+        ledger["current_binding"] = after
+        metadata = data["metadata"]
+        nodes, source_operand = baselode.geophysics.provenance.append_input(metadata, metadata)
+        metadata["input_lineage"] = nodes
+        for key in ("uncertainty", "variance", "standard_deviation"):
+            metadata.pop(key, None)
+        metadata["uncertainty_propagated"] = False
+        metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "correct_magnetic_heading", "version": 1, "parameters": params, "heading_binding": heading_binding, "input_binding": before, "output_binding": after, "operand_lineage": source_operand}]
         output = _save(data, ledger)
         _validate(output, ledger, after)
         report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))

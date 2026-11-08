@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+**Calibrated magnetic heading bias (TRK-542)**
+
+- Native Python/JavaScript heading-bias subtraction uses a supplied circular calibration table, explicit north-reference/angle/sign conventions and bounded angular support. Exact nodes and north-seam interpolation are supported; incomplete heading coverage commits no observations or event.
+- Supplementary SHA-256 binds the model and heading metadata/extra inputs alongside existing observation bindings, including through later lag masks. Source uncertainty remains in remappable lineage. No inferred heading, calibration fit, frame conversion or full aircraft compensation is claimed.
+
 **Magnetic survey lag correction (TRK-541)**
 
 - Matching native Python/JavaScript APIs apply a calibrated scalar time lag with an explicit sign convention, per-segment linear interpolation, gap checks and reject/mask coverage. Geometry/time, records/order, missing targets and other channels are retained; unsupported originals are archived when masking is selected.

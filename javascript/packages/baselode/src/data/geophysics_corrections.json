@@ -38,7 +38,7 @@
         "magnetic_heading",
         "heading"
       ],
-      "calculator": null
+      "calculator": "correct_magnetic_heading"
     },
     "magnetic_levelling": {
       "family": "magnetic",
@@ -521,6 +521,86 @@
                       "const": "synchronized"
                     }
                   }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "heading_key",
+                    "heading_reference",
+                    "calibration_id",
+                    "calibration",
+                    "max_heading_gap",
+                    "bias_convention",
+                    "event_id",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "heading_key": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "heading_reference": {
+                      "enum": [
+                        "true_north",
+                        "magnetic_north",
+                        "grid_north"
+                      ]
+                    },
+                    "calibration_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "calibration": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 72,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "heading_degrees",
+                          "bias_nT"
+                        ],
+                        "properties": {
+                          "heading_degrees": {
+                            "type": "number",
+                            "minimum": 0,
+                            "exclusiveMaximum": 360
+                          },
+                          "bias_nT": {
+                            "type": "number",
+                            "minimum": -1e+100,
+                            "maximum": 1e+100
+                          }
+                        }
+                      }
+                    },
+                    "max_heading_gap": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 180
+                    },
+                    "bias_convention": {
+                      "const": "observed_minus_reference"
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  }
                 }
               ]
             },
@@ -578,6 +658,10 @@
                   }
                 }
               }
+            },
+            "heading_binding": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
             }
           },
           "allOf": [
@@ -668,6 +752,11 @@
                           "required": [
                             "masked_records"
                           ]
+                        },
+                        {
+                          "required": [
+                            "heading_binding"
+                          ]
                         }
                       ]
                     }
@@ -725,6 +814,11 @@
                         {
                           "required": [
                             "masked_records"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "heading_binding"
                           ]
                         }
                       ]
@@ -803,6 +897,125 @@
                           "required": [
                             "base_station_id"
                           ]
+                        },
+                        {
+                          "required": [
+                            "heading_binding"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "required": [
+                      "heading_binding"
+                    ],
+                    "properties": {
+                      "correction": {
+                        "const": "magnetic_heading"
+                      },
+                      "parameters": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "channel",
+                          "heading_key",
+                          "heading_reference",
+                          "calibration_id",
+                          "calibration",
+                          "max_heading_gap",
+                          "bias_convention",
+                          "event_id",
+                          "evidence"
+                        ],
+                        "properties": {
+                          "channel": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                          },
+                          "heading_key": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                          },
+                          "heading_reference": {
+                            "enum": [
+                              "true_north",
+                              "magnetic_north",
+                              "grid_north"
+                            ]
+                          },
+                          "calibration_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "calibration": {
+                            "type": "array",
+                            "minItems": 2,
+                            "maxItems": 72,
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "heading_degrees",
+                                "bias_nT"
+                              ],
+                              "properties": {
+                                "heading_degrees": {
+                                  "type": "number",
+                                  "minimum": 0,
+                                  "exclusiveMaximum": 360
+                                },
+                                "bias_nT": {
+                                  "type": "number",
+                                  "minimum": -1e+100,
+                                  "maximum": 1e+100
+                                }
+                              }
+                            }
+                          },
+                          "max_heading_gap": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 180
+                          },
+                          "bias_convention": {
+                            "const": "observed_minus_reference"
+                          },
+                          "event_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "evidence": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4096
+                          }
+                        }
+                      }
+                    },
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "model"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "base_binding"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "base_station_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "masked_records"
+                          ]
                         }
                       ]
                     }
@@ -841,6 +1054,11 @@
                       "required": [
                         "masked_records"
                       ]
+                    },
+                    {
+                      "required": [
+                        "heading_binding"
+                      ]
                     }
                   ]
                 }
@@ -858,7 +1076,9 @@
     "max_options_bytes": 262144,
     "numeric_bound": 1e+100,
     "max_output_json_bytes": 16777216,
-    "max_lag_records": 4096
+    "max_lag_records": 4096,
+    "max_heading_records": 4096,
+    "max_heading_nodes": 72
   },
   "binding": {
     "algorithm": "sha256-float64-v1",
@@ -885,12 +1105,19 @@
     "Lag correction uses corrected(t)=input(t+lag_seconds), on unchanged navigation XYZ/time. Positive lag advances delayed magnetic readings. A calibrated constant time lag is supplied explicitly, not inferred from flight speed or sensor geometry. Normally apply lag before time/location-dependent corrections; existing processing stages are preserved as supplied, never inverted or reordered.",
     "Lag interpolation uses only the original selected channel within each acquisition-contiguous line_id segment, including repeated line IDs as separate segments. All records need line_id and strictly increasing UTC times within each segment, including null-reading gap markers. No extrapolation, cross-line interpolation, bridging null source readings or excessive gaps. Existing target nulls stay null.",
     "Lag unsupported_policy=reject returns needs_input and proposals without committing observations. Explicit mask sets unsupported nonnull readings to null and persists their original IDs/values in masked_records; at least one selected reading must be supported. No records or other channels are dropped. Application affected_records counts nonnull readings immediately BEFORE the application. Validators reconstruct historical counts backwards across lag masks, so earlier base/IGRF ledger applications remain valid.",
-    "Lag is bounded to 4096 records and +/-3600 seconds. It requires known unapplied per-channel magnetic_lag history, nT total-field/anomaly data, explicit synchronized clock policy, gap limit and calibration evidence. Source metadata/uncertainty moves into standard remappable lineage; no uncertainty propagation is claimed."
+    "Lag is bounded to 4096 records and +/-3600 seconds. It requires known unapplied per-channel magnetic_lag history, nT total-field/anomaly data, explicit synchronized clock policy, gap limit and calibration evidence. Source metadata/uncertainty moves into standard remappable lineage; no uncertainty propagation is claimed.",
+    "Heading correction subtracts an explicitly supplied scalar bias: corrected=observed-bias(heading), with bias_convention=observed_minus_reference. Calibration is copied and sorted, with 2..72 unique heading_degrees in [0,360) and bias_nT. Recorded headings are [0,360], where 360 evaluates as 0. No negative yaw conversion, trajectory-heading inference, calibration fitting or north-reference conversion is performed.",
+    "metadata.heading declares key, units=degrees, reference=true_north|magnetic_north|grid_north, positive=clockwise. It must match heading_key/reference options. Heading values come from record.extra[heading_key]; any supplied nonnull value must be a valid angle. Missing headings on missing magnetic readings are allowed. Each nonnull selected reading needs supported heading before an atomic application is committed.",
+    "Circular piecewise-linear calibration includes the north seam. Exact nodes remain supported independent of neighbouring gaps; interpolation requires an angular bracket no wider than explicit max_heading_gap (0<gap<=180). Missing headings/context or inadequate angular coverage returns needs_input and proposals but no observations or application event. No heading masks or extrapolation are provided.",
+    "Heading execution is bounded to 4096 records. Selected nT total-field/anomaly type, other channels, null readings, geometry/time, order and extras are retained. Known unapplied per-channel magnetic_heading history, unique event ID, calibration_id and evidence are required. Heading/calibration bindings detect accidental edits even after later lag masking; history is a provenance guard, not authentication against deliberate rewriting.",
+    "Calibrated heading bias applies only under the instrument/configuration/reference conditions verified by caller evidence. This scalar model does not compensate attitude, manoeuvres, eddy currents or geographic/temporal variation. No calibration parameter estimation, operation reordering or uncertainty propagation is claimed; original uncertainty remains in remappable source lineage."
   ],
   "references": [
     "https://archive.epa.gov/esd/archive-geophysics/web/html/magnetic_methods.html",
     "https://nodejs.org/api/webcrypto.html",
-    "https://earthwise.bgs.ac.uk/index.php/OR/14/014_Part_3:_Data_processing"
+    "https://earthwise.bgs.ac.uk/index.php/OR/14/014_Part_3:_Data_processing",
+    "https://help.seequent.com/UXO/2026.1/Content/usace_rtf/uceheading_gx.htm",
+    "https://www.usgs.gov/software/uasmagpy-python-code-compensating-rotary-wing-sling-load-uas-aeromagnetic-data"
   ],
   "igrf_parameters": {
     "type": "object",
@@ -985,5 +1212,131 @@
         "const": "synchronized"
       }
     }
+  },
+  "heading_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "heading_key",
+      "heading_reference",
+      "calibration_id",
+      "calibration",
+      "max_heading_gap",
+      "bias_convention",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "heading_key": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "heading_reference": {
+        "enum": [
+          "true_north",
+          "magnetic_north",
+          "grid_north"
+        ]
+      },
+      "calibration_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "calibration": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 72,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "heading_degrees",
+            "bias_nT"
+          ],
+          "properties": {
+            "heading_degrees": {
+              "type": "number",
+              "minimum": 0,
+              "exclusiveMaximum": 360
+            },
+            "bias_nT": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          }
+        }
+      },
+      "max_heading_gap": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 180
+      },
+      "bias_convention": {
+        "const": "observed_minus_reference"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "heading_context": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "key",
+      "units",
+      "reference",
+      "positive"
+    ],
+    "properties": {
+      "key": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "units": {
+        "const": "degrees"
+      },
+      "reference": {
+        "enum": [
+          "true_north",
+          "magnetic_north",
+          "grid_north"
+        ]
+      },
+      "positive": {
+        "const": "clockwise"
+      }
+    }
+  },
+  "heading_binding": {
+    "algorithm": "sha256-float64-v1",
+    "prefix": "baselode.heading_binding.v1",
+    "snapshot": [
+      "prefix",
+      "channel",
+      "heading_key",
+      "heading_reference",
+      "calibration_id",
+      "bias_convention",
+      "max_heading_gap float64 hex",
+      "sorted calibration tuples [heading_degrees hex,bias_nT hex]",
+      "declared metadata.heading tuple [key,units,reference,positive]",
+      "all acquisition-order [record ID,raw heading float64 hex or null]"
+    ],
+    "numbers": "Big-endian 16-digit IEEE-754 float64 hexadecimal, signed zero canonicalized to +0. Compact UTF-8 JSON array then SHA-256. Absent and null headings bind as null; 360 and 0 raw headings bind distinctly. All supplied headings must be [0,360] finite numbers, even on missing magnetic readings. Model nodes canonicalize in ascending angle order. Metadata/context and semantic parameters are bound alongside extra heading inputs. This supplements, and does not change, the general observation binding."
   }
 }
