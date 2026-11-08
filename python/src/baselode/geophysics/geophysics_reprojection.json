@@ -1,0 +1,239 @@
+{
+  "id": "geophysics_reprojection",
+  "version": 1,
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "target_crs",
+      "datum_policy",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "target_crs": {
+        "type": "string",
+        "pattern": "^EPSG:(4326|32[67](0[1-9]|[1-5][0-9]|60))$"
+      },
+      "datum_policy": {
+        "const": "backend"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "event": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "kind",
+      "evidence",
+      "producer",
+      "input_binding",
+      "output_binding",
+      "parameters",
+      "source",
+      "target",
+      "backend",
+      "transformed_records",
+      "transform_binding"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "kind": {
+        "const": "reprojection"
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "producer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "library",
+          "version",
+          "algorithm_version"
+        ],
+        "properties": {
+          "library": {
+            "const": "baselode"
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "algorithm_version": {
+            "const": 1
+          }
+        }
+      },
+      "input_binding": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "output_binding": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_crs",
+          "datum_policy",
+          "event_id",
+          "evidence"
+        ],
+        "properties": {
+          "target_crs": {
+            "type": "string",
+            "pattern": "^EPSG:(4326|32[67](0[1-9]|[1-5][0-9]|60))$"
+          },
+          "datum_policy": {
+            "const": "backend"
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "source": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "crs",
+          "crs_units"
+        ],
+        "properties": {
+          "crs": {
+            "type": "string",
+            "pattern": "^EPSG:(4326|32[67](0[1-9]|[1-5][0-9]|60))$"
+          },
+          "crs_units": {
+            "enum": [
+              "degree",
+              "degrees",
+              "m",
+              "metre",
+              "meter"
+            ]
+          }
+        }
+      },
+      "target": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "crs",
+          "crs_units"
+        ],
+        "properties": {
+          "crs": {
+            "type": "string",
+            "pattern": "^EPSG:(4326|32[67](0[1-9]|[1-5][0-9]|60))$"
+          },
+          "crs_units": {
+            "enum": [
+              "degree",
+              "degrees",
+              "m",
+              "metre",
+              "meter"
+            ]
+          }
+        }
+      },
+      "backend": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "version",
+          "proj_version"
+        ],
+        "properties": {
+          "name": {
+            "enum": [
+              "identity",
+              "pyproj",
+              "proj4"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "proj_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "transformed_records": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100000
+      },
+      "transform_binding": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    }
+  },
+  "resources": {
+    "max_records": 100000,
+    "max_events": 64,
+    "max_output_json_bytes": 16777216,
+    "xy_bound": 1000000000000.0,
+    "area_tolerance_degrees": 1e-08
+  },
+  "assumptions": [
+    "Horizontal WGS84 EPSG:4326 or UTM EPSG:32601..32660/32701..32760 only; always XY longitude/latitude or easting/northing.",
+    "Source requires declared degree/degrees or m/metre/meter; output uses canonical degree/m.",
+    "Explicit backend acknowledgement; pyproj always_xy=True, allow_ballpark=False; proj4 uses private explicit WGS84 definitions. No datum shift or grid download.",
+    "Source and target UTM coordinates must resolve inside the conventional six-degree zone and hemisphere, latitude 0..84 N or -80..0 S, with 1e-8 degree numerical boundary tolerance. Norway/Svalbard zone exceptions are not inferred.",
+    "Complete missing XY pairs survive; partial pairs, failed/invalid/out-of-domain transforms and no complete XY reject atomically.",
+    "All measurements, heights, times, acquisition headings/references, line IDs, order and extras are unchanged. Grid-north headings continue to refer to their original acquisition frame; no heading rotation or height/geoid conversion.",
+    "Reprojection events preserve earlier correction events/bindings and per-channel states, and link source/target bindings. Historical levelling validation uses original horizontal context. Old v1 readers without the event extension must reject it.",
+    "Transform-binding snapshot is a JSON array: protocol baselode.reprojection_binding.v1, id,evidence,input_binding,output_binding,[target_crs,datum_policy,event_id,evidence],[source.crs,source.crs_units],[target.crs,target.crs_units],[backend.name,backend.version,backend.proj_version],integer transformed_records. SHA-256 UTF-8 compact Unicode JSON, no normalization.",
+    "Numerical coordinates are backend dependent; cross-runtime metre tolerance 1e-6 and degree tolerance 1e-8 on test domain. Hashes cover exact coordinates; replay exchanged JSON, do not regenerate floats to compare binding identities.",
+    "Source metadata retained through standard flat lineage. Root uncertainty/variance/standard_deviation archived, uncertainty_propagated=false; no propagated uncertainty claim."
+  ],
+  "references": [
+    "https://pyproj4.github.io/pyproj/stable/api/transformer.html",
+    "https://proj.org/en/stable/operations/projections/utm.html",
+    "https://proj4js.org/"
+  ]
+}

@@ -145,3 +145,17 @@ if (correctionEvent.kind === 'application' && correctionEvent.correction === 'ma
 }
 // @ts-expect-error reference/target roles and quality policies must be explicit
 levelGeophysicsMagneticLines(observations, crossingOptions);
+
+import { describeGeophysicsReprojection, reprojectGeophysicsObservations, type GeophysicsReprojectionOptions } from 'baselode/geophysics';
+const projectionOptions: GeophysicsReprojectionOptions = {target_crs:'EPSG:32750',datum_policy:'backend',event_id:'projection',evidence:'WGS84 checked'};
+const projectedObservations: Promise<GeophysicsCorrectionReport> = reprojectGeophysicsObservations(observations,projectionOptions);
+void projectedObservations; void describeGeophysicsReprojection();
+if (correctionEvent.kind === 'reprojection') {
+  const sourceCrs: string = correctionEvent.source.crs;
+  const count: number = correctionEvent.transformed_records;
+  void sourceCrs; void count;
+  // @ts-expect-error coordinate derivations do not change a correction state
+  void correctionEvent.state;
+}
+// @ts-expect-error explicit backend acknowledgement required
+reprojectGeophysicsObservations(observations,{target_crs:'EPSG:32750',event_id:'projection',evidence:'checked'});

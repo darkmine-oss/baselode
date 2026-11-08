@@ -2041,7 +2041,7 @@ SHA-256 is verified; no model data is downloaded during processing.
 `remove_igrf(observations, {"channel": "mag", "model": "IGRF14",
 "event_id": "igrf-1", "evidence": "source correction history checked"})`
 requires a `magnetic_total_field` channel in `nT`, bound or legacy **unapplied**
-`magnetic_igrf` history, `crs="EPSG:4326"`, `crs_units="degrees"`, and metadata
+`magnetic_igrf` history, `crs="EPSG:4326"`, `crs_units="degree"` or `"degrees"`, and metadata
 `height_units="m"`, `height_datum="WGS84_ellipsoid"`, `z_positive="up"`.
 Use `declare_corrections` with evidence if history is unknown. Heights above
 mean sea level need an explicit datum conversion before this API.
@@ -2250,3 +2250,44 @@ point blocks. This is fixed-reference constant-offset levelling, without a globa
 network solve, polynomial drift, robust outlier removal or microlevelling. The
 caller verifies reference quality, preprocessing order and physical compatibility.
 See the [crossover/levelling methodology context](https://help.seequent.com/Oasismontaj/2023.2/Content/levelling/xlevel_gx.htm).
+
+### History-preserving observation reprojection
+
+`describe_reprojection()` documents `reproject_observations(observations, options)`.
+It returns a correction report; successful `observations` and `ledger` are independent
+copies. Supply `target_crs`, `datum_policy="backend"`, a unique `event_id` and
+`evidence`. Source and target support WGS84 `EPSG:4326` and UTM
+`EPSG:32601`–`32660` / `32701`–`32760`. Source units must be `degree`/`degrees`
+or `m`/`metre`/`meter`; output uses `degree` or `m`. Coordinates always use XY
+(longitude/latitude or easting/northing).
+
+```python
+projected = baselode.geophysics.reproject_observations(
+    igrf_result["observations"],
+    {"target_crs": "EPSG:32750", "datum_policy": "backend",
+     "event_id": "project-utm50s", "evidence": "Survey is WGS84 in UTM zone 50S"},
+)
+# Check projected["state"] == "ok" before using projected["observations"].
+```
+
+The API appends an explicit reprojection event, preserving earlier correction
+entries, bindings and per-channel states. Historical levelling is validated in
+its original horizontal context. Exchanged JSON remains inspectable in either
+runtime; exact coordinate hashes depend on the producing backend. Earlier
+readers without reprojection-event support reject this ledger extension.
+
+Both missing XY coordinates survive; partial pairs, failed transforms and points
+outside the source or target UTM six-degree zone, hemisphere or latitude range
+(0–84° N / 80–0° S) reject the entire operation. Boundary tolerance is 1e-8°;
+Norway/Svalbard zone exceptions are not inferred. At least one complete XY pair
+is required. Existing limits apply: 100,000 records, 64 ledger events and 16 MiB
+output JSON including lineage.
+
+Measurements, heights, times, order, IDs and extras remain unchanged. Measured
+headings retain their acquisition reference, including the original grid north;
+they are not rotated to the target grid. There is no datum shift, geoid/height
+conversion or uncertainty propagation. Source metadata is archived through flat
+lineage; root uncertainty fields are archived and marked unpropagated. Use
+projected results with crossover/gridding APIs after checking their own contracts.
+The projection backend contract follows [pyproj](https://pyproj4.github.io/pyproj/stable/api/transformer.html)
+and [PROJ UTM](https://proj.org/en/stable/operations/projections/utm.html).

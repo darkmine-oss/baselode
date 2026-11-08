@@ -432,7 +432,7 @@ export interface GeophysicsMagneticBaseOptions {
   evidence: string;
   clock_policy: 'synchronized';
 }
-export type GeophysicsCorrectionEvent = GeophysicsCorrectionDeclaration & {
+export type GeophysicsCorrectionEvent = GeophysicsReprojectionEvent | (GeophysicsCorrectionDeclaration & {
   producer: { library: 'baselode'; version: string; algorithm_version: 1 };
   input_binding: string;
   output_binding: string;
@@ -443,7 +443,7 @@ export type GeophysicsCorrectionEvent = GeophysicsCorrectionDeclaration & {
   | { kind: 'application'; correction: 'magnetic_lag'; state: 'applied'; parameters: GeophysicsMagneticLagOptions; masked_records: Array<{ id: string; value: number }>; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_igrf'; state: 'applied'; parameters: GeophysicsIgrfRemovalOptions; model: GeophysicsIgrfModel; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_diurnal'; state: 'applied'; parameters: GeophysicsMagneticBaseOptions; base_binding: string; base_station_id: string; affected_records: number }
-);
+));
 export interface GeophysicsCorrectionLedger {
   schema: 'baselode.geophysics.correction_ledger';
   version: 1;
@@ -455,7 +455,7 @@ export interface GeophysicsCorrectionLedger {
 export interface GeophysicsCorrectionReport {
   schema: 'baselode.geophysics.corrections';
   version: 1;
-  operation: 'inspect' | 'declare' | 'magnetic_base';
+  operation: 'inspect' | 'declare' | 'magnetic_base' | 'reproject_observations';
   state: 'ok' | 'needs_input' | 'rejected';
   issues: Array<{ code: string; message: string }>;
   observations: GeophysicsObservations | null;
@@ -563,3 +563,32 @@ export type GeophysicsMagneticLevellingReport = Omit<GeophysicsCorrectionReport,
 export function describeGeophysicsCrossovers(): Record<string, unknown>;
 export function analyzeGeophysicsCrossovers(payload: unknown, options: GeophysicsCrossoverOptions): Promise<GeophysicsCrossoverReport>;
 export function levelGeophysicsMagneticLines(payload: unknown, options: GeophysicsMagneticLevellingOptions): Promise<GeophysicsMagneticLevellingReport>;
+
+/** WGS84 geographic/UTM only. See discoverable descriptor for zone limits. */
+export interface GeophysicsReprojectionOptions {
+  target_crs: string;
+  datum_policy: 'backend';
+  event_id: string;
+  evidence: string;
+}
+export interface GeophysicsHorizontalContext {
+  crs: string;
+  crs_units: 'degree' | 'degrees' | 'm' | 'metre' | 'meter';
+}
+export interface GeophysicsReprojectionEvent {
+  id: string;
+  kind: 'reprojection';
+  evidence: string;
+  producer: { library: 'baselode'; version: string; algorithm_version: 1 };
+  input_binding: string;
+  output_binding: string;
+  parameters: GeophysicsReprojectionOptions;
+  source: GeophysicsHorizontalContext;
+  target: GeophysicsHorizontalContext;
+  backend: { name: 'identity' | 'pyproj' | 'proj4'; version: string; proj_version: string | null };
+  transformed_records: number;
+  transform_binding: string;
+}
+export function describeGeophysicsReprojection(): Record<string, unknown>;
+/** Native asynchronous Web Crypto; inputs unchanged, failures return no output. */
+export function reprojectGeophysicsObservations(payload: unknown, options: GeophysicsReprojectionOptions): Promise<GeophysicsCorrectionReport>;

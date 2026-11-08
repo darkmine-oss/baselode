@@ -8,6 +8,9 @@ import json
 import pathlib
 import re
 import struct
+import math
+
+import pyproj
 import types
 
 import baselode
@@ -113,6 +116,8 @@ def _binding(data):
 def _states(data, ledger):
     result = {name: {channel: "unknown" for channel in _channels(data, name)} for name in _DESCRIPTOR["catalogue"]}
     for entry in ledger["entries"]:
+        if entry["kind"] == "reprojection":
+            continue
         for channel in entry["channels"]:
             result[entry["correction"]][channel] = entry["state"]
     return result
@@ -386,10 +391,17 @@ def _validate(data, ledger, current, check_summary=True):
     common = {"id", "kind", "correction", "channels", "state", "evidence", "producer", "input_binding", "output_binding"}
     base_extra = {"parameters", "base_binding", "base_station_id", "affected_records"}
     igrf_extra = {"parameters", "model", "affected_records"}
+    frames = _reprojection_frames(data, ledger["entries"])
     counts = _application_counts(data, ledger["entries"])
     states = _states(data, {"entries": []})
     previous, ids = ledger["initial_binding"], set()
     for index, entry in enumerate(ledger["entries"]):
+        if type(entry) is dict and entry.get("kind") == "reprojection":
+            if entry["id"] in ids or entry["input_binding"] != previous:
+                raise ValueError("duplicate event ID or broken reprojection binding chain")
+            ids.add(entry["id"])
+            previous = entry["output_binding"]
+            continue
         extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}}
         name = entry.get("correction") if type(entry) is dict else None
         extra = extras.get(name, base_extra) if isinstance(name, str) else base_extra
@@ -435,7 +447,7 @@ def _validate(data, ledger, current, check_summary=True):
                     raise ValueError("stale heading binding: heading inputs, context or calibration changed")
             if correction == "magnetic_levelling":
                 try:
-                    model_binding = _levelling_binding(data, params, entry["line_offsets"])
+                    model_binding = _levelling_binding({**data, **frames[index]}, params, entry["line_offsets"])
                 except _NeedsInput as error:
                     raise ValueError("invalid stored levelling context: " + str(error)) from error
                 if not _digest(entry["levelling_binding"]) or entry["levelling_binding"] != model_binding:
@@ -450,7 +462,7 @@ def _validate(data, ledger, current, check_summary=True):
     if not check_summary:
         return ledger
     legacy = data["metadata"].get("corrections", {})
-    represented = {entry["correction"] for entry in ledger["entries"]}
+    represented = {entry["correction"] for entry in ledger["entries"] if entry["kind"] != "reprojection"}
     for correction in represented:
         if correction not in legacy:
             raise ValueError("legacy correction summary is missing a ledger correction")
@@ -469,7 +481,7 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines") for step in data["metadata"].get("processing", [])):
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines", "reproject_observations") for step in data["metadata"].get("processing", [])):
         raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
@@ -492,7 +504,7 @@ def _save(data, ledger):
     _validate(data, ledger, _binding(data), check_summary=False)
     states = _states(data, ledger)
     legacy = data["metadata"].setdefault("corrections", {})
-    represented = {entry["correction"] for entry in ledger["entries"]}
+    represented = {entry["correction"] for entry in ledger["entries"] if entry["kind"] != "reprojection"}
     for key in list(legacy) + sorted(represented):
         correction = _canonical(key)
         if correction is not None and states[correction]:
@@ -1071,4 +1083,189 @@ def level_magnetic_lines(payload, options):
         report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger))
         return report
     except (ValueError, TypeError, RecursionError) as error:
+        return _error(report, error)
+
+
+_REPROJECTION = json.loads((pathlib.Path(__file__).parent / "geophysics_reprojection.json").read_text())
+
+
+def describe_reprojection():
+    """Return independent horizontal observation reprojection contracts.
+
+    Returns
+    -------
+    dict
+        Supported WGS84 CRSs, parameter/event schemas, bounds and assumptions.
+    """
+    return copy.deepcopy(_REPROJECTION)
+
+
+def _projection_code(crs):
+    if not isinstance(crs, str) or re.fullmatch(r"EPSG:(4326|326[0-9]{2}|327[0-9]{2})", crs) is None:
+        raise ValueError("reprojection supports canonical WGS84 EPSG:4326 and EPSG:32601..32660/32701..32760 only")
+    code = int(crs[5:])
+    if code != 4326 and not 1 <= code % 100 <= 60:
+        raise ValueError("UTM zone must be 1..60")
+    return code
+
+
+def _projection_frame(frame):
+    if type(frame) is not dict or set(frame) != {"crs", "crs_units"}:
+        raise ValueError("horizontal context needs exactly crs and crs_units")
+    code = _projection_code(frame["crs"])
+    accepted = ("degree", "degrees") if code == 4326 else ("m", "metre", "meter")
+    if frame["crs_units"] not in accepted:
+        raise ValueError("declare degree/degrees for EPSG:4326 or m/metre/meter for UTM")
+    return code
+
+
+def _reprojection_options(options):
+    schema = _REPROJECTION["parameters"]
+    if type(options) is not dict or options.keys() - schema["properties"].keys():
+        raise ValueError("reprojection requires known option names")
+    params = _json(options)
+    if any(name not in params for name in schema["required"]):
+        raise _NeedsInput("supply target_crs, datum_policy=backend, event_id and evidence")
+    _projection_code(params["target_crs"])
+    if params["datum_policy"] != "backend":
+        raise _NeedsInput("reprojection requires explicit datum_policy=backend acknowledgement")
+    if not _label(params["event_id"]) or not _evidence(params["evidence"]):
+        raise ValueError("event_id/evidence require bounded nonempty strings")
+    return params
+
+
+def _projection_area(code, lon, lat):
+    tolerance = 1e-8
+    if not _number(lon) or not _number(lat) or abs(lon) > 180 + tolerance or abs(lat) > 90 + tolerance:
+        raise ValueError("coordinates must resolve to finite WGS84 longitude/latitude in range")
+    if code != 4326:
+        center = 6 * (code % 100) - 183
+        south = code // 100 == 327
+        distance = abs(lon - center)
+        distance = min(distance, abs(360 - distance))
+        if distance > 3 + tolerance or lat < (-80 if south else 0) - tolerance or lat > (0 if south else 84) + tolerance:
+            raise ValueError("coordinates lie outside the declared UTM six-degree zone/hemisphere/latitude domain")
+
+
+def _reprojection_hash(entry):
+    snapshot = ["baselode.reprojection_binding.v1", *[entry[k] for k in ("id", "evidence", "input_binding", "output_binding")],
+                [entry["parameters"][k] for k in ("target_crs", "datum_policy", "event_id", "evidence")],
+                *[[entry[k][field] for field in ("crs", "crs_units")] for k in ("source", "target")],
+                [entry["backend"][k] for k in ("name", "version", "proj_version")], entry["transformed_records"]]
+    return hashlib.sha256(json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+def _reprojection_frames(data, entries):
+    # Reverse only the horizontal context; measurements, heights, acquisition
+    # headings and line identities are unchanged by a reprojection event.
+    frame = {k: data[k] for k in ("crs", "crs_units")}
+    frames = [None] * len(entries)
+    for index in range(len(entries) - 1, -1, -1):
+        entry = entries[index]
+        if type(entry) is dict and entry.get("kind") == "reprojection":
+            fields = {"id", "kind", "evidence", "producer", "input_binding", "output_binding", "parameters", "source", "target", "backend", "transformed_records", "transform_binding"}
+            if set(entry) != fields or not _label(entry["id"]) or not _evidence(entry["evidence"]) or not all(_digest(entry[k]) for k in ("input_binding", "output_binding", "transform_binding")):
+                raise ValueError("malformed reprojection event")
+            try:
+                params = _reprojection_options(entry["parameters"])
+            except _NeedsInput as error:
+                raise ValueError("invalid stored reprojection parameters: " + str(error)) from error
+            _projection_frame(entry["source"])
+            target_code = _projection_frame(entry["target"])
+            if params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"] or params["target_crs"] != entry["target"]["crs"] or entry["target"]["crs_units"] != ("degree" if target_code == 4326 else "m") or entry["target"] != frame:
+                raise ValueError("broken reprojection parameter/context chain")
+            backend = entry["backend"]
+            same = entry["source"]["crs"] == entry["target"]["crs"]
+            if type(backend) is not dict or set(backend) != {"name", "version", "proj_version"} or backend["name"] not in (("identity",) if same else ("pyproj", "proj4")) or not _label(backend["version"]) or (backend["proj_version"] is not None and not _label(backend["proj_version"])):
+                raise ValueError("invalid reprojection backend identity")
+            producer = entry["producer"]
+            if type(producer) is not dict or set(producer) != {"library", "version", "algorithm_version"} or producer["library"] != "baselode" or not _label(producer["version"]) or type(producer["algorithm_version"]) not in (int, float) or producer["algorithm_version"] != 1:
+                raise ValueError("invalid reprojection producer")
+            count = entry["transformed_records"]
+            if type(count) not in (int, float) or count != sum(row["x"] is not None and row["y"] is not None for row in data["records"]) or count < 1 or entry["transform_binding"] != _reprojection_hash(entry):
+                raise ValueError("stale reprojection binding or transformed count")
+            frame = entry["source"]
+        frames[index] = frame
+    return frames
+
+
+def reproject_observations(payload, options):
+    """Derive WGS84 geographic/UTM coordinates while retaining bound history.
+
+    Parameters
+    ----------
+    payload : dict
+        V1 observations. Supported source CRS and declared degree/m units.
+        Complete null XY pairs survive; partial pairs reject. Inputs unchanged.
+    options : dict
+        Canonical target_crs, datum_policy='backend', event_id and evidence.
+        Always XY: longitude/latitude or easting/northing. Six-degree UTM
+        zone, hemisphere and latitude limits apply to source and target.
+
+    Returns
+    -------
+    dict
+        Correction report with independent observations/ledger on success.
+        Earlier events and channel correction states survive verbatim. Heights,
+        time, readings and measured heading references are unchanged; headings
+        remain relative to the acquisition frame, including grid north.
+        No vertical conversion, datum shift or uncertainty propagation.
+        Old readers without reprojection support must reject the new event.
+    """
+    report = _report("reproject_observations")
+    try:
+        params = _reprojection_options(options)
+        report["parameters"] = params
+        data = baselode.geophysics.observations.create_observations(payload)
+        source = {k: data[k] for k in ("crs", "crs_units")}
+        source_code = _projection_frame(source)
+        target_code = _projection_code(params["target_crs"])
+        target = {"crs": params["target_crs"], "crs_units": "degree" if target_code == 4326 else "m"}
+        ledger = _load(data)
+        if any(entry["id"] == params["event_id"] for entry in ledger["entries"]):
+            raise ValueError("event_id already exists in the correction ledger")
+        if len(ledger["entries"]) >= _LIMITS["max_events"]:
+            raise _ResourceError("correction ledger exceeds 64 events")
+        geographic = pyproj.Transformer.from_crs(source["crs"], "EPSG:4326", always_xy=True, allow_ballpark=False)
+        transform = pyproj.Transformer.from_crs(source["crs"], target["crs"], always_xy=True, allow_ballpark=False)
+        count = 0
+        for row in data["records"]:
+            if row["x"] is None and row["y"] is None:
+                continue
+            if row["x"] is None or row["y"] is None:
+                raise ValueError("reprojection requires complete XY pairs or both null")
+            if abs(row["x"]) > 1e12 or abs(row["y"]) > 1e12:
+                raise ValueError("reprojection XY must be within +/-1e12")
+            lon, lat = geographic.transform(row["x"], row["y"], errcheck=True)
+            _projection_area(source_code, lon, lat)
+            _projection_area(target_code, lon, lat)
+            x, y = transform.transform(row["x"], row["y"], errcheck=True)
+            if not all(math.isfinite(v) and abs(v) <= 1e12 for v in (x, y)):
+                raise ValueError("transformed XY must be finite within +/-1e12")
+            row["x"], row["y"] = x, y
+            count += 1
+        if not count:
+            raise _NeedsInput("reprojection needs at least one complete XY pair")
+        before = ledger["current_binding"]
+        data.update(target)
+        after = _binding(data)
+        same = source["crs"] == target["crs"]
+        backend = {"name": "identity" if same else "pyproj", "version": "1" if same else pyproj.__version__, "proj_version": None if same else pyproj.proj_version_str}
+        event = {"id": params["event_id"], "kind": "reprojection", "evidence": params["evidence"], "producer": _producer(), "input_binding": before, "output_binding": after,
+                 "parameters": params, "source": source, "target": target, "backend": backend, "transformed_records": count}
+        event["transform_binding"] = _reprojection_hash(event)
+        ledger["entries"].append(event)
+        ledger["current_binding"] = after
+        metadata = data["metadata"]
+        nodes, operand = baselode.geophysics.provenance.append_input(metadata, metadata)
+        metadata["input_lineage"] = nodes
+        for key in ("uncertainty", "variance", "standard_deviation"):
+            metadata.pop(key, None)
+        metadata["uncertainty_propagated"] = False
+        metadata["processing"] = list(metadata.get("processing", [])) + [{"operation": "reproject_observations", "version": 1, "parameters": params, "source": source, "target": target, "backend": backend, "input_binding": before, "output_binding": after, "operand_lineage": operand}]
+        output = _save(data, ledger)
+        _validate(output, ledger, after)
+        report.update(observations=output, ledger=copy.deepcopy(ledger), states=_states(output, ledger), diagnostics={"transformed_records": count, "missing_xy_records": len(data["records"]) - count, "backend": backend})
+        return report
+    except (ValueError, TypeError, RecursionError, pyproj.exceptions.ProjError) as error:
         return _error(report, error)

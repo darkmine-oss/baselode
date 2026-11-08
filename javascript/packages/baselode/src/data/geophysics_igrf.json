@@ -254,7 +254,7 @@
     "Each point uses its own time, with equal times grouped into bounded batches; no coordinate/date Cartesian product. Model coefficients are local package data, explicitly selected and verified by SHA-256; no runtime downloads.",
     "North/east/down, horizontal and total intensity are nT. Declination is east-positive, inclination down-positive, in degrees. Declination is null if horizontal intensity is zero.",
     "IGRF models the main internal field. Scalar removal is observed total intensity minus model total intensity; it is not vector subtraction or a removal of crustal, external or diurnal fields.",
-    "Removal requires magnetic_total_field/nT, known unapplied magnetic_igrf history, EPSG:4326/degrees and explicit metadata.height_units=m, height_datum=WGS84_ellipsoid, z_positive=up. Missing selected readings are preserved; every nonnull reading must be supported before output is committed. The corrected channel becomes magnetic_anomaly.",
+    "Removal requires magnetic_total_field/nT, known unapplied magnetic_igrf history, EPSG:4326 with degree/degrees coordinate units and explicit metadata.height_units=m, height_datum=WGS84_ellipsoid, z_positive=up. Missing selected readings are preserved; every nonnull reading must be supported before output is committed. The corrected channel becomes magnetic_anomaly.",
     "No calibrated uncertainty propagation. Source metadata is retained in flat input lineage. Calculate and remove are separate from raster workflow v1."
   ],
   "references": [

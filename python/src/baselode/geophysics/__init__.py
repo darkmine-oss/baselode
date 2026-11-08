@@ -164,3 +164,8 @@ __all__ = [
     "write_geotiff",
     "save_raster",
 ]
+
+# Horizontal observation derivation preserves bound correction history.
+describe_reprojection = geophysics_corrections.describe_reprojection
+reproject_observations = geophysics_corrections.reproject_observations
+__all__ += ["describe_reprojection", "reproject_observations"]

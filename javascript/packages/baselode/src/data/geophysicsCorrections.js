@@ -1,6 +1,8 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
 import descriptor from './geophysics_corrections.json';
+import reprojectionDescriptor from './geophysics_reprojection.json';
+import proj4 from 'proj4';
 import { createGeophysicsObservations, unicodeStrings } from './geophysicsObservations.js';
 import { jsonValue, appendInput, encodeProvenance } from './geophysicsProvenance.js';
 import { geophysicsCoordinateUnit } from './geophysicsProcessing.js';
@@ -60,7 +62,7 @@ async function binding(data) {
 }
 function statesFor(data, ledger) {
   const states = Object.fromEntries(Object.keys(descriptor.catalogue).map((name) => [name, Object.fromEntries(channelsFor(data, name).map((channel) => [channel, 'unknown']))]));
-  for (const entry of ledger.entries) for (const channel of entry.channels) states[entry.correction][channel] = entry.state;
+  for (const entry of ledger.entries.filter((item) => item.kind !== 'reprojection')) for (const channel of entry.channels) states[entry.correction][channel] = entry.state;
   return states;
 }
 function baseOptions(options) {
@@ -229,9 +231,14 @@ async function validate(data, ledger, current, checkSummary = true) {
   const common = ['id', 'kind', 'correction', 'channels', 'state', 'evidence', 'producer', 'input_binding', 'output_binding'];
   const baseExtra = ['parameters', 'base_binding', 'base_station_id', 'affected_records'];
   const igrfExtra = ['parameters', 'model', 'affected_records'];
+  const frames = await reprojectionFrames(data, ledger.entries);
   const counts = applicationCounts(data, ledger.entries);
   const states = statesFor(data, { entries: [] }); let previous = ledger.initial_binding; const ids = new Set();
   for (const [index, entry] of ledger.entries.entries()) {
+    if (object(entry) && entry.kind === 'reprojection') {
+      if (ids.has(entry.id) || entry.input_binding !== previous) throw Error('duplicate event ID or broken reprojection binding chain');
+      ids.add(entry.id); previous = entry.output_binding; continue;
+    }
     const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : (entry?.correction === 'magnetic_heading' ? ['parameters', 'heading_binding', 'affected_records'] : (entry?.correction === 'magnetic_levelling' ? ['parameters','line_offsets','levelling_binding','affected_records'] : baseExtra)));
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
@@ -261,7 +268,7 @@ async function validate(data, ledger, current, checkSummary = true) {
       }
       if (correction === 'magnetic_levelling') {
         let currentModel;
-        try { currentModel = await levellingBinding(data,params,entry.line_offsets); }
+        try { currentModel = await levellingBinding({...data,...frames[index]},params,entry.line_offsets); }
         catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored levelling context: ${error.message}`); throw error; }
         if (!digest(entry.levelling_binding) || entry.levelling_binding !== currentModel) throw Error('stale levelling binding: line roles/model, semantic options or context changed');
       }
@@ -273,7 +280,7 @@ async function validate(data, ledger, current, checkSummary = true) {
   if (previous !== ledger.current_binding || current !== previous) throw Error('stale ledger binding: observation data changed; use a traceable source dataset');
   if (!checkSummary) return ledger;
   const legacy = data.metadata.corrections ?? {};
-  for (const correction of new Set(ledger.entries.map((entry) => entry.correction))) if (!Object.hasOwn(legacy, correction)) throw Error('legacy correction summary is missing a ledger correction');
+  for (const correction of new Set(ledger.entries.filter((entry) => entry.kind !== 'reprojection').map((entry) => entry.correction))) if (!Object.hasOwn(legacy, correction)) throw Error('legacy correction summary is missing a ledger correction');
   for (const [key, state] of Object.entries(legacy)) {
     const correction = canonical(key);
     if (correction && Object.keys(states[correction]).length) {
@@ -287,7 +294,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines', 'reproject_observations'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);
@@ -304,7 +311,7 @@ async function save(data, ledger) {
   if (ledger.entries.length > limits.max_events) throw new ResourceError('correction ledger exceeds 64 events');
   await validate(data, ledger, await binding(data), false);
   const states = statesFor(data, ledger); data.metadata.corrections ??= {}; const legacy = data.metadata.corrections;
-  for (const key of [...Object.keys(legacy), ...[...new Set(ledger.entries.map((entry) => entry.correction))].sort()]) {
+  for (const key of [...Object.keys(legacy), ...[...new Set(ledger.entries.filter((entry) => entry.kind !== 'reprojection').map((entry) => entry.correction))].sort()]) {
     const correction = canonical(key);
     if (correction && Object.keys(states[correction]).length) { const values = new Set(Object.values(states[correction])); legacy[key] = values.size === 1 ? [...values][0] : 'unknown'; }
   }
@@ -577,4 +584,111 @@ export async function levelGeophysicsMagneticLines(payload,options) {
     const output = await save(data,ledger); await validate(output,ledger,after);
     Object.assign(result,{observations:output,ledger:clone(ledger),states:statesFor(output,ledger)}); return result;
   } catch (error) { return errorResult(result,error); }
+}
+
+
+/** Independent bounded WGS84 observation reprojection contract. */
+export function describeGeophysicsReprojection() { return clone(reprojectionDescriptor); }
+function projectionCode(crs) {
+  if (typeof crs !== 'string' || !/^EPSG:(4326|326[0-9]{2}|327[0-9]{2})$/.test(crs)) throw Error('reprojection supports canonical WGS84 EPSG:4326 and EPSG:32601..32660/32701..32760 only');
+  const code = Number(crs.slice(5));
+  if (code !== 4326 && !(code % 100 >= 1 && code % 100 <= 60)) throw Error('UTM zone must be 1..60');
+  return code;
+}
+function projectionFrame(frame) {
+  if (!keys(frame,['crs','crs_units'])) throw Error('horizontal context needs exactly crs and crs_units');
+  const code = projectionCode(frame.crs);
+  if (!(code === 4326 ? ['degree','degrees'] : ['m','metre','meter']).includes(frame.crs_units)) throw Error('declare degree/degrees for EPSG:4326 or m/metre/meter for UTM');
+  return code;
+}
+function reprojectionOptions(options) {
+  const contract = reprojectionDescriptor.parameters;
+  if (!object(options) || Object.keys(options).some((key) => !Object.hasOwn(contract.properties,key))) throw Error('reprojection requires known option names');
+  const params = json(options);
+  if (contract.required.some((key) => !Object.hasOwn(params,key))) throw new NeedsInput('supply target_crs, datum_policy=backend, event_id and evidence');
+  projectionCode(params.target_crs);
+  if (params.datum_policy !== 'backend') throw new NeedsInput('reprojection requires explicit datum_policy=backend acknowledgement');
+  if (!label(params.event_id) || !evidence(params.evidence)) throw Error('event_id/evidence require bounded nonempty strings');
+  return params;
+}
+function projectionArea(code,lon,lat) {
+  const tolerance = 1e-8;
+  if (!number(lon) || !number(lat) || Math.abs(lon) > 180+tolerance || Math.abs(lat) > 90+tolerance) throw Error('coordinates must resolve to finite WGS84 longitude/latitude in range');
+  if (code !== 4326) {
+    const center=6*(code%100)-183; const south=Math.floor(code/100)===327;
+    const delta=Math.abs(lon-center); const distance=Math.min(delta,Math.abs(360-delta));
+    if (distance>3+tolerance || lat<(south?-80:0)-tolerance || lat>(south?0:84)+tolerance) throw Error('coordinates lie outside the declared UTM six-degree zone/hemisphere/latitude domain');
+  }
+}
+async function reprojectionHash(entry) {
+  const snapshot=['baselode.reprojection_binding.v1', ...['id','evidence','input_binding','output_binding'].map((k)=>entry[k]),
+    ['target_crs','datum_policy','event_id','evidence'].map((k)=>entry.parameters[k]), ...['source','target'].map((k)=>['crs','crs_units'].map((field)=>entry[k][field])),
+    ['name','version','proj_version'].map((k)=>entry.backend[k]),entry.transformed_records];
+  if (!globalThis.crypto?.subtle) throw new NeedsInput('SHA-256 binding requires Web Crypto (Node 20+ or a secure browser context)');
+  return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(snapshot))))].map((byte)=>byte.toString(16).padStart(2,'0')).join('');
+}
+async function reprojectionFrames(data,entries) {
+  let frame={crs:data.crs,crs_units:data.crs_units}; const frames=new Array(entries.length);
+  for(let index=entries.length-1;index>=0;index--) {
+    const entry=entries[index];
+    if(object(entry) && entry.kind==='reprojection') {
+      if(!keys(entry,['id','kind','evidence','producer','input_binding','output_binding','parameters','source','target','backend','transformed_records','transform_binding']) || !label(entry.id) || !evidence(entry.evidence) || !['input_binding','output_binding','transform_binding'].every((k)=>digest(entry[k]))) throw Error('malformed reprojection event');
+      let params;
+      try { params=reprojectionOptions(entry.parameters); }
+      catch(error) { if(error instanceof NeedsInput) throw Error(`invalid stored reprojection parameters: ${error.message}`); throw error; }
+      projectionFrame(entry.source); const targetCode=projectionFrame(entry.target);
+      if(params.event_id!==entry.id || params.evidence!==entry.evidence || params.target_crs!==entry.target.crs || entry.target.crs_units!==(targetCode===4326?'degree':'m') || entry.target.crs!==frame.crs || entry.target.crs_units!==frame.crs_units) throw Error('broken reprojection parameter/context chain');
+      const backend=entry.backend; const same=entry.source.crs===entry.target.crs;
+      if(!keys(backend,['name','version','proj_version']) || !(same?['identity']:['pyproj','proj4']).includes(backend.name) || !label(backend.version) || !(backend.proj_version===null || label(backend.proj_version))) throw Error('invalid reprojection backend identity');
+      if(!keys(entry.producer,['library','version','algorithm_version']) || entry.producer.library!=='baselode' || !label(entry.producer.version) || entry.producer.algorithm_version!==1) throw Error('invalid reprojection producer');
+      if(!number(entry.transformed_records) || entry.transformed_records<1 || entry.transformed_records!==data.records.filter((row)=>row.x!==null&&row.y!==null).length || entry.transform_binding!==await reprojectionHash(entry)) throw Error('stale reprojection binding or transformed count');
+      frame=entry.source;
+    }
+    frames[index]=frame;
+  }
+  return frames;
+}
+function projectionDefinition(code) {
+  return code===4326?'+proj=longlat +datum=WGS84 +no_defs':`+proj=utm +zone=${code%100} ${Math.floor(code/100)===327?'+south ':''}+datum=WGS84 +units=m +no_defs`;
+}
+/** Derive horizontal WGS84 coordinates, preserving historical correction states.
+ * Always XY; complete null pairs survive, partial/out-of-zone pairs reject.
+ * Heights and measured headings retain their original acquisition reference.
+ * No datum shift, vertical conversion, heading rotation or uncertainty propagation.
+ */
+export async function reprojectGeophysicsObservations(payload,options) {
+  const result=report('reproject_observations');
+  try {
+    const params=reprojectionOptions(options); result.parameters=params;
+    const data=createGeophysicsObservations(payload); const source={crs:data.crs,crs_units:data.crs_units};
+    const sourceCode=projectionFrame(source); const targetCode=projectionCode(params.target_crs);
+    const target={crs:params.target_crs,crs_units:targetCode===4326?'degree':'m'};
+    const ledger=await load(data);
+    if(ledger.entries.some((entry)=>entry.id===params.event_id)) throw Error('event_id already exists in the correction ledger');
+    if(ledger.entries.length>=limits.max_events) throw new ResourceError('correction ledger exceeds 64 events');
+    const geographic=proj4(projectionDefinition(sourceCode),projectionDefinition(4326));
+    const transform=proj4(projectionDefinition(sourceCode),projectionDefinition(targetCode));
+    let count=0;
+    for(const row of data.records) {
+      if(row.x===null&&row.y===null) continue;
+      if(row.x===null||row.y===null) throw Error('reprojection requires complete XY pairs or both null');
+      if(Math.abs(row.x)>1e12||Math.abs(row.y)>1e12) throw Error('reprojection XY must be within +/-1e12');
+      const [lon,lat]=sourceCode===4326?[row.x,row.y]:geographic.forward([row.x,row.y]);
+      projectionArea(sourceCode,lon,lat); projectionArea(targetCode,lon,lat);
+      const [x,y]=sourceCode===targetCode?[row.x,row.y]:transform.forward([row.x,row.y]);
+      if(![x,y].every((v)=>Number.isFinite(v)&&Math.abs(v)<=1e12)) throw Error('transformed XY must be finite within +/-1e12');
+      row.x=x; row.y=y; count++;
+    }
+    if(!count) throw new NeedsInput('reprojection needs at least one complete XY pair');
+    const before=ledger.current_binding; Object.assign(data,target); const after=await binding(data);
+    const same=source.crs===target.crs; const backend={name:same?'identity':'proj4',version:same?'1':proj4.version,proj_version:null};
+    const event={id:params.event_id,kind:'reprojection',evidence:params.evidence,producer:producer(),input_binding:before,output_binding:after,parameters:params,source,target,backend,transformed_records:count};
+    event.transform_binding=await reprojectionHash(event); ledger.entries.push(event); ledger.current_binding=after;
+    const metadata=data.metadata; const {nodes,operand}=appendInput(metadata,metadata); metadata.input_lineage=nodes;
+    for(const key of ['uncertainty','variance','standard_deviation']) delete metadata[key];
+    metadata.uncertainty_propagated=false;
+    metadata.processing=[...(metadata.processing??[]),{operation:'reproject_observations',version:1,parameters:params,source,target,backend,input_binding:before,output_binding:after,operand_lineage:operand}];
+    const output=await save(data,ledger); await validate(output,ledger,after);
+    Object.assign(result,{observations:output,ledger:clone(ledger),states:statesFor(output,ledger),diagnostics:{transformed_records:count,missing_xy_records:data.records.length-count,backend}}); return result;
+  } catch(error) { return errorResult(result,error); }
 }

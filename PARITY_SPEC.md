@@ -197,3 +197,14 @@ fixture outputs/bindings match exactly in live bidirectional execution. Native
 JS correction APIs remain asynchronous for Web Crypto. Raster workflow v1 stays
 unchanged. This is fixed-reference one-DC-bias-per-target levelling; higher-order,
 network, outlier-removal and microlevelling methods remain separate increments.
+
+Observation reprojection: Python `describe_reprojection` / `reproject_observations`
+and JavaScript `describeGeophysicsReprojection` / `reprojectGeophysicsObservations`
+share the WGS84 geographic/UTM contract, event schema, atomic support rules and
+history-context replay. Python uses pyproj (always XY, no ballpark), JavaScript
+uses private explicit Proj4js WGS84 definitions. Heights/measurements/headings
+remain unchanged. Numerical parity tests use 1e-6 m / 1e-8° tolerances; exact
+ledger replay uses exchanged JSON, preserving backend identity and exact floats.
+Shared descriptor: `geophysics_reprojection.json`. Independent central-meridian
+anchors and rounded published PROJ examples cover both hemispheres; live runtime
+tests replay prior levelling across geographic/projected contexts in both languages.
