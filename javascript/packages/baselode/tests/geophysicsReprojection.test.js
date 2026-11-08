@@ -63,3 +63,14 @@ it.each([[12,56,'EPSG:32632',687071.44,6210141.33],[174,-44,'EPSG:32759',740526.
 it('checks source UTM area when returning to geographic coordinates',async()=>{
  const d=(await project()).observations;delete d.metadata.correction_ledger;delete d.metadata.processing;d.records[0].x=2000000;expect((await reprojectGeophysicsObservations(d,options('EPSG:4326'))).state).toBe('rejected');
 });
+it.each([[1,1],[60,1],[1,-1],[60,-1]])('accepts both antimeridian spellings at zone %s latitude %s and return paths',async(zone,lat)=>{
+ const outputs=[];const crs=`EPSG:${(lat>0?32600:32700)+zone}`;
+ for(const lon of [-180,180]) {
+  const d=survey();d.records=d.records.slice(0,1);Object.assign(d.records[0],{x:lon,y:lat});const out=(await project(d,options(crs))).observations;outputs.push(out.records[0]);const back=(await project(out,options('EPSG:4326','back'))).observations;expect(Math.abs(back.records[0].x)).toBeCloseTo(180,8);expect(back.records[0].y).toBeCloseTo(lat,8);await project(back,options(crs,'again'));
+ }
+ for(const key of ['x','y'])expect(Math.abs(outputs[0][key]-outputs[1][key])).toBeLessThan(1e-6);
+});
+it.each(['missing','ack'])('rejects stored parameter %s without requesting input',async(change)=>{
+ const d=(await project()).observations;const p=d.metadata.correction_ledger.entries.at(-1).parameters;if(change==='missing')delete p.target_crs;else p.datum_policy='automatic';
+ for(const result of [await inspectGeophysicsCorrections(d),await reprojectGeophysicsObservations(d,options('EPSG:4326','back'))]){expect(result.state).toBe('rejected');expect(result.issues[0].code).toBe('contract');expect(result.observations).toBeNull();}
+});

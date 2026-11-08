@@ -1141,7 +1141,9 @@ def _projection_area(code, lon, lat):
     if code != 4326:
         center = 6 * (code % 100) - 183
         south = code // 100 == 327
-        if abs(lon - center) > 3 + tolerance or lat < (-80 if south else 0) - tolerance or lat > (0 if south else 84) + tolerance:
+        distance = abs(lon - center)
+        distance = min(distance, abs(360 - distance))
+        if distance > 3 + tolerance or lat < (-80 if south else 0) - tolerance or lat > (0 if south else 84) + tolerance:
             raise ValueError("coordinates lie outside the declared UTM six-degree zone/hemisphere/latitude domain")
 
 
@@ -1164,7 +1166,10 @@ def _reprojection_frames(data, entries):
             fields = {"id", "kind", "evidence", "producer", "input_binding", "output_binding", "parameters", "source", "target", "backend", "transformed_records", "transform_binding"}
             if set(entry) != fields or not _label(entry["id"]) or not _evidence(entry["evidence"]) or not all(_digest(entry[k]) for k in ("input_binding", "output_binding", "transform_binding")):
                 raise ValueError("malformed reprojection event")
-            params = _reprojection_options(entry["parameters"])
+            try:
+                params = _reprojection_options(entry["parameters"])
+            except _NeedsInput as error:
+                raise ValueError("invalid stored reprojection parameters: " + str(error)) from error
             _projection_frame(entry["source"])
             target_code = _projection_frame(entry["target"])
             if params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"] or params["target_crs"] != entry["target"]["crs"] or entry["target"]["crs_units"] != ("degree" if target_code == 4326 else "m") or entry["target"] != frame:

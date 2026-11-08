@@ -231,3 +231,30 @@ def test_source_utm_area_is_checked_even_when_target_is_geographic():
     del data['metadata']['correction_ledger']; data['metadata'].pop('processing')
     data['records'][0]['x'] = 2000000
     assert baselode.geophysics.reproject_observations(data,options('EPSG:4326'))['state'] == 'rejected'
+
+
+@pytest.mark.parametrize('zone,lat', [(1,1), (60,1), (1,-1), (60,-1)])
+def test_antimeridian_spellings_share_both_zone_edges_and_return_paths(zone,lat):
+    outputs = []
+    crs = f'EPSG:{(32600 if lat>0 else 32700)+zone}'
+    for lon in [-180,180]:
+        data = survey(); data['records'] = data['records'][:1]
+        data['records'][0].update(x=lon,y=lat)
+        out = project(data, options(crs))['observations']; outputs.append(out['records'][0])
+        back = project(out, options('EPSG:4326','back'))['observations']
+        assert abs(back['records'][0]['x']) == pytest.approx(180,abs=1e-8)
+        assert back['records'][0]['y'] == pytest.approx(lat,abs=1e-8)
+        assert project(back, options(crs,'again'))['state'] == 'ok'
+    for key in ['x','y']: assert outputs[0][key] == pytest.approx(outputs[1][key],abs=1e-6,rel=0)
+
+
+@pytest.mark.parametrize('change', ['missing', 'ack'])
+def test_malformed_stored_parameters_reject_instead_of_requesting_input(change):
+    data = project()['observations']
+    params = data['metadata']['correction_ledger']['entries'][-1]['parameters']
+    if change == 'missing': del params['target_crs']
+    else: params['datum_policy'] = 'automatic'
+    for result in [baselode.geophysics.inspect_corrections(data), baselode.geophysics.reproject_observations(data,options('EPSG:4326','back'))]:
+        assert result['state'] == 'rejected'
+        assert result['issues'][0]['code'] == 'contract'
+        assert result['observations'] is None

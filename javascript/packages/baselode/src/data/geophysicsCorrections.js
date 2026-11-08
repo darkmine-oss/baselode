@@ -616,7 +616,8 @@ function projectionArea(code,lon,lat) {
   if (!number(lon) || !number(lat) || Math.abs(lon) > 180+tolerance || Math.abs(lat) > 90+tolerance) throw Error('coordinates must resolve to finite WGS84 longitude/latitude in range');
   if (code !== 4326) {
     const center=6*(code%100)-183; const south=Math.floor(code/100)===327;
-    if (Math.abs(lon-center)>3+tolerance || lat<(south?-80:0)-tolerance || lat>(south?0:84)+tolerance) throw Error('coordinates lie outside the declared UTM six-degree zone/hemisphere/latitude domain');
+    const delta=Math.abs(lon-center); const distance=Math.min(delta,Math.abs(360-delta));
+    if (distance>3+tolerance || lat<(south?-80:0)-tolerance || lat>(south?0:84)+tolerance) throw Error('coordinates lie outside the declared UTM six-degree zone/hemisphere/latitude domain');
   }
 }
 async function reprojectionHash(entry) {
@@ -632,7 +633,10 @@ async function reprojectionFrames(data,entries) {
     const entry=entries[index];
     if(object(entry) && entry.kind==='reprojection') {
       if(!keys(entry,['id','kind','evidence','producer','input_binding','output_binding','parameters','source','target','backend','transformed_records','transform_binding']) || !label(entry.id) || !evidence(entry.evidence) || !['input_binding','output_binding','transform_binding'].every((k)=>digest(entry[k]))) throw Error('malformed reprojection event');
-      const params=reprojectionOptions(entry.parameters); projectionFrame(entry.source); const targetCode=projectionFrame(entry.target);
+      let params;
+      try { params=reprojectionOptions(entry.parameters); }
+      catch(error) { if(error instanceof NeedsInput) throw Error(`invalid stored reprojection parameters: ${error.message}`); throw error; }
+      projectionFrame(entry.source); const targetCode=projectionFrame(entry.target);
       if(params.event_id!==entry.id || params.evidence!==entry.evidence || params.target_crs!==entry.target.crs || entry.target.crs_units!==(targetCode===4326?'degree':'m') || entry.target.crs!==frame.crs || entry.target.crs_units!==frame.crs_units) throw Error('broken reprojection parameter/context chain');
       const backend=entry.backend; const same=entry.source.crs===entry.target.crs;
       if(!keys(backend,['name','version','proj_version']) || !(same?['identity']:['pyproj','proj4']).includes(backend.name) || !label(backend.version) || !(backend.proj_version===null || label(backend.proj_version))) throw Error('invalid reprojection backend identity');
