@@ -123,3 +123,13 @@ if (correctionEvent.kind === 'application' && correctionEvent.correction === 'ma
 correctGeophysicsMagneticLag(observations, { channel: 'mag', lag_seconds: .5, max_gap: 1, event_id: 'lag-1', evidence: 'calibration', clock_policy: 'synchronized' });
 // @ts-expect-error no unbounded extrapolation policy
 correctGeophysicsMagneticLag(observations, { channel: 'mag', lag_seconds: .5, max_gap: 1, unsupported_policy: 'extrapolate', event_id: 'lag-1', evidence: 'calibration', clock_policy: 'synchronized' });
+
+import { correctGeophysicsMagneticHeading, type GeophysicsMagneticHeadingReport } from 'baselode/geophysics';
+const headingReport: Promise<GeophysicsMagneticHeadingReport> = correctGeophysicsMagneticHeading(observations, { channel: 'mag', heading_key: 'sensor_heading', heading_reference: 'true_north', calibration_id: 'cal-1', calibration: [{ heading_degrees: 0, bias_nT: 2 }, { heading_degrees: 180, bias_nT: -2 }], max_heading_gap: 180, bias_convention: 'observed_minus_reference', event_id: 'heading-1', evidence: 'calibration checked' });
+void headingReport;
+if (correctionEvent.kind === 'application' && correctionEvent.correction === 'magnetic_heading') {
+  const boundHeadings: string = correctionEvent.heading_binding;
+  void boundHeadings;
+}
+// @ts-expect-error explicit observed-minus-reference bias convention is required
+correctGeophysicsMagneticHeading(observations, { channel: 'mag', heading_key: 'sensor_heading', heading_reference: 'true_north', calibration_id: 'cal-1', calibration: [], max_heading_gap: 180, event_id: 'heading-1', evidence: 'calibration' });

@@ -770,6 +770,19 @@
           "correct_magnetic_lag"
         ]
       ]
+    },
+    {
+      "name": "geophysics_magnetic_heading",
+      "description": "Native scalar magnetic heading-bias subtraction with circular calibration support, explicit frame/sign and bound heading/model inputs.",
+      "jsExports": [
+        "correctGeophysicsMagneticHeading"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "correct_magnetic_heading"
+        ]
+      ]
     }
   ]
 }

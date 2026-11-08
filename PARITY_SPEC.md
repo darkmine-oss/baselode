@@ -158,3 +158,23 @@ lag masks, so prior base/IGRF applications remain valid. Source metadata,
 uncertainty and remappable lineage persist through exports. Raster workflow v1
 remains unchanged; no heading, inferred lag, physical sensor-path calculation,
 operation reordering or uncertainty propagation is claimed.
+
+### Calibrated magnetic heading bias
+
+Python `correct_magnetic_heading` matches asynchronous JavaScript
+`correctGeophysicsMagneticHeading` (main and geophysics entries). Both use the
+shared heading parameters/context, strict event union and binding protocol.
+Independent cardinal/oblique/north-seam fixtures recover signed scalar bias;
+live bidirectional execution checks generic and supplementary SHA-256 bindings,
+including Unicode IDs, sorted copied calibrations and later channel applications.
+Numerical interpolation compares at 1e-12; structural support/model/mask history
+and portable bindings match exactly, apart from producer package versions.
+
+The extra heading binding covers semantic calibration/options, explicit frame
+context and every ID/raw heading using the documented float64 hex protocol.
+It catches edits to fields intentionally excluded from the original general
+binding, and survives later lag masks because headings are preserved. Native
+JS internal validation awaits Web Crypto; existing public APIs stay asynchronous.
+Neither runtime fits calibration, derives heading from track, changes reference
+frame, masks unsupported heading records or claims 3D compensation/uncertainty
+propagation. Existing raster workflow v1 remains unchanged.

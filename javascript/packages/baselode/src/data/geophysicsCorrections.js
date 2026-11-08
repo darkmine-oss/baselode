@@ -92,6 +92,42 @@ function lagOptions(options) {
   if (params.clock_policy !== 'synchronized') throw new NeedsInput('clock_policy must explicitly acknowledge synchronized UTC Unix seconds');
   return params;
 }
+function headingOptions(options) {
+  const contract = descriptor.heading_parameters;
+  if (!object(options) || Object.keys(options).some((name) => !Object.hasOwn(contract.properties, name))) throw Error('heading correction requires known option names');
+  const params = json(options);
+  if (contract.required.some((name) => !Object.hasOwn(params, name))) throw new NeedsInput('supply all heading/calibration, gap, sign, event and evidence options');
+  if (!['channel', 'heading_key'].every((name) => typeof params[name] === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params[name]))) throw Error('channel and heading_key must be named fields');
+  if (!['true_north', 'magnetic_north', 'grid_north'].includes(params.heading_reference) || params.bias_convention !== 'observed_minus_reference') throw Error('declare a supported heading reference and observed_minus_reference bias convention');
+  if (!label(params.calibration_id) || !label(params.event_id) || !evidence(params.evidence)) throw Error('calibration_id/event_id/evidence require nonempty bounded strings');
+  if (!number(params.max_heading_gap) || params.max_heading_gap <= 0 || params.max_heading_gap > 180) throw Error('max_heading_gap must be finite degrees in (0,180]');
+  const nodes = params.calibration;
+  if (!Array.isArray(nodes) || nodes.length < 2) throw Error('calibration requires at least two heading/bias nodes');
+  if (nodes.length > limits.max_heading_nodes) throw new ResourceError('heading calibration accepts at most 72 nodes');
+  for (const node of nodes) if (!keys(node, ['heading_degrees', 'bias_nT']) || !number(node.heading_degrees) || node.heading_degrees < 0 || node.heading_degrees >= 360 || !number(node.bias_nT)) throw Error('calibration nodes require finite unique headings in [0,360) and bias_nT');
+  nodes.sort((a, b) => a.heading_degrees - b.heading_degrees);
+  if (nodes.some((node, index) => index && node.heading_degrees === nodes[index - 1].heading_degrees)) throw Error('calibration headings must be unique');
+  return params;
+}
+function rawHeading(row, key) { return Object.hasOwn(row.extra, key) ? row.extra[key] : null; }
+async function headingBinding(data, params) {
+  if (data.records.length > limits.max_heading_records) throw new ResourceError('heading correction accepts at most 4096 records');
+  const context = data.metadata.heading;
+  if (!keys(context, ['key', 'units', 'reference', 'positive']) || context.key !== params.heading_key || context.units !== 'degrees' || context.reference !== params.heading_reference || context.positive !== 'clockwise') throw new NeedsInput('declare metadata.heading key/units=degrees/reference/positive=clockwise matching heading options');
+  const buffer = new ArrayBuffer(8); const view = new DataView(buffer);
+  function hexNumber(value) { view.setFloat64(0, value === 0 ? 0 : value, false); return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join(''); }
+  const rows = data.records.map((row) => {
+    const heading = rawHeading(row, params.heading_key);
+    if (heading !== null && (!number(heading) || heading < 0 || heading > 360)) throw Error('every supplied heading must be a finite clockwise angle in [0,360] degrees');
+    return [row.id, heading === null ? null : hexNumber(heading)];
+  });
+  const snapshot = ['baselode.heading_binding.v1', params.channel, params.heading_key, params.heading_reference, params.calibration_id, params.bias_convention, hexNumber(params.max_heading_gap), params.calibration.map((n) => [hexNumber(n.heading_degrees), hexNumber(n.bias_nT)]), ['key', 'units', 'reference', 'positive'].map((n) => context[n]), rows];
+  const encoded = new TextEncoder().encode(JSON.stringify(snapshot));
+  if (encoded.length > limits.max_binding_bytes) throw new ResourceError('heading input binding exceeds 32 MiB');
+  if (!globalThis.crypto?.subtle) throw new NeedsInput('SHA-256 binding requires Web Crypto (Node 20+ or a secure browser context)');
+  return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', encoded))].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 function applicationCounts(data, entries) {
   const counts = Object.fromEntries(Object.keys(data.channels).map((name) => [name, data.records.filter((row) => row.values[name] !== null).length]));
   const rows = new Map(data.records.map((row) => [row.id, row])); const expected = new Map(); const seen = new Map();
@@ -116,7 +152,7 @@ function applicationCounts(data, entries) {
   return expected;
 }
 
-function validate(data, ledger, current, checkSummary = true) {
+async function validate(data, ledger, current, checkSummary = true) {
   if (!keys(ledger, ['schema', 'version', 'algorithm', 'initial_binding', 'current_binding', 'entries']) || ledger.schema !== schema || ledger.version !== 1 || ledger.algorithm !== algorithm) throw Error('unsupported or malformed correction ledger');
   if (!digest(ledger.initial_binding) || !digest(ledger.current_binding)) throw Error('ledger bindings must be lowercase SHA-256 digests');
   if (!Array.isArray(ledger.entries)) throw Error('correction ledger entries must be a list');
@@ -127,7 +163,7 @@ function validate(data, ledger, current, checkSummary = true) {
   const counts = applicationCounts(data, ledger.entries);
   const states = statesFor(data, { entries: [] }); let previous = ledger.initial_binding; const ids = new Set();
   for (const [index, entry] of ledger.entries.entries()) {
-    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : baseExtra);
+    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : (entry?.correction === 'magnetic_heading' ? ['parameters', 'heading_binding', 'affected_records'] : baseExtra));
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
     if (typeof correction !== 'string' || !Object.hasOwn(states, correction) || !label(entry.id) || ids.has(entry.id) || !evidence(entry.evidence)) throw Error('ledger events need unique IDs, registered correction and bounded evidence');
@@ -140,14 +176,20 @@ function validate(data, ledger, current, checkSummary = true) {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
       let params;
-      try { params = (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions))(entry.parameters); }
+      try { params = (correction === 'magnetic_heading' ? headingOptions : (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions)))(entry.parameters); }
       catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
       const count = counts.get(index);
-      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
+      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
       if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence) throw Error('application parameters do not match the ledger event');
       if (correction === 'magnetic_diurnal' && (!digest(entry.base_binding) || !label(entry.base_station_id))) throw Error('invalid base application binding/station');
       if (correction === 'magnetic_igrf' && (!keys(entry.model, Object.keys(descriptor.igrf_model.const)) || Object.entries(descriptor.igrf_model.const).some(([key, value]) => entry.model[key] !== value))) throw Error('invalid IGRF model/coefficient/convention identity');
       if (correction === 'magnetic_lag' && ((params.unsupported_policy === 'reject' && entry.masked_records.length) || count <= entry.masked_records.length)) throw Error('lag masks require explicit mask policy and at least one supported reading');
+      if (correction === 'magnetic_heading') {
+        let currentHeading;
+        try { currentHeading = await headingBinding(data, params); }
+        catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored heading context: ${error.message}`); throw error; }
+        if (!digest(entry.heading_binding) || entry.heading_binding !== currentHeading) throw Error('stale heading binding: heading inputs, context or calibration changed');
+      }
       if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading immediately before that event');
     }
     for (const name of channels) states[correction][name] = entry.state;
@@ -170,7 +212,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);
@@ -185,7 +227,7 @@ async function load(data) {
 }
 async function save(data, ledger) {
   if (ledger.entries.length > limits.max_events) throw new ResourceError('correction ledger exceeds 64 events');
-  validate(data, ledger, await binding(data), false);
+  await validate(data, ledger, await binding(data), false);
   const states = statesFor(data, ledger); data.metadata.corrections ??= {}; const legacy = data.metadata.corrections;
   for (const key of [...Object.keys(legacy), ...[...new Set(ledger.entries.map((entry) => entry.correction))].sort()]) {
     const correction = canonical(key);
@@ -213,7 +255,7 @@ export async function declareGeophysicsCorrections(payload, declarations) {
       if (!keys(item, ['id', 'correction', 'channels', 'state', 'evidence'])) throw Error('declarations need exactly id, correction, channels, state and evidence');
       ledger.entries.push({ ...item, kind: 'declaration', producer: producer(), input_binding: ledger.current_binding, output_binding: ledger.current_binding });
     }
-    const output = await save(data, ledger); validate(output, ledger, await binding(output));
+    const output = await save(data, ledger); await validate(output, ledger, await binding(output));
     Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger), parameters: { declarations: items } }); return result;
   } catch (error) { return errorResult(result, error); }
 }
@@ -273,7 +315,7 @@ export async function correctGeophysicsMagneticBase(payload, base, options) {
     for (const key of ['uncertainty', 'variance', 'standard_deviation']) delete metadata[key];
     metadata.uncertainty_propagated = false;
     metadata.processing = [...(metadata.processing ?? []), { operation: 'magnetic_base_input', version: 1, event_id: params.event_id, input_binding: beforeBinding, operand_lineage: source.operand }, { operation: 'correct_magnetic_base', version: 1, parameters: params, input_binding: beforeBinding, output_binding: outputBinding, base_binding: baseBinding, operand_lineage: monitorInput.operand }];
-    const output = await save(data, ledger); validate(output, ledger, outputBinding);
+    const output = await save(data, ledger); await validate(output, ledger, outputBinding);
     Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger) }); return result;
   } catch (error) { return errorResult(result, error); }
 }
@@ -338,7 +380,62 @@ export async function correctGeophysicsMagneticLag(payload, options) {
     for (const key of ['uncertainty', 'variance', 'standard_deviation']) delete metadata[key];
     metadata.uncertainty_propagated = false;
     metadata.processing = [...(metadata.processing ?? []), { operation: 'correct_magnetic_lag', version: 1, parameters: params, input_binding: before, output_binding: after, operand_lineage: source.operand }];
-    const output = await save(data, ledger); validate(output, ledger, after);
+    const output = await save(data, ledger); await validate(output, ledger, after);
+    Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger) }); return result;
+  } catch (error) { return errorResult(result, error); }
+}
+
+/** Subtract supplied observed-minus-reference bias with circular calibration support; no fitted compensation model. */
+export async function correctGeophysicsMagneticHeading(payload, options) {
+  const result = report('magnetic_heading');
+  try {
+    const params = headingOptions(options); result.parameters = params;
+    const data = createGeophysicsObservations(payload);
+    if (data.records.length > limits.max_heading_records) throw new ResourceError('heading correction accepts at most 4096 records');
+    const channel = params.channel;
+    if (!Object.hasOwn(data.channels, channel) || !['magnetic_total_field', 'magnetic_anomaly'].includes(data.channels[channel].field_type) || trim(data.channels[channel].units) !== 'nT') throw Error('heading correction requires a magnetic total-field/anomaly channel in nT');
+    const ledger = await load(data);
+    if (ledger.entries.some((entry) => entry.id === params.event_id)) throw Error('event_id already exists in the correction ledger');
+    const state = statesFor(data, ledger).magnetic_heading[channel];
+    if (state === 'unknown') throw new NeedsInput('declare evidence-backed unapplied magnetic_heading history before correction');
+    if (state !== 'unapplied') throw Error('magnetic_heading is already applied; repeated correction is rejected');
+    const headingInput = await headingBinding(data, params); const nodes = params.calibration;
+    const readings = data.records.filter((row) => row.values[channel] !== null);
+    if (!readings.length) throw new NeedsInput('selected channel needs at least one nonnull reading');
+    for (const row of readings) {
+      const raw = rawHeading(row, params.heading_key); const h = raw === 360 ? 0 : raw;
+      let bias = null; let reason = null; let bracket = []; let gap = null; let weight = null;
+      if (h === null) reason = 'missing_heading';
+      else {
+        let low = 0; let high = nodes.length;
+        while (low < high) { const mid = Math.floor((low + high) / 2); if (nodes[mid].heading_degrees < h) low = mid + 1; else high = mid; }
+        const index = low;
+        if (index < nodes.length && nodes[index].heading_degrees === h) { bias = nodes[index].bias_nT; bracket = [h]; gap = 0; weight = 0; }
+        else {
+          const left = nodes[(index - 1 + nodes.length) % nodes.length]; const right = nodes[index % nodes.length];
+          const start = left.heading_degrees; const end = right.heading_degrees + ([0, nodes.length].includes(index) ? 360 : 0);
+          const query = h + (index === 0 ? 360 : 0); gap = end - start; bracket = [left.heading_degrees, right.heading_degrees];
+          if (gap > params.max_heading_gap) reason = 'excessive_heading_gap';
+          else { weight = (query - start) / gap; bias = left.bias_nT + (right.bias_nT - left.bias_nT) * weight; }
+        }
+      }
+      const original = row.values[channel]; const value = bias === null ? null : original - bias;
+      if (bias !== null && (!number(bias) || !number(value))) throw Error('heading bias/corrected value exceeds portable numeric range');
+      result.proposals.push({ id: row.id, heading_degrees: h, original, bias_nT: bias, corrected: value, calibration_headings: bracket, angular_gap: gap, weight, supported: reason === null, reason });
+    }
+    const supported = result.proposals.filter((p) => p.supported).length;
+    result.diagnostics = { selected_readings: readings.length, supported_readings: supported, missing_readings: data.records.length - readings.length, calibration_nodes: nodes.length, heading_binding: headingInput, uncertainty_propagated: false };
+    if (supported !== readings.length) throw new NeedsInput('heading support is incomplete; no corrected observations or application event committed');
+    const before = ledger.current_binding;
+    readings.forEach((row, index) => { row.values[channel] = result.proposals[index].corrected; });
+    const after = await binding(data);
+    ledger.entries.push({ id: params.event_id, kind: 'application', correction: 'magnetic_heading', channels: [channel], state: 'applied', evidence: params.evidence, producer: producer(), input_binding: before, output_binding: after, parameters: params, heading_binding: headingInput, affected_records: readings.length });
+    ledger.current_binding = after;
+    const metadata = data.metadata; const source = appendInput(metadata, metadata); metadata.input_lineage = source.nodes;
+    for (const key of ['uncertainty', 'variance', 'standard_deviation']) delete metadata[key];
+    metadata.uncertainty_propagated = false;
+    metadata.processing = [...(metadata.processing ?? []), { operation: 'correct_magnetic_heading', version: 1, parameters: params, heading_binding: headingInput, input_binding: before, output_binding: after, operand_lineage: source.operand }];
+    const output = await save(data, ledger); await validate(output, ledger, after);
     Object.assign(result, { observations: output, ledger: clone(ledger), states: statesFor(output, ledger) }); return result;
   } catch (error) { return errorResult(result, error); }
 }
