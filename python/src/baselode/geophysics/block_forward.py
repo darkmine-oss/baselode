@@ -37,6 +37,7 @@ def _prepare(request):
     _keys(p,('schema','version','coordinate_frame','model','physics','cell_id_column','active_column','properties','points','batch_size','include_sensitivities','background_nT','min_distance_m'),('metadata',))
     if p['schema']!='baselode.geophysics.block_forward_request' or type(p['version']) not in (int,float) or p['version']!=1 or p['physics'] not in ('gravity','magnetic'):
         raise ValueError('unsupported block forward schema/version/physics')
+    if type(p['include_sensitivities']) is not bool:raise ValueError('include_sensitivities must be boolean')
     baselode.geophysics.forward_common._number(p['batch_size'],1,64)
     if int(p['batch_size'])!=p['batch_size']:raise ValueError('batch_size must be integer')
     baselode.geophysics.forward_common._label(p['cell_id_column'])

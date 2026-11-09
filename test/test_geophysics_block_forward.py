@@ -100,3 +100,9 @@ def test_cancellation_keeps_source_order_independent_of_three_way_batching(monke
 def test_returned_batches_have_independent_points_frame_and_replay_snapshot():
     for factory in [request,magnetic]:
         p=factory();r=baselode.geophysics.prepare_block_forward(p);before=copy.deepcopy(r['request']);other=copy.deepcopy(r['batches'][1]);r['batches'][0]['points'][0]['z_m']=999;r['batches'][0]['coordinate_frame']['id']='edited';assert r['request']==before and r['batches'][1]==other and p==before
+
+
+def test_invalid_flag_is_contract_before_work_budget_in_both_runtimes(tmp_path):
+    p=request();p['include_sensitivities']=[];p['points']=[dict(p['points'][0],id=str(i)) for i in range(2049)]
+    py=baselode.geophysics.prepare_block_forward(p);assert py['state']=='rejected' and py['issues'][0]['code']=='contract'
+    a=tmp_path/'in.json';b=tmp_path/'out.json';a.write_text(json.dumps([p]));subprocess.run(['node',str(ROOT/'test/data/block_forward_parity.mjs'),str(a),str(b)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True);js=json.loads(b.read_text())['reports'][0];assert js['state']==py['state'] and js['issues'][0]['code']=='contract'

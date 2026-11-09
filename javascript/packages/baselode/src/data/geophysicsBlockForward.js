@@ -10,6 +10,7 @@ export function describeGeophysicsBlockForward(){return JSON.parse(JSON.stringif
 function prepare(request){
  const p=boundedJSON(request,2097152);keys(p,['schema','version','coordinate_frame','model','physics','cell_id_column','active_column','properties','points','batch_size','include_sensitivities','background_nT','min_distance_m'],['metadata']);
  if(p.schema!=='baselode.geophysics.block_forward_request'||p.version!==1||!['gravity','magnetic'].includes(p.physics))throw Error('unsupported block forward schema/version/physics');
+ if(typeof p.include_sensitivities!=='boolean')throw Error('include_sensitivities must be boolean');
  number(p.batch_size,1,64);if(!Number.isInteger(p.batch_size))throw Error('batch_size must be integer');label(p.cell_id_column);if(p.active_column!==null)label(p.active_column);
  if(Object.hasOwn(p,'metadata')){if(!object(p.metadata))throw Error('metadata must be object');boundedJSON(p.metadata,131072);}
  keys(p.model,['definition','blocks']);const d=p.model.definition;keys(d,['name','description','crs','origin','block_size','n_blocks','parent_size','rotation','extra']);
