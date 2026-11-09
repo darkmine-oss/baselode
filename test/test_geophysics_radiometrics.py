@@ -160,7 +160,12 @@ def test_quantitative_product_and_calibration_lineage_survive_export(tmp_path,op
 def test_live_native_python_javascript_masks_values_workflows_and_lineage(tmp_path):
     source=tmp_path/'in.json';target=tmp_path/'out.json';f=fixture();source.write_text(json.dumps({**f,'workflow':workflow(),'text_cases':json.loads((ROOT/'test/data/radiometrics_text_reference.json').read_text())}))
     subprocess.run(['node',str(ROOT/'test/data/radiometrics_parity.mjs'),str(source),str(target)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True)
-    js=json.loads(target.read_text());assert js['ratios']['data']==f['expected_ratios'] and js['rgb']['data']==f['expected_ternary'];assert js['workflow']['state']=='ok',js['workflow']['issues']
+    js=json.loads(target.read_text())
+    undeclared=baselode.geophysics.GeophysicsRaster.from_payload(js['undeclared']);assert undeclared.transform is None
+    with pytest.raises(ValueError):baselode.geophysics.radiometric_ratios(undeclared,**f['ratio_options'])
+    with pytest.raises(ValueError):baselode.geophysics.radiometric_ternary(undeclared,**f['ternary_options'])
+    assert baselode.geophysics.run_workflow(workflow(),{'radio':undeclared})['state']=='rejected'
+    assert js['ratios']['data']==f['expected_ratios'] and js['rgb']['data']==f['expected_ternary'];assert js['workflow']['state']=='ok',js['workflow']['issues']
     for key in ['ratios','rgb']:assert js[key]['metadata']['units']==baselode.geophysics.run_workflow(workflow(),{'radio':grid()})['artifacts'][key].metadata['units']
     for key in ['ratios','rgb']:baselode.geophysics.provenance.encode(js[key]['metadata'],'GeoTIFF','float64')
     assert js['text_results']==[c['accepted'] for c in json.loads((ROOT/'test/data/radiometrics_text_reference.json').read_text())]
@@ -249,3 +254,13 @@ def test_missing_affine_geometry_rejects_products_and_named_recipes():
 def test_existing_catalogue_unit_descriptions_stay_strings_with_additive_band_units():
     ops=baselode.geophysics.list_operations();assert all(type(op['outputs']['units']) is str for op in ops)
     assert baselode.geophysics.describe_operation('radiometric_ratios')['outputs']['band_units']==['ppm/%','ppm/%','1']
+
+
+@pytest.mark.parametrize('marker',[False,True,None,0,'false',{}])
+def test_payload_transform_declaration_is_explicit_boolean(marker):
+    payload=grid().to_payload();payload['hasExplicitTransform']=marker
+    if type(marker) is not bool:
+        with pytest.raises(ValueError,match='hasExplicitTransform'):baselode.geophysics.GeophysicsRaster.from_payload(payload)
+    else:
+        rebuilt=baselode.geophysics.GeophysicsRaster.from_payload(payload)
+        assert rebuilt.transform==(grid().transform if marker else None)

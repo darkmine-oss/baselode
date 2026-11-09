@@ -20,5 +20,6 @@ try {
     if(item.target==='evidence')p.evidence=item.value;if(item.target==='height_datum')source.metadata.radiometric.height_datum=item.value;if(item.target==='calibration_id')source.metadata.radiometric.calibration_ids[0]=item.value;if(item.target==='frame_id'){source.crs=null;source.metadata.frame_id=item.value;}if(item.target==='crs')source.crs=item.value;if(item.target==='crs_units')source.metadata.crs_units=item.value;if(item.target==='extension')source.metadata.extension={note:item.value};
     try{api.calculateGeophysicsRadiometricRatios(source,p);return true;}catch{return false;}
   });
-  fs.writeFileSync(process.argv[3],JSON.stringify({ratios,rgb,workflow,text_results}));
+  const undeclaredPayload={...f,bandNames:f.band_names};delete undeclaredPayload.transform;const undeclared=rasters.createGeophysicsRaster(undeclaredPayload);
+  fs.writeFileSync(process.argv[3],JSON.stringify({ratios,rgb,workflow,text_results,undeclared}));
 } finally { await server.close(); }
