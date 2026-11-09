@@ -1745,3 +1745,48 @@ known unapplied normal/free-air/Bouguer/terrain history. It produces
 `gravity_disturbance`, preserving native data/model/context bindings, drift/tide
 states and source lineage. No silent tide, geoid or absolute-datum conversion.
 All assumptions and limits are discoverable in the shared descriptor.
+
+### Native gravity tides, drift and repeats
+
+`describeGeophysicsGravityTemporal()` returns shared schemas, limits and assumptions.
+`applyGeophysicsGravityTide`, `correctGeophysicsGravityDrift` and
+`analyzeGeophysicsGravityRepeats` execute natively and asynchronously, using Web
+Crypto for history bindings. They are registered observation-workflow operations.
+
+Use scale-calibrated `gravity_relative/mGal` for arbitrary instrument zero
+(negative/zero readings allowed), or positive absolute `gravity_observed/mGal`.
+Declare instrument_id, gravity_scale_calibration_id, known height datum/metres/up,
+permanent tide_system and gravity datum. Selected datum is
+`metadata.gravity_channel_datums[channel]` when present, otherwise the global
+`metadata.gravity_datum`; normal-gravity history uses the same rule.
+
+Tide options include exact per-record `effects: [{ record_id, effect_mGal }]`,
+`effect_convention: 'observed_minus_reference'`, max_abs_effect_mGal, model_id,
+channel, caller_verified reference/synchronized clock policies, event_id/evidence.
+The table must cover exactly all nonnull selected readings, with finite XY/Z/UTC
+context. Known unapplied tide and reference/height history is required. No tide
+prediction, loading, scale calibration or permanent-tide conversion is inferred.
+
+Drift options include `controls: [{ record_id, reference_mGal }]` (2–128 absolute
+references), target_gravity_datum, max_gap_seconds, max_abs_correction_mGal,
+max_drift_rate_mGal_per_s and the same explicit model/policy/event context. Known
+applied tide and unapplied drift/reference/height histories are required. Controls
+are sorted by time; observations stay in their original order. Interpolate
+control bias `reading - reference` linearly and subtract it. No extrapolation;
+long unsupported brackets and quality failures return no output/event. The bias
+cap includes the instrument-to-absolute datum offset. Successful selected readings
+become positive absolute gravity_observed; only their datum override is changed.
+
+Loop diagnostics describe consecutive control pairs; zero fitted tie residuals
+are not independent accuracy evidence. Repeat analysis reuses native station
+statistics and reports exact same-position/height `geometry_comparable` flags.
+These statistics do not infer geology, noise, drift or uncertainty. Independent
+non-control repeat recovery tests the implementation. This strategy is not a
+global network least-squares adjustment or tare detector.
+
+Native correction/model/context bindings, source lineage, nulls/other channels and
+original inputs are preserved. Supplied tide effects are invariant to an additive
+instrument-datum change, so prior tide history remains valid after base tying.
+Limits: 4,096 records/effects, 128 controls, 256 KiB options and existing event/
+observation/workflow budgets. Inspect structured state/issues before consuming
+outputs; any unsupported reading prevents the complete correction.

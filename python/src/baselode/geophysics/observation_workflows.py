@@ -11,6 +11,7 @@ import baselode
 import baselode.geophysics.corrections
 import baselode.geophysics.gridding
 import baselode.geophysics.igrf
+import baselode.geophysics.gravity_temporal
 import baselode.geophysics.normal_gravity
 import baselode.geophysics.observations
 import baselode.geophysics.provenance
@@ -224,7 +225,7 @@ def _execute(step, sources):
         report = baselode.geophysics.gridding.grid_observations(sources[0], params)
         ports = report['artifacts']
     else:
-        kernels = {'remove_normal_gravity': baselode.geophysics.normal_gravity.remove_normal_gravity, 'correct_magnetic_base': baselode.geophysics.corrections.correct_magnetic_base, 'remove_igrf': baselode.geophysics.igrf.remove_igrf,
+        kernels = {'apply_gravity_tide': baselode.geophysics.gravity_temporal.apply_gravity_tide, 'correct_gravity_drift': baselode.geophysics.gravity_temporal.correct_gravity_drift, 'analyze_gravity_repeats': baselode.geophysics.gravity_temporal.analyze_gravity_repeats, 'remove_normal_gravity': baselode.geophysics.normal_gravity.remove_normal_gravity, 'correct_magnetic_base': baselode.geophysics.corrections.correct_magnetic_base, 'remove_igrf': baselode.geophysics.igrf.remove_igrf,
                    'correct_magnetic_lag': baselode.geophysics.corrections.correct_magnetic_lag, 'correct_magnetic_heading': baselode.geophysics.corrections.correct_magnetic_heading,
                    'reproject_observations': baselode.geophysics.corrections.reproject_observations, 'analyze_crossovers': baselode.geophysics.corrections.analyze_crossovers,
                    'level_magnetic_lines': baselode.geophysics.corrections.level_magnetic_lines}

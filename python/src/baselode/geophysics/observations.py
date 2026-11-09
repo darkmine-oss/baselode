@@ -16,7 +16,7 @@ import baselode.geophysics.provenance
 
 _DIRECTORY = pathlib.Path(__file__).parent
 _DESCRIPTOR = json.loads((_DIRECTORY / "geophysics_observation_qc.json").read_text())
-_FIELDS = ("magnetic_total_field", "magnetic_anomaly", "gravity_observed", "gravity_anomaly", "gravity_disturbance", "radiometric", "radiometric_counts", "other")
+_FIELDS = ("magnetic_total_field", "magnetic_anomaly", "gravity_observed", "gravity_relative", "gravity_anomaly", "gravity_disturbance", "radiometric", "radiometric_counts", "other")
 _LIMITS = _DESCRIPTOR["resources"]
 
 

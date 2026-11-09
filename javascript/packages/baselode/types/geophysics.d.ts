@@ -233,7 +233,7 @@ export function magneticGridRecipe(): GeophysicsWorkflow;
 export function validateGeophysicsWorkflow(workflow: unknown, inputs: Record<string, GeophysicsRaster>): GeophysicsWorkflowValidation;
 export function runGeophysicsWorkflow(workflow: unknown, inputs: Record<string, GeophysicsRaster>): GeophysicsWorkflowResult;
 
-export type GeophysicsObservationField = 'magnetic_total_field' | 'magnetic_anomaly' | 'gravity_observed' | 'gravity_anomaly' | 'gravity_disturbance' | 'radiometric' | 'radiometric_counts' | 'other';
+export type GeophysicsObservationField = 'magnetic_total_field' | 'magnetic_anomaly' | 'gravity_observed' | 'gravity_relative' | 'gravity_anomaly' | 'gravity_disturbance' | 'radiometric' | 'radiometric_counts' | 'other';
 export interface GeophysicsObservationRecord {
   id: string;
   x?: number | null;
@@ -438,6 +438,8 @@ export type GeophysicsCorrectionEvent = GeophysicsReprojectionEvent | (Geophysic
   output_binding: string;
 } & (
   | { kind: 'declaration' }
+  | { kind: 'application'; correction: 'gravity_tide'; state: 'applied'; parameters: GeophysicsGravityTideOptions; temporal_binding: string; affected_records: number }
+  | { kind: 'application'; correction: 'gravity_drift'; state: 'applied'; parameters: GeophysicsGravityDriftOptions; model: GeophysicsGravityDriftModel; temporal_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'gravity_normal'; state: 'applied'; parameters: GeophysicsNormalGravityRemovalOptions; model: GeophysicsNormalGravityModel; normal_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_levelling'; state: 'applied'; parameters: GeophysicsMagneticLevellingOptions; line_offsets: GeophysicsLineOffset[]; levelling_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_heading'; state: 'applied'; parameters: GeophysicsMagneticHeadingOptions; heading_binding: string; affected_records: number }
@@ -595,7 +597,7 @@ export function describeGeophysicsReprojection(): Record<string, unknown>;
 export function reprojectGeophysicsObservations(payload: unknown, options: GeophysicsReprojectionOptions): Promise<GeophysicsCorrectionReport>;
 
 export type GeophysicsObservationWorkflowReference = { input: string; step?: never; output?: never } | { step: string; output: string; input?: never };
-export type GeophysicsObservationWorkflowOperation = 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
+export type GeophysicsObservationWorkflowOperation = 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats' | 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
 export interface GeophysicsObservationWorkflowStep {
   id: string;
   operation: GeophysicsObservationWorkflowOperation;
@@ -652,3 +654,27 @@ export interface GeophysicsNormalGravityReport {
 }
 /** Numerical execution requires Python baselode[gravity]. Ledger replay is native. */
 export function describeGeophysicsNormalGravity(): Record<string, unknown>;
+
+export interface GeophysicsGravityTemporalOptions {
+  channel: string; model_id: string; reference_policy: 'caller_verified'; clock_policy: 'synchronized'; event_id: string; evidence: string;
+}
+export interface GeophysicsGravityTideOptions extends GeophysicsGravityTemporalOptions {
+  effects: Array<{record_id: string; effect_mGal: number}>;
+  effect_convention: 'observed_minus_reference'; max_abs_effect_mGal: number;
+}
+export interface GeophysicsGravityDriftOptions extends GeophysicsGravityTemporalOptions {
+  controls: Array<{record_id: string; reference_mGal: number}>;
+  target_gravity_datum: string; max_gap_seconds: number; max_abs_correction_mGal: number; max_drift_rate_mGal_per_s: number;
+}
+export interface GeophysicsGravityDriftModel {
+  algorithm: 'piecewise_linear_absolute_ties_v1'; source_gravity_datum: string; input_field_type: 'gravity_relative' | 'gravity_observed';
+  ties: Array<{record_id: string; station_id: string; time: number; original_mGal: number; reference_mGal: number; bias_mGal: number}>;
+}
+export interface GeophysicsGravityTemporalReport extends Omit<GeophysicsCorrectionReport,'operation' | 'proposals'> {
+  operation: 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats';
+  proposals: Array<Record<string, unknown>>;
+}
+export function describeGeophysicsGravityTemporal(): Record<string, unknown>;
+export function applyGeophysicsGravityTide(payload: unknown, options: GeophysicsGravityTideOptions): Promise<GeophysicsGravityTemporalReport>;
+export function correctGeophysicsGravityDrift(payload: unknown, options: GeophysicsGravityDriftOptions): Promise<GeophysicsGravityTemporalReport>;
+export function analyzeGeophysicsGravityRepeats(payload: unknown, options: {channel: string}): Promise<GeophysicsGravityTemporalReport>;

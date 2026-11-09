@@ -150,3 +150,11 @@ assert.equal(geophysics.describeGeophysicsObservationWorkflow().version,1);
 assert.equal((await geophysics.inspectGeophysicsCorrections(observationRun.artifacts.corrected)).state,'ok');
 
 assert.equal(geophysics.describeGeophysicsNormalGravity().models.WGS84.backend_version,'0.6.0');
+
+const gravityTemporalExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/gravity_temporal_reference.json'),'utf8'));
+const gravityTide=await geophysics.applyGeophysicsGravityTide(gravityTemporalExample.survey,gravityTemporalExample.tide_options);
+assert.equal(gravityTide.state,'ok',JSON.stringify(gravityTide.issues));
+const gravityDrift=await geophysics.correctGeophysicsGravityDrift(gravityTide.observations,gravityTemporalExample.drift_options);
+assert.equal(gravityDrift.state,'ok',JSON.stringify(gravityDrift.issues));
+assert.deepEqual(gravityDrift.observations.records.map(row=>row.values.g),gravityTemporalExample.expected_values);
+assert.equal(geophysics.describeGeophysicsGravityTemporal().version,1);

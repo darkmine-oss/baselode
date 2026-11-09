@@ -693,3 +693,5 @@ export { describeGeophysicsReprojection, reprojectGeophysicsObservations } from 
 export { describeGeophysicsObservationWorkflow, validateGeophysicsObservationWorkflow, runGeophysicsObservationWorkflow, magneticObservationRecipe } from './data/geophysicsObservationWorkflows.js';
 
 export { describeGeophysicsNormalGravity } from './data/geophysicsNormalGravity.js';
+
+export {describeGeophysicsGravityTemporal,applyGeophysicsGravityTide,correctGeophysicsGravityDrift,analyzeGeophysicsGravityRepeats} from './data/geophysicsGravityTemporal.js';

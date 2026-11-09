@@ -184,3 +184,11 @@ describe_normal_gravity = geophysics_normal_gravity.describe_normal_gravity
 calculate_normal_gravity = geophysics_normal_gravity.calculate_normal_gravity
 remove_normal_gravity = geophysics_normal_gravity.remove_normal_gravity
 __all__ += ["describe_normal_gravity", "calculate_normal_gravity", "remove_normal_gravity"]
+
+import baselode.geophysics.gravity_temporal as geophysics_gravity_temporal
+
+describe_gravity_temporal = geophysics_gravity_temporal.describe_gravity_temporal
+apply_gravity_tide = geophysics_gravity_temporal.apply_gravity_tide
+correct_gravity_drift = geophysics_gravity_temporal.correct_gravity_drift
+analyze_gravity_repeats = geophysics_gravity_temporal.analyze_gravity_repeats
+__all__ += ["describe_gravity_temporal", "apply_gravity_tide", "correct_gravity_drift", "analyze_gravity_repeats"]

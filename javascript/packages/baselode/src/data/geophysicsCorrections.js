@@ -1,9 +1,10 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
 import descriptor from './geophysics_corrections.json';
+import gravityTemporalDescriptor from './geophysics_gravity_temporal.json';
 import reprojectionDescriptor from './geophysics_reprojection.json';
 import proj4 from 'proj4';
-import { createGeophysicsObservations, unicodeStrings } from './geophysicsObservations.js';
+import { createGeophysicsObservations, qcGeophysicsObservations, unicodeStrings } from './geophysicsObservations.js';
 import { jsonValue, appendInput, encodeProvenance } from './geophysicsProvenance.js';
 import { geophysicsCoordinateUnit } from './geophysicsProcessing.js';
 import { computeCrossovers, crossoverSum, crossoverRms, describeGeophysicsCrossovers, CrossoverResourceError } from './geophysicsCrossovers.js';
@@ -239,7 +240,8 @@ async function validate(data, ledger, current, checkSummary = true) {
       if (ids.has(entry.id) || entry.input_binding !== previous) throw Error('duplicate event ID or broken reprojection binding chain');
       ids.add(entry.id); previous = entry.output_binding; continue;
     }
-    const extra = entry?.correction === 'magnetic_igrf' ? igrfExtra : (entry?.correction === 'magnetic_lag' ? ['parameters', 'masked_records', 'affected_records'] : (entry?.correction === 'magnetic_heading' ? ['parameters', 'heading_binding', 'affected_records'] : (entry?.correction === 'magnetic_levelling' ? ['parameters','line_offsets','levelling_binding','affected_records'] : (entry?.correction === 'gravity_normal' ? ['parameters','model','normal_binding','affected_records'] : baseExtra))));
+    const extraSets={magnetic_igrf:igrfExtra,magnetic_lag:['parameters','masked_records','affected_records'],magnetic_heading:['parameters','heading_binding','affected_records'],magnetic_levelling:['parameters','line_offsets','levelling_binding','affected_records'],gravity_normal:['parameters','model','normal_binding','affected_records'],gravity_tide:['parameters','temporal_binding','affected_records'],gravity_drift:['parameters','model','temporal_binding','affected_records']};
+    const extra=typeof entry?.correction==='string'&&Object.hasOwn(extraSets,entry.correction)?extraSets[entry.correction]:baseExtra;
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
     if (typeof correction !== 'string' || !Object.hasOwn(states, correction) || !label(entry.id) || ids.has(entry.id) || !evidence(entry.evidence)) throw Error('ledger events need unique IDs, registered correction and bounded evidence');
@@ -252,10 +254,10 @@ async function validate(data, ledger, current, checkSummary = true) {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
       let params;
-      try { params = (correction === 'gravity_normal' ? normalOptions : (correction === 'magnetic_levelling' ? levellingOptions : (correction === 'magnetic_heading' ? headingOptions : (correction === 'magnetic_igrf' ? igrfOptions : (correction === 'magnetic_lag' ? lagOptions : baseOptions)))))(entry.parameters); }
+      try { const parsers=new Map([['magnetic_igrf',igrfOptions],['magnetic_lag',lagOptions],['magnetic_heading',headingOptions],['magnetic_levelling',levellingOptions],['gravity_normal',normalOptions],['gravity_tide',gravityTideOptions],['gravity_drift',gravityDriftOptions]]);params=(parsers.get(correction)??baseOptions)(entry.parameters); }
       catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
       const count = counts.get(index);
-      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading', 'magnetic_levelling', 'gravity_normal'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
+      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading', 'magnetic_levelling', 'gravity_normal','gravity_tide','gravity_drift'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
       if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence) throw Error('application parameters do not match the ledger event');
       if (correction === 'magnetic_diurnal' && (!digest(entry.base_binding) || !label(entry.base_station_id))) throw Error('invalid base application binding/station');
       if (correction === 'magnetic_igrf' && (!keys(entry.model, Object.keys(descriptor.igrf_model.const)) || Object.entries(descriptor.igrf_model.const).some(([key, value]) => entry.model[key] !== value))) throw Error('invalid IGRF model/coefficient/convention identity');
@@ -281,6 +283,13 @@ async function validate(data, ledger, current, checkSummary = true) {
         catch(error){if(error instanceof NeedsInput)throw Error(`invalid stored gravity context: ${error.message}`);throw error;}
         if(!digest(entry.normal_binding)||entry.normal_binding!==normal)throw Error('stale normal gravity context/model binding');
       }
+      if(['gravity_tide','gravity_drift'].includes(correction)) {
+        if(['gravity_normal','gravity_free_air','gravity_bouguer','gravity_terrain'].some(k=>states[k][channels[0]]!=='unapplied')||(correction==='gravity_drift'&&states.gravity_tide[channels[0]]!=='applied'))throw Error('temporal gravity application conflicts with reference/height or tide history');
+        let temporal;
+        try{temporal=await gravityTemporalBinding(data,params,entry.model??null);}
+        catch(error){if(error instanceof NeedsInput)throw Error(`invalid stored temporal gravity context: ${error.message}`);throw error;}
+        if(!digest(entry.temporal_binding)||entry.temporal_binding!==temporal)throw Error('stale temporal gravity context/effects/model binding');
+      }
       if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading immediately before that event');
     }
     for (const name of channels) states[correction][name] = entry.state;
@@ -303,7 +312,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines', 'reproject_observations','remove_normal_gravity'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines', 'reproject_observations','remove_normal_gravity','apply_gravity_tide','correct_gravity_drift'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);
@@ -719,8 +728,9 @@ function gravityContext(data,params) {
   if(data.records.length>512)throw new ResourceError('normal gravity removal accepts at most 512 records');
   const model=params.model;const metadata=data.metadata;const crs=model==='WGS84'?['EPSG:4326']:['EPSG:4283','EPSG:7844'];
   if(!crs.includes(data.crs)||!['degree','degrees'].includes(data.crs_units)||metadata.height_units!=='m'||metadata.height_datum!==model+'_ellipsoid'||metadata.z_positive!=='up')throw new NeedsInput('supply matching model geographic CRS, degree/degrees, height_units=m, model_ellipsoid height_datum and z_positive=up');
-  if(!label(metadata.gravity_datum)||['unknown','unspecified'].includes(trim(metadata.gravity_datum).toLowerCase())||!['tide_free','zero_tide','mean_tide'].includes(metadata.tide_system))throw new NeedsInput('declare gravity_datum and tide_system=tide_free/zero_tide/mean_tide; caller verifies normal-reference comparability');
-  return [data.crs,data.crs_units,metadata.height_units,metadata.height_datum,metadata.z_positive,metadata.gravity_datum,metadata.tide_system];
+  const datum=effectiveGravityDatum(data,params.channel);
+  if(!label(datum)||['unknown','unspecified'].includes(trim(datum).toLowerCase())||!['tide_free','zero_tide','mean_tide'].includes(metadata.tide_system))throw new NeedsInput('declare gravity_datum and tide_system=tide_free/zero_tide/mean_tide; caller verifies normal-reference comparability');
+  return [data.crs,data.crs_units,metadata.height_units,metadata.height_datum,metadata.z_positive,datum,metadata.tide_system];
 }
 async function normalBinding(data,params) {
   const context=gravityContext(data,params);const model=descriptor.gravity_models[params.model];const buffer=new ArrayBuffer(8);const view=new DataView(buffer);
@@ -728,4 +738,167 @@ async function normalBinding(data,params) {
   const snapshot=['baselode.gravity_normal_binding.v1',params.channel,params.model,params.reference_policy,params.height_policy,context,model.backend,model.backend_version,model.algorithm,numbers];
   if(!globalThis.crypto?.subtle)throw new NeedsInput('SHA-256 binding requires Web Crypto (Node 20+ or secure browser)');
   return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(snapshot))))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+
+
+function effectiveGravityDatum(data,channel) {
+  const overrides=Object.hasOwn(data.metadata,'gravity_channel_datums')?data.metadata.gravity_channel_datums:{};
+  if(!object(overrides))throw Error('metadata.gravity_channel_datums must be an object');
+  return Object.hasOwn(overrides,channel)?overrides[channel]:data.metadata.gravity_datum;
+}
+const knownGravityLabel=value=>label(value)&&!['unknown','unspecified'].includes(trim(value).toLowerCase());
+function gravityTemporalOptions(options,drift) {
+  const contract=descriptor[drift?'gravity_drift_parameters':'gravity_tide_parameters'];
+  if(!object(options)||Object.keys(options).some(key=>!Object.hasOwn(contract.properties,key)))throw Error('temporal gravity requires known option names');
+  const params=json(options);
+  if(contract.required.some(key=>!Object.hasOwn(params,key)))throw new NeedsInput('supply every explicit gravity model/reference/clock/quality/event option');
+  if(typeof params.channel!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params.channel))throw Error('select a declared gravity channel');
+  if(!label(params.model_id)||!label(params.event_id)||!evidence(params.evidence))throw Error('model_id/event_id/evidence must be bounded labels');
+  if(params.clock_policy!=='synchronized'||params.reference_policy!=='caller_verified')throw new NeedsInput('explicit synchronized clock and caller_verified reference policies required');
+  const items=params[drift?'controls':'effects'];const limit=drift?128:4096;
+  if(!Array.isArray(items)||items.length<(drift?2:1))throw Error('supply at least two controls or one effect');
+  if(items.length>limit)throw new ResourceError('gravity control/effect table exceeds its limit');
+  const ids=new Set();const valueKey=drift?'reference_mGal':'effect_mGal';
+  for(const item of items) {
+    if(!keys(item,['record_id',valueKey])||!label(item.record_id)||ids.has(item.record_id)||!number(item[valueKey])||(drift&&item[valueKey]<=0))throw Error('control/effect rows need unique record IDs and valid mGal values');ids.add(item.record_id);
+  }
+  const caps=drift?['max_abs_correction_mGal','max_drift_rate_mGal_per_s']:['max_abs_effect_mGal'];
+  if(caps.some(key=>!number(params[key])||params[key]<0))throw Error('gravity quality caps must be finite nonnegative mGal or mGal/s');
+  if(drift) {
+    if(!knownGravityLabel(params.target_gravity_datum)||!number(params.max_gap_seconds)||params.max_gap_seconds<=0||params.max_gap_seconds>1e9)throw Error('declare target gravity datum and max_gap_seconds in (0,1e9]');
+  } else if(params.effect_convention!=='observed_minus_reference'||items.some(item=>Math.abs(item.effect_mGal)>params.max_abs_effect_mGal))throw Error('effect convention/correction cap violated');
+  return params;
+}
+const gravityTideOptions=options=>gravityTemporalOptions(options,false);
+const gravityDriftOptions=options=>gravityTemporalOptions(options,true);
+function gravityTemporalContext(data,params) {
+  if(data.records.length>4096)throw new ResourceError('temporal gravity accepts at most 4096 records');
+  if(!Object.hasOwn(data.channels,params.channel)||data.channels[params.channel].units!=='mGal')throw Error('temporal gravity needs a declared mGal channel');
+  const m=data.metadata;
+  if(['instrument_id','gravity_scale_calibration_id','height_datum'].some(k=>!knownGravityLabel(m[k]))||m.height_units!=='m'||m.z_positive!=='up'||!['tide_free','zero_tide','mean_tide'].includes(m.tide_system))throw new NeedsInput('declare instrument_id, gravity_scale_calibration_id, height datum/m/up and tide_system');
+  for(const row of data.records)if(row.values[params.channel]!==null&&!['x','y','z','time'].every(k=>number(row[k])))throw new NeedsInput('each nonnull gravity reading needs finite XY/Z and synchronized UTC time');
+  return ['instrument_id','gravity_scale_calibration_id','height_units','height_datum','z_positive','tide_system'].map(k=>m[k]);
+}
+function validateGravityDriftModel(data,params,model) {
+  if(!keys(model,['algorithm','source_gravity_datum','input_field_type','ties'])||model.algorithm!=='piecewise_linear_absolute_ties_v1'||!knownGravityLabel(model.source_gravity_datum)||!['gravity_relative','gravity_observed'].includes(model.input_field_type))throw Error('invalid fixed-reference gravity drift model');
+  const controls=new Map(params.controls.map(item=>[item.record_id,item.reference_mGal]));const rows=new Map(data.records.map(row=>[row.id,row]));const ties=model.ties;
+  if(!Array.isArray(ties)||ties.length!==controls.size)throw Error('drift ties must represent exactly the declared controls');
+  const ids=new Set();
+  for(const [index,tie] of ties.entries()) {
+    if(!keys(tie,['record_id','station_id','time','original_mGal','reference_mGal','bias_mGal'])||!label(tie.record_id)||ids.has(tie.record_id)||!controls.has(tie.record_id)||!rows.has(tie.record_id))throw Error('malformed gravity tie model');ids.add(tie.record_id);const row=rows.get(tie.record_id);
+    if(!label(tie.station_id)||tie.station_id!==row.station_id||tie.time!==row.time||!['time','original_mGal','reference_mGal','bias_mGal'].every(k=>number(tie[k]))||tie.reference_mGal!==controls.get(tie.record_id)||tie.bias_mGal!==tie.original_mGal-tie.reference_mGal)throw Error('gravity tie inputs/time/reference changed');
+    if(model.input_field_type==='gravity_observed'&&tie.original_mGal<=0)throw Error('absolute tie readings must be positive');
+    if(Math.abs(tie.bias_mGal)>params.max_abs_correction_mGal)throw Error('gravity tie correction exceeds declared cap');
+    if(index) {const gap=tie.time-ties[index-1].time;if(!number(gap)||gap<=0||Math.abs((tie.bias_mGal-ties[index-1].bias_mGal)/gap)>params.max_drift_rate_mGal_per_s)throw Error('gravity tie times/rate violate declared model bounds');}
+  }
+}
+async function gravityTemporalBinding(data,params,model=null) {
+  const context=gravityTemporalContext(data,params);
+  if(Object.hasOwn(params,'controls')) {
+    validateGravityDriftModel(data,params,model);const datum=effectiveGravityDatum(data,params.channel);if(datum!==params.target_gravity_datum)throw Error('drift target channel gravity datum changed');context.push(datum);
+  } else {
+    const affected=new Set(data.records.filter(row=>row.values[params.channel]!==null).map(row=>row.id));const supplied=new Set(params.effects.map(item=>item.record_id));
+    if(affected.size!==supplied.size||[...affected].some(id=>!supplied.has(id)))throw Error('tide effect table must cover exactly all nonnull selected records');
+  }
+  const buffer=new ArrayBuffer(8);const view=new DataView(buffer);
+  function canonical(value) {
+    if(typeof value==='number'){if(!number(value))throw Error('temporal model numbers must be finite portable binary64');view.setFloat64(0,value===0?0:value,false);return ['f64',[...new Uint8Array(buffer)].map(byte=>byte.toString(16).padStart(2,'0')).join('')];}
+    if(Array.isArray(value))return value.map(canonical);
+    if(object(value))return Object.keys(value).sort().map(key=>[key,canonical(value[key])]);return value;
+  }
+  const semantic=Object.fromEntries(Object.entries(params).filter(([key])=>!['event_id','evidence'].includes(key)));const rows=data.records.map(row=>[row.id,row.time,row.z,row.station_id]);
+  const snapshot=['baselode.gravity_temporal_binding.v1',canonical(semantic),canonical(model),canonical(context),canonical(rows)];const encoded=new TextEncoder().encode(JSON.stringify(snapshot));
+  if(encoded.length>limits.max_binding_bytes)throw new ResourceError('temporal gravity binding exceeds byte limit');if(!globalThis.crypto?.subtle)throw new NeedsInput('SHA-256 binding requires Web Crypto');
+  return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',encoded))].map(byte=>byte.toString(16).padStart(2,'0')).join('');
+}
+
+function gravityRepeats(data,channel) {
+  const qc=qcGeophysicsObservations(data,{});const groups=[];
+  for(const repeat of qc.repeats) {
+    const rows=repeat.rows.map(i=>data.records[i]).filter(row=>row.values[channel]!==null);if(!rows.length)continue;
+    const locations=new Set(rows.map(row=>JSON.stringify([row.x,row.y])));const heights=new Set(rows.map(row=>row.z));
+    const same_location=rows.every(row=>row.x!==null&&row.y!==null)?locations.size===1:null;
+    const same_height=rows.every(row=>row.z!==null)?heights.size===1:null;
+    groups.push({station_id:repeat.station_id,record_ids:rows.map(row=>row.id),same_location,same_height,geometry_comparable:rows.length>=2&&same_location===true&&same_height===true,statistics:repeat.channels[channel]});
+  }
+  return groups;
+}
+/** Native station QC only; no inferred instrument drift or station repair. */
+export async function analyzeGeophysicsGravityRepeats(payload,options) {
+  const result=report('analyze_gravity_repeats');result.assumptions=clone(gravityTemporalDescriptor.assumptions);
+  try {
+    const params=json(options);if(!keys(params,['channel']))throw Error('repeat analysis requires exactly channel');
+    const data=createGeophysicsObservations(payload);const channel=params.channel;
+    if(typeof channel!=='string'||!Object.hasOwn(data.channels,channel)||!data.channels[channel].field_type.startsWith('gravity_')||data.channels[channel].units!=='mGal')throw Error('repeat analysis requires a gravity channel in mGal');
+    if(data.records.length>4096)throw new ResourceError('gravity repeat analysis accepts at most 4096 records');
+    const ledger=await load(data);const repeats=gravityRepeats(data,channel);Object.assign(result,{parameters:params,states:statesFor(data,ledger),diagnostics:{repeats,gravity_datum:effectiveGravityDatum(data,channel)??null}});
+    if(!repeats.some(item=>item.statistics.count>=2))throw new NeedsInput('no station has two nonnull selected readings; repeat coverage unavailable');return result;
+  } catch(error){return errorResult(result,error);}
+}
+async function startGravityTemporal(payload,options,drift) {
+  const params=drift?gravityDriftOptions(options):gravityTideOptions(options);const data=createGeophysicsObservations(payload);const channel=params.channel;
+  if(!Object.hasOwn(data.channels,channel)||!['gravity_relative','gravity_observed'].includes(data.channels[channel].field_type)||data.channels[channel].units!=='mGal')throw Error('use scale-calibrated gravity_relative or absolute gravity_observed in mGal');
+  gravityTemporalContext(data,params);if(!knownGravityLabel(effectiveGravityDatum(data,channel)))throw new NeedsInput('declare selected input gravity datum, including relative instrument zero when applicable');
+  const ledger=await load(data);const states=statesFor(data,ledger);const expected={gravity_normal:'unapplied',gravity_free_air:'unapplied',gravity_bouguer:'unapplied',gravity_terrain:'unapplied'};expected[drift?'gravity_drift':'gravity_tide']='unapplied';if(drift)expected.gravity_tide='applied';
+  for(const [name,required] of Object.entries(expected)){const state=states[name][channel];if(state==='unknown')throw new NeedsInput(`declare evidence-backed ${required} ${name} history`);if(state!==required)throw Error(`gravity processing order/repeat conflicts with ${name} history`);}
+  if(ledger.entries.some(entry=>entry.id===params.event_id))throw Error('event_id already exists');if(ledger.entries.length>=limits.max_events)throw new ResourceError('gravity event limit exceeded');
+  const readings=data.records.filter(row=>row.values[channel]!==null);if(!readings.length)throw new NeedsInput('selected channel needs nonnull readings');
+  if(data.channels[channel].field_type==='gravity_observed'&&readings.some(row=>row.values[channel]<=0))throw Error('absolute observed gravity must be positive; relative readings need gravity_relative field type');
+  return {data,params,ledger,readings};
+}
+async function finishGravityTemporal(data,params,ledger,result,before,model=null) {
+  const after=await binding(data);const temporal=await gravityTemporalBinding(data,params,model);const correction=model?'gravity_drift':'gravity_tide';
+  const event={id:params.event_id,kind:'application',correction,channels:[params.channel],state:'applied',evidence:params.evidence,producer:producer(),input_binding:before,output_binding:after,parameters:params,temporal_binding:temporal,affected_records:data.records.filter(row=>row.values[params.channel]!==null).length};if(model)event.model=model;
+  ledger.entries.push(event);ledger.current_binding=after;const metadata=data.metadata;
+  for(const key of ['uncertainty','variance','standard_deviation'])delete metadata[key];metadata.uncertainty_propagated=false;
+  const operand=result.diagnostics.source_operand;delete result.diagnostics.source_operand;
+  metadata.processing=[...(metadata.processing??[]),{operation:model?'correct_gravity_drift':'apply_gravity_tide',version:1,parameters:params,input_binding:before,output_binding:after,operand_lineage:operand}];
+  const output=await save(data,ledger);Object.assign(result,{observations:output,ledger:clone(ledger),states:statesFor(output,ledger)});return result;
+}
+/** Subtract an exact supplied effect for every nonnull selected reading.
+ * No astronomical tide prediction or permanent-tide conversion is inferred.
+ */
+export async function applyGeophysicsGravityTide(payload,options) {
+  const result=report('apply_gravity_tide');result.assumptions=clone(gravityTemporalDescriptor.assumptions);
+  try {
+    const {data,params,ledger,readings}=await startGravityTemporal(payload,options,false);result.parameters=params;await gravityTemporalBinding(data,params);
+    const effects=new Map(params.effects.map(item=>[item.record_id,item.effect_mGal]));const before=ledger.current_binding;
+    const source=appendInput(data.metadata,data.metadata);data.metadata.input_lineage=source.nodes;result.diagnostics={source_operand:source.operand,affected_records:readings.length,uncertainty_propagated:false};
+    for(const row of readings) {
+      const original=row.values[params.channel];const value=original-effects.get(row.id);
+      if(!number(value)||(data.channels[params.channel].field_type==='gravity_observed'&&value<=0))throw Error('tide-corrected reading violates finite/absolute magnitude bounds');
+      row.values[params.channel]=value;result.proposals.push({id:row.id,original,effect_mGal:effects.get(row.id),corrected:value});
+    }
+    return await finishGravityTemporal(data,params,ledger,result,before);
+  } catch(error){return errorResult(result,error);}
+}
+/** Fixed-reference absolute base tying plus piecewise-linear loop drift.
+ * Every reading needs bounded support; no extrapolation or global network solve.
+ * Only the selected datum/type changes; original readings and other channels survive.
+ */
+export async function correctGeophysicsGravityDrift(payload,options) {
+  const result=report('correct_gravity_drift');result.assumptions=clone(gravityTemporalDescriptor.assumptions);
+  try {
+    const {data,params,ledger,readings}=await startGravityTemporal(payload,options,true);result.parameters=params;const channel=params.channel;const rows=new Map(readings.map(row=>[row.id,row]));const ties=[];
+    for(const control of params.controls) {
+      if(!rows.has(control.record_id))throw Error('control must identify a nonnull selected reading');const row=rows.get(control.record_id);if(row.station_id===null)throw new NeedsInput('every control requires a station_id');
+      ties.push({record_id:row.id,station_id:row.station_id,time:row.time,original_mGal:row.values[channel],reference_mGal:control.reference_mGal,bias_mGal:row.values[channel]-control.reference_mGal});
+    }
+    ties.sort((a,b)=>a.time-b.time);const model={algorithm:'piecewise_linear_absolute_ties_v1',source_gravity_datum:effectiveGravityDatum(data,channel),input_field_type:data.channels[channel].field_type,ties};result.diagnostics.model=clone(model);validateGravityDriftModel(data,params,model);
+    const times=ties.map(tie=>tie.time);result.diagnostics.loops=ties.slice(0,-1).map((a,index)=>{const b=ties[index+1];return {from_id:a.record_id,to_id:b.record_id,closed_station_loop:a.station_id===b.station_id,elapsed_seconds:b.time-a.time,observed_change_mGal:b.original_mGal-a.original_mGal,reference_change_mGal:b.reference_mGal-a.reference_mGal,drift_change_mGal:b.bias_mGal-a.bias_mGal};});result.diagnostics.repeats_before=gravityRepeats(data,channel);
+    for(const row of readings) {
+      let lo=0,hi=times.length;while(lo<hi){const mid=Math.floor((lo+hi)/2);if(times[mid]<row.time)lo=mid+1;else hi=mid;}const index=lo;let bias=null,reason=null;
+      if(index<times.length&&times[index]===row.time)bias=ties[index].bias_mGal;
+      else if(index===0||index===times.length)reason='outside_control_span';
+      else if(times[index]-times[index-1]>params.max_gap_seconds)reason='excessive_control_gap';
+      else {const a=ties[index-1],b=ties[index];const weight=(row.time-a.time)/(b.time-a.time);bias=a.bias_mGal+weight*(b.bias_mGal-a.bias_mGal);}
+      const value=bias===null?null:row.values[channel]-bias;if(value!==null&&(!number(value)||value<=0))reason='invalid_absolute_output';
+      result.proposals.push({id:row.id,time:row.time,original:row.values[channel],bias_mGal:bias,corrected:value,supported:reason===null,reason});
+    }
+    if(result.proposals.some(item=>!item.supported))throw new NeedsInput('drift coverage/absolute-output support incomplete; no application committed');
+    const before=ledger.current_binding;const source=appendInput(data.metadata,data.metadata);data.metadata.input_lineage=source.nodes;result.diagnostics.source_operand=source.operand;
+    readings.forEach((row,index)=>{row.values[channel]=result.proposals[index].corrected;});data.channels[channel].field_type='gravity_observed';data.metadata.gravity_channel_datums??={};data.metadata.gravity_channel_datums[channel]=params.target_gravity_datum;
+    result.diagnostics.repeats_after=gravityRepeats(data,channel);result.diagnostics.uncertainty_propagated=false;
+    return await finishGravityTemporal(data,params,ledger,result,before,model);
+  } catch(error){return errorResult(result,error);}
 }

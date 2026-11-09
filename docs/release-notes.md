@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Add native supplied gravity tide effects, absolute base tying/piecewise-linear
+  loop drift and repeat-station QC in Python/JavaScript. Explicit calibration,
+  coverage/quality/history gates and per-channel datums preserve other readings;
+  calibrated relative values stay distinct from absolute observed gravity.
+
 - Add optional WGS84/GRS80 full-gradient normal gravity, height sensitivity and
   guarded absolute-observation subtraction. Distinct gravity_disturbance field,
   model/context/history bindings and workflow registration preserve reduction

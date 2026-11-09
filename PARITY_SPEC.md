@@ -232,3 +232,16 @@ workflow preflight gate. `gravity_disturbance` is distinct from `gravity_anomaly
 and accepted consistently by observation, gridding, generic raster and equivalent-
 source contracts. Independent high-precision potential differentiation, published
 surface anchors, cross-runtime replay and export persistence are tested.
+
+Temporal gravity: native Python `apply_gravity_tide`, `correct_gravity_drift`,
+`analyze_gravity_repeats`, `describe_gravity_temporal` match JavaScript
+`applyGeophysicsGravityTide`, `correctGeophysicsGravityDrift`,
+`analyzeGeophysicsGravityRepeats`, `describeGeophysicsGravityTemporal`.
+Supplied per-record tide effects and fixed-reference piecewise-linear loop drift
+share strict parameter/model/context bindings, history/order/coverage gates and
+workflow ports. Calibrated `gravity_relative` is distinct from absolute
+`gravity_observed`; per-channel gravity datum overrides preserve unrelated data.
+Normal-gravity context resolution honours the same overrides. Independent station
+truth/tides/drift, non-control repeats, irregular times, exact model/ledger replay
+and export persistence test parity (1e-8 mGal numerical tolerance). No astronomical
+model, global network solve, scale calibration or uncertainty is inferred.

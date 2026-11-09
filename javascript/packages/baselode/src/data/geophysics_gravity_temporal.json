@@ -1,0 +1,278 @@
+{
+  "id": "geophysics_gravity_temporal",
+  "version": 1,
+  "tide_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "model_id",
+      "reference_policy",
+      "clock_policy",
+      "event_id",
+      "evidence",
+      "effects",
+      "effect_convention",
+      "max_abs_effect_mGal"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "model_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "clock_policy": {
+        "const": "synchronized"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "effects": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_id",
+            "effect_mGal"
+          ],
+          "properties": {
+            "record_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "effect_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          }
+        }
+      },
+      "effect_convention": {
+        "const": "observed_minus_reference"
+      },
+      "max_abs_effect_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      }
+    }
+  },
+  "drift_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "model_id",
+      "reference_policy",
+      "clock_policy",
+      "event_id",
+      "evidence",
+      "controls",
+      "target_gravity_datum",
+      "max_gap_seconds",
+      "max_abs_correction_mGal",
+      "max_drift_rate_mGal_per_s"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "model_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "clock_policy": {
+        "const": "synchronized"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "controls": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 128,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_id",
+            "reference_mGal"
+          ],
+          "properties": {
+            "record_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "reference_mGal": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1e+100
+            }
+          }
+        }
+      },
+      "target_gravity_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "max_gap_seconds": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000000.0
+      },
+      "max_abs_correction_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "max_drift_rate_mGal_per_s": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      }
+    }
+  },
+  "repeat_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      }
+    }
+  },
+  "drift_model": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "algorithm",
+      "source_gravity_datum",
+      "input_field_type",
+      "ties"
+    ],
+    "properties": {
+      "algorithm": {
+        "const": "piecewise_linear_absolute_ties_v1"
+      },
+      "source_gravity_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "input_field_type": {
+        "enum": [
+          "gravity_relative",
+          "gravity_observed"
+        ]
+      },
+      "ties": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 128,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_id",
+            "station_id",
+            "time",
+            "original_mGal",
+            "reference_mGal",
+            "bias_mGal"
+          ],
+          "properties": {
+            "record_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "station_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "time": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            },
+            "original_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            },
+            "reference_mGal": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1e+100
+            },
+            "bias_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          }
+        }
+      }
+    }
+  },
+  "resources": {
+    "max_records": 4096,
+    "max_controls": 128,
+    "max_options_bytes": 262144
+  },
+  "assumptions": [
+    "Input readings must already be scale-calibrated mGal; raw dial/scale conversion is not inferred. gravity_relative permits zero/negative calibrated relative readings; gravity_observed is positive absolute magnitude. One declared instrument_id and gravity_scale_calibration_id per document.",
+    "Declare height_units=m, known height_datum, z_positive=up and permanent tide_system=tide_free/zero_tide/mean_tide. Selected effective datum is metadata.gravity_channel_datums[channel] if present, otherwise metadata.gravity_datum.",
+    "Tide application subtracts an explicit externally calculated observed-minus-reference effect for every nonnull selected record ID. Caller verifies its time/position/height and permanent-tide convention. No astronomical, loading, interpolation or permanent-tide transformation is inferred. Tide history and all height/reference reductions must be known unapplied.",
+    "Drift requires known applied gravity_tide and known unapplied drift/normal/free-air/Bouguer/terrain. Positive absolute reference values at 2..128 named control records anchor an offset plus piecewise-linear drift in UTC time. Clock/reference comparability is explicitly caller-verified.",
+    "Controls are chronologically sorted without reordering observations. Evaluate original source readings at each supplied timestamp; exact knots are supported. Interior predictions require the bracketing interval <=max_gap_seconds; no extrapolation. All nonnull readings and quality bounds must pass before one atomic application.",
+    "max_abs_correction_mGal bounds the total bias including any relative-to-absolute datum offset. Adjacent tie bias differences divided by elapsed seconds must satisfy max_drift_rate_mGal_per_s. Output is positive absolute gravity_observed; only the selected per-channel gravity datum is changed.",
+    "Consecutive control pairs report closure/delta diagnostics; tie residuals are zero by construction and are not independent validation. This is fixed-reference piecewise-linear loop adjustment, not global network least squares, tare detection or automatic control selection.",
+    "Repeat statistics reuse native observation QC and add same-height/comparability flags. Different/missing positions or heights prevent interpreting changes as repeatability; no observations are repaired. Independent non-control repeat stations are used for scientific validation.",
+    "Strict supplementary binding covers canonical semantic options/model, instrument/calibration/height/tide/time/station context and drift target datum. Tide effects are offset-datum invariant so subsequent absolute tying does not invalidate them. Generic data bindings preserve geometry/readings/order through subsequent traceable transforms.",
+    "All source data/nulls/order/extras/other channels remain; source uncertainty is archived in flat lineage, not propagated. History guards detect accidental edits, not authenticated deliberate rewriting. Existing event/output/workflow limits apply."
+  ],
+  "binding": "SHA-256 UTF-8 compact JSON of [baselode.gravity_temporal_binding.v1,canonical(semantic options excluding event_id/evidence),canonical(model or null),canonical(context),canonical(all [id,time,z,station_id] rows)]. Canonical numbers are [f64,16-digit big-endian IEEE754 hex] with signed zero normalized; lists preserve order; registered ASCII-key objects become sorted [key,canonical(value)] pairs. Drift context includes effective target datum; tide context excludes offset datum.",
+  "references": [
+    "https://www.ga.gov.au/image_cache/GA2236.pdf",
+    "https://pubs.usgs.gov/tm/02/d04/tm2d4.pdf"
+  ]
+}
