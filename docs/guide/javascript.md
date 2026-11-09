@@ -1760,7 +1760,7 @@ npm run build:module
 
 `describeGeophysicsBlockForward()` and `prepareGeophysicsBlockForward(request)`
 are native synchronous core APIs. Supply the Python-shape definition exported by
-`serialiseBlockModelDefinition(model.definition)` and `model.blocks` records;
+`blockModelDefinitionToDict(model.definition)` and `model.blocks` records;
 see `test/data/block_forward_example.json` and the Python guide for explicit
 properties, masks, IDs and unrotated-only limits. The returned validated batches
 can be executed by Python `calculate_block_forward`. No numerical JS stub is
