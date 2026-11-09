@@ -942,3 +942,18 @@ export interface GeophysicsDensityInversionReport extends GeophysicsDensityInver
 }
 export function describeGeophysicsDensityInversion():Record<string,any>;
 export function validateGeophysicsDensityInversion(request:GeophysicsDensityInversionRequest):GeophysicsDensityInversionValidation;
+
+export interface GeophysicsSusceptibilityParameter extends Omit<GeophysicsInversionParameter,'parameter'> {parameter:'susceptibility_SI'}
+export interface GeophysicsInducedAssumptions {model:'induced_only_no_demagnetization';objective:'linear_tmi';background_reference_id:string;max_response_to_background_ratio:number}
+export interface GeophysicsSusceptibilityInversionRequest extends Omit<GeophysicsDensityInversionRequest,'schema'|'parameters'> {schema:'baselode.geophysics.susceptibility_inversion_request';parameters:GeophysicsSusceptibilityParameter[];magnetic_assumptions:GeophysicsInducedAssumptions}
+export interface GeophysicsSusceptibilityInversionValidation extends Omit<GeophysicsDensityInversionValidation,'schema'|'request'> {schema:'baselode.geophysics.susceptibility_inversion_validation'|'baselode.geophysics.susceptibility_inversion_result';request:GeophysicsSusceptibilityInversionRequest|null}
+/** Python induced-only linear-TMI fit; exact-TMI QC is a separate precision diagnostic. */
+export interface GeophysicsSusceptibilityInversionReport extends Omit<GeophysicsDensityInversionReport,'schema'|'request'|'parameters'|'operator'> {
+  schema:GeophysicsSusceptibilityInversionValidation['schema'];request:GeophysicsSusceptibilityInversionRequest|null;
+  parameters:Array<GeophysicsSusceptibilityParameter & {units:'dimensionless';value:number;active_bound:-1|0|1;weighted_column_norm:number}>;
+  operator:{row_ids:string[];columns:Array<{cell_id:string;parameter:'susceptibility_SI'}>;matrix:number[][];data_units:'nT';parameter_units:'dimensionless'}|null;
+  magnetic_model:{background_nT:{x:number;y:number;z_up:number};inducing_field_H_A_m:{x:number;y:number;z_up:number};vacuum_magnetic_permeability:number;assumptions:GeophysicsInducedAssumptions;max_fitted_response_to_background_ratio:number}|null;
+  exact_tmi_misfit:GeophysicsMisfitReport|null;
+}
+export function describeGeophysicsSusceptibilityInversion():Record<string,any>;
+export function validateGeophysicsSusceptibilityInversion(request:GeophysicsSusceptibilityInversionRequest):GeophysicsSusceptibilityInversionValidation;

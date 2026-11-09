@@ -1775,3 +1775,13 @@ request to Python `invert_density`. Explicit geometry, ordered density bounds/
 reference/scales, supplied-sigma observations, smoothing edges and solver controls
 match the Python guide. Core validation does not establish numerical operator rank.
 TypeScript defines the Python result, residual QC and sensitivity/convergence fields.
+
+### Scalar susceptibility requests
+
+`describeGeophysicsSusceptibilityInversion()` and
+`validateGeophysicsSusceptibilityInversion(request)` are native core APIs for the
+shared induced-only SI/linear-TMI contract. Replay the accepted request into Python
+`invert_susceptibility`; see the shared example and Python guide for the fixed
+field/reference, weak-response cap and physical-model assumptions. TypeScript
+includes the numerical result, fixed-field conversion and separate linear/exact
+TMI residual QC. Operator rank and fitted full-vector applicability need execution.

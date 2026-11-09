@@ -3294,3 +3294,11 @@ normalizes pandas missing attributes to JSON null before portable preparation.
 (`inversion` extra): fixed uniform-cell density contrasts, explicit bounded BVLS
 and L2 scaled-reference deviations, physical sensitivities, replayed forward
 prediction/residual QC and rank/convergence evidence. See guide and shared example.
+
+### Scalar susceptibility inversion
+
+`baselode.geophysics.describe_susceptibility_inversion()`,
+`validate_susceptibility_inversion(request)` and `invert_susceptibility(request)`:
+explicit induced-only SI susceptibility with fixed B0/H0 conversion, bounded L2
+fit, weak-response applicability and separate exact-TMI residual QC. Numerical
+execution requires the same pinned `inversion` extra as density.

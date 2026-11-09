@@ -1230,3 +1230,39 @@ solver installations raise an actionable ImportError naming `baselode[inversion]
 The normalized target magnitude must be <=1e40 after matrix scaling; execution
 returns `needs_input` for more extreme scaling. Fitted property columns must be
 distinct from geometry, ID, active-mask and fill-fraction columns.
+
+### Induced scalar susceptibility inversion
+
+`describe_susceptibility_inversion()`, `validate_susceptibility_inversion(request)`
+(core) and `invert_susceptibility(request)` (`inversion` extra) reuse the bounded
+L2 solver for one SI, dimensionless susceptibility per active cell. Start with
+`test/data/susceptibility_inversion_example.json`: the independent analytic
+cube-axis field is67.39119311870337nT for susceptibility0.01 and a50000nT vertical
+inducing field. Bounds/reference may include weak negative susceptibility; v1
+bounds are[-0.1,0.1], scale1e-8..0.1. Other solver/data/resource limits match density.
+
+Supply a magnetic block template with zero Cartesian J components in distinct
+property columns, external observation points and min-distance, a known constant
+background vector in nT, and matched supplied-sigma TMI anomalies. Explicit
+`magnetic_assumptions` declares `model="induced_only_no_demagnetization"`,
+`objective="linear_tmi"`, `background_reference_id` matching the observation
+context, and `max_response_to_background_ratio` in1e-12..0.05. Native validation
+checks the observed anomaly/background ratio. Numerical execution checks the
+**full fitted vector** ratio, including transverse fields; failure needs input.
+
+The mapping is `J_A_m = chi_SI * B0_nT * 1e-9 / mu0`, with the released prism
+CODATA2022 permeability1.25663706127e-6N/A^2. Operator columns are the unit-J
+responses projected along the fixed field and combined with this H0 vector.
+Reports retain B0/H0/permeability, fitted susceptibility and the reusable J block
+forward request. No inducing field, magnetisation direction, error or prior is
+inferred; demagnetisation and remanence require a different declared physical model.
+
+The objective QC in `misfit` uses linear TMI. `exact_tmi_misfit` separately compares
+the full vector-magnitude TMI against the same observations/sigma. Inspect both
+before accepting a fit at the supplied precision: a small response/background
+ratio can still leave measurable linearisation error. Exact TMI here is the
+magnitude of the **same uniform-J model**; it does not add demagnetisation or
+remanence. The inversion fits the linear objective and exposes this distinction.
+Data nullity, sensitivity, objective terms, explicit L2 edges/reference, bounds,
+conditioning and KKT convergence remain visible; no unique geology or posterior
+uncertainty is implied by convergence.
