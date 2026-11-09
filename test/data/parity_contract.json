@@ -1022,6 +1022,24 @@
           "calculate_magnetic_prisms"
         ]
       ]
+    },
+    {
+      "name": "geophysics_misfit",
+      "description": "Native ID/context-aligned observed-minus-predicted residuals, coverage/groups and explicitly supplied diagonal-sigma misfit with bounded atomic portable reports.",
+      "jsExports": [
+        "describeGeophysicsMisfit",
+        "calculateGeophysicsMisfit"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_misfit"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_misfit"
+        ]
+      ]
     }
   ]
 }

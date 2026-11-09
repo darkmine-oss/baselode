@@ -281,3 +281,11 @@ void useMagneticPrismResult;
 // @ts-expect-error all three magnetization components are required
 const invalidMagneticPrism: GeophysicsMagneticPrismsRequest['sources'][0] = {id:'body',kind:'prism',bounds_m:[0,1,0,1,0,1],magnetization_z_up_A_m:1};
 void invalidMagneticPrism;
+
+import {calculateGeophysicsMisfit,type GeophysicsMisfitRequest} from 'baselode/geophysics';
+const misfitContext: GeophysicsMisfitRequest['observed']['context']={quantity:'gravity_g_down',units:'mGal',field_type:'gravity_anomaly',reference_id:'zero',coordinate_frame:forwardRequest.coordinate_frame};
+const misfitRequest: GeophysicsMisfitRequest={schema:'baselode.geophysics.misfit_request',version:1,observed:{context:misfitContext,records:[{id:'a',x_m:0,y_m:0,z_m:0,value:1,standard_deviation:1,group_id:null}]},predicted:{context:misfitContext,records:[{id:'a',x_m:0,y_m:0,z_m:0,value:0}]},options:{coverage_policy:'complete',weighting:'standard_deviation',coordinate_tolerance_m:0,residual_convention:'observed_minus_predicted'}};
+calculateGeophysicsMisfit(misfitRequest).summary?.statistics.rmse;
+// @ts-expect-error uncertainties are explicitly nullable, not silently absent
+const badMisfitRecord:GeophysicsMisfitRequest['observed']['records'][0]={id:'a',x_m:0,y_m:0,z_m:0,value:1,group_id:null};
+void badMisfitRecord;

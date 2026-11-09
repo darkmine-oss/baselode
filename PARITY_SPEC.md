@@ -421,3 +421,16 @@ including the squared minimum-distance threshold; equal computed squares pass.
 Distance diagnostics use the square root of that same sum. Runtime-specific
 `hypot` rounding is avoided in these validation decisions. Diagonal near-boundary
 replay and exact 3-4-12 / background magnitude limits have regression coverage.
+
+## Residual and misfit QC v1
+
+Python describe_misfit/calculate_misfit correspond to native JS
+describeGeophysicsMisfit/calculateGeophysicsMisfit. Identical request/result
+schemas, context matching, exact-ID pairing, exception/coverage/group semantics
+and supplied-sigma statistics are shared. Live fixtures replay permuted/missing
+data and negative state/code reports; producer versions/float serialization
+differ. Compensated sums and scaled RMS/distance arithmetic preserve extreme
+values; tolerance-based numerical parity applies (relative/absolute1e-12 for
+statistics), not bitwise arithmetic. Fixed-order scaled coordinate norms avoid
+hypot boundary drift and squared-distance underflow. No interpolation, reference
+conversion, reduced chi-square, inferred uncertainty or observation mutation.

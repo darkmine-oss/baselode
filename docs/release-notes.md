@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native Python/JS context- and ID-aligned residual/misfit QC, explicit coverage and supplied-sigma weighting, group summaries, scaled numerical statistics and atomic portable schemas/types/replay.
+
 - Add external magnetic rectangular-prism vectors, stable linear/exact total-field anomalies and magnetisation sensitivities through the pinned Python backend. Include native Python/JS validation, shared prism geometry, explicit permeability normalization, portable schemas/types/examples and independent magnetic-volume references.
 
 - Add rectangular-prism gravity vectors/potential and density sensitivities through the pinned Python Harmonica/Choclo backend, with native Python/JavaScript portable validation, explicit conditioning limits, shared schemas/types/examples and independent interior/boundary physics checks. Pin Choclo 0.3.2 for Python 3.10 compatibility.

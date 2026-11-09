@@ -227,3 +227,10 @@ assert.equal(magneticPrismValidation.state,'ok',JSON.stringify(magneticPrismVali
 assert.deepEqual(magneticPrismValidation.request,magneticPrismExample);
 assert.equal(geophysics.describeGeophysicsMagneticPrisms().model.vacuum_magnetic_permeability,1.25663706127e-6);
 assert.equal(geophysics.describeGeophysicsMagneticPrisms().execution.javascript,'native_request_validation_only');
+
+const misfitExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/misfit_example.json'),'utf8'));
+const misfitReport=geophysics.calculateGeophysicsMisfit(misfitExample);
+assert.equal(misfitReport.state,'ok',JSON.stringify(misfitReport.issues));
+assert.equal(misfitReport.summary.statistics.sse,21);assert.equal(misfitReport.summary.statistics.chi_squared,3);
+assert.deepEqual(geophysics.calculateGeophysicsMisfit(misfitReport.request).rows,misfitReport.rows);
+assert.equal(geophysics.describeGeophysicsMisfit().version,1);
