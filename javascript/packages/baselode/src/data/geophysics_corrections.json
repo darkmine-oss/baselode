@@ -98,7 +98,7 @@
         "gravity_bouguer",
         "bouguer"
       ],
-      "calculator": null
+      "calculator": "apply_bouguer_plate"
     },
     "gravity_terrain": {
       "family": "gravity",
@@ -106,7 +106,7 @@
         "gravity_terrain",
         "terrain"
       ],
-      "calculator": null
+      "calculator": "correct_gravity_terrain"
     },
     "radiometric_dead_time": {
       "family": "radiometric",
@@ -2164,6 +2164,382 @@
                   }
                 }
               }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "correction",
+                "channels",
+                "state",
+                "evidence",
+                "producer",
+                "input_binding",
+                "output_binding",
+                "parameters",
+                "model",
+                "topography_binding",
+                "affected_records"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "kind": {
+                  "const": "application"
+                },
+                "correction": {
+                  "const": "gravity_bouguer"
+                },
+                "channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "state": {
+                  "const": "applied"
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "producer": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "library",
+                    "version",
+                    "algorithm_version"
+                  ],
+                  "properties": {
+                    "library": {
+                      "const": "baselode"
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "algorithm_version": {
+                      "const": 1
+                    }
+                  }
+                },
+                "input_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "output_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "parameters": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "density_kg_m3",
+                    "reference_height_m",
+                    "height_datum",
+                    "reference_policy",
+                    "max_abs_correction_mGal",
+                    "event_id",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "density_kg_m3": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 10000
+                    },
+                    "reference_height_m": {
+                      "type": "number",
+                      "minimum": -10000,
+                      "maximum": 10000
+                    },
+                    "height_datum": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "reference_policy": {
+                      "const": "caller_verified"
+                    },
+                    "max_abs_correction_mGal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    }
+                  }
+                },
+                "model": {
+                  "const": {
+                    "algorithm": "infinite_land_plate_v1",
+                    "G_SI": 6.6743e-11
+                  }
+                },
+                "affected_records": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 512
+                },
+                "topography_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "correction",
+                "channels",
+                "state",
+                "evidence",
+                "producer",
+                "input_binding",
+                "output_binding",
+                "parameters",
+                "model",
+                "topography_binding",
+                "affected_records"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "kind": {
+                  "const": "application"
+                },
+                "correction": {
+                  "const": "gravity_terrain"
+                },
+                "channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "state": {
+                  "const": "applied"
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "producer": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "library",
+                    "version",
+                    "algorithm_version"
+                  ],
+                  "properties": {
+                    "library": {
+                      "const": "baselode"
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "algorithm_version": {
+                      "const": 1
+                    }
+                  }
+                },
+                "input_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "output_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "parameters": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "density_kg_m3",
+                    "reference_height_m",
+                    "height_datum",
+                    "reference_policy",
+                    "max_abs_correction_mGal",
+                    "event_id",
+                    "evidence",
+                    "dem",
+                    "outside_dem_policy",
+                    "min_edge_distance_m",
+                    "ground_tolerance_m"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "density_kg_m3": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 10000
+                    },
+                    "reference_height_m": {
+                      "type": "number",
+                      "minimum": -10000,
+                      "maximum": 10000
+                    },
+                    "height_datum": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "reference_policy": {
+                      "const": "caller_verified"
+                    },
+                    "max_abs_correction_mGal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "dem": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "crs",
+                        "crs_units",
+                        "frame_id",
+                        "height_datum",
+                        "bounds",
+                        "heights"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "crs": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "crs_units": {
+                          "const": "m"
+                        },
+                        "frame_id": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "height_datum": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "bounds": {
+                          "type": "array",
+                          "minItems": 4,
+                          "maxItems": 4,
+                          "items": {
+                            "type": "number",
+                            "minimum": -1e+100,
+                            "maximum": 1e+100
+                          }
+                        },
+                        "heights": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 1024,
+                          "items": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 1024,
+                            "items": {
+                              "type": "number",
+                              "minimum": -1e+100,
+                              "maximum": 1e+100
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "outside_dem_policy": {
+                      "const": "flat_at_station_height"
+                    },
+                    "min_edge_distance_m": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 50000
+                    },
+                    "ground_tolerance_m": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    }
+                  }
+                },
+                "model": {
+                  "const": {
+                    "algorithm": "finite_zone_station_relative_prisms_v1",
+                    "backend": "harmonica",
+                    "backend_version": "0.7.0",
+                    "G_SI": 6.6743e-11
+                  }
+                },
+                "affected_records": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 512
+                },
+                "topography_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              }
             }
           ]
         }
@@ -2934,6 +3310,206 @@
           }
         }
       }
+    }
+  },
+  "gravity_plate_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "density_kg_m3",
+      "reference_height_m",
+      "height_datum",
+      "reference_policy",
+      "max_abs_correction_mGal",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "density_kg_m3": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 10000
+      },
+      "reference_height_m": {
+        "type": "number",
+        "minimum": -10000,
+        "maximum": 10000
+      },
+      "height_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "max_abs_correction_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "gravity_terrain_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "density_kg_m3",
+      "reference_height_m",
+      "height_datum",
+      "reference_policy",
+      "max_abs_correction_mGal",
+      "event_id",
+      "evidence",
+      "dem",
+      "outside_dem_policy",
+      "min_edge_distance_m",
+      "ground_tolerance_m"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "density_kg_m3": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 10000
+      },
+      "reference_height_m": {
+        "type": "number",
+        "minimum": -10000,
+        "maximum": 10000
+      },
+      "height_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "max_abs_correction_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "dem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "crs",
+          "crs_units",
+          "frame_id",
+          "height_datum",
+          "bounds",
+          "heights"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "crs": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "crs_units": {
+            "const": "m"
+          },
+          "frame_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "height_datum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "bounds": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          },
+          "heights": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1024,
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1024,
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              }
+            }
+          }
+        }
+      },
+      "outside_dem_policy": {
+        "const": "flat_at_station_height"
+      },
+      "min_edge_distance_m": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 50000
+      },
+      "ground_tolerance_m": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    }
+  },
+  "gravity_topography_models": {
+    "gravity_bouguer": {
+      "algorithm": "infinite_land_plate_v1",
+      "G_SI": 6.6743e-11
+    },
+    "gravity_terrain": {
+      "algorithm": "finite_zone_station_relative_prisms_v1",
+      "backend": "harmonica",
+      "backend_version": "0.7.0",
+      "G_SI": 6.6743e-11
     }
   }
 }

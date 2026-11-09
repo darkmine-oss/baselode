@@ -158,3 +158,7 @@ const gravityDrift=await geophysics.correctGeophysicsGravityDrift(gravityTide.ob
 assert.equal(gravityDrift.state,'ok',JSON.stringify(gravityDrift.issues));
 assert.deepEqual(gravityDrift.observations.records.map(row=>row.values.g),gravityTemporalExample.expected_values);
 assert.equal(geophysics.describeGeophysicsGravityTemporal().version,1);
+
+assert.equal(geophysics.describeGeophysicsGravityTopography().models.gravity_bouguer.algorithm,'infinite_land_plate_v1');
+const topographyReplay=JSON.parse(readFileSync(resolve(root,'../../../test/data/gravity_topography_ledger_reference.json'),'utf8'));
+assert.equal((await geophysics.inspectGeophysicsCorrections(topographyReplay.terrain_observations)).state,'ok');

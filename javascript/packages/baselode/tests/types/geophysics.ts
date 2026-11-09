@@ -187,3 +187,12 @@ if(correctionEvent.kind==='application'&&correctionEvent.correction==='gravity_d
 // @ts-expect-error explicit effect sign is required
 const missingGravitySign: GeophysicsGravityTideOptions = {channel:'g',model_id:'t',reference_policy:'caller_verified',clock_policy:'synchronized',event_id:'t',evidence:'checked',effects:[],max_abs_effect_mGal:1};
 void missingGravitySign;
+
+import {describeGeophysicsGravityTopography, type GravityPlateOptions, type GravityTerrainOptions} from 'baselode/geophysics';
+declare const plateOptions: GravityPlateOptions;
+declare const terrainOptions: GravityTerrainOptions;
+void plateOptions; void terrainOptions; void describeGeophysicsGravityTopography();
+if(correctionEvent.kind==='application'&&correctionEvent.correction==='gravity_terrain'){const digest:string=correctionEvent.topography_binding;void digest;}
+// @ts-expect-error density is required
+const missingPlateDensity: GravityPlateOptions={channel:'g',reference_height_m:0,height_datum:'WGS84_ellipsoid',reference_policy:'caller_verified',max_abs_correction_mGal:100,event_id:'p',evidence:'checked'};
+void missingPlateDensity;

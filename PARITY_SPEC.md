@@ -245,3 +245,16 @@ Normal-gravity context resolution honours the same overrides. Independent statio
 truth/tides/drift, non-control repeats, irregular times, exact model/ledger replay
 and export persistence test parity (1e-8 mGal numerical tolerance). No astronomical
 model, global network solve, scale calibration or uncertainty is inferred.
+
+
+### Gravity land topography
+
+Python executes `calculate_bouguer_plate`, `apply_bouguer_plate` and
+`correct_gravity_terrain`; JavaScript exposes identical JSON descriptors and
+public types, native ledger/context/model inspection and historical
+reprojection replay. Terrain uses pinned optional Harmonica 0.7.0; the core
+plate calculation needs no optional backend. Both saved observation operations
+are Python-only, explicitly gated during JavaScript preflight. The independent
+50-digit Newtonian integration fixture verifies known disturbances after
+plate/hill/valley effects; Python tests exchange live ledgers with JavaScript.
+Shared static native-history fixtures exercise npm exports, guards and types.

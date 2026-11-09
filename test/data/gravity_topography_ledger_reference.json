@@ -1,0 +1,851 @@
+{
+  "method": "Native Python ledger replay fixture; scientific truth is in the separate independently integrated reference.",
+  "plate_observations": {
+    "crs": "EPSG:32750",
+    "crs_units": "m",
+    "channels": {
+      "g": {
+        "field_type": "gravity_disturbance",
+        "units": "mGal"
+      },
+      "other": {
+        "field_type": "gravity_disturbance",
+        "units": "mGal"
+      }
+    },
+    "records": [
+      {
+        "id": "p0",
+        "x": 500000,
+        "y": 6500000,
+        "z": 100,
+        "values": {
+          "g": 6.78757746292478,
+          "other": 2
+        },
+        "line_id": null,
+        "station_id": null,
+        "time": null,
+        "clearance": null,
+        "extra": {}
+      },
+      {
+        "id": "p1",
+        "x": 500010,
+        "y": 6500000,
+        "z": 100,
+        "values": {
+          "g": 10.915922558463304,
+          "other": 3
+        },
+        "line_id": null,
+        "station_id": null,
+        "time": null,
+        "clearance": null,
+        "extra": {}
+      },
+      {
+        "id": "missing",
+        "values": {
+          "g": null,
+          "other": 5
+        },
+        "line_id": null,
+        "station_id": null,
+        "x": null,
+        "y": null,
+        "z": null,
+        "time": null,
+        "clearance": null,
+        "extra": {}
+      }
+    ],
+    "metadata": {
+      "height_units": "m",
+      "height_datum": "WGS84_ellipsoid",
+      "z_positive": "up",
+      "gravity_datum": "synthetic absolute datum",
+      "tide_system": "tide_free",
+      "corrections": {
+        "gravity_normal": "applied",
+        "gravity_drift": "applied",
+        "gravity_tide": "applied",
+        "gravity_free_air": "unapplied",
+        "gravity_bouguer": "unknown",
+        "gravity_terrain": "unapplied"
+      },
+      "input_lineage": [
+        {
+          "metadata": {
+            "height_units": "m",
+            "height_datum": "WGS84_ellipsoid",
+            "z_positive": "up",
+            "gravity_datum": "synthetic absolute datum",
+            "tide_system": "tide_free",
+            "corrections": {
+              "gravity_normal": "applied",
+              "gravity_drift": "applied",
+              "gravity_tide": "applied",
+              "gravity_free_air": "unapplied",
+              "gravity_bouguer": "unapplied",
+              "gravity_terrain": "unapplied"
+            },
+            "uncertainty": {
+              "g": 0.01
+            }
+          },
+          "sources": []
+        }
+      ],
+      "uncertainty_propagated": false,
+      "processing": [
+        {
+          "operation": "apply_bouguer_plate",
+          "version": 1,
+          "parameters": {
+            "channel": "g",
+            "density_kg_m3": 2670,
+            "reference_height_m": 0,
+            "height_datum": "WGS84_ellipsoid",
+            "reference_policy": "caller_verified",
+            "max_abs_correction_mGal": 100,
+            "event_id": "plate",
+            "evidence": "independent synthetic Newtonian terrain and supplied land density"
+          },
+          "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+          "output_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+          "operand_lineage": 0
+        }
+      ],
+      "correction_ledger": {
+        "schema": "baselode.geophysics.correction_ledger",
+        "version": 1,
+        "algorithm": "sha256-float64-v1",
+        "initial_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+        "current_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+        "entries": [
+          {
+            "id": "legacy:gravity_bouguer",
+            "kind": "declaration",
+            "correction": "gravity_bouguer",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_bouguer (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_drift",
+            "kind": "declaration",
+            "correction": "gravity_drift",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "applied",
+            "evidence": "Imported metadata.corrections for gravity_drift (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_free_air",
+            "kind": "declaration",
+            "correction": "gravity_free_air",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_free_air (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_normal",
+            "kind": "declaration",
+            "correction": "gravity_normal",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "applied",
+            "evidence": "Imported metadata.corrections for gravity_normal (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_terrain",
+            "kind": "declaration",
+            "correction": "gravity_terrain",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_terrain (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_tide",
+            "kind": "declaration",
+            "correction": "gravity_tide",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "applied",
+            "evidence": "Imported metadata.corrections for gravity_tide (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "plate",
+            "kind": "application",
+            "correction": "gravity_bouguer",
+            "channels": [
+              "g"
+            ],
+            "state": "applied",
+            "evidence": "independent synthetic Newtonian terrain and supplied land density",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+            "parameters": {
+              "channel": "g",
+              "density_kg_m3": 2670,
+              "reference_height_m": 0,
+              "height_datum": "WGS84_ellipsoid",
+              "reference_policy": "caller_verified",
+              "max_abs_correction_mGal": 100,
+              "event_id": "plate",
+              "evidence": "independent synthetic Newtonian terrain and supplied land density"
+            },
+            "model": {
+              "algorithm": "infinite_land_plate_v1",
+              "G_SI": 6.6743e-11
+            },
+            "topography_binding": "2497cf064f386e97f3fc355823c6d5d41078a1baca9683708a0b642e1f3dfdf7",
+            "affected_records": 2
+          }
+        ]
+      }
+    },
+    "schema": "baselode.geophysics.observations",
+    "version": 1
+  },
+  "terrain_observations": {
+    "crs": "EPSG:32750",
+    "crs_units": "m",
+    "channels": {
+      "g": {
+        "field_type": "gravity_disturbance",
+        "units": "mGal"
+      },
+      "other": {
+        "field_type": "gravity_disturbance",
+        "units": "mGal"
+      }
+    },
+    "records": [
+      {
+        "id": "p0",
+        "x": 500000,
+        "y": 6500000,
+        "z": 100,
+        "values": {
+          "g": 6.999999999999998,
+          "other": 2
+        },
+        "line_id": null,
+        "station_id": null,
+        "time": null,
+        "clearance": null,
+        "extra": {}
+      },
+      {
+        "id": "p1",
+        "x": 500010,
+        "y": 6500000,
+        "z": 100,
+        "values": {
+          "g": 11.0,
+          "other": 3
+        },
+        "line_id": null,
+        "station_id": null,
+        "time": null,
+        "clearance": null,
+        "extra": {}
+      },
+      {
+        "id": "missing",
+        "values": {
+          "g": null,
+          "other": 5
+        },
+        "line_id": null,
+        "station_id": null,
+        "x": null,
+        "y": null,
+        "z": null,
+        "time": null,
+        "clearance": null,
+        "extra": {}
+      }
+    ],
+    "metadata": {
+      "height_units": "m",
+      "height_datum": "WGS84_ellipsoid",
+      "z_positive": "up",
+      "gravity_datum": "synthetic absolute datum",
+      "tide_system": "tide_free",
+      "corrections": {
+        "gravity_normal": "applied",
+        "gravity_drift": "applied",
+        "gravity_tide": "applied",
+        "gravity_free_air": "unapplied",
+        "gravity_bouguer": "unknown",
+        "gravity_terrain": "unknown"
+      },
+      "input_lineage": [
+        {
+          "metadata": {
+            "height_units": "m",
+            "height_datum": "WGS84_ellipsoid",
+            "z_positive": "up",
+            "gravity_datum": "synthetic absolute datum",
+            "tide_system": "tide_free",
+            "corrections": {
+              "gravity_normal": "applied",
+              "gravity_drift": "applied",
+              "gravity_tide": "applied",
+              "gravity_free_air": "unapplied",
+              "gravity_bouguer": "unapplied",
+              "gravity_terrain": "unapplied"
+            },
+            "uncertainty": {
+              "g": 0.01
+            }
+          },
+          "sources": []
+        },
+        {
+          "metadata": {
+            "height_units": "m",
+            "height_datum": "WGS84_ellipsoid",
+            "z_positive": "up",
+            "gravity_datum": "synthetic absolute datum",
+            "tide_system": "tide_free",
+            "corrections": {
+              "gravity_normal": "applied",
+              "gravity_drift": "applied",
+              "gravity_tide": "applied",
+              "gravity_free_air": "unapplied",
+              "gravity_bouguer": "unknown",
+              "gravity_terrain": "unapplied"
+            },
+            "uncertainty_propagated": false,
+            "processing": [
+              {
+                "operation": "apply_bouguer_plate",
+                "version": 1,
+                "parameters": {
+                  "channel": "g",
+                  "density_kg_m3": 2670,
+                  "reference_height_m": 0,
+                  "height_datum": "WGS84_ellipsoid",
+                  "reference_policy": "caller_verified",
+                  "max_abs_correction_mGal": 100,
+                  "event_id": "plate",
+                  "evidence": "independent synthetic Newtonian terrain and supplied land density"
+                },
+                "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                "output_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+                "operand_lineage": 0
+              }
+            ],
+            "correction_ledger": {
+              "schema": "baselode.geophysics.correction_ledger",
+              "version": 1,
+              "algorithm": "sha256-float64-v1",
+              "initial_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+              "current_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+              "entries": [
+                {
+                  "id": "legacy:gravity_bouguer",
+                  "kind": "declaration",
+                  "correction": "gravity_bouguer",
+                  "channels": [
+                    "g",
+                    "other"
+                  ],
+                  "state": "unapplied",
+                  "evidence": "Imported metadata.corrections for gravity_bouguer (1 aliases)",
+                  "producer": {
+                    "library": "baselode",
+                    "version": "0.0.0",
+                    "algorithm_version": 1
+                  },
+                  "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                  "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+                },
+                {
+                  "id": "legacy:gravity_drift",
+                  "kind": "declaration",
+                  "correction": "gravity_drift",
+                  "channels": [
+                    "g",
+                    "other"
+                  ],
+                  "state": "applied",
+                  "evidence": "Imported metadata.corrections for gravity_drift (1 aliases)",
+                  "producer": {
+                    "library": "baselode",
+                    "version": "0.0.0",
+                    "algorithm_version": 1
+                  },
+                  "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                  "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+                },
+                {
+                  "id": "legacy:gravity_free_air",
+                  "kind": "declaration",
+                  "correction": "gravity_free_air",
+                  "channels": [
+                    "g",
+                    "other"
+                  ],
+                  "state": "unapplied",
+                  "evidence": "Imported metadata.corrections for gravity_free_air (1 aliases)",
+                  "producer": {
+                    "library": "baselode",
+                    "version": "0.0.0",
+                    "algorithm_version": 1
+                  },
+                  "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                  "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+                },
+                {
+                  "id": "legacy:gravity_normal",
+                  "kind": "declaration",
+                  "correction": "gravity_normal",
+                  "channels": [
+                    "g",
+                    "other"
+                  ],
+                  "state": "applied",
+                  "evidence": "Imported metadata.corrections for gravity_normal (1 aliases)",
+                  "producer": {
+                    "library": "baselode",
+                    "version": "0.0.0",
+                    "algorithm_version": 1
+                  },
+                  "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                  "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+                },
+                {
+                  "id": "legacy:gravity_terrain",
+                  "kind": "declaration",
+                  "correction": "gravity_terrain",
+                  "channels": [
+                    "g",
+                    "other"
+                  ],
+                  "state": "unapplied",
+                  "evidence": "Imported metadata.corrections for gravity_terrain (1 aliases)",
+                  "producer": {
+                    "library": "baselode",
+                    "version": "0.0.0",
+                    "algorithm_version": 1
+                  },
+                  "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                  "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+                },
+                {
+                  "id": "legacy:gravity_tide",
+                  "kind": "declaration",
+                  "correction": "gravity_tide",
+                  "channels": [
+                    "g",
+                    "other"
+                  ],
+                  "state": "applied",
+                  "evidence": "Imported metadata.corrections for gravity_tide (1 aliases)",
+                  "producer": {
+                    "library": "baselode",
+                    "version": "0.0.0",
+                    "algorithm_version": 1
+                  },
+                  "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                  "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+                },
+                {
+                  "id": "plate",
+                  "kind": "application",
+                  "correction": "gravity_bouguer",
+                  "channels": [
+                    "g"
+                  ],
+                  "state": "applied",
+                  "evidence": "independent synthetic Newtonian terrain and supplied land density",
+                  "producer": {
+                    "library": "baselode",
+                    "version": "0.0.0",
+                    "algorithm_version": 1
+                  },
+                  "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+                  "output_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+                  "parameters": {
+                    "channel": "g",
+                    "density_kg_m3": 2670,
+                    "reference_height_m": 0,
+                    "height_datum": "WGS84_ellipsoid",
+                    "reference_policy": "caller_verified",
+                    "max_abs_correction_mGal": 100,
+                    "event_id": "plate",
+                    "evidence": "independent synthetic Newtonian terrain and supplied land density"
+                  },
+                  "model": {
+                    "algorithm": "infinite_land_plate_v1",
+                    "G_SI": 6.6743e-11
+                  },
+                  "topography_binding": "2497cf064f386e97f3fc355823c6d5d41078a1baca9683708a0b642e1f3dfdf7",
+                  "affected_records": 2
+                }
+              ]
+            }
+          },
+          "sources": []
+        }
+      ],
+      "uncertainty_propagated": false,
+      "processing": [
+        {
+          "operation": "apply_bouguer_plate",
+          "version": 1,
+          "parameters": {
+            "channel": "g",
+            "density_kg_m3": 2670,
+            "reference_height_m": 0,
+            "height_datum": "WGS84_ellipsoid",
+            "reference_policy": "caller_verified",
+            "max_abs_correction_mGal": 100,
+            "event_id": "plate",
+            "evidence": "independent synthetic Newtonian terrain and supplied land density"
+          },
+          "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+          "output_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+          "operand_lineage": 0
+        },
+        {
+          "operation": "correct_gravity_terrain",
+          "version": 1,
+          "parameters": {
+            "channel": "g",
+            "density_kg_m3": 2670,
+            "reference_height_m": 0,
+            "height_datum": "WGS84_ellipsoid",
+            "reference_policy": "caller_verified",
+            "max_abs_correction_mGal": 100,
+            "event_id": "terrain",
+            "evidence": "independent synthetic Newtonian terrain and supplied land density",
+            "dem": {
+              "id": "synthetic-relief",
+              "crs": "EPSG:32750",
+              "crs_units": "m",
+              "frame_id": null,
+              "height_datum": "WGS84_ellipsoid",
+              "bounds": [
+                499985,
+                6499985,
+                500015,
+                6500015
+              ],
+              "heights": [
+                [
+                  100,
+                  120,
+                  100
+                ],
+                [
+                  80,
+                  100,
+                  100
+                ],
+                [
+                  100,
+                  100,
+                  100
+                ]
+              ]
+            },
+            "outside_dem_policy": "flat_at_station_height",
+            "min_edge_distance_m": 1,
+            "ground_tolerance_m": 0
+          },
+          "input_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+          "output_binding": "598028be7487692ff7e1c0c61e65bb91e922ecfd312ff547c57dd82145fac755",
+          "operand_lineage": 1
+        }
+      ],
+      "correction_ledger": {
+        "schema": "baselode.geophysics.correction_ledger",
+        "version": 1,
+        "algorithm": "sha256-float64-v1",
+        "initial_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+        "current_binding": "598028be7487692ff7e1c0c61e65bb91e922ecfd312ff547c57dd82145fac755",
+        "entries": [
+          {
+            "id": "legacy:gravity_bouguer",
+            "kind": "declaration",
+            "correction": "gravity_bouguer",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_bouguer (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_drift",
+            "kind": "declaration",
+            "correction": "gravity_drift",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "applied",
+            "evidence": "Imported metadata.corrections for gravity_drift (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_free_air",
+            "kind": "declaration",
+            "correction": "gravity_free_air",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_free_air (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_normal",
+            "kind": "declaration",
+            "correction": "gravity_normal",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "applied",
+            "evidence": "Imported metadata.corrections for gravity_normal (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_terrain",
+            "kind": "declaration",
+            "correction": "gravity_terrain",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "unapplied",
+            "evidence": "Imported metadata.corrections for gravity_terrain (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "legacy:gravity_tide",
+            "kind": "declaration",
+            "correction": "gravity_tide",
+            "channels": [
+              "g",
+              "other"
+            ],
+            "state": "applied",
+            "evidence": "Imported metadata.corrections for gravity_tide (1 aliases)",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb"
+          },
+          {
+            "id": "plate",
+            "kind": "application",
+            "correction": "gravity_bouguer",
+            "channels": [
+              "g"
+            ],
+            "state": "applied",
+            "evidence": "independent synthetic Newtonian terrain and supplied land density",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "aef059a392630e258a227796c595d8513d8e4d3e0d509573ce8ab9286a1de9fb",
+            "output_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+            "parameters": {
+              "channel": "g",
+              "density_kg_m3": 2670,
+              "reference_height_m": 0,
+              "height_datum": "WGS84_ellipsoid",
+              "reference_policy": "caller_verified",
+              "max_abs_correction_mGal": 100,
+              "event_id": "plate",
+              "evidence": "independent synthetic Newtonian terrain and supplied land density"
+            },
+            "model": {
+              "algorithm": "infinite_land_plate_v1",
+              "G_SI": 6.6743e-11
+            },
+            "topography_binding": "2497cf064f386e97f3fc355823c6d5d41078a1baca9683708a0b642e1f3dfdf7",
+            "affected_records": 2
+          },
+          {
+            "id": "terrain",
+            "kind": "application",
+            "correction": "gravity_terrain",
+            "channels": [
+              "g"
+            ],
+            "state": "applied",
+            "evidence": "independent synthetic Newtonian terrain and supplied land density",
+            "producer": {
+              "library": "baselode",
+              "version": "0.0.0",
+              "algorithm_version": 1
+            },
+            "input_binding": "9de1716172f28a8bd028ff337095eed1bb953148024eba8bb8cc932d71bae79e",
+            "output_binding": "598028be7487692ff7e1c0c61e65bb91e922ecfd312ff547c57dd82145fac755",
+            "parameters": {
+              "channel": "g",
+              "density_kg_m3": 2670,
+              "reference_height_m": 0,
+              "height_datum": "WGS84_ellipsoid",
+              "reference_policy": "caller_verified",
+              "max_abs_correction_mGal": 100,
+              "event_id": "terrain",
+              "evidence": "independent synthetic Newtonian terrain and supplied land density",
+              "dem": {
+                "id": "synthetic-relief",
+                "crs": "EPSG:32750",
+                "crs_units": "m",
+                "frame_id": null,
+                "height_datum": "WGS84_ellipsoid",
+                "bounds": [
+                  499985,
+                  6499985,
+                  500015,
+                  6500015
+                ],
+                "heights": [
+                  [
+                    100,
+                    120,
+                    100
+                  ],
+                  [
+                    80,
+                    100,
+                    100
+                  ],
+                  [
+                    100,
+                    100,
+                    100
+                  ]
+                ]
+              },
+              "outside_dem_policy": "flat_at_station_height",
+              "min_edge_distance_m": 1,
+              "ground_tolerance_m": 0
+            },
+            "model": {
+              "algorithm": "finite_zone_station_relative_prisms_v1",
+              "backend": "harmonica",
+              "backend_version": "0.7.0",
+              "G_SI": 6.6743e-11
+            },
+            "topography_binding": "e403d4dea835ef1f128f34c5864ae6e777f6f9aabbaa5a0af130a2300e520178",
+            "affected_records": 2
+          }
+        ]
+      }
+    },
+    "schema": "baselode.geophysics.observations",
+    "version": 1
+  }
+}

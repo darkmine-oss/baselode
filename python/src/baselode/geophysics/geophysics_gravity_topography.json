@@ -1,0 +1,324 @@
+{
+  "id": "baselode.geophysics.gravity_topography",
+  "version": 1,
+  "plate_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "density_kg_m3",
+      "reference_height_m",
+      "height_datum",
+      "reference_policy",
+      "max_abs_correction_mGal",
+      "event_id",
+      "evidence"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "density_kg_m3": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 10000
+      },
+      "reference_height_m": {
+        "type": "number",
+        "minimum": -10000,
+        "maximum": 10000
+      },
+      "height_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "max_abs_correction_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  },
+  "terrain_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "density_kg_m3",
+      "reference_height_m",
+      "height_datum",
+      "reference_policy",
+      "max_abs_correction_mGal",
+      "event_id",
+      "evidence",
+      "dem",
+      "outside_dem_policy",
+      "min_edge_distance_m",
+      "ground_tolerance_m"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "density_kg_m3": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 10000
+      },
+      "reference_height_m": {
+        "type": "number",
+        "minimum": -10000,
+        "maximum": 10000
+      },
+      "height_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "max_abs_correction_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "dem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "crs",
+          "crs_units",
+          "frame_id",
+          "height_datum",
+          "bounds",
+          "heights"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "crs": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "crs_units": {
+            "const": "m"
+          },
+          "frame_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "height_datum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "bounds": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          },
+          "heights": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1024,
+            "items": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1024,
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              }
+            }
+          }
+        }
+      },
+      "outside_dem_policy": {
+        "const": "flat_at_station_height"
+      },
+      "min_edge_distance_m": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 50000
+      },
+      "ground_tolerance_m": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    }
+  },
+  "dem_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "id",
+      "crs",
+      "crs_units",
+      "frame_id",
+      "height_datum",
+      "bounds",
+      "heights"
+    ],
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "crs": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "crs_units": {
+        "const": "m"
+      },
+      "frame_id": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "height_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "bounds": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": {
+          "type": "number",
+          "minimum": -1e+100,
+          "maximum": 1e+100
+        }
+      },
+      "heights": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 1024,
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "type": "number",
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          }
+        }
+      }
+    }
+  },
+  "models": {
+    "gravity_bouguer": {
+      "algorithm": "infinite_land_plate_v1",
+      "G_SI": 6.6743e-11
+    },
+    "gravity_terrain": {
+      "algorithm": "finite_zone_station_relative_prisms_v1",
+      "backend": "harmonica",
+      "backend_version": "0.7.0",
+      "G_SI": 6.6743e-11
+    }
+  },
+  "resources": {
+    "max_records": 512,
+    "max_dem_cells": 1024,
+    "max_station_cell_pairs": 524288,
+    "max_dem_extent_m": 100000
+  },
+  "execution": {
+    "python": true,
+    "javascript": false,
+    "installation": "pip install 'baselode[potential-fields]' (Harmonica 0.7.0); plate calculation/application needs only core dependencies"
+  },
+  "assumptions": [
+    "Positive land density is supplied in kg/m3, not inferred; land thickness and terrain heights are above the explicit reference level.",
+    "Bouguer effect 2*pi*G*rho*(z-reference) is subtracted from a gravity disturbance. No free-air term or height/geoid conversion is applied.",
+    "Terrain correction is minus downward gravity from signed prisms between station height and each DEM cell; add to plate-reduced disturbance.",
+    "Finite north-up DEM cells are constant-height footprints. Outside the rectangular support terrain is explicitly assumed flat at each station height; this is a finite-zone approximation.",
+    "Ground observation height must match its containing DEM cell within the explicit tolerance; no airborne/marine/curvature or adaptive far-zone model.",
+    "Density sensitivity is the exact derivative of the linear reduction with respect to supplied density; it is not propagated uncertainty.",
+    "Python numerical execution; JavaScript exposes shared contracts and bound history/reprojection replay."
+  ],
+  "references": [
+    "https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.bouguer_correction.html",
+    "https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.prism_gravity.html",
+    "https://pubs.usgs.gov/of/2001/of01-503/of01-503.pdf",
+    "https://developer.seequent.com/docs/guides/geophysics-tasks/tasks/gravity-terrain-correction/"
+  ],
+  "binding": {
+    "algorithm": "baselode.gravity_topography_binding.v1",
+    "canonical": "Registered ASCII-key objects sorted into key/value arrays; binary64 numbers encoded [f64,big-endian-hex] with signed zero normalized; arrays ordered. SHA-256 JSON UTF-8 compact encoding of [algorithm,canonical(parameters except event_id/evidence),canonical(model),canonical(context),canonical(record id/z arrays)]. Context includes historical CRS/units/local frame, height datum/m/up, effective channel gravity datum and tide system. XY/readings are covered by the native input/output binding chain; historical XY is not recalculated from rounded inverse projections. Geometric support is checked at native execution, and historical CRS is replayed through explicit reprojection events."
+  },
+  "plate_request_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "density_kg_m3",
+      "thicknesses_m"
+    ],
+    "properties": {
+      "density_kg_m3": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 10000
+      },
+      "thicknesses_m": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+        "items": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      }
+    }
+  }
+}

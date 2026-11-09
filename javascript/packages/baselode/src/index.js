@@ -695,3 +695,5 @@ export { describeGeophysicsObservationWorkflow, validateGeophysicsObservationWor
 export { describeGeophysicsNormalGravity } from './data/geophysicsNormalGravity.js';
 
 export {describeGeophysicsGravityTemporal,applyGeophysicsGravityTide,correctGeophysicsGravityDrift,analyzeGeophysicsGravityRepeats} from './data/geophysicsGravityTemporal.js';
+
+export {describeGeophysicsGravityTopography} from './data/geophysicsGravityTopography.js';

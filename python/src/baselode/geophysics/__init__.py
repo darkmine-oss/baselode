@@ -192,3 +192,12 @@ apply_gravity_tide = geophysics_gravity_temporal.apply_gravity_tide
 correct_gravity_drift = geophysics_gravity_temporal.correct_gravity_drift
 analyze_gravity_repeats = geophysics_gravity_temporal.analyze_gravity_repeats
 __all__ += ["describe_gravity_temporal", "apply_gravity_tide", "correct_gravity_drift", "analyze_gravity_repeats"]
+
+import baselode.geophysics.gravity_topography as geophysics_gravity_topography
+
+describe_gravity_topography = geophysics_gravity_topography.describe_gravity_topography
+calculate_bouguer_plate = geophysics_gravity_topography.calculate_bouguer_plate
+apply_bouguer_plate = geophysics_gravity_topography.apply_bouguer_plate
+correct_gravity_terrain = geophysics_gravity_topography.correct_gravity_terrain
+
+__all__ += ["describe_gravity_topography", "calculate_bouguer_plate", "apply_bouguer_plate", "correct_gravity_terrain"]

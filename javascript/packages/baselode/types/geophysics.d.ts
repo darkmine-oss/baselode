@@ -440,6 +440,7 @@ export type GeophysicsCorrectionEvent = GeophysicsReprojectionEvent | (Geophysic
   | { kind: 'declaration' }
   | { kind: 'application'; correction: 'gravity_tide'; state: 'applied'; parameters: GeophysicsGravityTideOptions; temporal_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'gravity_drift'; state: 'applied'; parameters: GeophysicsGravityDriftOptions; model: GeophysicsGravityDriftModel; temporal_binding: string; affected_records: number }
+  | { kind: 'application'; correction: 'gravity_bouguer' | 'gravity_terrain'; state: 'applied'; parameters: GravityPlateOptions | GravityTerrainOptions; model: Record<string, unknown>; topography_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'gravity_normal'; state: 'applied'; parameters: GeophysicsNormalGravityRemovalOptions; model: GeophysicsNormalGravityModel; normal_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_levelling'; state: 'applied'; parameters: GeophysicsMagneticLevellingOptions; line_offsets: GeophysicsLineOffset[]; levelling_binding: string; affected_records: number }
   | { kind: 'application'; correction: 'magnetic_heading'; state: 'applied'; parameters: GeophysicsMagneticHeadingOptions; heading_binding: string; affected_records: number }
@@ -678,3 +679,19 @@ export function describeGeophysicsGravityTemporal(): Record<string, unknown>;
 export function applyGeophysicsGravityTide(payload: unknown, options: GeophysicsGravityTideOptions): Promise<GeophysicsGravityTemporalReport>;
 export function correctGeophysicsGravityDrift(payload: unknown, options: GeophysicsGravityDriftOptions): Promise<GeophysicsGravityTemporalReport>;
 export function analyzeGeophysicsGravityRepeats(payload: unknown, options: {channel: string}): Promise<GeophysicsGravityTemporalReport>;
+
+/** Explicit-density land plate/finite-zone terrain operations execute in Python. */
+export interface GravityPlateOptions {
+  channel: string; density_kg_m3: number; reference_height_m: number;
+  height_datum: string; reference_policy: 'caller_verified';
+  max_abs_correction_mGal: number; event_id: string; evidence: string;
+}
+export interface GravityTerrainDem {
+  id: string; crs: string | null; crs_units: 'm'; frame_id: string | null;
+  height_datum: string; bounds: [number, number, number, number]; heights: number[][];
+}
+export interface GravityTerrainOptions extends GravityPlateOptions {
+  dem: GravityTerrainDem; outside_dem_policy: 'flat_at_station_height';
+  min_edge_distance_m: number; ground_tolerance_m: number;
+}
+export function describeGeophysicsGravityTopography(): Record<string, any>;
