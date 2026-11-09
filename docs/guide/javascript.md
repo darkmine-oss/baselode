@@ -1765,3 +1765,13 @@ see `test/data/block_forward_example.json` and the Python guide for explicit
 properties, masks, IDs and unrotated-only limits. The returned validated batches
 can be executed by Python `calculate_block_forward`. No numerical JS stub is
 provided. Shared TypeScript types describe requests/preparation/numerical reports.
+
+### Density inversion requests
+
+`describeGeophysicsDensityInversion()` / `validateGeophysicsDensityInversion(request)`
+provide native synchronous core contracts, not a numerical solver. Use the shared
+`test/data/density_inversion_example.json`, inspect state, and send its replay
+request to Python `invert_density`. Explicit geometry, ordered density bounds/
+reference/scales, supplied-sigma observations, smoothing edges and solver controls
+match the Python guide. Core validation does not establish numerical operator rank.
+TypeScript defines the Python result, residual QC and sensitivity/convergence fields.

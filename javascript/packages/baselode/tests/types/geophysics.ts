@@ -295,3 +295,9 @@ declare const blockForwardRequest:GeophysicsBlockForwardRequest;
 const blockPreparation:GeophysicsBlockForwardPreparation=prepareGeophysicsBlockForward(blockForwardRequest);
 declare const blockNumerical:GeophysicsBlockForwardReport;
 void [describeGeophysicsBlockForward(),blockPreparation.batches,blockNumerical.fields];
+
+import {describeGeophysicsDensityInversion,validateGeophysicsDensityInversion,GeophysicsDensityInversionRequest,GeophysicsDensityInversionValidation,GeophysicsDensityInversionReport} from '../../types/geophysics.js';
+declare const densityRequest:GeophysicsDensityInversionRequest;
+const densityValidation:GeophysicsDensityInversionValidation=validateGeophysicsDensityInversion(densityRequest);
+declare const densityNumerical:GeophysicsDensityInversionReport;
+void [describeGeophysicsDensityInversion(),densityValidation.state,densityNumerical.operator?.matrix];

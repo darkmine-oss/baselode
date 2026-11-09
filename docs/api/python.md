@@ -3286,3 +3286,11 @@ and `test/data/block_forward_example.json`; numerical support matches prism kern
 
 `prepare_block_model_forward(model, options)` accepts the live BlockModel and
 normalizes pandas missing attributes to JSON null before portable preparation.
+
+### Bounded density inversion
+
+`baselode.geophysics.describe_density_inversion()`,
+`validate_density_inversion(request)` (core) and `invert_density(request)`
+(`inversion` extra): fixed uniform-cell density contrasts, explicit bounded BVLS
+and L2 scaled-reference deviations, physical sensitivities, replayed forward
+prediction/residual QC and rank/convergence evidence. See guide and shared example.

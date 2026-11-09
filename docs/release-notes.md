@@ -648,3 +648,8 @@
 - Add native Python/JS block-model forward preparation and Python gravity/magnetic
   execution with explicit density/J units, cell IDs/masks, strict indexed geometry,
   global budgets and correct post-superposition exact TMI. Unrotated full cells only.
+
+- Add small bounded density inversion with supplied-error residual QC, explicit
+  bounds/reference/scales/L2 edges, physical sensitivity operator, rank/condition
+  and projected-gradient convergence gates, and reusable fitted forward requests.
+  Native Python/JS contracts; optional Python SciPy numerical execution.

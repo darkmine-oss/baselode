@@ -36,6 +36,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+inversion = ["harmonica==0.7.0", "choclo==0.3.2", "scipy==1.15.3; python_version < '3.11'", "scipy==1.17.1; python_version >= '3.11'"]
 viz = ["folium>=0.15"]
 sql = ["sqlalchemy>=2.0"]
 las = ["lasio>=0.31"]

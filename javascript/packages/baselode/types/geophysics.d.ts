@@ -917,3 +917,28 @@ export interface GeophysicsBlockForwardReport extends GeophysicsBlockForwardPrep
 }
 export function describeGeophysicsBlockForward():Record<string,any>;
 export function prepareGeophysicsBlockForward(request:GeophysicsBlockForwardRequest):GeophysicsBlockForwardPreparation;
+
+export interface GeophysicsInversionParameter {cell_id:string;parameter:'density_contrast_kg_m3';lower:number;upper:number;reference:number;scale:number}
+export interface GeophysicsInversionRegularization {reference_weight:number;smoothness_weight:number;edges:Array<{cell_a:string;cell_b:string;weight:number}>}
+export interface GeophysicsInversionSolver {method:'bvls';tolerance:number;max_iterations:number;condition_limit:number}
+export interface GeophysicsDensityInversionRequest {
+  schema:'baselode.geophysics.density_inversion_request';version:1;
+  forward_request:GeophysicsBlockForwardRequest;observed:GeophysicsMisfitRequest['observed'];
+  parameters:GeophysicsInversionParameter[];regularization:GeophysicsInversionRegularization;solver:GeophysicsInversionSolver;metadata?:Record<string,unknown>;
+}
+export interface GeophysicsDensityInversionValidation {
+  schema:'baselode.geophysics.density_inversion_validation'|'baselode.geophysics.density_inversion_result';version:1;
+  state:'ok'|'needs_input'|'rejected'|'failed';issues:Array<{code:string;message:string}>;request:GeophysicsDensityInversionRequest|null;
+  diagnostics:Record<string,number|string|boolean|null|number[]>;producer:Record<string,string|number>;
+}
+/** Produced by the Python inversion extra. Data nullity and prior-selected fit do not establish geological uniqueness. */
+export interface GeophysicsDensityInversionReport extends GeophysicsDensityInversionValidation {
+  parameters:Array<GeophysicsInversionParameter & {units:'kg/m^3';value:number;active_bound:-1|0|1;weighted_column_norm:number}>;
+  fitted_forward_request:GeophysicsBlockForwardRequest|null;predicted:GeophysicsMisfitRequest['predicted']|null;misfit:GeophysicsMisfitReport|null;
+  operator:{row_ids:string[];columns:Array<{cell_id:string;parameter:'density_contrast_kg_m3'}>;matrix:number[][];data_units:'mGal';parameter_units:'kg/m^3'}|null;
+  objective:{weighted_data:number;reference:number;smoothness:number;total:number}|null;
+  convergence:{success:true;status:number;message:string;iterations:number;optimality:number;projected_gradient:number;projected_gradient_threshold:number;matrix_normalization:number}|null;
+  forward_result:GeophysicsBlockForwardReport|null;assumptions:string[];
+}
+export function describeGeophysicsDensityInversion():Record<string,any>;
+export function validateGeophysicsDensityInversion(request:GeophysicsDensityInversionRequest):GeophysicsDensityInversionValidation;

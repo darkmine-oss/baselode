@@ -1,0 +1,125 @@
+{
+  "schema": "baselode.geophysics.density_inversion_request",
+  "version": 1,
+  "forward_request": {
+    "schema": "baselode.geophysics.block_forward_request",
+    "version": 1,
+    "coordinate_frame": {
+      "id": "synthetic-local-grid",
+      "kind": "local_cartesian",
+      "axes": "x_y_up",
+      "units": "m",
+      "height_datum": "local_zero"
+    },
+    "model": {
+      "definition": {
+        "name": "two cells",
+        "description": "Synthetic signed density contrast",
+        "crs": "synthetic-local-grid",
+        "origin": {
+          "x": -50,
+          "y": -50,
+          "z": -150
+        },
+        "block_size": {
+          "dx": 50,
+          "dy": 100,
+          "dz": 100
+        },
+        "n_blocks": {
+          "nx": 2,
+          "ny": 1,
+          "nz": 1
+        },
+        "parent_size": null,
+        "rotation": {
+          "azimuth": 0,
+          "dip": 0,
+          "plunge": 0
+        },
+        "extra": {}
+      },
+      "blocks": [
+        {
+          "cell_id": "west",
+          "active": true,
+          "i": 0,
+          "j": 0,
+          "k": 0,
+          "ni": 2,
+          "nj": 1,
+          "nk": 1,
+          "rho": 0
+        }
+      ]
+    },
+    "physics": "gravity",
+    "cell_id_column": "cell_id",
+    "active_column": "active",
+    "properties": {
+      "density_contrast_kg_m3": {
+        "column": "rho",
+        "units": "kg/m^3"
+      }
+    },
+    "points": [
+      {
+        "id": "surface",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0
+      }
+    ],
+    "batch_size": 64,
+    "include_sensitivities": true,
+    "background_nT": null,
+    "min_distance_m": null
+  },
+  "observed": {
+    "context": {
+      "quantity": "gravity_g_down",
+      "units": "mGal",
+      "field_type": "gravity_anomaly",
+      "reference_id": "synthetic_zero_gravity",
+      "coordinate_frame": {
+        "id": "synthetic-local-grid",
+        "kind": "local_cartesian",
+        "axes": "x_y_up",
+        "units": "m",
+        "height_datum": "local_zero"
+      }
+    },
+    "records": [
+      {
+        "id": "surface",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 0.6293849964203642,
+        "standard_deviation": 0.01,
+        "group_id": null
+      }
+    ]
+  },
+  "parameters": [
+    {
+      "cell_id": "west",
+      "parameter": "density_contrast_kg_m3",
+      "lower": -3000,
+      "upper": 3000,
+      "reference": 0,
+      "scale": 1000
+    }
+  ],
+  "regularization": {
+    "reference_weight": 0,
+    "smoothness_weight": 0,
+    "edges": []
+  },
+  "solver": {
+    "method": "bvls",
+    "tolerance": 1e-10,
+    "max_iterations": 100,
+    "condition_limit": 10000000000.0
+  }
+}

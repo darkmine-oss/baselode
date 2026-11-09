@@ -446,3 +446,16 @@ JavaScript supplies result types, with no numerical solver parity claim.
 Unrotated grids only. No snapping, bounding-box rotation approximation,
 partial-fill assumption or susceptibility conversion. Global vectors precede
 exact TMI, and global work/sensitivity budgets apply across batches.
+
+## Density inversion v1
+
+Native `describe_density_inversion` / `validate_density_inversion` correspond to
+`describeGeophysicsDensityInversion` / `validateGeophysicsDensityInversion`.
+Identical shared schemas, zero-property template, ordered density bounds/priors,
+matched supplied-sigma data and explicit edge/solver/resource gates replay live.
+Python `invert_density` uses the declared `inversion` extra; numerical solver
+parity is not claimed. Native validation cannot establish augmented numerical
+rank. Exact dense BVLS fits scaled deviations with L2 penalties, followed by
+bounds/KKT checks and re-execution through the released forward adapter. Data
+nullity is distinct from augmented rank. No inferred covariance, geological
+uniqueness, posterior uncertainty, sparse regularisation or automatic corrections.

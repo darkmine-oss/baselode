@@ -1066,6 +1066,28 @@
           "prepare_block_model_forward"
         ]
       ]
+    },
+    {
+      "name": "geophysics_density_inversion",
+      "description": "Native portable fixed-geometry density inversion validation and Python bounded SciPy L2 fitting with explicit priors and supplied-sigma residual/sensitivity/convergence diagnostics.",
+      "jsExports": [
+        "describeGeophysicsDensityInversion",
+        "validateGeophysicsDensityInversion"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_density_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_density_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "invert_density"
+        ]
+      ]
     }
   ]
 }

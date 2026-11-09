@@ -260,3 +260,9 @@ __all__ += ['describe_block_forward','prepare_block_forward','calculate_block_fo
 
 prepare_block_model_forward = geophysics_block_forward.prepare_block_model_forward
 __all__ += ['prepare_block_model_forward']
+
+import baselode.geophysics.inversion as geophysics_inversion
+describe_density_inversion = geophysics_inversion.describe_density_inversion
+validate_density_inversion = geophysics_inversion.validate_density_inversion
+invert_density = geophysics_inversion.invert_density
+__all__ += ['describe_density_inversion','validate_density_inversion','invert_density']
