@@ -459,3 +459,20 @@ rank. Exact dense BVLS fits scaled deviations with L2 penalties, followed by
 bounds/KKT checks and re-execution through the released forward adapter. Data
 nullity is distinct from augmented rank. No inferred covariance, geological
 uniqueness, posterior uncertainty, sparse regularisation or automatic corrections.
+
+## Scalar susceptibility inversion v1
+
+Native Python describe_susceptibility_inversion/validate_susceptibility_inversion
+correspond to describeGeophysicsSusceptibilityInversion/
+validateGeophysicsSusceptibilityInversion. Shared request/result schemas and live
+positive/negative replay cover explicit induced-only SI/constant-field/linear-TMI
+policies, reference binding, zero-J/distinct property columns and weak response.
+Background magnitude uses fixed-axis-order squared norm and sqrt in native gates.
+Python invert_susceptibility reuses bounded BVLS and unit-J prism columns with
+J=chi*B0(T)/mu0. Analytic cube solid angles independently check induced units/signs;
+field reversal, finite differences, negative chi, prior/bounds and remanent mismatch
+cases verify physical meaning. Full-vector applicability is checked postfit.
+Linear objective QC and exact-TMI magnitude QC are separate; numerical JS solver
+parity, nonlinear exact-TMI inversion, demagnetisation, remanence or uniqueness/
+posterior uncertainty are not claimed. All numerical failures withhold both QC
+reports, conversion/model fields and fitted properties atomically.

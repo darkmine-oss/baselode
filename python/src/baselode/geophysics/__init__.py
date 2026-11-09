@@ -266,3 +266,8 @@ describe_density_inversion = geophysics_inversion.describe_density_inversion
 validate_density_inversion = geophysics_inversion.validate_density_inversion
 invert_density = geophysics_inversion.invert_density
 __all__ += ['describe_density_inversion','validate_density_inversion','invert_density']
+
+describe_susceptibility_inversion = geophysics_inversion.describe_susceptibility_inversion
+validate_susceptibility_inversion = geophysics_inversion.validate_susceptibility_inversion
+invert_susceptibility = geophysics_inversion.invert_susceptibility
+__all__ += ['describe_susceptibility_inversion','validate_susceptibility_inversion','invert_susceptibility']

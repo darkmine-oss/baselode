@@ -1,0 +1,145 @@
+{
+  "schema": "baselode.geophysics.susceptibility_inversion_request",
+  "version": 1,
+  "forward_request": {
+    "schema": "baselode.geophysics.block_forward_request",
+    "version": 1,
+    "coordinate_frame": {
+      "id": "synthetic-local-grid",
+      "kind": "local_cartesian",
+      "axes": "x_y_up",
+      "units": "m",
+      "height_datum": "local_zero"
+    },
+    "model": {
+      "definition": {
+        "name": "two cells",
+        "description": "Synthetic signed density contrast",
+        "crs": "synthetic-local-grid",
+        "origin": {
+          "x": -50,
+          "y": -50,
+          "z": -150
+        },
+        "block_size": {
+          "dx": 50,
+          "dy": 100,
+          "dz": 100
+        },
+        "n_blocks": {
+          "nx": 2,
+          "ny": 1,
+          "nz": 1
+        },
+        "parent_size": null,
+        "rotation": {
+          "azimuth": 0,
+          "dip": 0,
+          "plunge": 0
+        },
+        "extra": {}
+      },
+      "blocks": [
+        {
+          "cell_id": "west",
+          "active": true,
+          "i": 0,
+          "j": 0,
+          "k": 0,
+          "ni": 2,
+          "nj": 1,
+          "nk": 1,
+          "magnetization_x_A_m": 0,
+          "magnetization_y_A_m": 0,
+          "magnetization_z_up_A_m": 0
+        }
+      ]
+    },
+    "physics": "magnetic",
+    "cell_id_column": "cell_id",
+    "active_column": "active",
+    "properties": {
+      "magnetization_x_A_m": {
+        "column": "magnetization_x_A_m",
+        "units": "A/m"
+      },
+      "magnetization_y_A_m": {
+        "column": "magnetization_y_A_m",
+        "units": "A/m"
+      },
+      "magnetization_z_up_A_m": {
+        "column": "magnetization_z_up_A_m",
+        "units": "A/m"
+      }
+    },
+    "points": [
+      {
+        "id": "surface",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0
+      }
+    ],
+    "batch_size": 64,
+    "include_sensitivities": true,
+    "background_nT": {
+      "x": 0,
+      "y": 0,
+      "z_up": 50000
+    },
+    "min_distance_m": 1
+  },
+  "observed": {
+    "context": {
+      "quantity": "magnetic_tmi_anomaly",
+      "units": "nT",
+      "field_type": "magnetic_anomaly",
+      "reference_id": "synthetic_fixed_field",
+      "coordinate_frame": {
+        "id": "synthetic-local-grid",
+        "kind": "local_cartesian",
+        "axes": "x_y_up",
+        "units": "m",
+        "height_datum": "local_zero"
+      }
+    },
+    "records": [
+      {
+        "id": "surface",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 67.39119311870337,
+        "standard_deviation": 0.01,
+        "group_id": null
+      }
+    ]
+  },
+  "parameters": [
+    {
+      "cell_id": "west",
+      "parameter": "susceptibility_SI",
+      "lower": 0,
+      "upper": 0.1,
+      "reference": 0,
+      "scale": 0.01
+    }
+  ],
+  "regularization": {
+    "reference_weight": 0,
+    "smoothness_weight": 0,
+    "edges": []
+  },
+  "solver": {
+    "method": "bvls",
+    "tolerance": 1e-10,
+    "max_iterations": 100,
+    "condition_limit": 10000000000.0
+  },
+  "magnetic_assumptions": {
+    "model": "induced_only_no_demagnetization",
+    "objective": "linear_tmi",
+    "background_reference_id": "synthetic_fixed_field",
+    "max_response_to_background_ratio": 0.05
+  }
+}

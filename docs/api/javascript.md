@@ -2462,3 +2462,11 @@ validated portable prism batches; Python executes numerical reports.
 `describeGeophysicsDensityInversion()` / `validateGeophysicsDensityInversion(request)`
 export from root and `baselode/geophysics`. Native request validation and portable
 Python numerical-report types; no JavaScript numerical solver stub.
+
+### Scalar susceptibility inversion
+
+`describeGeophysicsSusceptibilityInversion()` /
+`validateGeophysicsSusceptibilityInversion(request)` export from root and
+`baselode/geophysics`. Native portable validation; Python numerical report types
+include susceptibility, conversion provenance, bounds/sensitivity/convergence
+and distinct exact-TMI precision diagnostics.

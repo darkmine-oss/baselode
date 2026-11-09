@@ -1088,6 +1088,28 @@
           "invert_density"
         ]
       ]
+    },
+    {
+      "name": "geophysics_susceptibility_inversion",
+      "description": "Native explicit induced-only SI susceptibility inversion contract; Python bounded regularised linear-TMI fitting with exact-TMI residual/weak-policy/convergence diagnostics.",
+      "jsExports": [
+        "describeGeophysicsSusceptibilityInversion",
+        "validateGeophysicsSusceptibilityInversion"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_susceptibility_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_susceptibility_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "invert_susceptibility"
+        ]
+      ]
     }
   ]
 }

@@ -719,3 +719,5 @@ export {describeGeophysicsMisfit,calculateGeophysicsMisfit} from './data/geophys
 export {describeGeophysicsBlockForward,prepareGeophysicsBlockForward} from './data/geophysicsBlockForward.js';
 
 export {describeGeophysicsDensityInversion,validateGeophysicsDensityInversion} from './data/geophysicsInversion.js';
+
+export {describeGeophysicsSusceptibilityInversion,validateGeophysicsSusceptibilityInversion} from './data/geophysicsInversion.js';

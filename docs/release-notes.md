@@ -653,3 +653,8 @@
   bounds/reference/scales/L2 edges, physical sensitivity operator, rank/condition
   and projected-gradient convergence gates, and reusable fitted forward requests.
   Native Python/JS contracts; optional Python SciPy numerical execution.
+
+- Add bounded induced-only scalar SI susceptibility inversion with explicit fixed
+  field/reference, J=chi*H0 conversion, observed/full-vector weak-response checks,
+  physical sensitivities and separate linear/exact-TMI residual QC. Native Python/
+  JS contracts reuse the pinned Python solver and existing explicit L2 controls.
