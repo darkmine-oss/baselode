@@ -1805,3 +1805,48 @@ CRS/model contexts through explicit horizontal reprojection. It rejects changed
 DEM/density/height/datum/history rather than silently resetting corrections.
 Terrain support is finite and assumes flat station-level terrain outside the
 DEM; this is not a global or airborne/marine correction.
+
+
+### Corrected-grid radiometric products
+
+The root package and `baselode/geophysics` export
+`describeGeophysicsRadiometrics`, `stackGeophysicsRadiometricGrids`,
+`calculateGeophysicsRadiometricRatios` and `createGeophysicsRadiometricTernary`.
+All calculations run natively in both Python and JavaScript. TypeScript exports
+verification, ratio/ternary parameter and corrected-stack context interfaces.
+
+Stack three exactly aligned one-band sources in K(%), eU(ppm), eTh(ppm) order:
+
+```javascript
+const stack = stackGeophysicsRadiometricGrids(k, u, th, {
+  reference_policy: 'caller_verified', evidence: 'source processing checked',
+});
+const ratios = calculateGeophysicsRadiometricRatios(stack, {
+  potassium_floor: 0.1, thorium_floor: 0.5,
+  reference_policy: 'caller_verified', evidence: 'source processing checked',
+});
+const rgb = createGeophysicsRadiometricTernary(stack, {
+  k_min: 0, k_max: 4, u_min: 0, u_max: 8, th_min: 0, th_max: 16, gamma: 1,
+  reference_policy: 'caller_verified', evidence: 'source processing checked',
+});
+```
+
+Thresholds/stretches above are demonstration choices. Sources declare
+`metadata.radiometric` with corrected concentration state, element,
+calibration ID, reference height and height datum. Canonical stack band names
+are `K,eU,eTh`, units `%,ppm,ppm`, with ordered calibration IDs. No alignment,
+raw-count calibration or equilibrium state is inferred.
+
+Ratio bands eTh/K and eU/K use ppm/%; eU/eTh uses 1. Explicit positive
+denominator floors accept equality. Missing/negative dependencies and weak or
+nonfinite denominators/results are masked per ratio. Ternary normalized RGB
+uses K red/eTh green/eU blue, fixed linear endpoints and `scaled**(1/gamma)`;
+its three bands share a missing/negative mask and retain valid black zeros.
+Diagnostics expose support/overflow/clipping counts. Quantitative source
+calibration and uncertainty remain in input lineage, without unsupported
+uncertainty propagation. All-unsupported products throw actionable errors.
+
+Both unary raster-workflow operations use the same snake_case options.
+Radiometric-only pointwise recipes accept geographic/sheared affine grids;
+spatial-filter recipes retain projected/local rectangular requirements.
+Full-resolution products export through ERS/GeoTIFF with units and lineage.

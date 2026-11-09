@@ -12,7 +12,7 @@ const single = (operation = 'horizontal_derivative', parameters = {}) => ({ sche
   steps: [{ id: 'product', operation, version: 1, inputs: ['magnetic'], parameters }], outputs: ['product'] });
 
 it('exposes independent contracts and the shared recipe/schema', () => {
-  const catalogue = listGeophysicsOperations(); expect(catalogue).toHaveLength(11);
+  const catalogue = listGeophysicsOperations(); expect(catalogue).toHaveLength(13);
   catalogue[0].parameters.properties = {};
   expect(describeGeophysicsOperation('low_pass').parameters.properties.wavelength).toBeDefined();
   expect(() => describeGeophysicsOperation('constructor')).toThrow(/unknown/);

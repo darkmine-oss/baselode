@@ -14,11 +14,13 @@ import baselode
 import baselode.geophysics.editing
 import baselode.geophysics.processing
 import baselode.geophysics.provenance
+import baselode.geophysics.radiometrics
 import baselode.geophysics.raster
 
 _DIRECTORY = pathlib.Path(__file__).parent
 _CATALOGUE = json.loads((_DIRECTORY / "geophysics_operations.json").read_text())
 _OPERATIONS = {item["id"]: item for item in _CATALOGUE}
+_POINTWISE = ("radiometric_ratios", "radiometric_ternary")
 _ID = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}\Z")
 
 
@@ -119,7 +121,9 @@ def _output_context(context, operation, parameters):
     name = operation["id"]
     if operation["outputs"]["field_type"] != "preserve":
         result["field_type"] = operation["outputs"]["field_type"]
-    if name == "tilt_derivative":
+    if name in _POINTWISE:
+        result["units"] = list(operation["outputs"]["units"])
+    elif name == "tilt_derivative":
         result["units"] = ["degree"] * context["grid"].band_count
     elif name in ("vertical_derivative", "horizontal_derivative", "total_horizontal_derivative", "analytic_signal"):
         distance = context["distance_unit"]
@@ -178,6 +182,7 @@ def validate_workflow(workflow, inputs):
     if type(inputs) is not dict or not all(_identifier(key) for key in inputs):
         issue("rejected", "input", "inputs", "inputs must be an object with identifier keys")
         return finish()
+    pointwise_only = all(type(step) is dict and step.get("operation") in _POINTWISE for step in steps)
     retained, largest_fft = 0, 0
     for key, raster in inputs.items():
         path = "inputs." + key
@@ -191,7 +196,7 @@ def validate_workflow(workflow, inputs):
         spacing = (1.0, 1.0)
         try:
             baselode.geophysics.provenance.encode(raster.metadata, "GeoTIFF", "float64")
-            distance = baselode.geophysics.processing._coordinate_unit(raster)
+            distance = "pointwise" if pointwise_only else baselode.geophysics.processing._coordinate_unit(raster)
             if distance == "coordinate_unit":
                 issue("needs_input", "coordinates", path, "supply explicit local metadata.crs_units or a projected CRS")
             transform = raster.transform
@@ -201,7 +206,7 @@ def validate_workflow(workflow, inputs):
             if not math.isfinite(determinant) or determinant == 0:
                 raise ValueError("require a finite invertible rectangular affine transform")
             # Use the same rectangular-cell check as the numerical kernels.
-            spacing = raster.cell_size
+            spacing = (1.0, 1.0) if pointwise_only else raster.cell_size
             if not all(math.isfinite(value) and value > 0 for value in spacing):
                 raise ValueError("cell spacing must be positive and finite")
         except (ValueError, TypeError, RecursionError) as error:
@@ -259,10 +264,15 @@ def validate_workflow(workflow, inputs):
                     issue("rejected", "alignment", path, "combine requires exactly matching shape, transform and CRS")
                 if left["units"] != right["units"] or left["field_type"] != right["field_type"]:
                     issue("rejected", "units", path, "combine requires matching units and field_type")
+            if operation['id'] in _POINTWISE and left['grid'].data.size <= 1000000 and retained + left['grid'].data.size <= 16000000:
+                try:
+                    baselode.geophysics.radiometrics._calculate(left['grid'], operation['id'], params, preflight=True)
+                except (ValueError, TypeError, RecursionError) as error:
+                    issue('needs_input' if isinstance(error, baselode.geophysics.radiometrics._NeedsInput) else 'rejected', 'radiometric', path, str(error))
             contexts[name] = _output_context(left, operation, params)
             retained += left["grid"].data.size
             grid = left["grid"]
-            if operation["id"] not in ("combine", "horizontal_derivative", "total_horizontal_derivative"):
+            if operation["id"] not in ("combine", "horizontal_derivative", "total_horizontal_derivative", *_POINTWISE):
                 length = params.get("long_wavelength", params.get("wavelength"))
                 cell_x, cell_y = left["spacing"]
                 if length is not None and not all(math.isfinite(length / spacing) for spacing in (cell_x, cell_y)):
@@ -312,6 +322,8 @@ def run_workflow(workflow, inputs):
             name, params = step["operation"], step["parameters"]
             if name == "combine":
                 product = baselode.geophysics.editing.combine(*sources, **params)
+            elif name in _POINTWISE:
+                product = getattr(baselode.geophysics.radiometrics, name)(sources[0], **params)
             else:
                 product = getattr(baselode.geophysics.processing, name)(sources[0], **params)
             product.metadata["field_type"] = _OPERATIONS[name]["outputs"]["field_type"] if _OPERATIONS[name]["outputs"]["field_type"] != "preserve" else sources[0].metadata["field_type"]

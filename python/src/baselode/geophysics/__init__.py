@@ -201,3 +201,10 @@ apply_bouguer_plate = geophysics_gravity_topography.apply_bouguer_plate
 correct_gravity_terrain = geophysics_gravity_topography.correct_gravity_terrain
 
 __all__ += ["describe_gravity_topography", "calculate_bouguer_plate", "apply_bouguer_plate", "correct_gravity_terrain"]
+
+import baselode.geophysics.radiometrics as geophysics_radiometrics
+describe_radiometrics = geophysics_radiometrics.describe_radiometrics
+stack_radiometric_grids = geophysics_radiometrics.stack_radiometric_grids
+radiometric_ratios = geophysics_radiometrics.radiometric_ratios
+radiometric_ternary = geophysics_radiometrics.radiometric_ternary
+__all__ += ['describe_radiometrics', 'stack_radiometric_grids', 'radiometric_ratios', 'radiometric_ternary']

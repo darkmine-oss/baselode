@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native Python/JavaScript corrected radiometric grid stacking, guarded eTh/K, eU/K and eU/eTh ratios, and fixed-stretch K/eTh/eU ternary RGB. Include shared contracts, typed APIs, pointwise workflows, explicit masks/units and source uncertainty lineage. Complete the typed workflow operation names for prior Bouguer/terrain stages.
+
 - Add explicit-density land Bouguer plate and bounded finite-zone signed-prism terrain corrections, density sensitivity, saved workflow integration and portable native history. Python numerics; JavaScript contracts/types/replay. Terrain pins the existing optional Harmonica extra to 0.7.0.
 
 - Add native supplied gravity tide effects, absolute base tying/piecewise-linear

@@ -196,3 +196,12 @@ if(correctionEvent.kind==='application'&&correctionEvent.correction==='gravity_t
 // @ts-expect-error density is required
 const missingPlateDensity: GravityPlateOptions={channel:'g',reference_height_m:0,height_datum:'WGS84_ellipsoid',reference_policy:'caller_verified',max_abs_correction_mGal:100,event_id:'p',evidence:'checked'};
 void missingPlateDensity;
+
+import {describeGeophysicsRadiometrics,stackGeophysicsRadiometricGrids,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary,type GeophysicsRadiometricRatioOptions,type GeophysicsRadiometricTernaryOptions,type GeophysicsObservationWorkflowOperation} from 'baselode/geophysics';
+const radioRatios:GeophysicsRadiometricRatioOptions={potassium_floor:.1,thorium_floor:.5,reference_policy:'caller_verified',evidence:'checked'};
+const radioTernary:GeophysicsRadiometricTernaryOptions={k_min:0,k_max:4,u_min:0,u_max:8,th_min:0,th_max:16,gamma:1,reference_policy:'caller_verified',evidence:'checked'};
+void calculateGeophysicsRadiometricRatios(raster,radioRatios);void createGeophysicsRadiometricTernary(raster,radioTernary);void describeGeophysicsRadiometrics();void stackGeophysicsRadiometricGrids(raster,raster,raster,{reference_policy:'caller_verified',evidence:'checked'});
+const plateWorkflowOperation:GeophysicsObservationWorkflowOperation='apply_bouguer_plate';const terrainWorkflowOperation:GeophysicsObservationWorkflowOperation='correct_gravity_terrain';void plateWorkflowOperation;void terrainWorkflowOperation;
+// @ts-expect-error ratio denominator floor is required
+const radioMissingFloor:GeophysicsRadiometricRatioOptions={thorium_floor:.5,reference_policy:'caller_verified',evidence:'checked'};
+void radioMissingFloor;

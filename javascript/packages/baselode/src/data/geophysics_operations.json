@@ -635,5 +635,203 @@
       "max_retained_cell_values": 16000000,
       "max_fft_cells_per_band": 4194304
     }
+  },
+  {
+    "id": "radiometric_ratios",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "radiometric"
+      ],
+      "units": "Canonical corrected stack K(%), eU(ppm), eTh(ppm).",
+      "coordinates": "Pointwise finite invertible affine in any explicitly declared shared CRS/frame."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "potassium_floor",
+        "thorium_floor",
+        "reference_policy",
+        "evidence"
+      ],
+      "properties": {
+        "potassium_floor": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "thorium_floor": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "reference_policy": {
+          "type": "string",
+          "enum": [
+            "caller_verified"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "negative_policy": {
+          "type": "string",
+          "enum": [
+            "mask"
+          ],
+          "default": "mask"
+        }
+      }
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "other",
+      "units": [
+        "ppm/%",
+        "ppm/%",
+        "1"
+      ]
+    },
+    "assumptions": [
+      "Use already corrected calibrated concentrations, not raw counts/spectra; no correction or equilibrium state is inferred. eU/eTh remain equivalent concentrations.",
+      "K is percent; eU and eTh are ppm. eU/K and eTh/K are ppm per percent, not dimensionless mass ratios.",
+      "Stacking requires exactly matching shape/affine/CRS and matching reference height/height datum; use explicit alignment separately, no silent resampling.",
+      "Ternary is fixed-stretch display RGB with K red/eTh green/eU blue, not compositional closure or concentration estimation.",
+      "No pseudocounts, negative clipping or automatic histogram refits; invalid dependencies and weak denominators are masked visibly.",
+      "Source uncertainty is archived in input lineage; corrected/merged grids do not justify a raw-count Poisson assumption or covariance-free propagated errors."
+    ],
+    "backend": {
+      "python": "numpy pointwise",
+      "javascript": "native pointwise",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Requires caller-verified corrected concentrations; applies no instrument/spectral/height calibration.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "radiometric_ternary",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "radiometric"
+      ],
+      "units": "Canonical corrected stack K(%), eU(ppm), eTh(ppm).",
+      "coordinates": "Pointwise finite invertible affine in any explicitly declared shared CRS/frame."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "k_min",
+        "k_max",
+        "u_min",
+        "u_max",
+        "th_min",
+        "th_max",
+        "gamma",
+        "reference_policy",
+        "evidence"
+      ],
+      "properties": {
+        "k_min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1e+100
+        },
+        "k_max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1e+100
+        },
+        "u_min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1e+100
+        },
+        "u_max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1e+100
+        },
+        "th_min": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1e+100
+        },
+        "th_max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1e+100
+        },
+        "gamma": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 10
+        },
+        "reference_policy": {
+          "type": "string",
+          "enum": [
+            "caller_verified"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "negative_policy": {
+          "type": "string",
+          "enum": [
+            "mask"
+          ],
+          "default": "mask"
+        }
+      }
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "other",
+      "units": [
+        "fraction",
+        "fraction",
+        "fraction"
+      ]
+    },
+    "assumptions": [
+      "Use already corrected calibrated concentrations, not raw counts/spectra; no correction or equilibrium state is inferred. eU/eTh remain equivalent concentrations.",
+      "K is percent; eU and eTh are ppm. eU/K and eTh/K are ppm per percent, not dimensionless mass ratios.",
+      "Stacking requires exactly matching shape/affine/CRS and matching reference height/height datum; use explicit alignment separately, no silent resampling.",
+      "Ternary is fixed-stretch display RGB with K red/eTh green/eU blue, not compositional closure or concentration estimation.",
+      "No pseudocounts, negative clipping or automatic histogram refits; invalid dependencies and weak denominators are masked visibly.",
+      "Source uncertainty is archived in input lineage; corrected/merged grids do not justify a raw-count Poisson assumption or covariance-free propagated errors."
+    ],
+    "backend": {
+      "python": "numpy pointwise",
+      "javascript": "native pointwise",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Requires caller-verified corrected concentrations; applies no instrument/spectral/height calibration.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
   }
 ]

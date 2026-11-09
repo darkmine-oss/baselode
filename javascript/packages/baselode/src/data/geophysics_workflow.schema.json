@@ -48,7 +48,9 @@
               "analytic_signal",
               "upward_continuation",
               "reduce_to_pole",
-              "combine"
+              "combine",
+              "radiometric_ratios",
+              "radiometric_ternary"
             ]
           },
           "version": {

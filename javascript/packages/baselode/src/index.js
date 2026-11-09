@@ -697,3 +697,5 @@ export { describeGeophysicsNormalGravity } from './data/geophysicsNormalGravity.
 export {describeGeophysicsGravityTemporal,applyGeophysicsGravityTide,correctGeophysicsGravityDrift,analyzeGeophysicsGravityRepeats} from './data/geophysicsGravityTemporal.js';
 
 export {describeGeophysicsGravityTopography} from './data/geophysicsGravityTopography.js';
+
+export {describeGeophysicsRadiometrics,stackGeophysicsRadiometricGrids,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from './data/geophysicsRadiometrics.js';
