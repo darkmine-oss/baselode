@@ -1755,3 +1755,13 @@ The standalone bundle is built from `vite.standalone.js` in the JS package and i
 cd javascript/packages/baselode
 npm run build:module
 ```
+
+### Block-model forward preparation
+
+`describeGeophysicsBlockForward()` and `prepareGeophysicsBlockForward(request)`
+are native synchronous core APIs. Supply the Python-shape definition exported by
+`blockModelDefinitionToDict(model.definition)` and `model.blocks` records;
+see `test/data/block_forward_example.json` and the Python guide for explicit
+properties, masks, IDs and unrotated-only limits. The returned validated batches
+can be executed by Python `calculate_block_forward`. No numerical JS stub is
+provided. Shared TypeScript types describe requests/preparation/numerical reports.

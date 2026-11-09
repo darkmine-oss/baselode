@@ -95,3 +95,5 @@ export {describeGeophysicsGravityPrisms,validateGeophysicsGravityPrisms} from '.
 export {describeGeophysicsMagneticPrisms,validateGeophysicsMagneticPrisms} from './data/geophysicsMagneticPrisms.js';
 
 export {describeGeophysicsMisfit,calculateGeophysicsMisfit} from './data/geophysicsMisfit.js';
+
+export {describeGeophysicsBlockForward,prepareGeophysicsBlockForward} from './data/geophysicsBlockForward.js';

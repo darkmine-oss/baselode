@@ -1040,6 +1040,32 @@
           "calculate_misfit"
         ]
       ]
+    },
+    {
+      "name": "geophysics_block_forward",
+      "description": "Native explicit unrotated block-to-prism preparation; bounded Python numerical execution with global vector superposition.",
+      "jsExports": [
+        "describeGeophysicsBlockForward",
+        "prepareGeophysicsBlockForward"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_block_forward"
+        ],
+        [
+          "baselode.geophysics",
+          "prepare_block_forward"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_block_forward"
+        ],
+        [
+          "baselode.geophysics",
+          "prepare_block_model_forward"
+        ]
+      ]
     }
   ]
 }
