@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
+import {analyzeGeophysicsGridSpectrum} from './geophysicsSpectrum.js';
 import descriptor from './geophysics_observation_workflow.json';
 import recipe from './magnetic_observation_recipe.json';
 import * as corrections from './geophysicsCorrections.js';
@@ -114,7 +115,8 @@ async function execute(step,sources) {
     const names=['left','right'].slice(0,sources.length);
     report=runGeophysicsWorkflow({schema:'baselode.geophysics.workflow',version:1,steps:[{id:'product',operation:operation.slice(7),version:1,inputs:names,parameters:params}],outputs:['product']},Object.fromEntries(names.map((name,i)=>[name,sources[i]])));
     ports=report.state==='ok'?{raster:report.artifacts.product}:{};
-  } else if(operation==='qc_observations') {
+  } else if(operation==='analyze_grid_spectrum'){report=analyzeGeophysicsGridSpectrum(sources[0],params);ports={};}
+  else if(operation==='qc_observations') {
     requireValue(object(params.qc),'qc must be an explicit options object','parameter');
     requireValue(Number.isInteger(params.max_flags)&&params.max_flags>=0&&params.max_flags<=10000,'max_flags must be integer 0..10000','parameter');
     report=qcGeophysicsObservations(sources[0],params.qc);
