@@ -361,3 +361,29 @@ No background/IGRF, induced-only direction, finite-body interior, geometry
 inversion or observation correction is inferred. Missing-background context
 is distinct from explicit null vector-only intent. This standalone JSON API
 is outside raster/acquisition-observation workflow operation catalogues.
+
+## Rectangular-prism gravity v1
+
+Python `describe_gravity_prisms` / `validate_gravity_prisms` correspond to
+JavaScript `describeGeophysicsGravityPrisms` / `validateGeophysicsGravityPrisms`
+in the root and geophysics entries. Shared JSON descriptors, strict Cartesian
+metre/up requests, work/conditioning domains and validation states/codes/
+diagnostics/snapshots match. Live JSON replay validates in JavaScript and then
+executes that copied request in Python. Producer versions/serialization differ.
+
+`calculate_gravity_prisms` is intentionally Python-only, using the existing
+potential-fields extra, pinned Harmonica 0.7.0 and Choclo 0.3.2 (Python 3.10
+compatible). JavaScript has portable result types; it does not claim numerical
+execution. NumPy backend version is recorded; G and backend versions are checked.
+All potential/acceleration components support prism interiors and boundaries;
+no singular tensors are requested. Backend positive potential/downward gravity
+are explicitly normalised to negative Newtonian potential and x/y/up components.
+Density sensitivities have fixed geometry; no inversion or propagated uncertainty.
+
+Independent direct Newtonian volume quadrature (including singularity-free Duffy
+octants at boundaries/interiors), cube analytic values, finite differences and
+partition/translation/rotation/signed-cancellation cases check numerical science.
+Exterior/boundary references use relative 2e-11/2e-12 and absolute 1e-14/1e-13
+comparison limits; worst supported aspect/distance uses relative 2e-9 and
+absolute 1e-16. These are test tolerances for bounded synthetic cases, not field
+accuracy guarantees. No cross-runtime numerical solver parity is claimed.

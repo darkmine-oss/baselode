@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add rectangular-prism gravity vectors/potential and density sensitivities through the pinned Python Harmonica/Choclo backend, with native Python/JavaScript portable validation, explicit conditioning limits, shared schemas/types/examples and independent interior/boundary physics checks. Pin Choclo 0.3.2 for Python 3.10 compatibility.
+
 - Add native magnetic dipole vectors, linear/exact total-field responses after superposition, fixed-geometry moment sensitivities and explicit Cartesian/background contracts. Include portable schemas/types/examples, independent current-loop/high-precision validation and shared forward-model guards.
 
 - Add native Python/JavaScript analytical point-mass and uniform solid-sphere gravity responses, exact fixed-geometry amplitude sensitivities, explicit local Cartesian/sign/unit contracts, compensated superposition, bounded atomic reports and portable schemas/types/examples.

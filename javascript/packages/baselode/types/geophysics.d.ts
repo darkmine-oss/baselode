@@ -832,3 +832,29 @@ export interface GeophysicsMagneticForwardReport {
 }
 export function describeGeophysicsMagneticForward(): Record<string, any>;
 export function calculateGeophysicsMagneticForward(request: GeophysicsMagneticForwardRequest): GeophysicsMagneticForwardReport;
+
+export interface GeophysicsGravityPrismsRequest {
+  schema: 'baselode.geophysics.gravity_prisms_request'; version: 1;
+  coordinate_frame: {id: string; kind: 'local_cartesian'; axes: 'x_y_up'; units: 'm'; height_datum: string};
+  sources: Array<{id: string; kind: 'prism'; bounds_m: [number,number,number,number,number,number]; density_contrast_kg_m3: number}>;
+  points: GeophysicsGravityForwardPoint[]; include_sensitivities: boolean; metadata?: Record<string,unknown>;
+}
+export interface GeophysicsGravityPrismsValidation {
+  schema: 'baselode.geophysics.gravity_prisms_validation'; version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  request: GeophysicsGravityPrismsRequest | null; diagnostics: Record<string,number>; producer: Record<string,string | number>;
+}
+/** Numerical result is produced by Python baselode[potential-fields], not JavaScript. */
+export interface GeophysicsGravityPrismsReport {
+  schema: 'baselode.geophysics.gravity_prisms_result'; version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  request: GeophysicsGravityPrismsRequest | null; model: Record<string,string | number>;
+  fields: GeophysicsGravityForwardField[]; sensitivities: Array<{
+    source_id: string; parameter: 'density_contrast_kg_m3'; parameter_units: 'kg/m^3';
+    field_units: GeophysicsGravityForwardUnits; fields: GeophysicsGravityForwardField[];
+  }>;
+  field_units: GeophysicsGravityForwardUnits; diagnostics: Record<string,string | number | boolean>;
+  producer: Record<string,string | number>; assumptions: string[];
+}
+export function describeGeophysicsGravityPrisms(): Record<string,any>;
+export function validateGeophysicsGravityPrisms(request: GeophysicsGravityPrismsRequest): GeophysicsGravityPrismsValidation;

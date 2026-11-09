@@ -3020,3 +3020,95 @@ budgets, not physical accuracy bounds. Input/metadata/result JSON budgets are
 Strict keys, finite portable binary64 numbers and valid Unicode are required.
 No new dependency or optional backend is needed. Native gravity and magnetic
 models share the same scalar-JSON guards and compensated-sum helpers.
+
+### Rectangular-prism gravity
+
+`describe_gravity_prisms()` returns shared schemas, supported numerical domains
+and runtime capabilities. `validate_gravity_prisms(request)` is core-only;
+`calculate_gravity_prisms(request)` uses the pinned optional Python backend.
+
+```python
+import json
+import baselode.geophysics
+
+with open("test/data/gravity_prisms_example.json") as source:
+    request = json.load(source)
+checked = baselode.geophysics.validate_gravity_prisms(request)
+assert checked["state"] == "ok", checked["issues"]
+report = baselode.geophysics.calculate_gravity_prisms(checked["request"])
+assert report["state"] == "ok", report["issues"]
+# +2000 kg/m³, 100 m cube centred 100 m below the first point.
+assert abs(report["fields"][0]["g_down"] - 1.2587699928407283) < 1e-12
+```
+
+The strict v1 `baselode.geophysics.gravity_prisms_request` requires
+`coordinate_frame`, `sources`, `points` and `include_sensitivities` (boolean).
+The frame requires known `id`, `kind: "local_cartesian"`, `axes: "x_y_up"`,
+`units: "m"` and a known `height_datum`. All geometry already shares this
+frame/datum. x/y need not be true east/north; transform upstream.
+
+Sources require unique `id`, `kind: "prism"`, explicit signed
+`density_contrast_kg_m3` and **six** `bounds_m` values in the order
+`[xmin, xmax, ymin, ymax, zmin, zmax]`, each lower bound less than its upper.
+This order differs from a raster's four-element outer bounds. Points require
+unique `id`, `x_m`, `y_m`, `z_m`. There is no default density or coordinate
+conversion. Overlapping uniform density contrasts add. Optional bounded JSON
+`metadata` is retained in the independent request snapshot.
+
+Python calculation requires `pip install 'baselode[potential-fields]'`:
+**Harmonica 0.7.0 + Choclo 0.3.2**. Choclo's pin retains Python 3.10 support.
+Both versions and G = 6.67430 × 10⁻¹¹ SI are checked before execution;
+backend identities and NumPy version are recorded. Missing optional packages
+raise a clear `ImportError`; native request validation needs no optional extra.
+JavaScript performs validation and provides request/result types; numerical
+execution is deliberately **Python only**, as declared by `execution`.
+No numerical JavaScript stub or cross-runtime numerical parity is implied.
+
+Fields use `id`, `gx`, `gy`, `gz_up`, `g_down` in **mGal** and `potential` in
+**m²/s²**, with `g_down = -gz_up`. Newtonian potential is negative for positive
+density and zero at infinity. The adapter explicitly negates Harmonica's
+positive potential and converts its downward `g_z` to `gz_up`. It evaluates
+one unit-density prism at a time, then uses compensated signed-density sums.
+Each batch uses the prism's original lower corner as local origin, preserving
+represented bounds/point differences instead of constructing a rounded global
+centre. This matters at large coordinate origins.
+
+Potential and acceleration are finite at **centres, interiors, faces, edges
+and corners**. No tensor/gradient components are requested, so their boundary
+singularities are outside this API. With `include_sensitivities: true`, each
+source returns its unit-density response as a fixed-geometry derivative with
+`parameter: "density_contrast_kg_m3"`, `parameter_units: "kg/m^3"` and field
+units divided by kg/m³. This remains nonzero for a zero-density source.
+No geometry derivatives, reference field, observation reduction, inversion,
+calibrated uncertainty or unique geological interpretation is inferred.
+
+Analytic corner evaluations have a conservative **numerical conditioning
+domain**: dimensions 0.001–100000 m, maximum/minimum dimension ≤20, and
+`max(abs(point_axis - prism_centre_axis)) / minimum_dimension ≤20` for every
+source–point pair. The centred offset is evaluated through lower-origin
+coordinate differences. Unsupported aspect/distance returns `needs_input`,
+with no response; use another discretisation or the existing point/sphere
+model where appropriate. There is no silent point-mass approximation. These
+bounds are numerical support limits, not a geological accuracy guarantee.
+Independent tests cover the exact supported aspect/offset boundaries.
+
+Resources: at most 64 sources, 1024 points and 32768 source–point pairs,
+reduced to 4096 pairs with sensitivities; coordinates/bounds ±10¹² m,
+combined span ≤200 km/axis, density contrasts ±100000 kg/m³. Input, metadata
+and result JSON limits are 2 MiB / 128 KiB / 8 MiB, input/result depth 32/33,
+and node counts 100000/500000. Scalars must be finite portable binary64,
+strings valid Unicode, and fields strictly known. Inputs are not mutated.
+
+Validator reports contain state/issues, a copied request on success and work/
+conditioning diagnostics. Numerical reports additionally contain fields,
+sensitivities, model/units, producer and assumptions. All errors withhold the
+entire request/response artifacts; inspect `ok | needs_input | rejected | failed`
+before consuming results. Unsupported backend versions, malformed/nonfinite
+fields or backend warnings fail atomically. Reports are standalone replayable
+JSON, separate from observation correction ledgers and raster/workflow stages.
+
+Primary conventions: [Harmonica prism gravity](https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.prism_gravity.html),
+[Choclo prism potential](https://www.fatiando.org/choclo/v0.3.2/api/generated/choclo.prism.gravity_pot.html).
+Independent tests integrate Newton's volume law directly, including transformed
+singularity-free octants at interior/boundary points, cube centre/corner values,
+potential gradients, density derivatives and split-body additivity.

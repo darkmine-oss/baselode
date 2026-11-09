@@ -709,3 +709,5 @@ export {describeGeophysicsRegionalTrend,fitGeophysicsRegionalTrend} from './data
 export {describeGeophysicsGravityForward,calculateGeophysicsGravityForward} from './data/geophysicsGravityForward.js';
 
 export {describeGeophysicsMagneticForward,calculateGeophysicsMagneticForward} from './data/geophysicsMagneticForward.js';
+
+export {describeGeophysicsGravityPrisms,validateGeophysicsGravityPrisms} from './data/geophysicsGravityPrisms.js';
