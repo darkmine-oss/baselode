@@ -906,6 +906,24 @@
           "microlevel_magnetic_grid"
         ]
       ]
+    },
+    {
+      "name": "geophysics_spectrum",
+      "description": "Native radial and axial wavevector-direction spatial periodogram reports, explicit window/detrend normalization and support, Parseval diagnostics and typed observation-workflow report ports.",
+      "jsExports": [
+        "describeGeophysicsSpectrum",
+        "analyzeGeophysicsGridSpectrum"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_spectrum"
+        ],
+        [
+          "baselode.geophysics",
+          "analyze_grid_spectrum"
+        ]
+      ]
     }
   ]
 }

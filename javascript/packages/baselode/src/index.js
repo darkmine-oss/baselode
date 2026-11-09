@@ -701,3 +701,5 @@ export {describeGeophysicsGravityTopography} from './data/geophysicsGravityTopog
 export {describeGeophysicsRadiometrics,stackGeophysicsRadiometricGrids,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from './data/geophysicsRadiometrics.js';
 
 export {describeGeophysicsMicrolevelling,estimateGeophysicsMagneticMicrolevelling,microlevelGeophysicsMagneticGrid} from './data/geophysicsMicrolevelling.js';
+
+export {describeGeophysicsSpectrum,analyzeGeophysicsGridSpectrum} from './data/geophysicsSpectrum.js';

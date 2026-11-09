@@ -214,3 +214,8 @@ describe_microlevelling = geophysics_microlevelling.describe_microlevelling
 estimate_magnetic_microlevelling = geophysics_microlevelling.estimate_magnetic_microlevelling
 microlevel_magnetic_grid = geophysics_microlevelling.microlevel_magnetic_grid
 __all__ += ['describe_microlevelling', 'estimate_magnetic_microlevelling', 'microlevel_magnetic_grid']
+
+import baselode.geophysics.spectrum as geophysics_spectrum
+describe_spectrum = geophysics_spectrum.describe_spectrum
+analyze_grid_spectrum = geophysics_spectrum.analyze_grid_spectrum
+__all__ += ['describe_spectrum', 'analyze_grid_spectrum']

@@ -63,7 +63,8 @@
                 "remove_normal_gravity",
                 "apply_gravity_tide",
                 "correct_gravity_drift",
-                "analyze_gravity_repeats"
+                "analyze_gravity_repeats",
+                "analyze_grid_spectrum"
               ]
             },
             "version": {
@@ -1816,6 +1817,70 @@
       "execution": {
         "python": true,
         "javascript": false
+      }
+    },
+    {
+      "id": "analyze_grid_spectrum",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "detrend": {
+            "type": "string",
+            "enum": [
+              "none",
+              "mean",
+              "plane"
+            ]
+          },
+          "window": {
+            "type": "string",
+            "enum": [
+              "boxcar",
+              "hann_periodic"
+            ]
+          },
+          "radial_bins": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 128
+          },
+          "direction_bins": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 36
+          },
+          "missing_policy": {
+            "type": "string",
+            "enum": [
+              "reject"
+            ]
+          }
+        },
+        "required": [
+          "band",
+          "detrend",
+          "window",
+          "radial_bins",
+          "direction_bins",
+          "missing_policy"
+        ]
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
       }
     }
   ],

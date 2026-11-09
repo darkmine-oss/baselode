@@ -16,6 +16,7 @@ import baselode.geophysics.gravity_topography
 import baselode.geophysics.normal_gravity
 import baselode.geophysics.observations
 import baselode.geophysics.provenance
+import baselode.geophysics.spectrum
 import baselode.geophysics.workflows
 
 _DIRECTORY = pathlib.Path(__file__).parent
@@ -206,6 +207,9 @@ def _execute(step, sources):
         workflow = {'schema': 'baselode.geophysics.workflow', 'version': 1, 'steps': [{'id': 'product', 'operation': operation[7:], 'version': 1, 'inputs': ['left', 'right'][:len(sources)], 'parameters': params}], 'outputs': ['product']}
         report = baselode.geophysics.workflows.run_workflow(workflow, dict(zip(['left', 'right'], sources)))
         ports = {'raster': report['artifacts']['product']} if report['state'] == 'ok' else {}
+    elif operation == 'analyze_grid_spectrum':
+        report = baselode.geophysics.spectrum.analyze_grid_spectrum(sources[0], params)
+        ports = {}
     elif operation == 'qc_observations':
         _require(type(params['qc']) is dict, 'qc must be an explicit options object', 'parameter')
         _require(_integer(params['max_flags']) and 0 <= params['max_flags'] <= 10000, 'max_flags must be integer 0..10000', 'parameter')

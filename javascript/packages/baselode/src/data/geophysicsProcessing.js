@@ -722,3 +722,5 @@ export function processGeophysicsRaster(raster, operation, options = {}) {
 export { coordinateUnit as geophysicsCoordinateUnit };
 // Internal shared numerical core; not re-exported by package entry points.
 export { fourierBands as geophysicsFourierBands };
+// Internal shared primitives; package entry points do not export these aliases.
+export {fft2 as geophysicsFft2, plane as geophysicsPlane};

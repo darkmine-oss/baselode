@@ -602,7 +602,7 @@ export function describeGeophysicsReprojection(): Record<string, unknown>;
 export function reprojectGeophysicsObservations(payload: unknown, options: GeophysicsReprojectionOptions): Promise<GeophysicsCorrectionReport>;
 
 export type GeophysicsObservationWorkflowReference = { input: string; step?: never; output?: never } | { step: string; output: string; input?: never };
-export type GeophysicsObservationWorkflowOperation = 'apply_bouguer_plate' | 'correct_gravity_terrain' | 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats' | 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
+export type GeophysicsObservationWorkflowOperation = 'analyze_grid_spectrum' | 'apply_bouguer_plate' | 'correct_gravity_terrain' | 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats' | 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
 export interface GeophysicsObservationWorkflowStep {
   id: string;
   operation: GeophysicsObservationWorkflowOperation;
@@ -732,3 +732,21 @@ export interface GeophysicsMicrolevellingOptions {
 export function describeGeophysicsMicrolevelling(): Record<string, any>;
 export function estimateGeophysicsMagneticMicrolevelling(raster: GeophysicsRasterInput, options: GeophysicsMicrolevellingOptions): GeophysicsRaster;
 export function microlevelGeophysicsMagneticGrid(raster: GeophysicsRasterInput, options: GeophysicsMicrolevellingOptions): GeophysicsRaster;
+
+export interface GeophysicsSpectrumOptions {
+  band: number; detrend: 'none' | 'mean' | 'plane'; window: 'boxcar' | 'hann_periodic';
+  radial_bins: number; direction_bins: number; missing_policy: 'reject';
+}
+export interface GeophysicsSpectrumBin {count: number; power_sum: number; mean_power_density: number | null}
+export interface GeophysicsSpectrumReport {
+  schema: 'baselode.geophysics.spectrum_result'; version: 1; model: Record<string,string>;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  radial: Array<GeophysicsSpectrumBin & {frequency_low: number; frequency_high: number; wavelength_low: number; wavelength_high: number | null}>;
+  directional: Array<GeophysicsSpectrumBin & {azimuth_low: number; azimuth_high: number}>;
+  parameters?: GeophysicsSpectrumOptions; source?: Record<string, unknown>;
+  units?: {source: string; power: string; density: string; frequency: string; wavelength: string};
+  diagnostics?: Record<string, any>; metadata?: GeophysicsRasterMetadata;
+  producer: Record<string, string | number>; assumptions: string[];
+}
+export function describeGeophysicsSpectrum(): Record<string, any>;
+export function analyzeGeophysicsGridSpectrum(raster: GeophysicsRasterInput, options: GeophysicsSpectrumOptions): GeophysicsSpectrumReport;

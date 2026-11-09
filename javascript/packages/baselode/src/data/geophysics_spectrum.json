@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "band": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 64
+      },
+      "detrend": {
+        "type": "string",
+        "enum": [
+          "none",
+          "mean",
+          "plane"
+        ]
+      },
+      "window": {
+        "type": "string",
+        "enum": [
+          "boxcar",
+          "hann_periodic"
+        ]
+      },
+      "radial_bins": {
+        "type": "integer",
+        "minimum": 4,
+        "maximum": 128
+      },
+      "direction_bins": {
+        "type": "integer",
+        "minimum": 4,
+        "maximum": 36
+      },
+      "missing_policy": {
+        "type": "string",
+        "enum": [
+          "reject"
+        ]
+      }
+    },
+    "required": [
+      "band",
+      "detrend",
+      "window",
+      "radial_bins",
+      "direction_bins",
+      "missing_policy"
+    ]
+  },
+  "model": {
+    "algorithm": "spatial_periodogram_v1",
+    "bin_power": "abs(DFT(residual*window))^2 / (padded_cell_count * sum(window^2))",
+    "frequency_cell_area": "1 / (padded_cell_count * abs(affine determinant))",
+    "density": "bin_power / frequency_cell_area",
+    "directions": "Axial wavevector azimuth [0,180), clockwise from CRS north; not stripe/feature strike.",
+    "radial_support": "Non-DC within inscribed Nyquist circle min(1/(2*column_spacing),1/(2*row_spacing)).",
+    "padding": "Zero padding at array origin to next power of two per axis; no mirror extension.",
+    "bin_edges": "Scaled indices within1e-10 of an integer snap to it; last radial edge included; direction180 wraps to0."
+  },
+  "resources": {
+    "max_source_values": 1000000,
+    "max_selected_cells": 262144,
+    "min_axis_cells": 8,
+    "max_fft_cells": 1048576,
+    "max_metadata_bytes": 524288,
+    "max_report_bytes": 2097152
+  },
+  "assumptions": [
+    "Explicit linear projected/local rectangular geometry and selected-band units required. Mean/plane removal precedes windowing. Missing selected-band cells require an explicitly complete region; no gap filling.",
+    "Full two-sided DFT power is counted once, without additional doubling. DC and corner frequencies outside the conservative radial support are reported separately.",
+    "Summed bin power equals sum(residual^2*window^2)/sum(window^2); density is per two-dimensional map-frequency area. Radial mean density is not a one-dimensional annular PSD or amplitude estimate.",
+    "Direction is wavevector variation direction, generally orthogonal to ideal stripe/elongation strike; no automatic flight direction or geology/noise assignment.",
+    "Windowing and region selection alter spectra. Zero padding interpolates frequency samples; it does not create independent observations or physical resolving power. Empty bins have null mean density.",
+    "The reported numerical amplitude floor is diagnostic only: weak energy is retained, not thresholded. Source uncertainty is archived without propagation or confidence intervals.",
+    "Spectra do not determine noise, geological depth or mineralisation uniquely, and do not choose filter cutoffs. Compare explicit processing choices and independent evidence."
+  ],
+  "references": [
+    "https://numpy.org/doc/stable/reference/routines.fft.html",
+    "https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.periodogram.html"
+  ]
+}

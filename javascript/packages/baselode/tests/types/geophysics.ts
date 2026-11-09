@@ -220,3 +220,11 @@ estimateGeophysicsMagneticMicrolevelling(microGrid,microOptions);
 microlevelGeophysicsMagneticGrid(microGrid,microOptions);
 const microStep: import('baselode/geophysics').GeophysicsWorkflowStep = {id:'noise',operation:'estimate_magnetic_microlevelling',version:1,inputs:['magnetic'],parameters:{...microOptions}};
 microStep.parameters.protected_bounds;
+
+import {analyzeGeophysicsGridSpectrum,describeGeophysicsSpectrum,type GeophysicsSpectrumOptions} from 'baselode/geophysics';
+const spectrumOptions: GeophysicsSpectrumOptions = {band:1,detrend:'mean',window:'hann_periodic',radial_bins:32,direction_bins:12,missing_policy:'reject'};
+const spectrumReport = analyzeGeophysicsGridSpectrum(raster,spectrumOptions);
+spectrumReport.radial[0]?.mean_power_density?.toFixed(2);
+describeGeophysicsSpectrum();
+const spectrumStep: import('baselode/geophysics').GeophysicsObservationWorkflowStep = {id:'spectrum',operation:'analyze_grid_spectrum',version:1,inputs:[{step:'grid',output:'grid'}],parameters:{...spectrumOptions}};
+spectrumStep.operation;
