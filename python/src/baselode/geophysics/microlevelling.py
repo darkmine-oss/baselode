@@ -34,6 +34,11 @@ def describe_microlevelling():
     return copy.deepcopy(_DESCRIPTOR)
 
 
+def _number(value):
+    # Bound integers before float conversion so oversized JSON integers reject.
+    return type(value) in (int, float) and abs(value) <= 1e100 and math.isfinite(value)
+
+
 def _parameters(options):
     schema = _DESCRIPTOR['parameters']
     if type(options) is not dict or options.keys() - schema['properties'].keys():
@@ -43,7 +48,7 @@ def _parameters(options):
     for key, spec in schema['properties'].items():
         value = options[key]
         if spec['type'] in ('number', 'integer'):
-            if not baselode.geophysics.observations._number(value):
+            if not _number(value):
                 raise ValueError(key + ' must be a finite numeric scalar within +/-1e100')
             if spec['type'] == 'integer' and value != int(value):
                 raise ValueError(key + ' must be an integer')
@@ -55,7 +60,7 @@ def _parameters(options):
             if 'enum' in spec and value not in spec['enum']:
                 raise ValueError(key + ' requires an explicit supported policy')
         else:
-            if type(value) is not list or len(value) > 16 or any(type(box) is not list or len(box) != 4 or not all(baselode.geophysics.observations._number(v) for v in box) or not (box[0] < box[2] and box[1] < box[3]) for box in value):
+            if type(value) is not list or len(value) > 16 or any(type(box) is not list or len(box) != 4 or not all(_number(v) for v in box) or not (box[0] < box[2] and box[1] < box[3]) for box in value):
                 raise ValueError('protected_bounds requires at most 16 finite positive-area [xmin,ymin,xmax,ymax] boxes')
     baselode.geophysics.provenance._json_value(options)
     if len(json.dumps(options, ensure_ascii=False, allow_nan=False).encode('utf-8')) > 262144:
@@ -91,7 +96,7 @@ def _prepare(raster, options):
     cell_x, cell_y = baselode.geophysics.processing._cell_size(raster)
     if not all(math.isfinite(v) and v > 0 for v in (cell_x, cell_y)):
         raise ValueError('require finite positive rectangular cell spacing')
-    if max(cell_x, cell_y) > params['line_spacing'] / 2:
+    if max(cell_x, cell_y) > params['line_spacing'] / 2 * (1 + 1e-12):
         raise ValueError('cell spacing must be <= half the measured line spacing')
     if raster.metadata.get('field_type') != 'magnetic_anomaly' or raster.metadata.get('units') != ['nT']:
         raise ValueError('require a one-band magnetic_anomaly grid with units [nT]')
@@ -108,7 +113,7 @@ def _prepare(raster, options):
     if not all(math.isfinite(v / determinant) for v in (a, b, d, e)):
         raise ValueError('inverse affine exceeds backend frequency range')
     extent = lambda direction: abs(a * direction[0] + d * direction[1]) * raster.width + abs(b * direction[0] + e * direction[1]) * raster.height
-    if extent(along) < params['along_line_wavelength'] or extent(across) < 4 * params['line_spacing']:
+    if extent(along) < params['along_line_wavelength'] * (1 - 1e-12) or extent(across) < 4 * params['line_spacing'] * (1 - 1e-12):
         raise ValueError('grid needs one along cutoff wavelength and at least four measured line spacings across')
     length = params['along_line_wavelength']
     if not all(math.isfinite(length / spacing) for spacing in (cell_x, cell_y)):

@@ -168,3 +168,11 @@ const radioStack=geophysics.createGeophysicsRaster({...radioExample,bandNames:ra
 assert.deepEqual(geophysics.calculateGeophysicsRadiometricRatios(radioStack,radioExample.ratio_options).data,radioExample.expected_ratios);
 assert.deepEqual(geophysics.createGeophysicsRadiometricTernary(radioStack,radioExample.ternary_options).data,radioExample.expected_ternary);
 assert.equal(geophysics.describeGeophysicsRadiometrics().version,1);
+
+assert.equal(geophysics.describeGeophysicsMicrolevelling().version,1);
+const microGrid=geophysics.createGeophysicsRaster({data:Array.from({length:64},()=>Array.from({length:64},(_,col)=>7+Math.cos(2*Math.PI*(col+.5)/8))),transform:[1,0,0,0,-1,64],crs:'EPSG:32750',metadata:{field_type:'magnetic_anomaly',units:['nT'],crs_units:'m',grid_corrections:{magnetic_levelling:'applied',magnetic_microlevelling:'unapplied'}}});
+const microOptions={flight_azimuth:0,line_spacing:4,along_line_wavelength:32,across_line_wavelength:16,max_abs_correction:5,protected_bounds:[],edge_margin_cells:8,min_training_fraction:.5,reference_policy:'caller_verified',evidence:'analytic verified grid',geology_policy:'directional_overlap_acknowledged'};
+const microEstimate=geophysics.estimateGeophysicsMagneticMicrolevelling(microGrid,microOptions),microCorrected=geophysics.microlevelGeophysicsMagneticGrid(microGrid,microOptions);
+assert.equal(microEstimate.metadata.field_type,'other');
+assert.ok(Math.abs(microCorrected.data[0][16][16]-(7+.0625*Math.cos(2*Math.PI*16.5/8)))<1e-10);
+assert.throws(()=>geophysics.microlevelGeophysicsMagneticGrid(microCorrected,microOptions));

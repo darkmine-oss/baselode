@@ -272,3 +272,17 @@ mixtures and live Python/JavaScript replay cover masks, unit/context guards,
 source lineage and exports. Inputs consumed exclusively by pointwise branches accept geographic and
 sheared affines, independently of unrelated spatial-filter branches. Spatial
 requirements propagate to source inputs through all dependent steps.
+
+### Controlled magnetic grid microlevelling
+
+Python and JavaScript natively estimate and subtract the same directional
+Gaussian residual correction using the existing map-wavevector-aware FFT.
+Shared model/parameter schemas, current-grid correction states, caller evidence,
+geological-overlap acknowledgement, protection/training/edge rules, caps and
+pre-FFT budgets are portable. The estimate retains an over-cap candidate with
+an explicit application flag; subtraction rejects it atomically. Both saved
+raster operations require named verified original inputs. Source history and
+uncertainty remain archived, with no inferred propagation. Independent analytic
+stripe/geological/plane amplitudes, protected-feature no-leakage, rotated and
+scaled coordinates, failure gates and ERS/GeoTIFF exports are tested in both
+runtimes; live numeric and recipe replay uses an absolute tolerance of 1e-10 nT.

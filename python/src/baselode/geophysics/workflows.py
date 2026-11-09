@@ -74,7 +74,7 @@ def magnetic_grid_recipe():
 
 
 def _integer(value):
-    return type(value) in (int, float) and math.isfinite(value) and value == int(value)
+    return type(value) in (int, float) and abs(value) <= 1.7976931348623157e308 and math.isfinite(value) and value == int(value)
 
 
 def _identifier(value):
@@ -99,7 +99,7 @@ def _parameters(operation, supplied, issue, path):
         valid = {"number": type(value) in (int, float), "integer": _integer(value),
                  "string": type(value) is str, "boolean": type(value) is bool, "array": type(value) is list}[kind]
         if valid and kind in ("number", "integer"):
-            valid = math.isfinite(value)
+            valid = abs(value) <= 1.7976931348623157e308 and math.isfinite(value)
             valid = valid and ("minimum" not in spec or value >= spec["minimum"])
             valid = valid and ("maximum" not in spec or value <= spec["maximum"])
             valid = valid and ("exclusiveMinimum" not in spec or value > spec["exclusiveMinimum"])

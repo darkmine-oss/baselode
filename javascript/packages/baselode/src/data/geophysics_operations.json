@@ -964,9 +964,13 @@
     "corrections": "Requires known levelled/unmicrolevelled grid and caller verification; no preceding correction state inferred.",
     "resources": {
       "max_steps": 64,
-      "max_input_cell_values": 1000000,
+      "max_input_cell_values": 262144,
       "max_retained_cell_values": 16000000,
-      "max_fft_cells_per_band": 4194304
+      "max_fft_cells_per_band": 4194304,
+      "min_axis_cells": 16,
+      "min_training_cells": 64,
+      "max_protection_boxes": 16,
+      "max_options_bytes": 262144
     }
   },
   {
@@ -1095,9 +1099,13 @@
     "corrections": "Requires known levelled/unmicrolevelled grid and caller verification; no preceding correction state inferred.",
     "resources": {
       "max_steps": 64,
-      "max_input_cell_values": 1000000,
+      "max_input_cell_values": 262144,
       "max_retained_cell_values": 16000000,
-      "max_fft_cells_per_band": 4194304
+      "max_fft_cells_per_band": 4194304,
+      "min_axis_cells": 16,
+      "min_training_cells": 64,
+      "max_protection_boxes": 16,
+      "max_options_bytes": 262144
     }
   }
 ]

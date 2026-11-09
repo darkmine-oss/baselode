@@ -44,7 +44,7 @@ function prepare(value,options){
   const height=bands[0]?.length,width=bands[0]?.[0]?.length;
   if(bands.length!==1||!Number.isInteger(height)||!Number.isInteger(width)||Math.min(height,width)<16||height*width>262144)throw Error('require one band, at least 16x16 and at most 262144 source cells');
   geophysicsAlignmentGeometry([height,width],value.transform);
-  if(!bands[0].every(row=>Array.isArray(row)&&row.length===width&&Array.from(row).every(v=>v===null||v===undefined||(typeof v==='number'&&(!Number.isFinite(v)||v===value.nodata||Math.abs(v)<=1e100)))))throw Error('source values must be real numeric scalars within +/-1e100 or missing');
+  if(!Array.from(bands[0]).every(row=>Array.isArray(row)&&row.length===width&&Array.from(row).every(v=>v===null||v===undefined||(typeof v==='number'&&(!Number.isFinite(v)||v===value.nodata||Math.abs(v)<=1e100)))))throw Error('source values must be real numeric scalars within +/-1e100 or missing');
   const r=createGeophysicsRaster(value);
   encodeProvenance(r.metadata,'GeoTIFF','float64');unicodeStrings(r.metadata);unicodeStrings(r.crs);
   const frame=r.metadata.frame_id??null;
@@ -57,14 +57,14 @@ function prepare(value,options){
   if(![a,b,d,e].every(v=>Number.isFinite(v/determinant)))throw Error('inverse affine exceeds backend frequency range');
   const cellX=Math.hypot(a,d),cellY=Math.hypot(b,e);
   if(![cellX,cellY].every(v=>Number.isFinite(v)&&v>0)||Math.abs(a*b+d*e)>1e-9*cellX*cellY)throw Error('require finite positive rectangular cell spacing');
-  if(Math.max(cellX,cellY)>p.line_spacing/2)throw Error('cell spacing must be <= half the measured line spacing');
+  if(Math.max(cellX,cellY)>p.line_spacing/2*(1+1e-12))throw Error('cell spacing must be <= half the measured line spacing');
   if(r.metadata.field_type!=='magnetic_anomaly'||JSON.stringify(r.metadata.units)!=='["nT"]')throw Error('require a one-band magnetic_anomaly grid with units [nT]');
   const state=r.metadata.grid_corrections;
   if(!object(state)||state.magnetic_levelling!=='applied'||state.magnetic_microlevelling!=='unapplied')throw new MicrolevellingNeedsInput('verify current metadata.grid_corrections: magnetic_levelling applied, magnetic_microlevelling unapplied');
   if((r.metadata.processing??[]).some(step=>object(step)&&step.operation==='microlevel_magnetic_grid'))throw Error('microlevelling already appears in current-grid history; repeated application is unsupported');
   const azimuth=p.flight_azimuth*Math.PI/180,along=[Math.sin(azimuth),Math.cos(azimuth)],across=[along[1],-along[0]];
   const extent=direction=>Math.abs(a*direction[0]+d*direction[1])*width+Math.abs(b*direction[0]+e*direction[1])*height;
-  if(extent(along)<p.along_line_wavelength||extent(across)<4*p.line_spacing)throw Error('grid needs one along cutoff wavelength and at least four measured line spacings across');
+  if(extent(along)<p.along_line_wavelength*(1-1e-12)||extent(across)<4*p.line_spacing*(1-1e-12))throw Error('grid needs one along cutoff wavelength and at least four measured line spacings across');
   if(![cellX,cellY].every(spacing=>Number.isFinite(p.along_line_wavelength/spacing)))throw Error('wavelength/cell ratio exceeds backend range');
   const padded=(size,spacing)=>fftSize(size+2*Math.min(Math.max(8,Math.ceil(p.along_line_wavelength/spacing)),size));
   const shape=[padded(height,cellY),padded(width,cellX)];

@@ -1,6 +1,6 @@
-import {preflightMagneticMicrolevelling,MicrolevellingNeedsInput,estimateGeophysicsMagneticMicrolevelling,microlevelGeophysicsMagneticGrid} from './geophysicsMicrolevelling.js';
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
+import {preflightMagneticMicrolevelling,MicrolevellingNeedsInput,estimateGeophysicsMagneticMicrolevelling,microlevelGeophysicsMagneticGrid} from './geophysicsMicrolevelling.js';
 import {preflightRadiometricProduct,RadiometricNeedsInput,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from './geophysicsRadiometrics.js';
 import catalogue from './geophysics_operations.json';
 import schema from './geophysics_workflow.schema.json';

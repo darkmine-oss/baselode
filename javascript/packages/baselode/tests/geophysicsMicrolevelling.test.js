@@ -55,3 +55,15 @@ it('preserves products and applied state through ERS and GeoTIFF',async()=>{
   const product=microlevelGeophysicsMagneticGrid(grid(),options()),ers=encodeErs(product,{dtype:'float64'});
   for(const back of [readErs(ers.header,ers.data),await loadGeoTiff(encodeGeoTiff(product,{dtype:'float64'}))]){expect(back.data).toEqual(product.data);expect(back.metadata.microlevelling).toEqual(product.metadata.microlevelling);expect(back.metadata.input_lineage).toEqual(product.metadata.input_lineage);expect(()=>microlevelGeophysicsMagneticGrid(back,options())).toThrow();}
 });
+
+it.each([[8,.5],[24,.001953125]])('matches independent cosine sensitivity at cutoff %s', (cutoff,remaining)=>{
+  const g=grid();g.data[0]=g.data[0].map(row=>row.map((_,j)=>7+Math.cos(2*Math.PI*(j+.5)/8)));const p={...options(),across_line_wavelength:cutoff},r=microlevelGeophysicsMagneticGrid(g,p);let error=0;for(let i=8;i<120;i++)for(let j=8;j<120;j++)error=Math.max(error,Math.abs(r.data[0][i][j]-(7+remaining*Math.cos(2*Math.PI*(j+.5)/8))));expect(error).toBeLessThan(1e-12);
+});
+it('rejects unknown options and keeps caller/descriptor/product models independent',()=>{
+  const extra={...options(),extra:true};expect(()=>estimateGeophysicsMagneticMicrolevelling(grid(),extra)).toThrow();expect(runGeophysicsWorkflow(workflow(extra),{magnetic:grid()}).state).toBe('rejected');
+  const p={...options(),protected_bounds:[[48,0,80,128]],evidence:'😀'.repeat(4096)},before=structuredClone(p),a=microlevelGeophysicsMagneticGrid(grid(),p),b=microlevelGeophysicsMagneticGrid(grid(),p);a.metadata.microlevelling.parameters.protected_bounds[0][0]=-1;a.metadata.microlevelling.model.algorithm='changed';expect(p).toEqual(before);expect(b.metadata.microlevelling.parameters).toEqual(p);expect(describeGeophysicsMicrolevelling().model.algorithm).toBe('directional_gaussian_residual_v1');
+});
+
+it('accepts a rotated exact support boundary without promoting sparse rows',()=>{
+  const g=grid(),t=.3;g.transform=[Math.cos(t),Math.sin(t),0,Math.sin(t),-Math.cos(t),128];const p={...options(),flight_azimuth:360-t*180/Math.PI,line_spacing:2,along_line_wavelength:128};expect(validateGeophysicsWorkflow(workflow(p),{magnetic:g}).state).toBe('ok');delete g.data[0][12];expect(()=>estimateGeophysicsMagneticMicrolevelling(g,p)).toThrow();
+});

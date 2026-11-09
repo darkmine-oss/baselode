@@ -179,7 +179,7 @@ def test_grid_state_values_geometry_and_source_lineage_persist(tmp_path, extensi
 
 def test_live_native_js_python_and_saved_workflow_replay(tmp_path):
     source = grid(); source.data[0, 32:36, 20:23] = np.nan
-    p = {**options(), 'protected_bounds': [[48, 0, 80, 128]]}
+    p = {**options(), 'protected_bounds': [[48, 0, 80, 128]], 'flight_azimuth': 37}
     request = tmp_path / 'in.json'; response = tmp_path / 'out.json'
     request.write_text(json.dumps({'raster': source.to_payload(), 'options': p, 'workflow': workflow(p)}, allow_nan=False))
     subprocess.run(['node', str(ROOT / 'test/data/microlevelling_parity.mjs'), str(request), str(response)], cwd=ROOT / 'javascript/packages/baselode', check=True, capture_output=True, text=True)
@@ -191,3 +191,32 @@ def test_live_native_js_python_and_saved_workflow_replay(tmp_path):
         assert javascript.metadata['units'] == python.metadata['units']
         baselode.geophysics.provenance.encode(javascript.metadata, 'GeoTIFF', 'float64')
     assert js['corrected']['metadata']['microlevelling']['diagnostics']['protected_valid_cells'] == 4096
+
+
+@pytest.mark.parametrize('cutoff,remaining', [(8, .5), (24, .001953125)])
+def test_cutoff_sensitivity_against_independent_cosine_amplitude(cutoff, remaining):
+    source = grid(); source.data[:] = 7 + signals()[0]
+    p = {**options(), 'across_line_wavelength': cutoff}
+    actual = baselode.geophysics.microlevel_magnetic_grid(source, p)
+    np.testing.assert_allclose(actual.data[0, 8:-8, 8:-8], (7 + remaining * signals()[0])[8:-8, 8:-8], rtol=0, atol=1e-12)
+
+
+def test_oversized_integer_and_unknown_options_reject_without_conversion_failure():
+    for p in [{**options(), 'max_abs_correction': 10 ** 400}, {**options(), 'extra': True}]:
+        with pytest.raises(ValueError): baselode.geophysics.estimate_magnetic_microlevelling(grid(), p)
+        assert baselode.geophysics.run_workflow(workflow(p), {'magnetic': grid()})['state'] == 'rejected'
+
+
+def test_option_contract_and_product_models_do_not_alias():
+    p = {**options(), 'protected_bounds': [[48, 0, 80, 128]], 'evidence': '😀' * 4096}
+    before = copy.deepcopy(p); a = baselode.geophysics.microlevel_magnetic_grid(grid(), p); b = baselode.geophysics.microlevel_magnetic_grid(grid(), p)
+    a.metadata['microlevelling']['parameters']['protected_bounds'][0][0] = -1
+    a.metadata['microlevelling']['model']['algorithm'] = 'changed'
+    assert p == before and b.metadata['microlevelling']['parameters'] == p
+    assert baselode.geophysics.describe_microlevelling()['model']['algorithm'] == 'directional_gaussian_residual_v1'
+
+
+def test_declared_geometric_support_boundary_is_rotation_stable():
+    source = grid(); angle = .3; source.transform = (math.cos(angle), math.sin(angle), 0, math.sin(angle), -math.cos(angle), 128)
+    p = {**options(), 'flight_azimuth': 360 - math.degrees(angle), 'line_spacing': 2, 'along_line_wavelength': 128}
+    assert baselode.geophysics.validate_workflow(workflow(p), {'magnetic': source})['state'] == 'ok'

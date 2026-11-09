@@ -2622,3 +2622,80 @@ authoritative even when transform numbers change: numerical editing cannot
 verify geometry. Python `GeophysicsRaster.from_payload` maps `false` to
 `transform=None`, so transfer preserves this distinction. To declare verified
 geometry in a portable payload, supply its transform and set the marker to true.
+
+### Controlled magnetic grid microlevelling
+
+`describe_microlevelling()` publishes the shared model, complete parameter
+schema, current-grid state requirements and limits. The core-only NumPy
+implementation estimates residual directional striping on a one-band
+`magnetic_anomaly` grid in `nT`. Verify its prior line levelling, anomaly
+reference and geometry, then explicitly declare
+`metadata.grid_corrections={"magnetic_levelling":"applied",
+"magnetic_microlevelling":"unapplied"}`. Archived observation states remain
+source history and are not promoted automatically.
+
+```python
+options = {
+    "flight_azimuth": 0, "line_spacing": 40,
+    "along_line_wavelength": 640, "across_line_wavelength": 160,
+    "max_abs_correction": 5, "protected_bounds": [],
+    "edge_margin_cells": 8, "min_training_fraction": 0.75,
+    "reference_policy": "caller_verified",
+    "evidence": "Verified levelled anomaly, sampling and projected grid geometry",
+    "geology_policy": "directional_overlap_acknowledged",
+}
+candidate = baselode.geophysics.estimate_magnetic_microlevelling(grid, options)
+qc = candidate.metadata["microlevelling"]["diagnostics"]
+# Inspect the candidate, protection and geological retention before application.
+corrected = baselode.geophysics.microlevel_magnetic_grid(grid, options)
+```
+
+Both functions take the original verified grid and the same explicit options.
+Estimation returns an `other/nT` candidate subtraction grid with
+`application_supported=False` when its peak exceeds the cap. Application
+recomputes and rejects an exceeded cap atomically; it never clips. Applied
+products declare current microlevelling state and reject repetition. Source
+history and uncertainty are archived in `input_lineage`; uncertainty is not
+propagated.
+
+Azimuth is clockwise from **CRS north**; the caller resolves true/grid
+convergence. All wavelengths, measured line spacing and protection boxes use
+CRS linear units. Rectangular rotated grids are supported; geographic/sheared
+or undeclared geometry is rejected. Require cell sizes <= half line spacing,
+across cutoff >= twice spacing, along cutoff >= twice across cutoff, an along
+extent >= the along cutoff and an across extent >= four spacings. These are
+support gates, not proof of survey sampling quality.
+
+For spatial frequencies in cycles per CRS unit, the response is
+`exp(-ln(2)*(f_along*along_cutoff)^2) * -expm1(-ln(2)*(f_across*across_cutoff)^2)`.
+It removes a plane using valid unprotected training cells, fills gaps/protected
+areas with that plane internally and uses the existing symmetric mirror-padded
+FFT. Oblique Nyquist bins follow the real inverse FFT's conjugate-pair average.
+The candidate is zero within the explicit edge margin and protected boxes
+(inclusive cell centres); original missing cells stay missing. Protection boxes
+must have positive area and include a valid cell. The hard unchanged boundary
+can introduce a transition; inspect boundaries and gap artefacts.
+
+Limits: 16x16 minimum, 262144 source cells, 4194304 padded FFT cells, 16 boxes,
+64 training cells and explicit minimum training fraction in [0.25,1] of **all**
+cells. At least one unprotected interior application cell is required. Metadata,
+options and provenance budgets also apply. Corrections below
+`64*double_epsilon*max(1,max_abs_training_value)` are zeroed. Diagnostics report
+training/protected/application support, FFT shape, peak/RMS, numerical tolerance
+and cap eligibility.
+
+Real line-parallel geology can share the noise spectrum. The required
+acknowledgement, protections and cap do not make those components identifiable;
+RMS reduction alone does not establish geological recovery. This original
+Gaussian grid filter follows directional separation principles discussed by
+[Minty (1991)](https://doi.org/10.1071/EG991591) and the
+[GA Lissadell report](https://www.ga.gov.au/pdf/GA1410.pdf). It does not claim a
+vendor-equivalent algorithm or located-flight-line correction.
+
+Saved raster workflows register `estimate_magnetic_microlevelling` and
+`microlevel_magnetic_grid` at version 1, with the same option object. Each must
+consume a named verified input grid, so an estimate and application can branch
+independently from the original. Run prior transforms separately and verify
+their output state/support first. Preflight checks parameters, geometry,
+training and FFT budgets without executing FFTs. A numerical application cap
+failure returns workflow state `failed` with no output artifacts.
