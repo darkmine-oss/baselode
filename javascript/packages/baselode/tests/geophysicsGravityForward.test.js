@@ -33,7 +33,7 @@ it('preserves signed cancellation and translated or rotated vector geometry',()=
 const cases=[];
 function negative(path,value,state='rejected',code='contract'){const p=fixture();let target=p;for(const k of path.slice(0,-1))target=target[k];target[path.at(-1)]=value;cases.push([path.join('.'),p,state,code]);}
 for(const k of ['schema','version','coordinate_frame','sources','points','include_sensitivities']){const p=fixture();delete p[k];cases.push(['missing '+k,p,'needs_input','context']);}
-negative(['version'],true);negative(['version'],2);negative(['extra'],0);negative(['coordinate_frame','units'],'ft');negative(['coordinate_frame','axes'],'east_north_down');negative(['coordinate_frame','height_datum'],null,'needs_input','context');negative(['coordinate_frame','id'],'unknown');negative(['points',0,'x_m'],true);negative(['points',0,'z_m'],Infinity);negative(['points',0,'x_m'],'1');negative(['points',0,'id'],'\ud800');negative(['points',0,'id'],'x'.repeat(129));negative(['include_sensitivities'],0);negative(['sources',0,'kind'],'prism');negative(['sources',0,'mass_contrast_kg'],1e22);negative(['sources',0,'radius_m'],1);negative(['point_mass_min_distance_m'],null,'needs_input','context');negative(['point_mass_min_distance_m'],0);negative(['points',0,'z_m'],-1000,'needs_input','context');negative(['points',0,'x_m'],200001,'rejected','resource');negative(['metadata'],{text:'x'.repeat(131073)},'rejected','resource');
+negative(['version'],true);negative(['version'],2);negative(['extra'],0);negative(['coordinate_frame','units'],'ft');negative(['coordinate_frame','axes'],'east_north_down');negative(['coordinate_frame','height_datum'],null,'needs_input','context');negative(['coordinate_frame','id'],'unknown');negative(['points',0,'x_m'],true);negative(['points',0,'z_m'],Infinity);negative(['points',0,'x_m'],'1');negative(['points',0,'id'],'\ud800');negative(['points',0,'id'],'x'.repeat(129));negative(['include_sensitivities'],0);for(const value of [null,5,[],true,'sphere'])negative(['sources',0],value);negative(['sources',0,'kind'],null,'needs_input','context');negative(['sources',0,'kind'],'prism');negative(['sources',0,'mass_contrast_kg'],1e22);negative(['sources',0,'radius_m'],1);negative(['point_mass_min_distance_m'],null,'needs_input','context');negative(['point_mass_min_distance_m'],0);negative(['points',0,'z_m'],-1000,'needs_input','context');negative(['points',0,'x_m'],200001,'rejected','resource');negative(['metadata'],{text:'x'.repeat(131073)},'rejected','resource');
 {const p=fixture();p.metadata.cycle=p;cases.push(['cycle',p,'rejected','contract']);}
 {const p=fixture();p.sources[0].mass_contrast_kg=0;p.points[0].z_m=-1000;cases.push(['zero singularity',p,'needs_input','context']);}
 for(const k of ['sources','points']){const p=fixture();p[k].push({...p[k][0]});cases.push(['duplicate '+k,p,'rejected','contract']);}
@@ -44,4 +44,12 @@ for(const k of ['points','sources']){const p=fixture();p[k]=Array.from({length:k
 it.each(cases)('fails atomically: %s',(_name,p,state,code)=>{const r=calculate(p);expect(r.state,r.issues).toBe(state);expect(r.issues[0].code).toBe(code);expect(r.fields).toEqual([]);expect(r.sensitivities).toEqual([]);expect(r.request).toBe(null);});
 it('executes the maximum sensitivity budget, Unicode IDs and exact exclusion boundary',()=>{
  const p=fixture();p.sources[0].id='磁気 🧲';p.points[0].z_m=-999;p.point_mass_min_distance_m=1;expect(checked(p).fields).toHaveLength(1);p.points=Array.from({length:4096},(_,i)=>({...p.points[0],id:String(i)}));p.sources=Array.from({length:2},(_,i)=>({...p.sources[0],id:String(i)}));const r=checked(p);expect(r.sensitivities).toHaveLength(2);expect(r.fields).toHaveLength(4096);
+});
+
+it('normalizes zero signs in all field and sensitivity components',()=>{
+ const r=checked(sphere(0));for(const f of [...r.fields,...r.sensitivities[0].fields])for(const k of keys)if(f[k]===0)expect(Object.is(f[k],0)).toBe(true);
+});
+it('accepts the deepest valid request echo and rejects deeper input atomically',()=>{
+ const p=fixture();let nested=0;for(let i=0;i<31;i++)nested={nested};p.metadata=nested;
+ expect(checked(p).request).toEqual(p);p.metadata={nested};const r=calculate(p);expect(r.state).toBe('rejected');expect(r.issues[0].code).toBe('resource');expect(r.fields).toEqual([]);
 });

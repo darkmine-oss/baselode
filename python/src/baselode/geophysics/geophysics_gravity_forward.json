@@ -688,7 +688,8 @@
     "max_json_depth": 32,
     "max_coordinate_abs_m": 1000000000000.0,
     "max_axis_span_m": 200000,
-    "max_result_json_nodes": 500000
+    "max_result_json_nodes": 500000,
+    "max_result_json_depth": 33
   },
   "assumptions": [
     "Synthetic contrast response only; not an observed, normal, reduced or uniquely interpreted gravity field.",

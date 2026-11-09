@@ -152,6 +152,9 @@ def negative_cases():
     add(['coordinate_frame','id'],'unknown'); add(['coordinate_frame','height_datum'],' ')
     add(['points',0,'x_m'],True);add(['points',0,'z_m'],float('inf'));add(['points',0,'x_m'],'1');add(['points',0,'x_m'],10**400)
     add(['points',0,'id'],'\ud800');add(['points',0,'id'],'x'*129);add(['include_sensitivities'],0)
+
+    for value in (None, 5, [], True, 'sphere'): add(['sources',0],value)
+    add(['sources',0,'kind'],None,'needs_input','context')
     add(['sources',0,'kind'],'prism');add(['sources',0,'mass_contrast_kg'],1e22);add(['sources',0,'radius_m'],1)
     add(['point_mass_min_distance_m'],None,'needs_input','context');add(['point_mass_min_distance_m'],0)
     add(['points',0,'z_m'],-1000,'needs_input','context')
@@ -216,3 +219,22 @@ def test_live_python_js_positive_negative_units_and_request_replay(tmp_path):
                 for key in COMPONENTS:assert x[key]==pytest.approx(y[key],rel=2e-13,abs=1e-18)
     expected=[baselode.geophysics.calculate_gravity_forward(case) for case in cases]
     assert js['negative']==[{'state':r['state'],'code':r['issues'][0]['code'],'fields':r['fields'],'sensitivities':r['sensitivities']} for r in expected]
+
+
+def test_canonical_positive_zero_components_in_fields_and_sensitivities():
+    p=request(True);p['points'][0]['z_m']=0
+    r=calculate(p)
+    for field in r['fields']+r['sensitivities'][0]['fields']:
+        for key in COMPONENTS:
+            if field[key]==0:assert math.copysign(1,field[key])==1
+    assert all(json.dumps(field[key]) == '0' for field in r['fields'] for key in COMPONENTS if field[key] == 0)
+
+
+def test_deepest_valid_request_echo_succeeds_and_deeper_input_is_rejected():
+    p=request(); nested=0
+    for _ in range(31):nested={'nested':nested}
+    p['metadata']=nested
+    r=calculate(p);assert r['request']==p
+    p['metadata']={'nested':nested}
+    r=baselode.geophysics.calculate_gravity_forward(p)
+    assert r['state']=='rejected' and r['issues'][0]['code']=='resource' and r['fields']==[]

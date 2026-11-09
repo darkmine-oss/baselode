@@ -37,7 +37,7 @@ def _bounded_json(value, limit, result=False):
     def visit(item, depth):
         nonlocal count, text_bytes
         count += 1
-        if count > (_LIMITS['max_result_json_nodes'] if result else _LIMITS['max_json_nodes']) or depth > _LIMITS['max_json_depth']:
+        if count > (_LIMITS['max_result_json_nodes'] if result else _LIMITS['max_json_nodes']) or depth > (_LIMITS['max_result_json_depth'] if result else _LIMITS['max_json_depth']):
             raise baselode.geophysics.corrections._ResourceError('JSON node/depth budget exceeded')
         if item is None or type(item) is bool:
             return
@@ -121,7 +121,9 @@ def _prepare(request):
         for row in p[collection]:
             extra = ()
             if collection == 'sources':
-                if type(row) is not dict or 'kind' not in row:
+                if type(row) is not dict:
+                    raise ValueError('source must be a plain JSON object')
+                if row.get('kind') is None:
                     raise baselode.geophysics.corrections._NeedsInput('declare source kind')
                 if row['kind'] not in ('sphere', 'point_mass'):
                     raise ValueError('source kind must be sphere or point_mass')
@@ -184,7 +186,8 @@ def _add(total, correction, index, value):
 
 
 def _field(identity, values):
-    return {'id': identity, 'gx': values[0], 'gy': values[1], 'gz_up': values[2], 'g_down': -values[2], 'potential': values[3]}
+    components = [values[0], values[1], values[2], -values[2], values[3]]
+    return {'id': identity, **{key: (0 if value == 0 else value) for key, value in zip(_COMPONENTS, components)}}
 
 
 def calculate_gravity_forward(request):

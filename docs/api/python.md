@@ -2928,6 +2928,7 @@ by ±10¹² m and the combined geometry, including sphere extents, by 200 km
 per axis. Sphere radii are 0.001–100000 m, density contrasts ±100000 kg/m³,
 and point masses ±10²¹ kg. These numerical bounds are not geological accuracy
 guarantees. Limits also cover input JSON (2 MiB), optional metadata (128 KiB),
-result JSON (8 MiB), depth (32), input nodes (100000) and result nodes (500000).
+result JSON (8 MiB), input depth (32), result depth (33, allowing the request
+echo), input nodes (100000) and result nodes (500000).
 Finite binary64 scalars, valid Unicode, strict keys and immutable inputs are
 required. No optional backend or new dependency is needed.

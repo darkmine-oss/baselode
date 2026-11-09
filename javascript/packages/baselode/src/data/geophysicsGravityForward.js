@@ -13,7 +13,7 @@ export function describeGeophysicsGravityForward(){return clone(descriptor);}
 function boundedJSON(value,limit,result=false){
   const active=new Set();let count=0,textBytes=0;const encoder=new TextEncoder();
   function visit(v,depth){
-    if(++count>(result?limits.max_result_json_nodes:limits.max_json_nodes)||depth>limits.max_json_depth)throw new ResourceError('JSON node/depth budget exceeded');
+    if(++count>(result?limits.max_result_json_nodes:limits.max_json_nodes)||depth>(result?limits.max_result_json_depth:limits.max_json_depth))throw new ResourceError('JSON node/depth budget exceeded');
     if(v===null||typeof v==='boolean')return;
     if(typeof v==='number'){if(!Number.isFinite(v)||Math.abs(v)>1e100)throw Error('require finite portable binary64 JSON numbers within +/-1e100');return;}
     if(typeof v==='string'){unicodeStrings(v);textBytes+=encoder.encode(v).length;if(textBytes>limit)throw new ResourceError('JSON string byte budget exceeded');return;}
@@ -56,7 +56,8 @@ function prepare(request){
     for(const row of p[collection]){
       let extra=[];
       if(collection==='sources'){
-        if(!object(row)||!Object.hasOwn(row,'kind'))throw new NeedsInput('declare source kind');
+        if(!object(row))throw Error('source must be a plain JSON object');
+        if(row.kind==null)throw new NeedsInput('declare source kind');
         if(!['sphere','point_mass'].includes(row.kind))throw Error('source kind must be sphere or point_mass');
         extra=row.kind==='sphere'?['kind','radius_m','density_contrast_kg_m3']:['kind','mass_contrast_kg'];
       }
@@ -85,7 +86,10 @@ function kernel(source,point){
   return [...delta.map(v=>factor*v*1e5),potential];
 }
 function add(total,correction,i,value){const next=total[i]+value;correction[i]+=Math.abs(total[i])>=Math.abs(value)?(total[i]-next)+value:(value-next)+total[i];total[i]=next;}
-const field=(id,v)=>({id,gx:v[0],gy:v[1],gz_up:v[2],g_down:-v[2],potential:v[3]});
+function field(id,v){
+  const values=[v[0],v[1],v[2],-v[2],v[3]];
+  return {id,...Object.fromEntries(['gx','gy','gz_up','g_down','potential'].map((k,i)=>[k,values[i]===0?0:values[i]]))};
+}
 /** Synthetic local-Cartesian gravity and fixed-geometry amplitude derivatives.
  * Inputs are copied. Every failure withholds fields/sensitivities/request.
  * See describeGeophysicsGravityForward() for required geometry, units and budgets.
