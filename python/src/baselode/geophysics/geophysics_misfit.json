@@ -1,0 +1,1167 @@
+{
+  "schema": "baselode.geophysics.misfit_contract",
+  "version": 1,
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "observed",
+      "predicted",
+      "options"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.misfit_request"
+      },
+      "version": {
+        "const": 1
+      },
+      "observed": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "context",
+          "records"
+        ],
+        "properties": {
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "quantity",
+              "units",
+              "field_type",
+              "reference_id",
+              "coordinate_frame"
+            ],
+            "properties": {
+              "quantity": {
+                "enum": [
+                  "gravity_g_down",
+                  "magnetic_bx",
+                  "magnetic_by",
+                  "magnetic_bz_up",
+                  "magnetic_b_down",
+                  "magnetic_tmi_anomaly"
+                ]
+              },
+              "units": {
+                "enum": [
+                  "mGal",
+                  "nT"
+                ]
+              },
+              "field_type": {
+                "enum": [
+                  "gravity_anomaly",
+                  "gravity_disturbance",
+                  "magnetic_anomaly"
+                ]
+              },
+              "reference_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          },
+          "records": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2048,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "x_m",
+                "y_m",
+                "z_m",
+                "value",
+                "standard_deviation",
+                "group_id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "x_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "y_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "z_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": -1e+20,
+                      "maximum": 1e+20
+                    }
+                  ]
+                },
+                "standard_deviation": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": 1e-20,
+                      "maximum": 1e+20
+                    }
+                  ]
+                },
+                "group_id": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "predicted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "context",
+          "records"
+        ],
+        "properties": {
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "quantity",
+              "units",
+              "field_type",
+              "reference_id",
+              "coordinate_frame"
+            ],
+            "properties": {
+              "quantity": {
+                "enum": [
+                  "gravity_g_down",
+                  "magnetic_bx",
+                  "magnetic_by",
+                  "magnetic_bz_up",
+                  "magnetic_b_down",
+                  "magnetic_tmi_anomaly"
+                ]
+              },
+              "units": {
+                "enum": [
+                  "mGal",
+                  "nT"
+                ]
+              },
+              "field_type": {
+                "enum": [
+                  "gravity_anomaly",
+                  "gravity_disturbance",
+                  "magnetic_anomaly"
+                ]
+              },
+              "reference_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          },
+          "records": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 2048,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "x_m",
+                "y_m",
+                "z_m",
+                "value"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "x_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "y_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "z_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "value": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "number",
+                      "minimum": -1e+20,
+                      "maximum": 1e+20
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "options": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "coverage_policy",
+          "weighting",
+          "coordinate_tolerance_m",
+          "residual_convention"
+        ],
+        "properties": {
+          "coverage_policy": {
+            "enum": [
+              "complete",
+              "paired_only"
+            ]
+          },
+          "weighting": {
+            "enum": [
+              "none",
+              "standard_deviation"
+            ]
+          },
+          "coordinate_tolerance_m": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "residual_convention": {
+            "const": "observed_minus_predicted"
+          }
+        }
+      },
+      "metadata": {
+        "type": "object"
+      }
+    }
+  },
+  "result_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "request",
+      "rows",
+      "groups",
+      "summary",
+      "unmatched_predicted_ids",
+      "units",
+      "producer",
+      "assumptions"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.misfit_result"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "request": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "version",
+              "observed",
+              "predicted",
+              "options"
+            ],
+            "properties": {
+              "schema": {
+                "const": "baselode.geophysics.misfit_request"
+              },
+              "version": {
+                "const": 1
+              },
+              "observed": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "context",
+                  "records"
+                ],
+                "properties": {
+                  "context": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "quantity",
+                      "units",
+                      "field_type",
+                      "reference_id",
+                      "coordinate_frame"
+                    ],
+                    "properties": {
+                      "quantity": {
+                        "enum": [
+                          "gravity_g_down",
+                          "magnetic_bx",
+                          "magnetic_by",
+                          "magnetic_bz_up",
+                          "magnetic_b_down",
+                          "magnetic_tmi_anomaly"
+                        ]
+                      },
+                      "units": {
+                        "enum": [
+                          "mGal",
+                          "nT"
+                        ]
+                      },
+                      "field_type": {
+                        "enum": [
+                          "gravity_anomaly",
+                          "gravity_disturbance",
+                          "magnetic_anomaly"
+                        ]
+                      },
+                      "reference_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "coordinate_frame": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "kind",
+                          "axes",
+                          "units",
+                          "height_datum"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "kind": {
+                            "const": "local_cartesian"
+                          },
+                          "axes": {
+                            "const": "x_y_up"
+                          },
+                          "units": {
+                            "const": "m"
+                          },
+                          "height_datum": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "records": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 2048,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "x_m",
+                        "y_m",
+                        "z_m",
+                        "value",
+                        "standard_deviation",
+                        "group_id"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "x_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "y_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "z_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "number",
+                              "minimum": -1e+20,
+                              "maximum": 1e+20
+                            }
+                          ]
+                        },
+                        "standard_deviation": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "number",
+                              "minimum": 1e-20,
+                              "maximum": 1e+20
+                            }
+                          ]
+                        },
+                        "group_id": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "predicted": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "context",
+                  "records"
+                ],
+                "properties": {
+                  "context": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "quantity",
+                      "units",
+                      "field_type",
+                      "reference_id",
+                      "coordinate_frame"
+                    ],
+                    "properties": {
+                      "quantity": {
+                        "enum": [
+                          "gravity_g_down",
+                          "magnetic_bx",
+                          "magnetic_by",
+                          "magnetic_bz_up",
+                          "magnetic_b_down",
+                          "magnetic_tmi_anomaly"
+                        ]
+                      },
+                      "units": {
+                        "enum": [
+                          "mGal",
+                          "nT"
+                        ]
+                      },
+                      "field_type": {
+                        "enum": [
+                          "gravity_anomaly",
+                          "gravity_disturbance",
+                          "magnetic_anomaly"
+                        ]
+                      },
+                      "reference_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "coordinate_frame": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "id",
+                          "kind",
+                          "axes",
+                          "units",
+                          "height_datum"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "kind": {
+                            "const": "local_cartesian"
+                          },
+                          "axes": {
+                            "const": "x_y_up"
+                          },
+                          "units": {
+                            "const": "m"
+                          },
+                          "height_datum": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "records": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 2048,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "x_m",
+                        "y_m",
+                        "z_m",
+                        "value"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "x_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "y_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "z_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "value": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "number",
+                              "minimum": -1e+20,
+                              "maximum": 1e+20
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "options": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "coverage_policy",
+                  "weighting",
+                  "coordinate_tolerance_m",
+                  "residual_convention"
+                ],
+                "properties": {
+                  "coverage_policy": {
+                    "enum": [
+                      "complete",
+                      "paired_only"
+                    ]
+                  },
+                  "weighting": {
+                    "enum": [
+                      "none",
+                      "standard_deviation"
+                    ]
+                  },
+                  "coordinate_tolerance_m": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000
+                  },
+                  "residual_convention": {
+                    "const": "observed_minus_predicted"
+                  }
+                }
+              },
+              "metadata": {
+                "type": "object"
+              }
+            }
+          }
+        ]
+      },
+      "rows": {
+        "type": "array",
+        "maxItems": 2048,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "group_id",
+            "observed",
+            "predicted",
+            "standard_deviation",
+            "residual",
+            "normalized_residual",
+            "coordinate_distance_m",
+            "reason"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "group_id": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "observed": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "predicted": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "standard_deviation": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "residual": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "normalized_residual": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "coordinate_distance_m": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "reason": {
+              "enum": [
+                "paired",
+                "unmatched_observed",
+                "missing_both",
+                "missing_observed",
+                "missing_prediction"
+              ]
+            }
+          }
+        }
+      },
+      "groups": {
+        "type": "array",
+        "maxItems": 128,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "group_id",
+            "observed_count",
+            "paired_count",
+            "coverage",
+            "statistics"
+          ],
+          "properties": {
+            "group_id": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "observed_count": {
+              "type": "number"
+            },
+            "paired_count": {
+              "type": "number"
+            },
+            "coverage": {
+              "type": "number"
+            },
+            "statistics": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "count",
+                    "bias",
+                    "mae",
+                    "rmse",
+                    "max_abs",
+                    "sse",
+                    "chi_squared",
+                    "normalized_rmse"
+                  ],
+                  "properties": {
+                    "count": {
+                      "type": "number"
+                    },
+                    "bias": {
+                      "type": "number"
+                    },
+                    "mae": {
+                      "type": "number"
+                    },
+                    "rmse": {
+                      "type": "number"
+                    },
+                    "max_abs": {
+                      "type": "number"
+                    },
+                    "sse": {
+                      "type": "number"
+                    },
+                    "chi_squared": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ]
+                    },
+                    "normalized_rmse": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "summary": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "observed_count",
+              "predicted_count",
+              "paired_count",
+              "observed_coverage",
+              "predicted_coverage",
+              "statistics",
+              "uncertainty_assumption"
+            ],
+            "properties": {
+              "observed_count": {
+                "type": "number"
+              },
+              "predicted_count": {
+                "type": "number"
+              },
+              "paired_count": {
+                "type": "number"
+              },
+              "observed_coverage": {
+                "type": "number"
+              },
+              "predicted_coverage": {
+                "type": "number"
+              },
+              "statistics": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "count",
+                  "bias",
+                  "mae",
+                  "rmse",
+                  "max_abs",
+                  "sse",
+                  "chi_squared",
+                  "normalized_rmse"
+                ],
+                "properties": {
+                  "count": {
+                    "type": "number"
+                  },
+                  "bias": {
+                    "type": "number"
+                  },
+                  "mae": {
+                    "type": "number"
+                  },
+                  "rmse": {
+                    "type": "number"
+                  },
+                  "max_abs": {
+                    "type": "number"
+                  },
+                  "sse": {
+                    "type": "number"
+                  },
+                  "chi_squared": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "normalized_rmse": {
+                    "anyOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  }
+                }
+              },
+              "uncertainty_assumption": {
+                "enum": [
+                  "independent_standard_deviations",
+                  "not_used"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "unmatched_predicted_ids": {
+        "type": "array",
+        "maxItems": 2048,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "units": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "value",
+              "residual",
+              "normalized_residual"
+            ],
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "residual": {
+                "type": "string"
+              },
+              "normalized_residual": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "producer": {
+        "type": "object"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "quantities": {
+    "gravity_g_down": {
+      "units": "mGal",
+      "field_types": [
+        "gravity_anomaly",
+        "gravity_disturbance"
+      ]
+    },
+    "magnetic_bx": {
+      "units": "nT",
+      "field_types": [
+        "magnetic_anomaly"
+      ]
+    },
+    "magnetic_by": {
+      "units": "nT",
+      "field_types": [
+        "magnetic_anomaly"
+      ]
+    },
+    "magnetic_bz_up": {
+      "units": "nT",
+      "field_types": [
+        "magnetic_anomaly"
+      ]
+    },
+    "magnetic_b_down": {
+      "units": "nT",
+      "field_types": [
+        "magnetic_anomaly"
+      ]
+    },
+    "magnetic_tmi_anomaly": {
+      "units": "nT",
+      "field_types": [
+        "magnetic_anomaly"
+      ]
+    }
+  },
+  "resources": {
+    "max_records_per_dataset": 2048,
+    "max_groups": 128,
+    "max_input_bytes": 2097152,
+    "max_metadata_bytes": 131072,
+    "max_result_bytes": 8388608,
+    "max_json_nodes": 100000,
+    "max_result_json_nodes": 500000,
+    "max_json_depth": 32,
+    "max_result_json_depth": 33
+  },
+  "assumptions": [
+    "Residual=observed-predicted; match exact IDs only and validate matching coordinate/frame/datum/reference/quantity context. No interpolation or reference-field/unit conversion.",
+    "Only explicitly matched anomaly/disturbance contexts are supported; absolute observed gravity or total magnetic fields are not silently compared with contrast models.",
+    "Complete coverage requires identical ID sets and nonmissing values. Paired-only reports all missing/unmatched exceptions; no pairs returns needs_input.",
+    "Standard-deviation weighting requires a positive supplied sigma on each pair and assumes independent diagonal data errors. It is not inferred or propagated uncertainty.",
+    "Chi-squared=sum((residual/sigma)^2); normalized RMSE=sqrt(chi-squared/Npairs). No reduced chi-squared, fitted degrees of freedom, probability or calibrated model uncertainty is claimed.",
+    "Group summaries follow first observed group appearance and include groups with no pairs. Original values/order/request remain unchanged.",
+    "Coordinate acceptance compares a fixed-axis-order scaled binary64 Euclidean distance with tolerance, avoiding runtime-specific hypot and squared-distance underflow. RMS statistics use scaling; SSE/chi-squared can underflow below binary64 range."
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "schema": "baselode.geophysics.misfit_request",
+  "version": 1,
+  "observed": {
+    "context": {
+      "quantity": "gravity_g_down",
+      "units": "mGal",
+      "field_type": "gravity_anomaly",
+      "reference_id": "synthetic-zero",
+      "coordinate_frame": {
+        "id": "local",
+        "kind": "local_cartesian",
+        "axes": "x_y_up",
+        "units": "m",
+        "height_datum": "local_zero"
+      }
+    },
+    "records": [
+      {
+        "id": "0",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 10,
+        "standard_deviation": 1,
+        "group_id": "line-a"
+      },
+      {
+        "id": "1",
+        "x_m": 1,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 20,
+        "standard_deviation": 2,
+        "group_id": "line-a"
+      },
+      {
+        "id": "2",
+        "x_m": 2,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 30,
+        "standard_deviation": 4,
+        "group_id": "line-b"
+      }
+    ]
+  },
+  "options": {
+    "coverage_policy": "complete",
+    "weighting": "standard_deviation",
+    "coordinate_tolerance_m": 0,
+    "residual_convention": "observed_minus_predicted"
+  },
+  "predicted": {
+    "context": {
+      "quantity": "gravity_g_down",
+      "units": "mGal",
+      "field_type": "gravity_anomaly",
+      "reference_id": "synthetic-zero",
+      "coordinate_frame": {
+        "id": "local",
+        "kind": "local_cartesian",
+        "axes": "x_y_up",
+        "units": "m",
+        "height_datum": "local_zero"
+      }
+    },
+    "records": [
+      {
+        "id": "0",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 9
+      },
+      {
+        "id": "1",
+        "x_m": 1,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 18
+      },
+      {
+        "id": "2",
+        "x_m": 2,
+        "y_m": 0,
+        "z_m": 0,
+        "value": 34
+      }
+    ]
+  }
+}

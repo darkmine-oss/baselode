@@ -2395,3 +2395,58 @@ Primary conventions: [Harmonica prism magnetics](https://www.fatiando.org/harmon
 Independent tests integrate a distributed dipole volume, check the cube-axis
 surface-charge/solid-angle solution, verify dipole-limit convergence and compare
 magnetisation finite differences and high-precision total-field calculations.
+
+### Residual and misfit QC
+
+`describeGeophysicsMisfit()` / `calculateGeophysicsMisfit(request)` are native
+synchronous root/geophysics exports with request/result TypeScript contracts.
+Use parsed `test/data/misfit_example.json` for portable replay.
+
+```javascript
+import {calculateGeophysicsMisfit} from 'baselode/geophysics';
+const report = calculateGeophysicsMisfit(request);
+if (report.state !== 'ok') throw new Error(JSON.stringify(report.issues));
+console.assert(report.summary.statistics.chi_squared === 3);
+```
+
+A strict v1 `misfit_request` contains `observed`, `predicted`, explicit `options`
+and optional bounded `metadata`. Each dataset has `context` and `records`.
+Contexts must match exactly: quantity, units, field type, known reference ID and
+local Cartesian metre/up frame with known ID/height datum. Supported quantities
+are `gravity_g_down` (mGal, gravity anomaly/disturbance) and `magnetic_bx`,
+`magnetic_by`, `magnetic_bz_up`, `magnetic_b_down`, `magnetic_tmi_anomaly` (nT,
+magnetic anomaly). Absolute observed/reference fields are not automatically
+compared with contrast predictions. No unit/reference/datum conversion occurs.
+
+Records have unique `id`, `x_m`, `y_m`, `z_m` and nullable `value`. Observed rows
+also require explicitly nullable `standard_deviation` and `group_id`. Match IDs
+only; no nearest-neighbour matching or interpolation. Matching IDs must be
+within `coordinate_tolerance_m` (0–1000), using the same fixed-order scaled norm
+in both runtimes (no squared underflow or runtime-specific hypot boundary).
+
+Options are all required: `coverage_policy: complete | paired_only`,
+`weighting: none | standard_deviation`, `coordinate_tolerance_m`, and
+`residual_convention: observed_minus_predicted`. Complete coverage requires
+identical ID sets and nonmissing values. Paired-only reports every observed row
+and missing/unmatched reason plus unmatched predicted IDs; it requires at least
+one pair. Coordinates are checked even on matched missing readings. No data is
+silently dropped or changed. Group reports follow first observed appearance and
+include groups without pairs (`statistics: null`).
+
+Statistics are bias, MAE, RMSE, maximum absolute residual and SSE. With explicit
+standard-deviation weighting, every pair needs positive supplied sigma in the
+data units. Reports add chi-squared = Σ(residual/sigma)² and normalized RMSE =
+sqrt(chi-squared/Npairs), assuming independent diagonal errors. **No reduced
+chi-squared, inferred uncertainty, fitted degrees of freedom, probability or
+propagated model covariance is claimed.** Unweighted mode ignores sigma for
+statistics but still validates any supplied value. RMS uses scaling to retain
+small representable signals; SSE/chi-squared can underflow below binary64 range.
+
+Reports preserve an independent replayable request, all observed residual/flag
+rows, coverage, groups, units and producer. Context/coverage gaps return
+`needs_input`, malformed contracts `rejected`; any error withholds all
+rows/groups/summary/request. No observation correction ledger is changed.
+Bounds: 2048 rows/dataset,128 groups, values ±1e20, positive sigma1e-20..1e20,
+coordinates ±1e12m. JSON input/metadata/result 2MiB/128KiB/8MiB, depth32/33,
+nodes100000/500000, finite scalar JSON and valid Unicode. No new dependency.
+The standalone JSON report is separate from raster/observation workflow runners.

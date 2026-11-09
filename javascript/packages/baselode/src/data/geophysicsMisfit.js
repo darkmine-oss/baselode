@@ -1,0 +1,38 @@
+/* Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+import descriptor from './geophysics_misfit.json';
+import {boundedJSON,keys,number,label,object,add,NeedsInput,ResourceError} from './geophysicsForwardCommon.js';
+const clone=v=>JSON.parse(JSON.stringify(v)),coords=['x_m','y_m','z_m'];
+const sum=v=>{const t=[0],c=[0];for(const x of v)add(t,c,0,x);return t[0]+c[0];};
+const rms=v=>{const scale=Math.max(...v.map(Math.abs));return scale?scale*Math.sqrt(sum(v.map(x=>(x/scale)**2))/v.length):0;};
+function distance(d){const scale=Math.max(...d.map(Math.abs));if(!scale)return 0;const [x,y,z]=d.map(v=>v/scale);return scale*Math.sqrt((x*x+y*y)+z*z);}
+/** Core residual/coverage/supplied-sigma contract, independent copy. */
+export function describeGeophysicsMisfit(){return clone(descriptor);}
+function context(c){
+ keys(c,['quantity','units','field_type','reference_id','coordinate_frame']);if(typeof c.quantity!=='string'||!Object.hasOwn(descriptor.quantities,c.quantity))throw Error('unsupported physical quantity');const spec=descriptor.quantities[c.quantity];if(c.units!==spec.units||!spec.field_types.includes(c.field_type))throw Error('quantity/units/field_type are incompatible; supply reduced compatible data');label(c.reference_id);const f=c.coordinate_frame;keys(f,['id','kind','axes','units','height_datum']);label(f.id);label(f.height_datum);if(f.kind!=='local_cartesian'||f.axes!=='x_y_up'||f.units!=='m')throw Error('declare shared local Cartesian metre/up geometry');
+}
+function prepare(request){
+ const p=boundedJSON(request,descriptor.resources.max_input_bytes);keys(p,['schema','version','observed','predicted','options'],['metadata']);if(p.schema!=='baselode.geophysics.misfit_request'||p.version!==1)throw Error('unsupported misfit schema/version');const o=p.options;keys(o,['coverage_policy','weighting','coordinate_tolerance_m','residual_convention']);if(!['complete','paired_only'].includes(o.coverage_policy)||!['none','standard_deviation'].includes(o.weighting)||o.residual_convention!=='observed_minus_predicted')throw Error('declare supported coverage, weighting and residual sign policies');number(o.coordinate_tolerance_m,0,1000);
+ if(Object.hasOwn(p,'metadata')){if(!object(p.metadata))throw Error('metadata must be an object');boundedJSON(p.metadata,131072);}
+ for(const role of ['observed','predicted']){
+  const data=p[role];keys(data,['context','records']);context(data.context);if(!Array.isArray(data.records)||!data.records.length)throw Error('records must be nonempty arrays');if(data.records.length>2048)throw new ResourceError('at most 2048 records per dataset');const ids=new Set(),groups=new Set();
+  for(const row of data.records){const required=['id',...coords,'value',...(role==='observed'?['standard_deviation','group_id']:[])];if(!object(row)||Object.keys(row).some(k=>!required.includes(k)))throw Error('unknown record fields');if(required.some(k=>!Object.hasOwn(row,k)))throw new NeedsInput('supply every record field, including explicit nullable values');label(row.id);if(ids.has(row.id))throw Error('record IDs must be unique in each dataset');ids.add(row.id);for(const k of coords)number(row[k],-1e12,1e12);if(row.value!==null)number(row.value,-1e20,1e20);if(role==='observed'){if(row.standard_deviation!==null)number(row.standard_deviation,1e-20,1e20);if(row.group_id!==null)label(row.group_id);groups.add(row.group_id);}}
+  if(groups.size>128)throw new ResourceError('at most 128 observed groups');
+ }
+ const a=p.observed.context,b=p.predicted.context;if(['quantity','units','field_type','reference_id'].some(k=>a[k]!==b[k])||['id','kind','axes','units','height_datum'].some(k=>a.coordinate_frame[k]!==b.coordinate_frame[k]))throw new NeedsInput('quantity/units/field type/reference/frame/datum must match; harmonise upstream');return p;
+}
+function statistics(rows,weighted){if(!rows.length)return null;const r=rows.map(v=>v.residual),n=r.length,sse=sum(r.map(v=>v*v)),z=rows.map(v=>v.normalized_residual),chi=weighted?sum(z.map(v=>v*v)):null;return {count:n,bias:sum(r)/n,mae:sum(r.map(Math.abs))/n,rmse:rms(r),max_abs:Math.max(...r.map(Math.abs)),sse,chi_squared:chi,normalized_rmse:weighted?rms(z):null};}
+/** Match exact IDs and compatible quantities/frames; return immutable residual/QC reports. */
+export function calculateGeophysicsMisfit(request){
+ const report={schema:'baselode.geophysics.misfit_result',version:1,state:'ok',issues:[],request:null,rows:[],groups:[],summary:null,unmatched_predicted_ids:[],units:null,producer:{library:'baselode',version:typeof __BASELODE_VERSION__==='undefined'?'unversioned':__BASELODE_VERSION__,algorithm_version:1},assumptions:clone(descriptor.assumptions)};
+ try{
+  const p=prepare(request),observed=p.observed.records,predicted=p.predicted.records,lookup=new Map(predicted.map(r=>[r.id,r])),ids=new Set(observed.map(r=>r.id)),o=p.options,weighted=o.weighting==='standard_deviation',unmatched=predicted.filter(r=>!ids.has(r.id)).map(r=>r.id);if(o.coverage_policy==='complete'&&(unmatched.length||observed.some(r=>!lookup.has(r.id))))throw new NeedsInput('complete coverage requires identical ID sets');
+  const rows=[],pairs=[],groups=new Map();
+  for(const row of observed){const pred=lookup.get(row.id);let separation=null;if(pred){separation=distance(coords.map(k=>row[k]-pred[k]));if(separation>o.coordinate_tolerance_m)throw new NeedsInput('matching ID coordinates exceed tolerance: '+row.id);}
+   const value=pred?pred.value:null,reason=!pred?'unmatched_observed':row.value===null&&value===null?'missing_both':row.value===null?'missing_observed':value===null?'missing_prediction':'paired';if(reason!=='paired'&&o.coverage_policy==='complete')throw new NeedsInput('complete coverage requires nonmissing values: '+row.id);if(reason==='paired'&&weighted&&row.standard_deviation===null)throw new NeedsInput('supply standard deviation for paired record: '+row.id);const residual=reason==='paired'?row.value-value:null;
+   const result={id:row.id,group_id:row.group_id,observed:row.value,predicted:value,standard_deviation:row.standard_deviation,residual:residual===0?0:residual,normalized_residual:weighted&&reason==='paired'?residual/row.standard_deviation:null,coordinate_distance_m:separation,reason};if(result.normalized_residual===0)result.normalized_residual=0;rows.push(result);if(!groups.has(row.group_id))groups.set(row.group_id,{count:0,pairs:[]});const group=groups.get(row.group_id);group.count++;if(reason==='paired'){pairs.push(result);group.pairs.push(result);}
+  }
+  if(!pairs.length)throw new NeedsInput('at least one matched nonmissing pair is required');Object.assign(report,{request:p,rows,unmatched_predicted_ids:unmatched,summary:{observed_count:observed.length,predicted_count:predicted.length,paired_count:pairs.length,observed_coverage:pairs.length/observed.length,predicted_coverage:pairs.length/predicted.length,statistics:statistics(pairs,weighted),uncertainty_assumption:weighted?'independent_standard_deviations':'not_used'},groups:[...groups].map(([group_id,v])=>({group_id,observed_count:v.count,paired_count:v.pairs.length,coverage:v.pairs.length/v.count,statistics:statistics(v.pairs,weighted)})),units:{value:p.observed.context.units,residual:p.observed.context.units,normalized_residual:weighted?'dimensionless':null}});boundedJSON(report,descriptor.resources.max_result_bytes,true);
+ }catch(error){const context=error instanceof NeedsInput,resource=error instanceof ResourceError;Object.assign(report,{state:context?'needs_input':'rejected',request:null,rows:[],groups:[],summary:null,units:null,unmatched_predicted_ids:[],issues:[{code:context?'context':resource?'resource':'contract',message:error.message}]});}
+ return report;
+}

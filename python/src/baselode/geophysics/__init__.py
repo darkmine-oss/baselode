@@ -246,3 +246,8 @@ describe_magnetic_prisms = geophysics_magnetic_prisms.describe_magnetic_prisms
 validate_magnetic_prisms = geophysics_magnetic_prisms.validate_magnetic_prisms
 calculate_magnetic_prisms = geophysics_magnetic_prisms.calculate_magnetic_prisms
 __all__ += ['describe_magnetic_prisms','validate_magnetic_prisms','calculate_magnetic_prisms']
+
+import baselode.geophysics.misfit as geophysics_misfit
+describe_misfit = geophysics_misfit.describe_misfit
+calculate_misfit = geophysics_misfit.calculate_misfit
+__all__ += ['describe_misfit','calculate_misfit']
