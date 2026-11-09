@@ -1,0 +1,724 @@
+{
+  "schema": "baselode.geophysics.gravity_prisms_contract",
+  "version": 1,
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "coordinate_frame",
+      "sources",
+      "points",
+      "include_sensitivities"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.gravity_prisms_request"
+      },
+      "version": {
+        "const": 1
+      },
+      "coordinate_frame": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "axes",
+          "units",
+          "height_datum"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "kind": {
+            "const": "local_cartesian"
+          },
+          "axes": {
+            "const": "x_y_up"
+          },
+          "units": {
+            "const": "m"
+          },
+          "height_datum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "sources": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "bounds_m",
+            "density_contrast_kg_m3"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "kind": {
+              "const": "prism"
+            },
+            "bounds_m": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "type": "number",
+                "minimum": -1000000000000.0,
+                "maximum": 1000000000000.0
+              }
+            },
+            "density_contrast_kg_m3": {
+              "type": "number",
+              "minimum": -100000,
+              "maximum": 100000
+            }
+          }
+        }
+      },
+      "points": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 1024,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "x_m",
+            "y_m",
+            "z_m"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "x_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "y_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "z_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            }
+          }
+        }
+      },
+      "include_sensitivities": {
+        "type": "boolean"
+      },
+      "metadata": {
+        "type": "object"
+      }
+    }
+  },
+  "result_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "model",
+      "request",
+      "fields",
+      "sensitivities",
+      "field_units",
+      "diagnostics",
+      "producer",
+      "assumptions"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.gravity_prisms_result"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "model": {
+        "type": "object"
+      },
+      "request": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "version",
+              "coordinate_frame",
+              "sources",
+              "points",
+              "include_sensitivities"
+            ],
+            "properties": {
+              "schema": {
+                "const": "baselode.geophysics.gravity_prisms_request"
+              },
+              "version": {
+                "const": 1
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "bounds_m",
+                    "density_contrast_kg_m3"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "kind": {
+                      "const": "prism"
+                    },
+                    "bounds_m": {
+                      "type": "array",
+                      "minItems": 6,
+                      "maxItems": 6,
+                      "items": {
+                        "type": "number",
+                        "minimum": -1000000000000.0,
+                        "maximum": 1000000000000.0
+                      }
+                    },
+                    "density_contrast_kg_m3": {
+                      "type": "number",
+                      "minimum": -100000,
+                      "maximum": 100000
+                    }
+                  }
+                }
+              },
+              "points": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1024,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "x_m",
+                    "y_m",
+                    "z_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "x_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "y_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "z_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    }
+                  }
+                }
+              },
+              "include_sensitivities": {
+                "type": "boolean"
+              },
+              "metadata": {
+                "type": "object"
+              }
+            }
+          }
+        ]
+      },
+      "fields": {
+        "type": "array",
+        "maxItems": 1024,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "gx",
+            "gy",
+            "gz_up",
+            "g_down",
+            "potential"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "gx": {
+              "type": "number"
+            },
+            "gy": {
+              "type": "number"
+            },
+            "gz_up": {
+              "type": "number"
+            },
+            "g_down": {
+              "type": "number"
+            },
+            "potential": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "sensitivities": {
+        "type": "array",
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "parameter",
+            "parameter_units",
+            "field_units",
+            "fields"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "parameter": {
+              "const": "density_contrast_kg_m3"
+            },
+            "parameter_units": {
+              "const": "kg/m^3"
+            },
+            "field_units": {
+              "type": "object"
+            },
+            "fields": {
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "gx",
+                  "gy",
+                  "gz_up",
+                  "g_down",
+                  "potential"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "gx": {
+                    "type": "number"
+                  },
+                  "gy": {
+                    "type": "number"
+                  },
+                  "gz_up": {
+                    "type": "number"
+                  },
+                  "g_down": {
+                    "type": "number"
+                  },
+                  "potential": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "field_units": {
+        "type": "object"
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "validation_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "request",
+      "diagnostics",
+      "producer"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.gravity_prisms_validation"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "request": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "version",
+              "coordinate_frame",
+              "sources",
+              "points",
+              "include_sensitivities"
+            ],
+            "properties": {
+              "schema": {
+                "const": "baselode.geophysics.gravity_prisms_request"
+              },
+              "version": {
+                "const": 1
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "bounds_m",
+                    "density_contrast_kg_m3"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "kind": {
+                      "const": "prism"
+                    },
+                    "bounds_m": {
+                      "type": "array",
+                      "minItems": 6,
+                      "maxItems": 6,
+                      "items": {
+                        "type": "number",
+                        "minimum": -1000000000000.0,
+                        "maximum": 1000000000000.0
+                      }
+                    },
+                    "density_contrast_kg_m3": {
+                      "type": "number",
+                      "minimum": -100000,
+                      "maximum": 100000
+                    }
+                  }
+                }
+              },
+              "points": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1024,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "x_m",
+                    "y_m",
+                    "z_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "x_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "y_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "z_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    }
+                  }
+                }
+              },
+              "include_sensitivities": {
+                "type": "boolean"
+              },
+              "metadata": {
+                "type": "object"
+              }
+            }
+          }
+        ]
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object"
+      }
+    }
+  },
+  "execution": {
+    "python": "calculate_gravity_prisms",
+    "javascript": "native_request_validation_only",
+    "install": "pip install 'baselode[potential-fields]'",
+    "backend": "harmonica",
+    "backend_version": "0.7.0",
+    "kernel_backend": "choclo",
+    "kernel_backend_version": "0.3.2"
+  },
+  "model": {
+    "id": "uniform_rectangular_prism_gravity",
+    "algorithm_version": 1,
+    "gravitational_constant": 6.6743e-11,
+    "gravitational_constant_units": "m^3/(kg*s^2)",
+    "potential_convention": "negative_zero_at_infinity",
+    "acceleration_convention": "minus_gradient_potential",
+    "summation": "neumaier_compensated",
+    "sensitivity": "fixed_geometry_density",
+    "backend": "harmonica",
+    "backend_version": "0.7.0",
+    "kernel_backend": "choclo",
+    "kernel_backend_version": "0.3.2"
+  },
+  "field_units": {
+    "gx": "mGal",
+    "gy": "mGal",
+    "gz_up": "mGal",
+    "g_down": "mGal",
+    "potential": "m^2/s^2"
+  },
+  "resources": {
+    "max_sources": 64,
+    "max_points": 1024,
+    "max_pairs": 32768,
+    "max_sensitivity_pairs": 4096,
+    "max_input_bytes": 2097152,
+    "max_metadata_bytes": 131072,
+    "max_result_bytes": 8388608,
+    "max_json_nodes": 100000,
+    "max_json_depth": 32,
+    "max_coordinate_abs_m": 1000000000000.0,
+    "max_axis_span_m": 200000,
+    "max_result_json_nodes": 500000,
+    "max_result_json_depth": 33,
+    "min_dimension_m": 0.001,
+    "max_dimension_m": 100000,
+    "max_aspect_ratio": 20,
+    "max_point_offset_to_min_dimension": 20
+  },
+  "assumptions": [
+    "Synthetic signed uniform density-contrast response only; no reference field, observation correction, inversion, uncertainty propagation or geological uniqueness.",
+    "All prism bounds and points share one declared local Cartesian metre frame with x/y/up axes and height datum; caller transforms upstream.",
+    "bounds_m order is xmin,xmax,ymin,ymax,zmin,zmax, all increasing. gx/gy follow local axes; g_down=-gz_up.",
+    "Negative Newtonian potential is zero at infinity. Backend positive potential is negated; downward g_z is converted to gz_up.",
+    "Potential and acceleration are finite at centres/interiors/faces/edges/corners; no tensor/gradient components are requested. Overlapping signed prisms superpose.",
+    "Each prism uses its original lower corner as local origin before backend calls, preserving represented bounds/point differences. Conservative dimension/aspect/point-offset conditioning bounds reject unsupported far/thin analytic-corner evaluations without a hidden approximation. Numerical budgets do not guarantee geological accuracy.",
+    "Sensitivities are unit-density responses at fixed bounds/points, in output units per kg/m^3, including zero-density sources. No geometry derivatives or propagated uncertainty.",
+    "Harmonica and Choclo versions and G are checked. JavaScript validates portable requests but numerical execution requires the Python potential-fields extra."
+  ],
+  "references": [
+    "https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.prism_gravity.html",
+    "https://www.fatiando.org/choclo/v0.3.2/api/generated/choclo.prism.gravity_pot.html",
+    "https://physics.nist.gov/cuu/Constants/Table/allascii.txt"
+  ]
+}

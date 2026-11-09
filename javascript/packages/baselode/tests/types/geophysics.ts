@@ -261,3 +261,13 @@ void syntheticTmi; describeGeophysicsMagneticForward();
 calculateGeophysicsMagneticForward({schema:'baselode.geophysics.magnetic_forward_request',version:1,coordinate_frame:magneticForwardRequest.coordinate_frame,sources:[],points:[],include_sensitivities:false,min_distance_m:1});
 // @ts-expect-error exact TMI derivatives are intentionally absent
 magneticForwardReport.sensitivities[0].fields[0].tmi_exact;
+
+import {describeGeophysicsGravityPrisms,validateGeophysicsGravityPrisms,type GeophysicsGravityPrismsRequest,type GeophysicsGravityPrismsReport} from 'baselode/geophysics';
+const prismRequest: GeophysicsGravityPrismsRequest = {schema:'baselode.geophysics.gravity_prisms_request',version:1,coordinate_frame:forwardRequest.coordinate_frame,sources:[{id:'body',kind:'prism',bounds_m:[-50,50,-50,50,-150,-50],density_contrast_kg_m3:2000}],points:[{id:'p',x_m:0,y_m:0,z_m:0}],include_sensitivities:true};
+const prismValidation = validateGeophysicsGravityPrisms(prismRequest);
+void prismValidation; describeGeophysicsGravityPrisms();
+const usePythonPrismResult = (result: GeophysicsGravityPrismsReport): number | undefined => result.fields[0]?.g_down;
+void usePythonPrismResult;
+// @ts-expect-error prism bounds require all six scalars
+const invalidPrism: GeophysicsGravityPrismsRequest['sources'][0] = {id:'body',kind:'prism',bounds_m:[0,1,0,1],density_contrast_kg_m3:2000};
+void invalidPrism;

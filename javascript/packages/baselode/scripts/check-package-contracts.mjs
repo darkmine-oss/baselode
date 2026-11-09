@@ -213,3 +213,10 @@ assert.equal(magneticForward.sensitivities.length,3);
 assert.equal(magneticForward.sensitivities[0].field_units.bx,'nT/(A*m^2)');
 assert.deepEqual(geophysics.calculateGeophysicsMagneticForward(magneticForward.request).fields,magneticForward.fields);
 assert.equal(geophysics.describeGeophysicsMagneticForward().version,1);
+
+const prismExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/gravity_prisms_example.json'),'utf8'));
+const prismValidation=geophysics.validateGeophysicsGravityPrisms(prismExample);
+assert.equal(prismValidation.state,'ok',JSON.stringify(prismValidation.issues));
+assert.deepEqual(prismValidation.request,prismExample);
+assert.equal(geophysics.describeGeophysicsGravityPrisms().execution.kernel_backend_version,'0.3.2');
+assert.equal(geophysics.describeGeophysicsGravityPrisms().execution.javascript,'native_request_validation_only');

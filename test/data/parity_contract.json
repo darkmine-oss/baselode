@@ -978,6 +978,28 @@
           "calculate_magnetic_forward"
         ]
       ]
+    },
+    {
+      "name": "geophysics_gravity_prisms",
+      "description": "Pinned Python rectangular-prism gravity vectors/potential and density sensitivities, with native portable request validation in Python/JavaScript; numerical JavaScript counterpart intentionally absent.",
+      "jsExports": [
+        "describeGeophysicsGravityPrisms",
+        "validateGeophysicsGravityPrisms"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_gravity_prisms"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_gravity_prisms"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_gravity_prisms"
+        ]
+      ]
     }
   ]
 }

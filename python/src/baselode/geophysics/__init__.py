@@ -234,3 +234,9 @@ import baselode.geophysics.magnetic_forward as geophysics_magnetic_forward
 describe_magnetic_forward = geophysics_magnetic_forward.describe_magnetic_forward
 calculate_magnetic_forward = geophysics_magnetic_forward.calculate_magnetic_forward
 __all__ += ['describe_magnetic_forward', 'calculate_magnetic_forward']
+
+import baselode.geophysics.gravity_prisms as geophysics_gravity_prisms
+describe_gravity_prisms = geophysics_gravity_prisms.describe_gravity_prisms
+validate_gravity_prisms = geophysics_gravity_prisms.validate_gravity_prisms
+calculate_gravity_prisms = geophysics_gravity_prisms.calculate_gravity_prisms
+__all__ += ['describe_gravity_prisms', 'validate_gravity_prisms', 'calculate_gravity_prisms']
