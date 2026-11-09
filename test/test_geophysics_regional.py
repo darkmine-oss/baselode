@@ -165,6 +165,12 @@ def test_live_native_js_models_values_and_recipe(tmp_path):
     for key in py['artifacts']:
         other=baselode.geophysics.GeophysicsRaster.from_payload(js['fit']['artifacts'][key]);np.testing.assert_allclose(other.data,py['artifacts'][key].data,atol=1e-7,rtol=0);assert other.metadata['units']==py['artifacts'][key].metadata['units']
     assert js['workflow']['artifacts']['spectrum']['diagnostics']['spectral_total_power']==pytest.approx(1093.75,abs=1e-7)
+    no_threshold={k:v for k,v in p.items() if k!='huber_threshold'};missing_units=g.copy_with(g.data.copy(),metadata=copy.deepcopy(g.metadata));del missing_units.metadata['units']
+    cases={'condition':baselode.geophysics.fit_regional_trend(g,{**p,'max_condition':1}),'nonconvergence':baselode.geophysics.fit_regional_trend(g,{**p,'max_iterations':1}),'missing_threshold':baselode.geophysics.fit_regional_trend(g,no_threshold),'invalid_threshold':baselode.geophysics.fit_regional_trend(g,{**p,'huber_threshold':0}),'missing_units':baselode.geophysics.fit_regional_trend(missing_units,p)}
+    assert js['negative']=={key:{'state':value['state'],'code':value['issues'][0]['code']} for key,value in cases.items()}
+    assert all(value['issues'][0]['code']=='regional' and value['artifacts']=={} for value in cases.values())
+    assert js['failed_workflow']=={'state':'needs_input','code':'regional','artifacts':{}}
+
 
 
 def test_native_typed_recipe_schema_and_atomic_nonconvergence():
@@ -177,6 +183,7 @@ def test_native_typed_recipe_schema_and_atomic_nonconvergence():
     f['workflow']['steps'][1]['parameters']['max_iterations']=1
     failed=baselode.geophysics.run_observation_workflow(f['workflow'],{'survey':f['survey']})
     assert failed['state']=='needs_input' and failed['artifacts']=={} and failed['completed_steps']==['grid']
+    assert failed['step_reports']['fit']['issues'][0]['code']=='regional'
 
 
 @pytest.mark.parametrize('threshold',[.25,2.5])

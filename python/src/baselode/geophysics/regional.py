@@ -238,7 +238,7 @@ def fit_regional_trend(raster, options):
             artifacts[kind] = raster.copy_with(np.where(valid, data, np.nan), nodata=None, band_names=[kind], metadata=metadata)
         result.update(parameters=params, model=model, diagnostics=diagnostics, artifacts=artifacts)
     except _NeedsInput as error:
-        result.update(state='needs_input', issues=[{'code': 'fit', 'message': str(error)}], diagnostics={**result['diagnostics'], **copy.deepcopy(error.diagnostics)})
+        result.update(state='needs_input', issues=[{'code': 'regional', 'message': str(error)}], diagnostics={**result['diagnostics'], **copy.deepcopy(error.diagnostics)})
     except (RuntimeError, FloatingPointError) as error:
         result.update(state='failed', issues=[{'code': 'backend', 'message': str(error)}])
     except (ValueError, TypeError, RecursionError, OverflowError) as error:
