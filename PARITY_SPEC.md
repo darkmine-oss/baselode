@@ -299,3 +299,16 @@ scaling, Nyquist/empty bins and fault/input guards validate both runtimes.
 Live report/recipe parity uses absolute tolerance 1e-10 for power and 1e-9 for
 mean density on the documented nT/metre fixtures; no inference of independent
 resolution, calibrated uncertainty or geological depth is made.
+
+### Polynomial regional/residual separation
+
+Native Python/JS least-squares and Huber IRLS fits share explicit normalized-index
+polynomial bases, field-unit thresholds/tolerances, training exclusions,
+source-footprint policy, weighted-normal conditioning, work caps and atomic
+failure states. Full-resolution regional/residual/training-mask outputs archive
+source uncertainty/history and preserve field/unit semantics. Typed observation
+workflows compose actual fit residuals with spectrum reports. Independent SVD and
+closed-form Huber references, true held-out spatial validation, excluded-feature
+no-leakage, unit scaling, masks/rank/condition/convergence and ERS/GeoTIFF cases
+validate the algorithms. Live parity uses absolute tolerance 1e-7 in the nT
+fixtures; diagnostics do not imply calibrated geological uncertainty.

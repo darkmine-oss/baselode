@@ -228,3 +228,14 @@ spectrumReport.radial[0]?.mean_power_density?.toFixed(2);
 describeGeophysicsSpectrum();
 const spectrumStep: import('baselode/geophysics').GeophysicsObservationWorkflowStep = {id:'spectrum',operation:'analyze_grid_spectrum',version:1,inputs:[{step:'grid',output:'grid'}],parameters:{...spectrumOptions}};
 spectrumStep.operation;
+
+import {fitGeophysicsRegionalTrend,describeGeophysicsRegionalTrend,type GeophysicsRegionalOptions} from 'baselode/geophysics';
+const regionalOptions: GeophysicsRegionalOptions = {band:1,degree:2,estimator:'huber',exclude_bounds:[],min_training_fraction:.5,max_condition:1e6,domain_policy:'source_footprint',huber_threshold:1,max_iterations:50,convergence_tolerance:1e-9};
+const regionalResult = fitGeophysicsRegionalTrend(raster,regionalOptions);
+regionalResult.artifacts.residual?.metadata.units;
+describeGeophysicsRegionalTrend();
+const regionalStep: import('baselode/geophysics').GeophysicsObservationWorkflowStep = {id:'fit',operation:'fit_regional_trend',version:1,inputs:[{step:'grid',output:'grid'}],parameters:{...regionalOptions}};
+regionalStep.operation;
+// @ts-expect-error LS forbids unused Huber-only controls
+const invalidRegionalOptions: GeophysicsRegionalOptions = {band:1,degree:1,estimator:'least_squares',exclude_bounds:[],min_training_fraction:.5,max_condition:1e6,domain_policy:'source_footprint',huber_threshold:1};
+void invalidRegionalOptions;

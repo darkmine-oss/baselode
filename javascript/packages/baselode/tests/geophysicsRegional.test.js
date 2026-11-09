@@ -46,3 +46,9 @@ it('roundtrips regional/residual/mask values, units, models and source history t
 it('composes gridding/regional/residual/spectrum ports and fails atomically',async()=>{
   const f=fixture(),before=structuredClone(f);expect((await validateGeophysicsObservationWorkflow(f.workflow,{survey:f.survey})).state).toBe('ok');const r=await runGeophysicsObservationWorkflow(f.workflow,{survey:f.survey});expect(r.state,r.issues).toBe('ok');expect(r.artifacts.regional.data[0][0][0]).toBeCloseTo(f.expected_constant,8);expect(r.artifacts.spectrum.diagnostics.spectral_total_power).toBeCloseTo(1093.75,7);expect(f).toEqual(before);f.workflow.steps[1].parameters.max_iterations=1;const failed=await runGeophysicsObservationWorkflow(f.workflow,{survey:f.survey});expect(failed.state).toBe('needs_input');expect(failed.artifacts).toEqual({});expect(failed.completed_steps).toEqual(['grid']);
 });
+it.each([.25,2.5])('matches analytic Huber stationarity for threshold %s in field units',threshold=>{
+  const g=grid(0);for(let i=28;i<32;i++)g.data[0][i]=g.data[0][i].map(v=>v+100);const r=fitGeophysicsRegionalTrend(g,{...options(0,'huber'),huber_threshold:threshold});expect(r.state,r.issues).toBe('ok');expect(r.model.coefficients[0]).toBeCloseTo(10+threshold/7,9);
+});
+it('scales field values, threshold and absolute convergence in native units',()=>{
+  const g=grid();for(let i=12;i<20;i++)for(let j=12;j<20;j++)g.data[0][i][j]+=100;const original=fitGeophysicsRegionalTrend(g,options(2,'huber')),scaled=structuredClone(g);scaled.data[0]=scaled.data[0].map(row=>row.map(v=>v*1e-9));scaled.metadata.units=['T'];const r=fitGeophysicsRegionalTrend(scaled,{...options(2,'huber'),huber_threshold:1e-9,convergence_tolerance:1e-18});expect(r.state,r.issues).toBe('ok');expect(error(r.artifacts.regional.data[0].map(row=>row.map(v=>v*1e9)),original.artifacts.regional.data[0])).toBeLessThan(1e-8);expect(r.artifacts.residual.metadata.units).toEqual(['T']);
+});

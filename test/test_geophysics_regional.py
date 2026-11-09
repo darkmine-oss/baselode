@@ -177,3 +177,20 @@ def test_native_typed_recipe_schema_and_atomic_nonconvergence():
     f['workflow']['steps'][1]['parameters']['max_iterations']=1
     failed=baselode.geophysics.run_observation_workflow(f['workflow'],{'survey':f['survey']})
     assert failed['state']=='needs_input' and failed['artifacts']=={} and failed['completed_steps']==['grid']
+
+
+@pytest.mark.parametrize('threshold',[.25,2.5])
+def test_huber_threshold_matches_independent_stationarity_in_field_units(threshold):
+    g=grid(0);g.data[0,-4:,:]+=100
+    r=baselode.geophysics.fit_regional_trend(g,{**options(0,'huber'),'huber_threshold':threshold})
+    assert r['state']=='ok',r['issues'];assert r['model']['coefficients'][0]==pytest.approx(10+threshold/7,abs=1e-9)
+
+
+def test_field_unit_scaling_changes_threshold_and_absolute_convergence_consistently():
+    g=grid();g.data[0,12:20,12:20]+=100;p=options(2,'huber')
+    original=baselode.geophysics.fit_regional_trend(g,p)
+    scaled=g.copy_with(g.data*1e-9,metadata={**g.metadata,'units':['T']})
+    other=baselode.geophysics.fit_regional_trend(scaled,{**p,'huber_threshold':1e-9,'convergence_tolerance':1e-18})
+    assert other['state']=='ok',other['issues']
+    np.testing.assert_allclose(other['artifacts']['regional'].data*1e9,original['artifacts']['regional'].data,atol=1e-8,rtol=0)
+    assert other['artifacts']['residual'].metadata['units']==['T']
