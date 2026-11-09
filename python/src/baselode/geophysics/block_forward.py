@@ -115,7 +115,7 @@ def _prepare(request):
             if code=='context':raise baselode.geophysics.corrections._NeedsInput(message)
             if code=='resource':raise baselode.geophysics.corrections._ResourceError(message)
             raise ValueError(message)
-        batches.append(child)
+        batches.append(copy.deepcopy(child))
     for i,k in enumerate(('x_m','y_m','z_m')):
         values=[s['bounds_m'][2*i+j] for s in sources for j in (0,1)]+[point[k] for point in p['points']]
         if max(values)-min(values)>200000:raise baselode.geophysics.corrections._ResourceError('global span exceeds200km')
@@ -184,11 +184,15 @@ def calculate_block_forward(request):
         components=('bx','by','bz_up') if magnetic else ('gx','gy','gz_up','potential')
         totals=[[0.]*len(components) for _ in p['points']];corrections=copy.deepcopy(totals);sensitivities=[];units={}
         for batch in batches:
-            child=baselode.geophysics.magnetic_prisms.calculate_magnetic_prisms(batch) if magnetic else baselode.geophysics.gravity_prisms.calculate_gravity_prisms(batch)
-            if child['state']!='ok':raise RuntimeError('child prism calculation '+child['state']+': '+child['issues'][0]['message'])
-            units=child['field_units'];sensitivities.extend(child['sensitivities'])
-            for i,row in enumerate(child['fields']):
-                for j,key in enumerate(components):baselode.geophysics.forward_common._add(totals[i],corrections[i],j,row[key])
+            # Preserve one global source-order accumulator. Rounding multi-source
+            # batch totals before this sum can discard small cancellation terms.
+            for source in batch['sources']:
+                single={**batch,'sources':[source]}
+                child=baselode.geophysics.magnetic_prisms.calculate_magnetic_prisms(single) if magnetic else baselode.geophysics.gravity_prisms.calculate_gravity_prisms(single)
+                if child['state']!='ok':raise RuntimeError('child prism calculation '+child['state']+': '+child['issues'][0]['message'])
+                units=child['field_units'];sensitivities.extend(child['sensitivities'])
+                for i,row in enumerate(child['fields']):
+                    for j,key in enumerate(components):baselode.geophysics.forward_common._add(totals[i],corrections[i],j,row[key])
         fields=[];background=None if p['background_nT'] is None else [p['background_nT'][k] for k in ('x','y','z_up')]
         for point,total,correction in zip(p['points'],totals,corrections):
             vector=[a+b for a,b in zip(total,correction)]

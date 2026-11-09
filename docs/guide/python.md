@@ -1164,3 +1164,8 @@ magnetic vectors accumulate before exact TMI. Existing prism size/aspect/far-fie
 and magnetic exclusion limits apply to every active cell-point pair. Global caps:
 512 cells,1024 points,32768 pairs; sensitivities4096 gravity or2048 magnetic pairs.
 This is a bounded uniform-cell forward model, not arbitrary-scale block inversion.
+
+Block numerical accumulation evaluates each active prism separately and keeps
+one compensated source-order sum across all prepared batches. This avoids
+rounding multi-source batch totals before cancellation. Prepared batches, their
+point/frame data and the replay request are independent mutable snapshots.

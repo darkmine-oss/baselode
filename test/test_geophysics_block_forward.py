@@ -87,3 +87,16 @@ def test_full_cell_budget_and_global_sensitivity_resource_gate():
     r=baselode.geophysics.prepare_block_forward(p);assert r['state']=='ok' and r['diagnostics']['active_count']==512 and r['diagnostics']['batch_count']==512
     p['points']=[dict(p['points'][0],id=str(i)) for i in range(9)];r=baselode.geophysics.prepare_block_forward(p);assert r['state']=='rejected' and r['issues'][0]['code']=='resource'
     p=request();p['metadata']={'large':'x'*131073};assert baselode.geophysics.prepare_block_forward(p)['issues'][0]['code']=='resource'
+
+def test_cancellation_keeps_source_order_independent_of_three_way_batching(monkeypatch):
+    import math
+    p=request();p['model']['definition']['n_blocks']['nx']=3;p['model']['blocks'].append(dict(p['model']['blocks'][0],cell_id='third',i=2));contributions={'west':1e16,'east':1.,'third':-1e16}
+    def kernel(child):
+        v=math.fsum(contributions[s['id']] for s in child['sources'])
+        return {'state':'ok','fields':[{'gx':v,'gy':0.,'gz_up':0.,'g_down':0.,'potential':0.}],'sensitivities':[],'field_units':{}}
+    monkeypatch.setattr(baselode.geophysics.gravity_prisms,'calculate_gravity_prisms',kernel)
+    for size in [1,2,3,64]:p['batch_size']=size;assert run(p)['fields'][0]['gx']==1.
+
+def test_returned_batches_have_independent_points_frame_and_replay_snapshot():
+    for factory in [request,magnetic]:
+        p=factory();r=baselode.geophysics.prepare_block_forward(p);before=copy.deepcopy(r['request']);other=copy.deepcopy(r['batches'][1]);r['batches'][0]['points'][0]['z_m']=999;r['batches'][0]['coordinate_frame']['id']='edited';assert r['request']==before and r['batches'][1]==other and p==before
