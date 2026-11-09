@@ -1,0 +1,659 @@
+{
+  "schema": "baselode.geophysics.magnetic_forward_contract",
+  "version": 1,
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "coordinate_frame",
+      "sources",
+      "points",
+      "include_sensitivities",
+      "min_distance_m",
+      "background_nT"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.magnetic_forward_request"
+      },
+      "version": {
+        "const": 1
+      },
+      "coordinate_frame": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "axes",
+          "units",
+          "height_datum"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "kind": {
+            "const": "local_cartesian"
+          },
+          "axes": {
+            "const": "x_y_up"
+          },
+          "units": {
+            "const": "m"
+          },
+          "height_datum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "sources": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "x_m",
+            "y_m",
+            "z_m",
+            "moment_x_A_m2",
+            "moment_y_A_m2",
+            "moment_z_up_A_m2"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "x_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "y_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "z_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "kind": {
+              "const": "dipole"
+            },
+            "moment_x_A_m2": {
+              "type": "number",
+              "minimum": -1000000000000000.0,
+              "maximum": 1000000000000000.0
+            },
+            "moment_y_A_m2": {
+              "type": "number",
+              "minimum": -1000000000000000.0,
+              "maximum": 1000000000000000.0
+            },
+            "moment_z_up_A_m2": {
+              "type": "number",
+              "minimum": -1000000000000000.0,
+              "maximum": 1000000000000000.0
+            }
+          }
+        }
+      },
+      "points": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "x_m",
+            "y_m",
+            "z_m"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "x_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "y_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "z_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            }
+          }
+        }
+      },
+      "include_sensitivities": {
+        "type": "boolean"
+      },
+      "min_distance_m": {
+        "type": "number",
+        "minimum": 0.001,
+        "maximum": 100000
+      },
+      "background_nT": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y",
+              "z_up"
+            ],
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": -1000000.0,
+                "maximum": 1000000.0
+              },
+              "y": {
+                "type": "number",
+                "minimum": -1000000.0,
+                "maximum": 1000000.0
+              },
+              "z_up": {
+                "type": "number",
+                "minimum": -1000000.0,
+                "maximum": 1000000.0
+              }
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "type": "object"
+      }
+    }
+  },
+  "result_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "model",
+      "request",
+      "fields",
+      "sensitivities",
+      "field_units",
+      "diagnostics",
+      "producer",
+      "assumptions"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.magnetic_forward_result"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "model": {
+        "type": "object"
+      },
+      "request": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "version",
+              "coordinate_frame",
+              "sources",
+              "points",
+              "include_sensitivities",
+              "min_distance_m",
+              "background_nT"
+            ],
+            "properties": {
+              "schema": {
+                "const": "baselode.geophysics.magnetic_forward_request"
+              },
+              "version": {
+                "const": 1
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 128,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "x_m",
+                    "y_m",
+                    "z_m",
+                    "moment_x_A_m2",
+                    "moment_y_A_m2",
+                    "moment_z_up_A_m2"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "x_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "y_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "z_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "kind": {
+                      "const": "dipole"
+                    },
+                    "moment_x_A_m2": {
+                      "type": "number",
+                      "minimum": -1000000000000000.0,
+                      "maximum": 1000000000000000.0
+                    },
+                    "moment_y_A_m2": {
+                      "type": "number",
+                      "minimum": -1000000000000000.0,
+                      "maximum": 1000000000000000.0
+                    },
+                    "moment_z_up_A_m2": {
+                      "type": "number",
+                      "minimum": -1000000000000000.0,
+                      "maximum": 1000000000000000.0
+                    }
+                  }
+                }
+              },
+              "points": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4096,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "x_m",
+                    "y_m",
+                    "z_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "x_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "y_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "z_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    }
+                  }
+                }
+              },
+              "include_sensitivities": {
+                "type": "boolean"
+              },
+              "min_distance_m": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 100000
+              },
+              "background_nT": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y",
+                      "z_up"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      },
+                      "z_up": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      }
+                    }
+                  }
+                ]
+              },
+              "metadata": {
+                "type": "object"
+              }
+            }
+          }
+        ]
+      },
+      "fields": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "bx",
+            "by",
+            "bz_up",
+            "b_down",
+            "tmi_linear",
+            "tmi_exact",
+            "linearization_difference"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "bx": {
+              "type": "number"
+            },
+            "by": {
+              "type": "number"
+            },
+            "bz_up": {
+              "type": "number"
+            },
+            "b_down": {
+              "type": "number"
+            },
+            "tmi_linear": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tmi_exact": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "linearization_difference": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "sensitivities": {
+        "type": "array",
+        "maxItems": 384,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "parameter",
+            "parameter_units",
+            "field_units",
+            "fields"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "parameter": {
+              "enum": [
+                "moment_x_A_m2",
+                "moment_y_A_m2",
+                "moment_z_up_A_m2"
+              ]
+            },
+            "parameter_units": {
+              "const": "A*m^2"
+            },
+            "field_units": {
+              "type": "object"
+            },
+            "fields": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "bx",
+                  "by",
+                  "bz_up",
+                  "b_down",
+                  "tmi_linear"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "bx": {
+                    "type": "number"
+                  },
+                  "by": {
+                    "type": "number"
+                  },
+                  "bz_up": {
+                    "type": "number"
+                  },
+                  "b_down": {
+                    "type": "number"
+                  },
+                  "tmi_linear": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "field_units": {
+        "type": "object"
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "model": {
+    "id": "magnetostatic_point_dipole",
+    "algorithm_version": 1,
+    "vacuum_magnetic_permeability": 1.25663706127e-06,
+    "vacuum_magnetic_permeability_units": "N/A^2",
+    "constant_reference": "CODATA2022",
+    "summation": "neumaier_compensated",
+    "sensitivity": "fixed_geometry_moment_components_vector_and_linear_tmi",
+    "tmi_exact": "norm_background_plus_summed_response_minus_norm_background"
+  },
+  "field_units": {
+    "bx": "nT",
+    "by": "nT",
+    "bz_up": "nT",
+    "b_down": "nT",
+    "tmi_linear": "nT",
+    "tmi_exact": "nT",
+    "linearization_difference": "nT"
+  },
+  "sensitivity_field_units": {
+    "bx": "nT/(A*m^2)",
+    "by": "nT/(A*m^2)",
+    "bz_up": "nT/(A*m^2)",
+    "b_down": "nT/(A*m^2)",
+    "tmi_linear": "nT/(A*m^2)"
+  },
+  "resources": {
+    "max_sources": 128,
+    "max_points": 4096,
+    "max_pairs": 262144,
+    "max_sensitivity_pairs": 4096,
+    "max_input_bytes": 2097152,
+    "max_metadata_bytes": 131072,
+    "max_result_bytes": 8388608,
+    "max_json_nodes": 100000,
+    "max_json_depth": 32,
+    "max_coordinate_abs_m": 1000000000000.0,
+    "max_axis_span_m": 200000,
+    "max_result_json_nodes": 500000,
+    "max_result_json_depth": 33,
+    "max_moment_component_abs_A_m2": 1000000000000000.0
+  },
+  "assumptions": [
+    "Synthetic magnetic flux-density response only; not an observation correction or unique geological interpretation.",
+    "Every point/source/moment/background shares one explicit local Cartesian metre frame, x/y/up axes and height datum; caller performs upstream coordinate/north/datum conversion.",
+    "Moments in A*m^2 are independent signed vector components. No induced-only direction, susceptibility, volume, IGRF, demagnetisation or finite-body interior is inferred.",
+    "A caller-selected positive exclusion distance applies to every dipole, including zero moments; no softening or clipping.",
+    "With explicit nonzero background, linear TMI projects the SUMMED vector on its direction; exact TMI is the magnitude difference after superposition and is not additive. Without background, TMI outputs are null.",
+    "Sensitivities are fixed-position/background moment-component derivatives of vectors and LINEAR TMI only; no exact-TMI or geometry derivatives, inversion or uncertainty propagation.",
+    "The linearization difference and response/background ratio diagnose approximation behaviour, not calibrated uncertainty. Pinned CODATA2022 permeability measurement uncertainty is not propagated."
+  ],
+  "references": [
+    "https://physics.nist.gov/cuu/Constants/Table/allascii.txt",
+    "https://www.fatiando.org/choclo/latest/api/generated/choclo.dipole.magnetic_field.html"
+  ]
+}

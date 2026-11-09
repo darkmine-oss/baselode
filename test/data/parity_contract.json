@@ -960,6 +960,24 @@
           "calculate_gravity_forward"
         ]
       ]
+    },
+    {
+      "name": "geophysics_magnetic_forward",
+      "description": "Native point-dipole magnetic vectors, linear/exact total-field responses after superposition and fixed-geometry moment-component sensitivities with explicit local frame/background and bounded portable schemas.",
+      "jsExports": [
+        "describeGeophysicsMagneticForward",
+        "calculateGeophysicsMagneticForward"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_magnetic_forward"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_magnetic_forward"
+        ]
+      ]
     }
   ]
 }

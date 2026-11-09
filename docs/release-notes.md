@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native magnetic dipole vectors, linear/exact total-field responses after superposition, fixed-geometry moment sensitivities and explicit Cartesian/background contracts. Include portable schemas/types/examples, independent current-loop/high-precision validation and shared forward-model guards.
+
 - Add native Python/JavaScript analytical point-mass and uniform solid-sphere gravity responses, exact fixed-geometry amplitude sensitivities, explicit local Cartesian/sign/unit contracts, compensated superposition, bounded atomic reports and portable schemas/types/examples.
 
 - Add native polynomial regional/residual decomposition with explicit least-squares/Huber estimators, training exclusions, conditioning/convergence/work gates, model/history-preserving rasters and typed residual-to-spectrum workflows.

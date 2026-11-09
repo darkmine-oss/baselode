@@ -204,3 +204,12 @@ assert.ok(Math.abs(gravityForward.fields[0].potential+.066743)<1e-14);
 assert.equal(gravityForward.sensitivities[0].field_units.g_down,'(mGal)/(kg)');
 assert.deepEqual(geophysics.calculateGeophysicsGravityForward(gravityForward.request).fields,gravityForward.fields);
 assert.equal(geophysics.describeGeophysicsGravityForward().version,1);
+
+const magneticForwardExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/magnetic_forward_example.json'),'utf8'));
+const magneticForward=geophysics.calculateGeophysicsMagneticForward(magneticForwardExample);
+assert.equal(magneticForward.state,'ok',JSON.stringify(magneticForward.issues));
+assert.ok(Math.abs(magneticForward.fields[0].bz_up-.19999999997359344)<1e-14);
+assert.equal(magneticForward.sensitivities.length,3);
+assert.equal(magneticForward.sensitivities[0].field_units.bx,'nT/(A*m^2)');
+assert.deepEqual(geophysics.calculateGeophysicsMagneticForward(magneticForward.request).fields,magneticForward.fields);
+assert.equal(geophysics.describeGeophysicsMagneticForward().version,1);

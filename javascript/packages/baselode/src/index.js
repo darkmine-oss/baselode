@@ -707,3 +707,5 @@ export {describeGeophysicsSpectrum,analyzeGeophysicsGridSpectrum} from './data/g
 export {describeGeophysicsRegionalTrend,fitGeophysicsRegionalTrend} from './data/geophysicsRegional.js';
 
 export {describeGeophysicsGravityForward,calculateGeophysicsGravityForward} from './data/geophysicsGravityForward.js';
+
+export {describeGeophysicsMagneticForward,calculateGeophysicsMagneticForward} from './data/geophysicsMagneticForward.js';
