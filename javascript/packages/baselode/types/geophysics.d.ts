@@ -768,3 +768,33 @@ export interface GeophysicsRegionalReport {
 }
 export function describeGeophysicsRegionalTrend(): Record<string, any>;
 export function fitGeophysicsRegionalTrend(raster: GeophysicsRasterInput, options: GeophysicsRegionalOptions): GeophysicsRegionalReport;
+
+/** Shared local metre coordinates. Upstream projection/datum transformations are caller responsibilities. */
+export interface GeophysicsGravityForwardPoint {id: string; x_m: number; y_m: number; z_m: number}
+export type GeophysicsGravityForwardSource = GeophysicsGravityForwardPoint & (
+  {kind: 'point_mass'; mass_contrast_kg: number; radius_m?: never; density_contrast_kg_m3?: never}
+  | {kind: 'sphere'; radius_m: number; density_contrast_kg_m3: number; mass_contrast_kg?: never}
+);
+export interface GeophysicsGravityForwardRequest {
+  schema: 'baselode.geophysics.gravity_forward_request'; version: 1;
+  coordinate_frame: {id: string; kind: 'local_cartesian'; axes: 'x_y_up'; units: 'm'; height_datum: string};
+  sources: GeophysicsGravityForwardSource[]; points: GeophysicsGravityForwardPoint[];
+  include_sensitivities: boolean; point_mass_min_distance_m?: number; metadata?: Record<string, unknown>;
+}
+/** Values use the enclosing field_units; sensitivity fields have derivative units. */
+export interface GeophysicsGravityForwardField {id: string; gx: number; gy: number; gz_up: number; g_down: number; potential: number}
+export type GeophysicsGravityForwardUnits = Record<Exclude<keyof GeophysicsGravityForwardField,'id'>,string>;
+export interface GeophysicsGravityForwardSensitivity {
+  source_id: string; parameter: 'mass_contrast_kg' | 'density_contrast_kg_m3'; parameter_units: 'kg' | 'kg/m^3';
+  field_units: GeophysicsGravityForwardUnits; fields: GeophysicsGravityForwardField[];
+}
+export interface GeophysicsGravityForwardReport {
+  schema: 'baselode.geophysics.gravity_forward_result'; version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  model: Record<string, string | number>; request: GeophysicsGravityForwardRequest | null;
+  fields: GeophysicsGravityForwardField[]; sensitivities: GeophysicsGravityForwardSensitivity[];
+  field_units: GeophysicsGravityForwardUnits; diagnostics: Record<string, number | boolean>;
+  producer: Record<string, string | number>; assumptions: string[];
+}
+export function describeGeophysicsGravityForward(): Record<string, any>;
+export function calculateGeophysicsGravityForward(request: GeophysicsGravityForwardRequest): GeophysicsGravityForwardReport;

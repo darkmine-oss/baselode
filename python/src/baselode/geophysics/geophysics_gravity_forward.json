@@ -1,0 +1,707 @@
+{
+  "schema": "baselode.geophysics.gravity_forward_contract",
+  "version": 1,
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "coordinate_frame",
+      "sources",
+      "points",
+      "include_sensitivities"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.gravity_forward_request"
+      },
+      "version": {
+        "const": 1
+      },
+      "coordinate_frame": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "axes",
+          "units",
+          "height_datum"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "kind": {
+            "const": "local_cartesian"
+          },
+          "axes": {
+            "const": "x_y_up"
+          },
+          "units": {
+            "const": "m"
+          },
+          "height_datum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "sources": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 128,
+        "items": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "x_m",
+                "y_m",
+                "z_m",
+                "kind",
+                "mass_contrast_kg"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "x_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "y_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "z_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "kind": {
+                  "const": "point_mass"
+                },
+                "mass_contrast_kg": {
+                  "type": "number",
+                  "minimum": -1e+21,
+                  "maximum": 1e+21
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "x_m",
+                "y_m",
+                "z_m",
+                "kind",
+                "radius_m",
+                "density_contrast_kg_m3"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "x_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "y_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "z_m": {
+                  "type": "number",
+                  "minimum": -1000000000000.0,
+                  "maximum": 1000000000000.0
+                },
+                "kind": {
+                  "const": "sphere"
+                },
+                "radius_m": {
+                  "type": "number",
+                  "minimum": 0.001,
+                  "maximum": 100000
+                },
+                "density_contrast_kg_m3": {
+                  "type": "number",
+                  "minimum": -100000,
+                  "maximum": 100000
+                }
+              }
+            }
+          ]
+        }
+      },
+      "points": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "x_m",
+            "y_m",
+            "z_m"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "x_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "y_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "z_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            }
+          }
+        }
+      },
+      "include_sensitivities": {
+        "type": "boolean"
+      },
+      "point_mass_min_distance_m": {
+        "type": "number",
+        "minimum": 0.001,
+        "maximum": 100000
+      },
+      "metadata": {
+        "type": "object"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "sources": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "kind"
+                ],
+                "properties": {
+                  "kind": {
+                    "const": "point_mass"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "point_mass_min_distance_m"
+          ]
+        },
+        "else": {
+          "not": {
+            "required": [
+              "point_mass_min_distance_m"
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "result_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "model",
+      "request",
+      "fields",
+      "sensitivities",
+      "field_units",
+      "diagnostics",
+      "producer",
+      "assumptions"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.gravity_forward_result"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "model": {
+        "type": "object"
+      },
+      "request": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "version",
+              "coordinate_frame",
+              "sources",
+              "points",
+              "include_sensitivities"
+            ],
+            "properties": {
+              "schema": {
+                "const": "baselode.geophysics.gravity_forward_request"
+              },
+              "version": {
+                "const": 1
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 128,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "x_m",
+                        "y_m",
+                        "z_m",
+                        "kind",
+                        "mass_contrast_kg"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "x_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "y_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "z_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "kind": {
+                          "const": "point_mass"
+                        },
+                        "mass_contrast_kg": {
+                          "type": "number",
+                          "minimum": -1e+21,
+                          "maximum": 1e+21
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "id",
+                        "x_m",
+                        "y_m",
+                        "z_m",
+                        "kind",
+                        "radius_m",
+                        "density_contrast_kg_m3"
+                      ],
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "x_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "y_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "z_m": {
+                          "type": "number",
+                          "minimum": -1000000000000.0,
+                          "maximum": 1000000000000.0
+                        },
+                        "kind": {
+                          "const": "sphere"
+                        },
+                        "radius_m": {
+                          "type": "number",
+                          "minimum": 0.001,
+                          "maximum": 100000
+                        },
+                        "density_contrast_kg_m3": {
+                          "type": "number",
+                          "minimum": -100000,
+                          "maximum": 100000
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "points": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4096,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "x_m",
+                    "y_m",
+                    "z_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "x_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "y_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "z_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    }
+                  }
+                }
+              },
+              "include_sensitivities": {
+                "type": "boolean"
+              },
+              "point_mass_min_distance_m": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 100000
+              },
+              "metadata": {
+                "type": "object"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "sources": {
+                      "contains": {
+                        "type": "object",
+                        "required": [
+                          "kind"
+                        ],
+                        "properties": {
+                          "kind": {
+                            "const": "point_mass"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "point_mass_min_distance_m"
+                  ]
+                },
+                "else": {
+                  "not": {
+                    "required": [
+                      "point_mass_min_distance_m"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "fields": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "gx",
+            "gy",
+            "gz_up",
+            "g_down",
+            "potential"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "gx": {
+              "type": "number"
+            },
+            "gy": {
+              "type": "number"
+            },
+            "gz_up": {
+              "type": "number"
+            },
+            "g_down": {
+              "type": "number"
+            },
+            "potential": {
+              "type": "number"
+            }
+          }
+        }
+      },
+      "sensitivities": {
+        "type": "array",
+        "maxItems": 128,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "parameter",
+            "parameter_units",
+            "field_units",
+            "fields"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "parameter": {
+              "enum": [
+                "mass_contrast_kg",
+                "density_contrast_kg_m3"
+              ]
+            },
+            "parameter_units": {
+              "enum": [
+                "kg",
+                "kg/m^3"
+              ]
+            },
+            "field_units": {
+              "type": "object"
+            },
+            "fields": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "gx",
+                  "gy",
+                  "gz_up",
+                  "g_down",
+                  "potential"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "gx": {
+                    "type": "number"
+                  },
+                  "gy": {
+                    "type": "number"
+                  },
+                  "gz_up": {
+                    "type": "number"
+                  },
+                  "g_down": {
+                    "type": "number"
+                  },
+                  "potential": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "field_units": {
+        "type": "object"
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "model": {
+    "id": "newtonian_point_solid_sphere",
+    "algorithm_version": 1,
+    "gravitational_constant": 6.6743e-11,
+    "gravitational_constant_units": "m^3/(kg*s^2)",
+    "potential_convention": "negative_zero_at_infinity",
+    "acceleration_convention": "minus_gradient_potential",
+    "summation": "neumaier_compensated",
+    "sensitivity": "fixed_geometry_linear_amplitude"
+  },
+  "field_units": {
+    "gx": "mGal",
+    "gy": "mGal",
+    "gz_up": "mGal",
+    "g_down": "mGal",
+    "potential": "m^2/s^2"
+  },
+  "resources": {
+    "max_sources": 128,
+    "max_points": 4096,
+    "max_pairs": 262144,
+    "max_sensitivity_pairs": 8192,
+    "max_input_bytes": 2097152,
+    "max_metadata_bytes": 131072,
+    "max_result_bytes": 8388608,
+    "max_json_nodes": 100000,
+    "max_json_depth": 32,
+    "max_coordinate_abs_m": 1000000000000.0,
+    "max_axis_span_m": 200000,
+    "max_result_json_nodes": 500000,
+    "max_result_json_depth": 33
+  },
+  "assumptions": [
+    "Synthetic contrast response only; not an observed, normal, reduced or uniquely interpreted gravity field.",
+    "All sources and evaluation points share the explicitly declared local Cartesian metre frame, vertical-up axis and height datum; caller performs any upstream coordinate/datum conversion.",
+    "gx and gy follow the caller local x/y axes, which need not be true east/north. g_down=-gz_up; 1 mGal=1e-5 m/s^2.",
+    "Potential is negative for positive contrasts, zero at infinity; acceleration=-gradient(potential).",
+    "Uniform spheres use exact interior/centre/exterior formulae; overlapping sources superpose as density contrasts. Point masses have no physical radius and require a caller-selected exclusion distance.",
+    "Sensitivities vary only source mass or density with fixed positions/radii; no geometry derivatives, inversion, geological uniqueness or propagated uncertainty.",
+    "Pinned CODATA G is treated as a constant; its measurement uncertainty is not propagated. No curvature, rotation, reference field, softening or clipping."
+  ],
+  "references": [
+    "https://physics.nist.gov/cuu/Constants/Table/allascii.txt",
+    "https://www.fatiando.org/choclo/latest/api/generated/choclo.point.gravity_u.html"
+  ]
+}

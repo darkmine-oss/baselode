@@ -195,3 +195,12 @@ assert.equal(geophysics.describeGeophysicsRegionalTrend().version,1);
 const regionalRecipe=await geophysics.runGeophysicsObservationWorkflow(regionalExample.workflow,{survey:regionalExample.survey});
 assert.equal(regionalRecipe.state,'ok',JSON.stringify(regionalRecipe.issues));
 assert.ok(Math.abs(regionalRecipe.artifacts.spectrum.diagnostics.spectral_total_power-1093.75)<1e-7);
+
+const gravityForwardExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/gravity_forward_example.json'),'utf8'));
+const gravityForward=geophysics.calculateGeophysicsGravityForward(gravityForwardExample);
+assert.equal(gravityForward.state,'ok',JSON.stringify(gravityForward.issues));
+assert.ok(Math.abs(gravityForward.fields[0].g_down-6.6743)<1e-12);
+assert.ok(Math.abs(gravityForward.fields[0].potential+.066743)<1e-14);
+assert.equal(gravityForward.sensitivities[0].field_units.g_down,'(mGal)/(kg)');
+assert.deepEqual(geophysics.calculateGeophysicsGravityForward(gravityForward.request).fields,gravityForward.fields);
+assert.equal(geophysics.describeGeophysicsGravityForward().version,1);
