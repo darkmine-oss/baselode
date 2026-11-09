@@ -858,3 +858,31 @@ export interface GeophysicsGravityPrismsReport {
 }
 export function describeGeophysicsGravityPrisms(): Record<string,any>;
 export function validateGeophysicsGravityPrisms(request: GeophysicsGravityPrismsRequest): GeophysicsGravityPrismsValidation;
+
+export interface GeophysicsMagneticPrismsRequest {
+  schema: 'baselode.geophysics.magnetic_prisms_request'; version: 1;
+  coordinate_frame: {id: string; kind: 'local_cartesian'; axes: 'x_y_up'; units: 'm'; height_datum: string};
+  sources: Array<{id: string; kind: 'prism'; bounds_m: [number,number,number,number,number,number]; magnetization_x_A_m: number; magnetization_y_A_m: number; magnetization_z_up_A_m: number}>;
+  points: GeophysicsMagneticForwardPoint[]; include_sensitivities: boolean; min_distance_m: number;
+  background_nT: {x: number; y: number; z_up: number} | null; metadata?: Record<string,unknown>;
+}
+export interface GeophysicsMagneticPrismsValidation {
+  schema: 'baselode.geophysics.magnetic_prisms_validation'; version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  request: GeophysicsMagneticPrismsRequest | null; diagnostics: Record<string,number>; producer: Record<string,string | number>;
+}
+/** Produced numerically by Python baselode[potential-fields]. */
+export interface GeophysicsMagneticPrismsReport {
+  schema: 'baselode.geophysics.magnetic_prisms_result'; version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  request: GeophysicsMagneticPrismsRequest | null; model: Record<string,string | number>;
+  fields: GeophysicsMagneticForwardField[]; sensitivities: Array<{
+    source_id: string; parameter: 'magnetization_x_A_m' | 'magnetization_y_A_m' | 'magnetization_z_up_A_m'; parameter_units: 'A/m';
+    field_units: Record<Exclude<keyof GeophysicsMagneticForwardDerivativeField,'id'>,string>;
+    fields: GeophysicsMagneticForwardDerivativeField[];
+  }>;
+  field_units: Record<Exclude<keyof GeophysicsMagneticForwardField,'id'>,string>;
+  diagnostics: Record<string,string | number | boolean | null>; producer: Record<string,string | number>; assumptions: string[];
+}
+export function describeGeophysicsMagneticPrisms(): Record<string,any>;
+export function validateGeophysicsMagneticPrisms(request: GeophysicsMagneticPrismsRequest): GeophysicsMagneticPrismsValidation;

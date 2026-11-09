@@ -2292,3 +2292,103 @@ Primary conventions: [Harmonica prism gravity](https://www.fatiando.org/harmonic
 Independent tests integrate Newton's volume law directly, including transformed
 singularity-free octants at interior/boundary points, cube centre/corner values,
 potential gradients, density derivatives and split-body additivity.
+
+### Magnetic rectangular-prism contracts
+
+`describeGeophysicsMagneticPrisms()` and
+`validateGeophysicsMagneticPrisms(request)` are native synchronous exports from
+the root and `baselode/geophysics` entries. Request/validation/Python-result
+TypeScript types are provided. Numerical execution uses Python's optional
+backend, not a JavaScript solver.
+
+```javascript
+import {validateGeophysicsMagneticPrisms} from 'baselode/geophysics';
+// request is parsed test/data/magnetic_prisms_example.json.
+const checked = validateGeophysicsMagneticPrisms(request);
+if (checked.state !== 'ok') throw new Error(JSON.stringify(checked.issues));
+// Serialize checked.request for your Python execution environment.
+```
+
+The v1 `baselode.geophysics.magnetic_prisms_request` requires the same
+local Cartesian metre/up frame as gravity prisms: known `id`,
+`kind: "local_cartesian"`, `axes: "x_y_up"`, `units: "m"` and known
+`height_datum`. Bounds, points, magnetisation and background already share
+those axes/datum. x/y need not be true east/north; transform upstream.
+
+Each source requires unique `id`, `kind: "prism"`, six ordered bounds
+`[xmin,xmax,ymin,ymax,zmin,zmax]` in metres, and **all three** independent signed
+`magnetization_x_A_m`, `magnetization_y_A_m`, `magnetization_z_up_A_m`
+components in **A/m**. These are magnetisation, **not dipole moments (A m²)**.
+No induced-only direction, susceptibility, volume, demagnetisation or recovered
+geology is inferred. Points require unique `id`, `x_m`, `y_m`, `z_m`.
+`include_sensitivities` is a required boolean; optional bounded `metadata`
+is retained in the independent request snapshot.
+
+`min_distance_m` is required, 0.001–100000 m. Every point must lie **outside
+every closed prism** by at least this Euclidean point-to-box distance. Interior,
+face, edge and corner locations are excluded, even for zero magnetisation,
+because the unit-magnetisation responses must be valid too. No silent masking
+or softening is performed. Exact distance equality is accepted. This API makes
+no finite-body interior or boundary magnetic-field convention claim.
+
+`background_nT` is required, either `{x,y,z_up}` in nT or explicit `null` for
+vectors only; a nonnull vector must have magnitude 1–1000000 nT. No IGRF,
+reference direction or background estimate is automatic.
+
+Python numerics require `pip install 'baselode[potential-fields]'`, using
+**Harmonica 0.7.0 / Choclo 0.3.2**. JavaScript and core Python validate portable
+requests without that optional extra. JavaScript publishes result types;
+numerical execution is intentionally Python-only. Missing extra raises clear
+`ImportError`; unsupported/missing backend metadata, changed constants,
+malformed/nonfinite/wrong-dtype arrays and backend warnings fail atomically.
+
+Harmonica returns x/y/up components in nT. Choclo 0.3.2 uses
+μ₀ = 1.25663706212 × 10⁻⁶ N/A²; the adapter **explicitly rescales** each response
+by 1.25663706127e-6 / 1.25663706212e-6 to the
+[NIST 2022 CODATA value](https://physics.nist.gov/cuu/Constants/Table/allascii.txt),
+matching Baselode's native dipole model. Target/backend constants, scale and
+backend versions are recorded in `model` and checked before evaluation.
+Permeability measurement uncertainty is not propagated. Each source uses its
+original lower corner as local coordinate origin, preserving represented
+bounds/point differences at large global origins.
+
+Output fields are `id`, `bx`, `by`, `bz_up`, `b_down = -bz_up`, `tmi_linear`,
+`tmi_exact` and `linearization_difference`, all in **nT**. Components and
+sources are summed with compensation. Linear TMI projects the **summed** vector
+onto the background direction; exact TMI is |background + **summed** B| −
+|background|, using the same stable factored norm difference as native dipoles.
+Exact TMI is **not additive** across sources. Difference is exact minus linear;
+`diagnostics.max_response_to_background_ratio` records maximum |B|/|background|.
+TMI/difference/ratio values are null with null background. These are approximation
+diagnostics, not calibrated uncertainty or probability of mineralisation.
+
+With sensitivities enabled, each source returns three entries identifying the
+magnetisation `parameter`, `parameter_units: "A/m"`, derivative fields and
+`field_units` in **nT/(A/m)**. They cover vectors and **linear TMI only**, at fixed
+bounds/points/background. Linear-TMI derivatives are null without background.
+There are no exact-TMI or geometry derivatives and no inversion result.
+Zero magnetisation retains nonzero derivatives if geometry is valid.
+
+Geometry shares gravity-prism validation: dimensions 0.001–100000 m,
+maximum/minimum dimension ≤20, and every source–point centred coordinate
+offset divided by its minimum dimension ≤20. Unsupported thin/far geometry
+returns `needs_input`; choose a compatible point-source model or another
+discretisation where appropriate. There is no silent dipole approximation.
+Bounds/points are ±10¹² m, combined span ≤200 km/axis, magnetisation components
+±1000 A/m. Work is limited to 64 sources, 1024 points and 32768 pairs, reduced
+to **2048 pairs** for three-column sensitivities. JSON budgets are 2 MiB input,
+128 KiB metadata, 8 MiB result; depth 32/33 and node counts 100000/500000.
+These are numerical support limits, not physical accuracy guarantees.
+
+Structured `ok | needs_input | rejected | failed` reports contain issues,
+geometry/work diagnostics and independent request/model snapshots. Inputs are
+unchanged. Every error withholds request/fields/sensitivities. Reports are
+synthetic standalone JSON: no observed correction, reference-field removal,
+uncertainty propagation, geological uniqueness or workflow registration is
+implied. JavaScript's validated request can be serialized for Python execution.
+
+Primary conventions: [Harmonica prism magnetics](https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.prism_magnetic.html),
+[Choclo prism magnetic field](https://www.fatiando.org/choclo/v0.3.2/api/generated/choclo.prism.magnetic_field.html).
+Independent tests integrate a distributed dipole volume, check the cube-axis
+surface-charge/solid-angle solution, verify dipole-limit convergence and compare
+magnetisation finite differences and high-precision total-field calculations.

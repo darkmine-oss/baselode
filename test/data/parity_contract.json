@@ -1000,6 +1000,28 @@
           "calculate_gravity_prisms"
         ]
       ]
+    },
+    {
+      "name": "geophysics_magnetic_prisms",
+      "description": "External uniform-magnetisation prism vectors, linear/exact total field and fixed-geometry J sensitivities through pinned Python backend; native Python/JS portable request validation with explicit permeability normalization.",
+      "jsExports": [
+        "describeGeophysicsMagneticPrisms",
+        "validateGeophysicsMagneticPrisms"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_magnetic_prisms"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_magnetic_prisms"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_magnetic_prisms"
+        ]
+      ]
     }
   ]
 }

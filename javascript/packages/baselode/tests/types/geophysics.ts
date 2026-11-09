@@ -271,3 +271,13 @@ void usePythonPrismResult;
 // @ts-expect-error prism bounds require all six scalars
 const invalidPrism: GeophysicsGravityPrismsRequest['sources'][0] = {id:'body',kind:'prism',bounds_m:[0,1,0,1],density_contrast_kg_m3:2000};
 void invalidPrism;
+
+import {describeGeophysicsMagneticPrisms,validateGeophysicsMagneticPrisms,type GeophysicsMagneticPrismsRequest,type GeophysicsMagneticPrismsReport} from 'baselode/geophysics';
+const magneticPrismRequest: GeophysicsMagneticPrismsRequest = {schema:'baselode.geophysics.magnetic_prisms_request',version:1,coordinate_frame:forwardRequest.coordinate_frame,sources:[{id:'body',kind:'prism',bounds_m:[-50,50,-50,50,-150,-50],magnetization_x_A_m:0,magnetization_y_A_m:0,magnetization_z_up_A_m:1}],points:[{id:'p',x_m:0,y_m:0,z_m:0}],include_sensitivities:true,min_distance_m:1,background_nT:null};
+const magneticPrismValidation = validateGeophysicsMagneticPrisms(magneticPrismRequest);
+void magneticPrismValidation; describeGeophysicsMagneticPrisms();
+const useMagneticPrismResult = (r: GeophysicsMagneticPrismsReport): number | null | undefined => r.fields[0]?.tmi_exact;
+void useMagneticPrismResult;
+// @ts-expect-error all three magnetization components are required
+const invalidMagneticPrism: GeophysicsMagneticPrismsRequest['sources'][0] = {id:'body',kind:'prism',bounds_m:[0,1,0,1,0,1],magnetization_z_up_A_m:1};
+void invalidMagneticPrism;
