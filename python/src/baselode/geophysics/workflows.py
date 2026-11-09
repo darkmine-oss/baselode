@@ -101,6 +101,8 @@ def _parameters(operation, supplied, issue, path):
             valid = valid and ("minimum" not in spec or value >= spec["minimum"])
             valid = valid and ("maximum" not in spec or value <= spec["maximum"])
             valid = valid and ("exclusiveMinimum" not in spec or value > spec["exclusiveMinimum"])
+        if valid and kind == 'string':
+            valid = ('minLength' not in spec or len(value) >= spec['minLength']) and ('maxLength' not in spec or len(value) <= spec['maxLength'])
         if "enum" in spec:
             valid = valid and value in spec["enum"]
         if not valid:

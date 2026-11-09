@@ -50,6 +50,7 @@ function parameters(operation, supplied, issue, path) {
         && (rule.maximum === undefined || value <= rule.maximum)
         && (rule.exclusiveMinimum === undefined || value > rule.exclusiveMinimum);
     }
+    if(valid&&rule.type==='string'){const length=[...value].length;valid=(rule.minLength===undefined||length>=rule.minLength)&&(rule.maxLength===undefined||length<=rule.maxLength);}
     if (rule.enum) valid = valid && rule.enum.includes(value);
     if (!valid) issue('rejected', 'parameter', `${path}.${key}`, 'value violates the operation parameter schema');
     else result[key] = value;

@@ -21,15 +21,19 @@ function asRaster(value){
   return createGeophysicsRaster(value);
 }
 function policy(reference,evidence,negative='mask'){
-  if(reference!=='caller_verified'||!isObservationText(evidence)||[...evidence].length>4096)throw new RadiometricNeedsInput('declare caller_verified corrected concentrations and bounded supporting evidence');
+  if(reference!=='caller_verified')throw Error('reference_policy must be caller_verified');
+  if(typeof evidence!=='string'||[...evidence].length<1||[...evidence].length>4096)throw Error('evidence must contain 1..4096 Unicode code points');
+  if(!isObservationText(evidence))throw new RadiometricNeedsInput('declare supporting corrected-concentration evidence');
   unicodeStrings(evidence);
   if(negative!=='mask')throw Error('negative_policy must be mask; no clipping or pseudocounts');
 }
+
 function context(r,stack){
   unicodeStrings(r.metadata);unicodeStrings(r.crs);encodeProvenance(r.metadata,'GeoTIFF','float64');const t=r.transform;
   if(!Array.isArray(t)||t.length!==6||!t.every(Number.isFinite)||!Number.isFinite(t[0]*t[4]-t[1]*t[3])||t[0]*t[4]-t[1]*t[3]===0)throw Error('require a finite invertible affine transform');
   for(const col of [0,r.width])for(const row of [0,r.height])if(!Number.isFinite(t[0]*col+t[1]*row+t[2])||!Number.isFinite(t[3]*col+t[4]*row+t[5]))throw Error('affine grid coordinates exceed finite range');
-  if(r.crs===null&&!label(r.metadata.frame_id))throw new RadiometricNeedsInput('declare a raster CRS or local metadata.frame_id');
+  const frame=r.metadata.frame_id??null;if(frame!==null&&!label(frame))throw Error('frame_id must be null or a known bounded string, including for projected grids');
+  if(r.crs===null&&frame===null)throw new RadiometricNeedsInput('declare a raster CRS or local metadata.frame_id');
   if(r.crs!==null&&(!isObservationText(r.crs)||[...r.crs].length>4096||['unknown','unspecified'].includes(trimObservationText(r.crs).toLowerCase())))throw Error('CRS must be a bounded known label');
   if(!label(r.metadata.crs_units))throw new RadiometricNeedsInput('declare shared coordinate units; pointwise products allow degrees');
   const c=r.metadata.radiometric;

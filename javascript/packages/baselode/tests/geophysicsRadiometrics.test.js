@@ -79,3 +79,10 @@ it.each(['ratios','ternary'])('keeps %s product units independent from contracts
 it('rejects invalid Unicode in stack evidence and source metadata',()=>{
   expect(()=>stackGeophysicsRadiometricGrids(...sources(),{reference_policy:'caller_verified',evidence:'\ud800'})).toThrow();const s=sources();s[0].metadata.radiometric.calibration_id='\ud800';expect(()=>stackGeophysicsRadiometricGrids(...s,{reference_policy:'caller_verified',evidence:'checked'})).toThrow();
 });
+
+it.each([{id:'site'},1,true,[]])('requires projected frame_id to be a string or null: %j',value=>{
+  const g=grid();g.crs='EPSG:32750';g.metadata.crs_units='m';g.transform=[10,0,500000,0,-10,6500000];g.metadata.frame_id=value;expect(()=>calculateGeophysicsRadiometricRatios(g,fixture().ratio_options)).toThrow();const s=sources();s.forEach(source=>{source.crs='EPSG:32750';source.metadata.crs_units='m';source.transform=[10,0,500000,0,-10,6500000];source.metadata.frame_id=structuredClone(value);});expect(()=>stackGeophysicsRadiometricGrids(...s,{reference_policy:'caller_verified',evidence:'checked'})).toThrow();
+});
+it.each([['😀'.repeat(4096),'ok'],['😀'.repeat(4097),'rejected'],['a'.repeat(4097),'rejected'],['','rejected'],[null,'rejected']])('classifies evidence length/type schema violations correctly', (value,state)=>{
+  const w=workflow();w.steps=w.steps.slice(0,1);w.steps[0].parameters.evidence=value;w.outputs=['ratios'];const r=runGeophysicsWorkflow(w,{radio:grid()});expect(r.state,r.issues).toBe(state);if(state!=='ok'){expect(r.completed_steps).toEqual([]);expect(r.artifacts).toEqual({});}const missing=workflow();missing.steps=missing.steps.slice(0,1);delete missing.steps[0].parameters.evidence;missing.outputs=['ratios'];expect(validateGeophysicsWorkflow(missing,{radio:grid()}).state).toBe('needs_input');
+});

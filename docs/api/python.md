@@ -2602,3 +2602,7 @@ reject references to earlier transform outputs, whose actual values/derived
 units cannot be checked from a cached structural context. Run an upstream
 filter/combine recipe separately, inspect its output calibration/units/support,
 then supply a compatible verified stack as an input to the product recipe.
+
+Optional raster `metadata.frame_id` must be null or a known bounded string,
+even with a projected CRS. Evidence length/type schema violations are rejected;
+missing required evidence remains `needs_input` during recipe preflight.

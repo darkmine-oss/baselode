@@ -36,8 +36,12 @@ def _label(value):
 
 
 def _policy(reference_policy, evidence, negative_policy='mask'):
-    if reference_policy != 'caller_verified' or not baselode.geophysics.observations._text(evidence) or len(evidence)>4096:
-        raise _NeedsInput('declare caller_verified corrected concentrations and bounded supporting evidence')
+    if reference_policy != 'caller_verified':
+        raise ValueError('reference_policy must be caller_verified')
+    if not isinstance(evidence,str) or not 1 <= len(evidence) <= 4096:
+        raise ValueError('evidence must contain 1..4096 Unicode code points')
+    if not baselode.geophysics.observations._text(evidence):
+        raise _NeedsInput('declare supporting corrected-concentration evidence')
     evidence.encode('utf-8')
     if negative_policy != 'mask':
         raise ValueError('negative_policy must be mask; no clipping or pseudocounts')
@@ -58,7 +62,10 @@ def _context(raster, stack):
     corners=[(transform[0]*col+transform[1]*row+transform[2],transform[3]*col+transform[4]*row+transform[5]) for col in (0,raster.width) for row in (0,raster.height)]
     if any(not math.isfinite(v) for corner in corners for v in corner):
         raise ValueError('affine grid coordinates exceed finite range')
-    if raster.crs is None and not _label(raster.metadata.get('frame_id')):
+    frame=raster.metadata.get('frame_id')
+    if frame is not None and not _label(frame):
+        raise ValueError('frame_id must be null or a known bounded string, including for projected grids')
+    if raster.crs is None and frame is None:
         raise _NeedsInput('declare a raster CRS or local metadata.frame_id')
     if raster.crs is not None and (not baselode.geophysics.observations._text(raster.crs) or len(raster.crs)>4096 or baselode.geophysics.observations._trim(raster.crs).lower() in ('unknown','unspecified')):
         raise ValueError('CRS must be a bounded known label')

@@ -216,3 +216,21 @@ def test_stack_rejects_invalid_unicode_evidence_and_source_metadata():
     with pytest.raises(ValueError):baselode.geophysics.stack_radiometric_grids(*sources(),reference_policy='caller_verified',evidence='\ud800')
     s=sources();s[0].metadata['radiometric']['calibration_id']='\ud800'
     with pytest.raises(ValueError):baselode.geophysics.stack_radiometric_grids(*s,reference_policy='caller_verified',evidence='checked')
+
+
+@pytest.mark.parametrize('value',[{'id':'site'},1,True,[]])
+def test_projected_source_frame_id_is_a_string_or_null(value):
+    g=grid();g.crs='EPSG:32750';g.metadata['crs_units']='m';g.transform=(10,0,500000,0,-10,6500000);g.metadata['frame_id']=value
+    with pytest.raises(ValueError):baselode.geophysics.radiometric_ratios(g,**fixture()['ratio_options'])
+    s=sources()
+    for source in s:
+        source.crs='EPSG:32750';source.metadata['crs_units']='m';source.transform=(10,0,500000,0,-10,6500000);source.metadata['frame_id']=copy.deepcopy(value)
+    with pytest.raises(ValueError):baselode.geophysics.stack_radiometric_grids(*s,reference_policy='caller_verified',evidence='checked')
+
+
+@pytest.mark.parametrize('value,state',[('😀'*4096,'ok'),('😀'*4097,'rejected'),('a'*4097,'rejected'),('', 'rejected'),(None,'rejected')])
+def test_evidence_schema_limits_are_rejected_instead_of_requested(value,state):
+    w=workflow();w['steps']=w['steps'][:1];w['steps'][0]['parameters']['evidence']=value;w['outputs']=['ratios']
+    r=baselode.geophysics.run_workflow(w,{'radio':grid()});assert r['state']==state,r['issues']
+    if state!='ok':assert r['completed_steps']==[] and r['artifacts']=={}
+    missing=workflow();missing['steps']=missing['steps'][:1];missing['steps'][0]['parameters'].pop('evidence');missing['outputs']=['ratios'];assert baselode.geophysics.validate_workflow(missing,{'radio':grid()})['state']=='needs_input'

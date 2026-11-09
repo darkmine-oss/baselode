@@ -1859,3 +1859,7 @@ References to earlier transform outputs are rejected before execution;
 preflight cannot infer their actual values or changed units from cached input
 grids. Run upstream transforms separately, verify their output concentration
 context, then supply compatible stacks as named inputs.
+
+Optional raster `metadata.frame_id` must be null or a known bounded string,
+even with a projected CRS. Evidence length/type schema violations are rejected;
+missing required evidence remains `needs_input` during recipe preflight.
