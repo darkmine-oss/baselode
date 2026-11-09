@@ -67,7 +67,7 @@ function parameters(operation, supplied, issue, path) {
 function outputContext(context, operation, params) {
   const result = { ...context, units: [...context.units] };
   if (operation.outputs.field_type !== 'preserve') result.field_type = operation.outputs.field_type;
-  if(pointwise.includes(operation.id))result.units=[...operation.outputs.units];
+  if(pointwise.includes(operation.id))result.units=[...operation.outputs.band_units];
   else if (operation.id === 'tilt_derivative') result.units = context.units.map(() => 'degree');
   else if (['vertical_derivative', 'horizontal_derivative', 'total_horizontal_derivative', 'analytic_signal'].includes(operation.id)) {
     const order = params.order ?? 1;

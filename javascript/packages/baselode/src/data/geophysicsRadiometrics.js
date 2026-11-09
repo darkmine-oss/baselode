@@ -14,7 +14,7 @@ export class RadiometricNeedsInput extends Error {}
 /** Independent corrected-concentration/ratio/ternary contracts and limits. */
 export function describeGeophysicsRadiometrics(){return clone(descriptor);}
 function asRaster(value){
-  if(!Array.isArray(value?.transform)||value.transform.length!==6)throw Error('require an explicit affine transform');
+  if(value?.hasExplicitTransform===false||!Array.isArray(value?.transform)||value.transform.length!==6)throw Error('require an explicit affine transform');
   const raw=value?.data;if(!Array.isArray(raw)||!raw.length)throw Error('expected raster data');
   const bands=Array.isArray(raw[0])&&!Array.isArray(raw[0][0])?[raw]:raw;
   if(!Array.isArray(bands[0])||!Array.isArray(bands[0][0])||bands.length*bands[0].length*bands[0][0].length>1000000)throw Error('radiometrics accepts at most 1000000 input cell values');

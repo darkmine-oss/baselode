@@ -124,7 +124,7 @@ def _output_context(context, operation, parameters):
     if operation["outputs"]["field_type"] != "preserve":
         result["field_type"] = operation["outputs"]["field_type"]
     if name in _POINTWISE:
-        result["units"] = list(operation["outputs"]["units"])
+        result["units"] = list(operation["outputs"]["band_units"])
     elif name == "tilt_derivative":
         result["units"] = ["degree"] * context["grid"].band_count
     elif name in ("vertical_derivative", "horizontal_derivative", "total_horizontal_derivative", "analytic_signal"):

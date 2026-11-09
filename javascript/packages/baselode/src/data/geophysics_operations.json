@@ -692,7 +692,8 @@
       "kind": "GeophysicsRaster",
       "resolution": "full",
       "field_type": "other",
-      "units": [
+      "units": "per-band; see band_units",
+      "band_units": [
         "ppm/%",
         "ppm/%",
         "1"
@@ -807,7 +808,8 @@
       "kind": "GeophysicsRaster",
       "resolution": "full",
       "field_type": "other",
-      "units": [
+      "units": "per-band; see band_units",
+      "band_units": [
         "fraction",
         "fraction",
         "fraction"

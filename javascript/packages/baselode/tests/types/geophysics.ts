@@ -205,3 +205,9 @@ const plateWorkflowOperation:GeophysicsObservationWorkflowOperation='apply_bougu
 // @ts-expect-error ratio denominator floor is required
 const radioMissingFloor:GeophysicsRadiometricRatioOptions={thorium_floor:.5,reference_policy:'caller_verified',evidence:'checked'};
 void radioMissingFloor;
+
+// Existing catalogue clients keep the original string units API.
+const compatibleLegacyUnitDescription:string=describeGeophysicsOperation('low_pass').outputs.units.toUpperCase();
+const radioBandUnits:string[]|undefined=describeGeophysicsOperation('radiometric_ratios').outputs.band_units;
+const declaredTransformMarker:boolean|undefined=raster.hasExplicitTransform;
+void compatibleLegacyUnitDescription;void radioBandUnits;void declaredTransformMarker;

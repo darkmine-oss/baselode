@@ -2606,3 +2606,10 @@ then supply a compatible verified stack as an input to the product recipe.
 Optional raster `metadata.frame_id` must be null or a known bounded string,
 even with a projected CRS. Evidence length/type schema violations are rejected;
 missing required evidence remains `needs_input` during recipe preflight.
+
+Radiometric products require declared affine geometry. JavaScript rasters keep
+`hasExplicitTransform=false` when the constructor supplies its default pixel
+transform; clones and decimation preserve that marker, and radiometric kernels
+reject it. Existing pixel/display raster defaults remain available. Catalogue
+`outputs.units` remains a string; optional `outputs.band_units` gives exact
+per-band units for radiometric operations.

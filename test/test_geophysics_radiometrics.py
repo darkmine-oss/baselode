@@ -234,3 +234,18 @@ def test_evidence_schema_limits_are_rejected_instead_of_requested(value,state):
     r=baselode.geophysics.run_workflow(w,{'radio':grid()});assert r['state']==state,r['issues']
     if state!='ok':assert r['completed_steps']==[] and r['artifacts']=={}
     missing=workflow();missing['steps']=missing['steps'][:1];missing['steps'][0]['parameters'].pop('evidence');missing['outputs']=['ratios'];assert baselode.geophysics.validate_workflow(missing,{'radio':grid()})['state']=='needs_input'
+
+
+def test_missing_affine_geometry_rejects_products_and_named_recipes():
+    g=grid();g.transform=None
+    with pytest.raises(ValueError,match='affine'):baselode.geophysics.radiometric_ratios(g,**fixture()['ratio_options'])
+    with pytest.raises(ValueError,match='affine'):baselode.geophysics.radiometric_ternary(g,**fixture()['ternary_options'])
+    r=baselode.geophysics.run_workflow(workflow(),{'radio':g});assert r['state']=='rejected' and r['completed_steps']==[]
+    s=sources()
+    for source in s:source.transform=None
+    with pytest.raises(ValueError,match='affine'):baselode.geophysics.stack_radiometric_grids(*s,reference_policy='caller_verified',evidence='checked')
+
+
+def test_existing_catalogue_unit_descriptions_stay_strings_with_additive_band_units():
+    ops=baselode.geophysics.list_operations();assert all(type(op['outputs']['units']) is str for op in ops)
+    assert baselode.geophysics.describe_operation('radiometric_ratios')['outputs']['band_units']==['ppm/%','ppm/%','1']

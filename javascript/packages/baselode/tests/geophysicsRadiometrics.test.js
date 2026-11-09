@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later */
 import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
-import {createGeophysicsRaster} from '../src/data/geophysicsRaster.js';
+import {createGeophysicsRaster,decimateGeophysicsRaster,geophysicsRasterFromBands} from '../src/data/geophysicsRaster.js';
 import {describeGeophysicsRadiometrics,stackGeophysicsRadiometricGrids,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from '../src/data/geophysicsRadiometrics.js';
 import {runGeophysicsWorkflow,validateGeophysicsWorkflow} from '../src/data/geophysicsWorkflows.js';
 import {encodeErs,encodeGeoTiff} from '../src/data/geophysicsWriters.js';
@@ -85,4 +85,12 @@ it.each([{id:'site'},1,true,[]])('requires projected frame_id to be a string or 
 });
 it.each([['😀'.repeat(4096),'ok'],['😀'.repeat(4097),'rejected'],['a'.repeat(4097),'rejected'],['','rejected'],[null,'rejected']])('classifies evidence length/type schema violations correctly', (value,state)=>{
   const w=workflow();w.steps=w.steps.slice(0,1);w.steps[0].parameters.evidence=value;w.outputs=['ratios'];const r=runGeophysicsWorkflow(w,{radio:grid()});expect(r.state,r.issues).toBe(state);if(state!=='ok'){expect(r.completed_steps).toEqual([]);expect(r.artifacts).toEqual({});}const missing=workflow();missing.steps=missing.steps.slice(0,1);delete missing.steps[0].parameters.evidence;missing.outputs=['ratios'];expect(validateGeophysicsWorkflow(missing,{radio:grid()}).state).toBe('needs_input');
+});
+
+it('rejects constructor-generated unit transforms, including copies, in all product entry points',()=>{
+  const f=fixture(),payload={...f,bandNames:f.band_names};delete payload.transform;const missing=createGeophysicsRaster(payload);expect(missing.hasExplicitTransform).toBe(false);expect(missing.transform).toEqual([1,0,0,0,-1,2]);
+  for(const g of [missing,createGeophysicsRaster({...missing}),structuredClone(missing),decimateGeophysicsRaster(missing,2),geophysicsRasterFromBands(missing.data.map(b=>Float64Array.from(b.flat().map(v=>v??NaN))),{...missing,maxCells:2})]){
+    expect(()=>calculateGeophysicsRadiometricRatios(g,f.ratio_options)).toThrow(/explicit affine/);expect(()=>createGeophysicsRadiometricTernary(g,f.ternary_options)).toThrow(/explicit affine/);const r=runGeophysicsWorkflow(workflow(),{radio:g});expect(r.state).toBe('rejected');expect(r.completed_steps).toEqual([]);
+  }
+  const single=sources().map(g=>{const p={...g};delete p.transform;delete p.hasExplicitTransform;return createGeophysicsRaster(p);});expect(()=>stackGeophysicsRadiometricGrids(...single,{reference_policy:'caller_verified',evidence:'checked'})).toThrow(/explicit affine/);
 });

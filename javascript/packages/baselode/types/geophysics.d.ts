@@ -30,6 +30,7 @@ export interface GeophysicsRasterMetadata {
 export interface GeophysicsRasterPayload {
   data: GeophysicsCell[][] | GeophysicsCell[][][];
   transform?: GeophysicsTransform | null;
+  hasExplicitTransform?: boolean;
   crs?: string | null;
   nodata?: number | null;
   bandNames?: string[];
@@ -42,6 +43,7 @@ export interface GeophysicsRaster {
   height: number;
   bandCount: number;
   transform: GeophysicsTransform;
+  hasExplicitTransform?: boolean;
   crs: string | null;
   nodata: number | null;
   bandNames: string[];
@@ -208,7 +210,7 @@ export interface GeophysicsOperationDescription {
   version: 1;
   inputs: { count: number; kind: string; field_types: string[]; units: string; coordinates: string };
   parameters: { type: 'object'; properties: Record<string, Record<string, unknown>>; required: string[]; additionalProperties: false };
-  outputs: { kind: string; resolution: string; field_type: string; units: string | string[] };
+  outputs: { kind: string; resolution: string; field_type: string; units: string; band_units?: string[] };
   assumptions: string[];
   backend: Record<string, unknown>;
   deterministic: boolean;
