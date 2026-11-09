@@ -942,6 +942,24 @@
           "fit_regional_trend"
         ]
       ]
+    },
+    {
+      "name": "geophysics_gravity_forward",
+      "description": "Native synthetic point-mass and uniform solid-sphere gravity vectors and negative potential, fixed-geometry amplitude sensitivities, explicit Cartesian metre frames and bounded portable request/result contracts.",
+      "jsExports": [
+        "describeGeophysicsGravityForward",
+        "calculateGeophysicsGravityForward"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_gravity_forward"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_gravity_forward"
+        ]
+      ]
     }
   ]
 }

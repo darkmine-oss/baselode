@@ -312,3 +312,27 @@ closed-form Huber references, true held-out spatial validation, excluded-feature
 no-leakage, unit scaling, masks/rank/condition/convergence and ERS/GeoTIFF cases
 validate the algorithms. Live parity uses absolute tolerance 1e-7 in the nT
 fixtures; diagnostics do not imply calibrated geological uncertainty.
+
+## Analytical gravity forward modelling v1
+
+Python `describe_gravity_forward` / `calculate_gravity_forward` correspond to
+JavaScript `describeGeophysicsGravityForward` / `calculateGeophysicsGravityForward`
+in the root and geophysics entries. Both execute natively and package an identical
+request/result JSON descriptor. The strict local Cartesian metre frame, height
+datum, IDs, source kinds/contrasts, explicit point-mass exclusion distance,
+atomic states and budgets are shared. Sphere interiors/centres/exteriors and
+fixed-geometry mass/density sensitivities are supported. Responses are synthetic
+contrasts with negative Newtonian potential, vertical up and `g_down=-gz_up`;
+no observation reduction, reference field, inversion or datum transform occurs.
+
+Independent direct Newtonian sphere volume/potential quadrature and finite
+differences check the science. Live cross-runtime fixtures compare vectors and
+sensitivities at relative 2e-13 with absolute 1e-15/1e-18 tolerances respectively;
+models, units, request structure and negative state/code pairs compare exactly.
+Producer package versions and numeric serialization formatting are runtime-native;
+bitwise numeric JSON identity is not promised. Zero-valued field/sensitivity
+components are canonical positive zero. Python additionally rejects integer
+objects that cannot be represented exactly in binary64; JavaScript numeric
+inputs already are binary64. Request/result depth budgets are separate so the
+request echo preserves the deepest valid request. The standalone JSON API is
+separate from raster and acquisition-observation workflow execution.
