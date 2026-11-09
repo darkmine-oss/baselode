@@ -239,3 +239,15 @@ regionalStep.operation;
 // @ts-expect-error LS forbids unused Huber-only controls
 const invalidRegionalOptions: GeophysicsRegionalOptions = {band:1,degree:1,estimator:'least_squares',exclude_bounds:[],min_training_fraction:.5,max_condition:1e6,domain_policy:'source_footprint',huber_threshold:1};
 void invalidRegionalOptions;
+
+import {describeGeophysicsGravityForward,calculateGeophysicsGravityForward,type GeophysicsGravityForwardRequest,type GeophysicsGravityForwardSource} from 'baselode/geophysics';
+const gravitySource: GeophysicsGravityForwardSource = {id:'sphere',kind:'sphere',x_m:0,y_m:0,z_m:-100,radius_m:10,density_contrast_kg_m3:2000};
+const forwardRequest: GeophysicsGravityForwardRequest = {schema:'baselode.geophysics.gravity_forward_request',version:1,coordinate_frame:{id:'local',kind:'local_cartesian',axes:'x_y_up',units:'m',height_datum:'local_zero'},sources:[gravitySource],points:[{id:'p',x_m:0,y_m:0,z_m:0}],include_sensitivities:true};
+const forwardReport = calculateGeophysicsGravityForward(forwardRequest);
+const forwardValue: number | undefined = forwardReport.fields[0]?.g_down;
+void forwardValue; describeGeophysicsGravityForward();
+// @ts-expect-error sphere mass and density amplitudes are mutually exclusive
+const invalidForwardSource: GeophysicsGravityForwardSource = {...gravitySource,mass_contrast_kg:1};
+void invalidForwardSource;
+// @ts-expect-error explicit calculation frame and sensitivity policy are required
+calculateGeophysicsGravityForward({sources:[gravitySource],points:[]});

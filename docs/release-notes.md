@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native Python/JavaScript analytical point-mass and uniform solid-sphere gravity responses, exact fixed-geometry amplitude sensitivities, explicit local Cartesian/sign/unit contracts, compensated superposition, bounded atomic reports and portable schemas/types/examples.
+
 - Add native polynomial regional/residual decomposition with explicit least-squares/Huber estimators, training exclusions, conditioning/convergence/work gates, model/history-preserving rasters and typed residual-to-spectrum workflows.
 
 - Add native radial/directional spatial power-spectrum reports with explicit window/detrend normalization, Parseval/DC/Nyquist support diagnostics, typed observation-workflow report ports and shared Python/JavaScript schemas.

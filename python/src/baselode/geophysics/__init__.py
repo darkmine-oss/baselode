@@ -224,3 +224,8 @@ import baselode.geophysics.regional as geophysics_regional
 describe_regional_trend = geophysics_regional.describe_regional_trend
 fit_regional_trend = geophysics_regional.fit_regional_trend
 __all__ += ['describe_regional_trend', 'fit_regional_trend']
+
+import baselode.geophysics.gravity_forward as geophysics_gravity_forward
+describe_gravity_forward = geophysics_gravity_forward.describe_gravity_forward
+calculate_gravity_forward = geophysics_gravity_forward.calculate_gravity_forward
+__all__ += ['describe_gravity_forward', 'calculate_gravity_forward']

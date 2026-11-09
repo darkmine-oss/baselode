@@ -705,3 +705,5 @@ export {describeGeophysicsMicrolevelling,estimateGeophysicsMagneticMicrolevellin
 export {describeGeophysicsSpectrum,analyzeGeophysicsGridSpectrum} from './data/geophysicsSpectrum.js';
 
 export {describeGeophysicsRegionalTrend,fitGeophysicsRegionalTrend} from './data/geophysicsRegional.js';
+
+export {describeGeophysicsGravityForward,calculateGeophysicsGravityForward} from './data/geophysicsGravityForward.js';

@@ -2042,3 +2042,78 @@ The typed observation-workflow operation `fit_regional_trend` exposes regional,
 residual, training_mask and report ports. It can feed actual residual output to
 `analyze_grid_spectrum`; non-ok stages withhold every artifact. The complete
 synthetic example is `test/data/regional_example.json`.
+
+### Analytical gravity forward responses
+
+`describeGeophysicsGravityForward()` exposes the shared request/result JSON
+Schemas; `calculateGeophysicsGravityForward(request)` executes natively in
+JavaScript. Both are exported from the root and `baselode/geophysics` entries.
+TypeScript provides request, source-union, result, field and sensitivity types.
+
+```javascript
+import {calculateGeophysicsGravityForward} from 'baselode/geophysics';
+// request is the parsed JSON from test/data/gravity_forward_example.json.
+const report = calculateGeophysicsGravityForward(request);
+if (report.state !== 'ok') throw new Error(JSON.stringify(report.issues));
+console.assert(Math.abs(report.fields[0].g_down - 6.6743) < 1e-12);
+```
+
+The strict request has `schema: "baselode.geophysics.gravity_forward_request"`,
+`version: 1`, a `coordinate_frame`, `sources`, `points`, and an explicit
+`include_sensitivities` boolean. The frame requires a known `id` and
+`height_datum`, `kind: "local_cartesian"`, `axes: "x_y_up"`, `units: "m"`.
+Every source and point requires its own unique `id` within its collection and
+`x_m`, `y_m`, `z_m`. All geometry must already share that frame/datum.
+Transform geographic/projected coordinates upstream; the API performs no CRS,
+height-datum, grid/true-north, curvature or rotation conversion.
+
+Point-mass sources use `kind: "point_mass"` and signed `mass_contrast_kg`.
+Sphere sources use `kind: "sphere"`, `radius_m`, and signed uniform
+`density_contrast_kg_m3`. Positive/negative/zero contrasts and overlapping
+sources are permitted; overlapping densities add. Any point mass requires
+`point_mass_min_distance_m` (0.001–100000 m), which is forbidden for sphere-only
+models. Distances below that threshold fail the entire request, even for zero
+mass. There is no numerical softening or clipping. A solid sphere can be
+evaluated on its surface, inside it, or at its centre.
+
+Each output field has `id`, `gx`, `gy`, `gz_up`, `g_down` in **mGal** and
+`potential` in **m²/s²**, as recorded by `field_units`. x/y follow the declared
+local axes; `g_down = -gz_up`. Potential is **negative** for positive contrasts,
+zero at infinity, and acceleration is **minus** its gradient. For source-to-point
+displacement d = source − point, a point mass gives g = G M d / |d|³,
+φ = −G M / |d|. A sphere of radius R and density contrast ρ has mass
+4πR³ρ/3; exterior fields match that point mass. Inside, g = 4πGρ d/3 and
+φ = −2πGρ(3R²−|d|²)/3. Acceleration converts from SI with 1 mGal = 10⁻⁵ m/s².
+Source contributions use compensated summation.
+
+`include_sensitivities: true` returns one entry per source, identifying its
+`parameter`, `parameter_units` and derivative `field_units`. These are exact
+linear derivatives with respect to mass (kg) or density (kg/m³) **with positions
+and radii fixed**, including at zero amplitude. They are not position/radius
+derivatives or an inversion result. The same field property names are used;
+read the enclosing units for derivatives.
+
+The pinned G = 6.67430 × 10⁻¹¹ m³/(kg s²) comes from the
+[NIST 2022 CODATA listing](https://physics.nist.gov/cuu/Constants/Table/allascii.txt).
+Its measurement uncertainty is not propagated. The response is explicitly
+synthetic: it contains no normal/reference field, measured readings, reduction
+corrections, uncertainty estimate or claim of a unique geological interpretation.
+It does not modify observation correction ledgers or raster processing histories.
+
+Successful reports include an independent `request` snapshot and versioned
+`model` constants/conventions for deterministic replay. `state` is `ok`,
+`needs_input`, `rejected` or `failed`; inspect `issues` before consuming fields.
+All errors withhold **all** fields/sensitivities and set `request` to null.
+A report is bounded plain JSON and can be retained as an agent workflow artifact.
+This standalone model/point API is separate from the acquisition-observation
+workflow runner and the raster-operation catalogue.
+
+Resources: at most 128 sources, 4096 points and 262144 source–point pairs,
+reduced to 8192 pairs when requesting sensitivities. Coordinates are bounded
+by ±10¹² m and the combined geometry, including sphere extents, by 200 km
+per axis. Sphere radii are 0.001–100000 m, density contrasts ±100000 kg/m³,
+and point masses ±10²¹ kg. These numerical bounds are not geological accuracy
+guarantees. Limits also cover input JSON (2 MiB), optional metadata (128 KiB),
+result JSON (8 MiB), depth (32), input nodes (100000) and result nodes (500000).
+Finite binary64 scalars, valid Unicode, strict keys and immutable inputs are
+required. No optional backend or new dependency is needed.
