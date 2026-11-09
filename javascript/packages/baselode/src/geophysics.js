@@ -79,3 +79,5 @@ export {describeGeophysicsGravityTemporal,applyGeophysicsGravityTide,correctGeop
 export {describeGeophysicsGravityTopography} from './data/geophysicsGravityTopography.js';
 
 export {describeGeophysicsRadiometrics,stackGeophysicsRadiometricGrids,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from './data/geophysicsRadiometrics.js';
+
+export {describeGeophysicsMicrolevelling,estimateGeophysicsMagneticMicrolevelling,microlevelGeophysicsMagneticGrid} from './data/geophysicsMicrolevelling.js';

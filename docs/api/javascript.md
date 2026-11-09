@@ -1879,3 +1879,60 @@ authoritative even when transform numbers change: numerical editing cannot
 verify geometry. Python `GeophysicsRaster.from_payload` maps `false` to
 `transform=None`, so transfer preserves this distinction. To declare verified
 geometry in a portable payload, supply its transform and set the marker to true.
+
+### Controlled magnetic grid microlevelling
+
+`describeGeophysicsMicrolevelling()`,
+`estimateGeophysicsMagneticMicrolevelling(grid, options)` and
+`microlevelGeophysicsMagneticGrid(grid, options)` execute natively with the
+same snake_case options and model as Python. Use a verified, explicitly
+levelled, one-band `magnetic_anomaly/nT` original grid. Declare current
+`metadata.grid_corrections.magnetic_levelling="applied"` and
+`magnetic_microlevelling="unapplied"`; archived observation metadata is source
+lineage, not a current-grid assertion.
+
+```javascript
+const options = {
+  flight_azimuth: 0, line_spacing: 40,
+  along_line_wavelength: 640, across_line_wavelength: 160,
+  max_abs_correction: 5, protected_bounds: [],
+  edge_margin_cells: 8, min_training_fraction: 0.75,
+  reference_policy: 'caller_verified',
+  evidence: 'Verified levelled anomaly, sampling and projected grid geometry',
+  geology_policy: 'directional_overlap_acknowledged',
+};
+const candidate = estimateGeophysicsMagneticMicrolevelling(grid, options);
+const qc = candidate.metadata.microlevelling.diagnostics;
+// Inspect candidate/protection/geological retention before application.
+const corrected = microlevelGeophysicsMagneticGrid(grid, options);
+```
+
+Azimuth is clockwise from CRS north; distances/protection boxes use CRS linear
+units. Require explicit projected/local rectangular geometry, cell sizes <=
+half measured line spacing, across cutoff >= twice spacing and along cutoff >=
+twice across cutoff. The grid must span one along cutoff and four spacings
+across. Native FFT plane removal/training excludes protected valid cell centres;
+corrections are zero there and at the explicit edge margin. Original missing
+cells remain missing. The hard unchanged boundary can introduce transitions;
+inspect boundaries and gap artefacts.
+
+Estimation returns `other/nT`, including an over-cap candidate marked
+`application_supported=false`. Application takes the original, recomputes and
+rejects an exceeded cap without clipping. It records applied grid history and
+rejects repetition. Source uncertainty is archived, not propagated. Directional
+geology/noise spectra may coincide: the required acknowledgement, cap and
+protection cannot distinguish those signals, and a smaller RMS is not proof of
+geological recovery.
+
+The descriptor publishes the exact Gaussian low-pass-along/high-pass-across
+response and assumptions, including real FFT Nyquist pairing and numerical zero
+threshold. Limits are 16x16 minimum, 262144 source cells, 4194304 padded FFT
+cells, 16 positive-area protection boxes, 64 training cells and explicit
+training fraction [0.25,1] of all cells. Each box must include a valid centre,
+and at least one unprotected interior application cell must remain.
+
+Both version-1 saved raster operations use named verified original input grids,
+not earlier step outputs. Preflight checks geometry/support/budgets without an
+FFT; numerical cap failures return `failed` with no artifacts. See the Python
+API's model discussion and primary references; this is residual grid striping
+processing, with no claim to located-line or vendor-equivalent corrections.

@@ -199,7 +199,7 @@ export interface GeophysicsWorkflowStep {
   operation: string;
   version: 1;
   inputs: string[];
-  parameters: Record<string, number | string | boolean>;
+  parameters: Record<string, number | string | boolean | number[][]>;
 }
 export interface GeophysicsWorkflow {
   schema: 'baselode.geophysics.workflow';
@@ -719,3 +719,16 @@ export function describeGeophysicsRadiometrics(): Record<string, any>;
 export function stackGeophysicsRadiometricGrids(potassium: GeophysicsRasterInput, uranium: GeophysicsRasterInput, thorium: GeophysicsRasterInput, options: GeophysicsRadiometricVerification): GeophysicsRaster;
 export function calculateGeophysicsRadiometricRatios(raster: GeophysicsRasterInput, options: GeophysicsRadiometricRatioOptions): GeophysicsRaster;
 export function createGeophysicsRadiometricTernary(raster: GeophysicsRasterInput, options: GeophysicsRadiometricTernaryOptions): GeophysicsRaster;
+
+/** Explicit original-grid residual striping controls; distances are CRS units. */
+export interface GeophysicsMicrolevellingOptions {
+  flight_azimuth: number; line_spacing: number;
+  along_line_wavelength: number; across_line_wavelength: number;
+  max_abs_correction: number; protected_bounds: Array<[number,number,number,number]>;
+  edge_margin_cells: number; min_training_fraction: number;
+  reference_policy: 'caller_verified'; evidence: string;
+  geology_policy: 'directional_overlap_acknowledged';
+}
+export function describeGeophysicsMicrolevelling(): Record<string, any>;
+export function estimateGeophysicsMagneticMicrolevelling(raster: GeophysicsRasterInput, options: GeophysicsMicrolevellingOptions): GeophysicsRaster;
+export function microlevelGeophysicsMagneticGrid(raster: GeophysicsRasterInput, options: GeophysicsMicrolevellingOptions): GeophysicsRaster;

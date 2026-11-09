@@ -50,7 +50,9 @@
               "reduce_to_pole",
               "combine",
               "radiometric_ratios",
-              "radiometric_ternary"
+              "radiometric_ternary",
+              "estimate_magnetic_microlevelling",
+              "microlevel_magnetic_grid"
             ]
           },
           "version": {

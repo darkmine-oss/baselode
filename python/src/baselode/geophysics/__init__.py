@@ -208,3 +208,9 @@ stack_radiometric_grids = geophysics_radiometrics.stack_radiometric_grids
 radiometric_ratios = geophysics_radiometrics.radiometric_ratios
 radiometric_ternary = geophysics_radiometrics.radiometric_ternary
 __all__ += ['describe_radiometrics', 'stack_radiometric_grids', 'radiometric_ratios', 'radiometric_ternary']
+
+import baselode.geophysics.microlevelling as geophysics_microlevelling
+describe_microlevelling = geophysics_microlevelling.describe_microlevelling
+estimate_magnetic_microlevelling = geophysics_microlevelling.estimate_magnetic_microlevelling
+microlevel_magnetic_grid = geophysics_microlevelling.microlevel_magnetic_grid
+__all__ += ['describe_microlevelling', 'estimate_magnetic_microlevelling', 'microlevel_magnetic_grid']

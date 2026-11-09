@@ -211,3 +211,12 @@ const compatibleLegacyUnitDescription:string=describeGeophysicsOperation('low_pa
 const radioBandUnits:string[]|undefined=describeGeophysicsOperation('radiometric_ratios').outputs.band_units;
 const declaredTransformMarker:boolean|undefined=raster.hasExplicitTransform;
 void compatibleLegacyUnitDescription;void radioBandUnits;void declaredTransformMarker;
+
+import {describeGeophysicsMicrolevelling,estimateGeophysicsMagneticMicrolevelling,microlevelGeophysicsMagneticGrid,type GeophysicsMicrolevellingOptions} from 'baselode/geophysics';
+const microOptions: GeophysicsMicrolevellingOptions = {flight_azimuth:0,line_spacing:4,along_line_wavelength:64,across_line_wavelength:16,max_abs_correction:5,protected_bounds:[[48,0,80,128]],edge_margin_cells:8,min_training_fraction:.5,reference_policy:'caller_verified',evidence:'verified',geology_policy:'directional_overlap_acknowledged'};
+describeGeophysicsMicrolevelling();
+const microGrid = createGeophysicsRaster({data:[[1]],transform:[1,0,0,0,-1,1]});
+estimateGeophysicsMagneticMicrolevelling(microGrid,microOptions);
+microlevelGeophysicsMagneticGrid(microGrid,microOptions);
+const microStep: import('baselode/geophysics').GeophysicsWorkflowStep = {id:'noise',operation:'estimate_magnetic_microlevelling',version:1,inputs:['magnetic'],parameters:{...microOptions}};
+microStep.parameters.protected_bounds;
