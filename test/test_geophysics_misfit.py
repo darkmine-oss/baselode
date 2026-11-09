@@ -76,3 +76,10 @@ def test_live_python_js_metrics_context_failures_and_request_replay(tmp_path):
     a=tmp_path/'in.json';b=tmp_path/'out.json';a.write_text(json.dumps({'request':p,'negative':negative}));subprocess.run(['node',str(ROOT/'test/data/misfit_parity.mjs'),str(a),str(b)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True);js=json.loads(b.read_text());py=run(p)
     assert js['descriptor']==baselode.geophysics.describe_misfit();assert js['result']['rows']==py['rows'] and js['result']['groups']==py['groups'] and js['result']['summary']==py['summary'];assert run(js['result']['request'])['summary']==py['summary']
     expected=[baselode.geophysics.calculate_misfit(x) for x in negative];assert js['negative']==[{'state':r['state'],'code':r['issues'][0]['code'],'rows':r['rows']} for r in expected]
+
+
+def test_binary64_integer_subtraction_matches_javascript(tmp_path):
+    p=request();p['observed']['records'][0]['value']=100000000000000000;p['predicted']['records'][0]['value']=1
+    py=run(p);assert py['rows'][0]['residual']==1e17
+    a=tmp_path/'in.json';b=tmp_path/'out.json';a.write_text(json.dumps({'request':p,'negative':[]}));subprocess.run(['node',str(ROOT/'test/data/misfit_parity.mjs'),str(a),str(b)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True)
+    js=json.loads(b.read_text());assert js['result']['rows']==py['rows'];assert js['result']['summary']['statistics']==pytest.approx(py['summary']['statistics'],rel=1e-15)

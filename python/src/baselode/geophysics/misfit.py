@@ -126,7 +126,7 @@ def calculate_misfit(request):
             value=None if pred is None else pred['value'];reason='unmatched_observed' if pred is None else ('missing_both' if row['value'] is None and value is None else ('missing_observed' if row['value'] is None else ('missing_prediction' if value is None else 'paired')))
             if reason!='paired' and options['coverage_policy']=='complete':raise baselode.geophysics.corrections._NeedsInput('complete coverage requires nonmissing values: '+row['id'])
             if reason=='paired' and weighted and row['standard_deviation'] is None:raise baselode.geophysics.corrections._NeedsInput('supply standard deviation for paired record: '+row['id'])
-            residual=row['value']-value if reason=='paired' else None
+            residual=float(row['value'])-float(value) if reason=='paired' else None
             if residual==0:residual=0
             result={'id':row['id'],'group_id':row['group_id'],'observed':row['value'],'predicted':value,'standard_deviation':row['standard_deviation'],'residual':residual,'normalized_residual':residual/row['standard_deviation'] if weighted and reason=='paired' else None,'coordinate_distance_m':distance,'reason':reason}
             if result['normalized_residual']==0:result['normalized_residual']=0
