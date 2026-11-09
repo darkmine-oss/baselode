@@ -711,3 +711,5 @@ export {describeGeophysicsGravityForward,calculateGeophysicsGravityForward} from
 export {describeGeophysicsMagneticForward,calculateGeophysicsMagneticForward} from './data/geophysicsMagneticForward.js';
 
 export {describeGeophysicsGravityPrisms,validateGeophysicsGravityPrisms} from './data/geophysicsGravityPrisms.js';
+
+export {describeGeophysicsMagneticPrisms,validateGeophysicsMagneticPrisms} from './data/geophysicsMagneticPrisms.js';

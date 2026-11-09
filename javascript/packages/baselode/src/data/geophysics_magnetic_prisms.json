@@ -1,0 +1,919 @@
+{
+  "schema": "baselode.geophysics.magnetic_prisms_contract",
+  "version": 1,
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "coordinate_frame",
+      "sources",
+      "points",
+      "include_sensitivities",
+      "min_distance_m",
+      "background_nT"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.magnetic_prisms_request"
+      },
+      "version": {
+        "const": 1
+      },
+      "coordinate_frame": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "axes",
+          "units",
+          "height_datum"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "kind": {
+            "const": "local_cartesian"
+          },
+          "axes": {
+            "const": "x_y_up"
+          },
+          "units": {
+            "const": "m"
+          },
+          "height_datum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        }
+      },
+      "sources": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 64,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "kind",
+            "bounds_m",
+            "magnetization_x_A_m",
+            "magnetization_y_A_m",
+            "magnetization_z_up_A_m"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "kind": {
+              "const": "prism"
+            },
+            "bounds_m": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {
+                "type": "number",
+                "minimum": -1000000000000.0,
+                "maximum": 1000000000000.0
+              }
+            },
+            "magnetization_x_A_m": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            },
+            "magnetization_y_A_m": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            },
+            "magnetization_z_up_A_m": {
+              "type": "number",
+              "minimum": -1000,
+              "maximum": 1000
+            }
+          }
+        }
+      },
+      "points": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 1024,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "x_m",
+            "y_m",
+            "z_m"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "x_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "y_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            },
+            "z_m": {
+              "type": "number",
+              "minimum": -1000000000000.0,
+              "maximum": 1000000000000.0
+            }
+          }
+        }
+      },
+      "include_sensitivities": {
+        "type": "boolean"
+      },
+      "metadata": {
+        "type": "object"
+      },
+      "min_distance_m": {
+        "type": "number",
+        "minimum": 0.001,
+        "maximum": 100000
+      },
+      "background_nT": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "x",
+              "y",
+              "z_up"
+            ],
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": -1000000.0,
+                "maximum": 1000000.0
+              },
+              "y": {
+                "type": "number",
+                "minimum": -1000000.0,
+                "maximum": 1000000.0
+              },
+              "z_up": {
+                "type": "number",
+                "minimum": -1000000.0,
+                "maximum": 1000000.0
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "result_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "model",
+      "request",
+      "fields",
+      "sensitivities",
+      "field_units",
+      "diagnostics",
+      "producer",
+      "assumptions"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.magnetic_prisms_result"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "model": {
+        "type": "object"
+      },
+      "request": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "version",
+              "coordinate_frame",
+              "sources",
+              "points",
+              "include_sensitivities",
+              "min_distance_m",
+              "background_nT"
+            ],
+            "properties": {
+              "schema": {
+                "const": "baselode.geophysics.magnetic_prisms_request"
+              },
+              "version": {
+                "const": 1
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "bounds_m",
+                    "magnetization_x_A_m",
+                    "magnetization_y_A_m",
+                    "magnetization_z_up_A_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "kind": {
+                      "const": "prism"
+                    },
+                    "bounds_m": {
+                      "type": "array",
+                      "minItems": 6,
+                      "maxItems": 6,
+                      "items": {
+                        "type": "number",
+                        "minimum": -1000000000000.0,
+                        "maximum": 1000000000000.0
+                      }
+                    },
+                    "magnetization_x_A_m": {
+                      "type": "number",
+                      "minimum": -1000,
+                      "maximum": 1000
+                    },
+                    "magnetization_y_A_m": {
+                      "type": "number",
+                      "minimum": -1000,
+                      "maximum": 1000
+                    },
+                    "magnetization_z_up_A_m": {
+                      "type": "number",
+                      "minimum": -1000,
+                      "maximum": 1000
+                    }
+                  }
+                }
+              },
+              "points": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1024,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "x_m",
+                    "y_m",
+                    "z_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "x_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "y_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "z_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    }
+                  }
+                }
+              },
+              "include_sensitivities": {
+                "type": "boolean"
+              },
+              "metadata": {
+                "type": "object"
+              },
+              "min_distance_m": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 100000
+              },
+              "background_nT": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y",
+                      "z_up"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      },
+                      "z_up": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "fields": {
+        "type": "array",
+        "maxItems": 1024,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "bx",
+            "by",
+            "bz_up",
+            "b_down",
+            "tmi_linear",
+            "tmi_exact",
+            "linearization_difference"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "bx": {
+              "type": "number"
+            },
+            "by": {
+              "type": "number"
+            },
+            "bz_up": {
+              "type": "number"
+            },
+            "b_down": {
+              "type": "number"
+            },
+            "tmi_linear": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tmi_exact": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "linearization_difference": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      },
+      "sensitivities": {
+        "type": "array",
+        "maxItems": 192,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_id",
+            "parameter",
+            "parameter_units",
+            "field_units",
+            "fields"
+          ],
+          "properties": {
+            "source_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "parameter": {
+              "enum": [
+                "magnetization_x_A_m",
+                "magnetization_y_A_m",
+                "magnetization_z_up_A_m"
+              ]
+            },
+            "parameter_units": {
+              "const": "A/m"
+            },
+            "field_units": {
+              "type": "object"
+            },
+            "fields": {
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "bx",
+                  "by",
+                  "bz_up",
+                  "b_down",
+                  "tmi_linear"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "bx": {
+                    "type": "number"
+                  },
+                  "by": {
+                    "type": "number"
+                  },
+                  "bz_up": {
+                    "type": "number"
+                  },
+                  "b_down": {
+                    "type": "number"
+                  },
+                  "tmi_linear": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "field_units": {
+        "type": "object"
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object"
+      },
+      "assumptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "validation_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "request",
+      "diagnostics",
+      "producer"
+    ],
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.magnetic_prisms_validation"
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "request": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema",
+              "version",
+              "coordinate_frame",
+              "sources",
+              "points",
+              "include_sensitivities",
+              "min_distance_m",
+              "background_nT"
+            ],
+            "properties": {
+              "schema": {
+                "const": "baselode.geophysics.magnetic_prisms_request"
+              },
+              "version": {
+                "const": 1
+              },
+              "coordinate_frame": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "axes",
+                  "units",
+                  "height_datum"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "kind": {
+                    "const": "local_cartesian"
+                  },
+                  "axes": {
+                    "const": "x_y_up"
+                  },
+                  "units": {
+                    "const": "m"
+                  },
+                  "height_datum": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                }
+              },
+              "sources": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "kind",
+                    "bounds_m",
+                    "magnetization_x_A_m",
+                    "magnetization_y_A_m",
+                    "magnetization_z_up_A_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "kind": {
+                      "const": "prism"
+                    },
+                    "bounds_m": {
+                      "type": "array",
+                      "minItems": 6,
+                      "maxItems": 6,
+                      "items": {
+                        "type": "number",
+                        "minimum": -1000000000000.0,
+                        "maximum": 1000000000000.0
+                      }
+                    },
+                    "magnetization_x_A_m": {
+                      "type": "number",
+                      "minimum": -1000,
+                      "maximum": 1000
+                    },
+                    "magnetization_y_A_m": {
+                      "type": "number",
+                      "minimum": -1000,
+                      "maximum": 1000
+                    },
+                    "magnetization_z_up_A_m": {
+                      "type": "number",
+                      "minimum": -1000,
+                      "maximum": 1000
+                    }
+                  }
+                }
+              },
+              "points": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1024,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "id",
+                    "x_m",
+                    "y_m",
+                    "z_m"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "x_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "y_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    },
+                    "z_m": {
+                      "type": "number",
+                      "minimum": -1000000000000.0,
+                      "maximum": 1000000000000.0
+                    }
+                  }
+                }
+              },
+              "include_sensitivities": {
+                "type": "boolean"
+              },
+              "metadata": {
+                "type": "object"
+              },
+              "min_distance_m": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 100000
+              },
+              "background_nT": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "x",
+                      "y",
+                      "z_up"
+                    ],
+                    "properties": {
+                      "x": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      },
+                      "y": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      },
+                      "z_up": {
+                        "type": "number",
+                        "minimum": -1000000.0,
+                        "maximum": 1000000.0
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object"
+      }
+    }
+  },
+  "execution": {
+    "python": "calculate_magnetic_prisms",
+    "javascript": "native_request_validation_only",
+    "install": "pip install 'baselode[potential-fields]'",
+    "backend": "harmonica",
+    "backend_version": "0.7.0",
+    "kernel_backend": "choclo",
+    "kernel_backend_version": "0.3.2"
+  },
+  "model": {
+    "id": "uniform_magnetized_rectangular_prism",
+    "algorithm_version": 1,
+    "vacuum_magnetic_permeability": 1.25663706127e-06,
+    "vacuum_magnetic_permeability_units": "N/A^2",
+    "constant_reference": "CODATA2022",
+    "backend_vacuum_magnetic_permeability": 1.25663706212e-06,
+    "backend_to_target_scale": 0.9999999993235916,
+    "backend": "harmonica",
+    "backend_version": "0.7.0",
+    "kernel_backend": "choclo",
+    "kernel_backend_version": "0.3.2",
+    "summation": "neumaier_compensated",
+    "sensitivity": "fixed_geometry_magnetization_components_vector_and_linear_tmi",
+    "domain": "external_only",
+    "norm_guard": "binary64_fixed_axis_order_squared"
+  },
+  "field_units": {
+    "bx": "nT",
+    "by": "nT",
+    "bz_up": "nT",
+    "b_down": "nT",
+    "tmi_linear": "nT",
+    "tmi_exact": "nT",
+    "linearization_difference": "nT"
+  },
+  "sensitivity_field_units": {
+    "bx": "nT/(A/m)",
+    "by": "nT/(A/m)",
+    "bz_up": "nT/(A/m)",
+    "b_down": "nT/(A/m)",
+    "tmi_linear": "nT/(A/m)"
+  },
+  "resources": {
+    "max_sources": 64,
+    "max_points": 1024,
+    "max_pairs": 32768,
+    "max_sensitivity_pairs": 2048,
+    "max_input_bytes": 2097152,
+    "max_metadata_bytes": 131072,
+    "max_result_bytes": 8388608,
+    "max_json_nodes": 100000,
+    "max_json_depth": 32,
+    "max_coordinate_abs_m": 1000000000000.0,
+    "max_axis_span_m": 200000,
+    "max_result_json_nodes": 500000,
+    "max_result_json_depth": 33,
+    "min_dimension_m": 0.001,
+    "max_dimension_m": 100000,
+    "max_aspect_ratio": 20,
+    "max_point_offset_to_min_dimension": 20,
+    "max_magnetization_component_abs_A_m": 1000
+  },
+  "assumptions": [
+    "Synthetic external magnetic flux-density response from uniformly magnetized prisms only; no reference-field correction, inversion, uncertainty or unique geological interpretation.",
+    "All bounds/points/background/magnetisation share an explicit local Cartesian metre/x_y_up frame and height datum. No north/datum/CRS conversion or induced-only direction is inferred.",
+    "Magnetisation components are A/m; bounds_m order xmin,xmax,ymin,ymax,zmin,zmax. No susceptibility, demagnetisation or finite-body interior magnetics is inferred.",
+    "Every point must lie outside every closed prism by at least explicit min_distance_m, including zero magnetisation sources. Interiors/faces/edges/corners are excluded atomically.",
+    "The existing aspect/point-offset conditioning domain and lower-corner local origins apply. No silent dipole approximation or softening.",
+    "Harmonica returns nT with up-directed components. Choclo0.3.2 permeability is explicitly rescaled to CODATA2022 to align native dipoles; both constants/versions are checked.",
+    "Linear and exact TMI use SUMMED vector and fixed explicit background; exact magnitude difference is nonlinear and not additive. Without background, all TMI outputs are null.",
+    "Three per-source fixed-geometry magnetisation-component derivatives cover vectors and LINEAR TMI only in nT/(A/m); no exact-TMI/geometry derivatives or inversion.",
+    "Python optional backend performs numerical execution. JavaScript/core Python validate portable requests without the optional extra.",
+    "External-distance and background-magnitude guards compare fixed-order binary64 squared norms; equal computed squares are accepted. Distance diagnostics use sqrt of that same squared sum."
+  ],
+  "references": [
+    "https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.prism_magnetic.html",
+    "https://www.fatiando.org/choclo/v0.3.2/api/generated/choclo.prism.magnetic_field.html",
+    "https://physics.nist.gov/cuu/Constants/Table/allascii.txt"
+  ]
+}

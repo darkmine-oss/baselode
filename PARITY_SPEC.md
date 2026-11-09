@@ -387,3 +387,37 @@ Exterior/boundary references use relative 2e-11/2e-12 and absolute 1e-14/1e-13
 comparison limits; worst supported aspect/distance uses relative 2e-9 and
 absolute 1e-16. These are test tolerances for bounded synthetic cases, not field
 accuracy guarantees. No cross-runtime numerical solver parity is claimed.
+
+## Magnetic rectangular-prism modelling v1
+
+Python `describe_magnetic_prisms` / `validate_magnetic_prisms` correspond to
+JavaScript `describeGeophysicsMagneticPrisms` / `validateGeophysicsMagneticPrisms`
+in root/geophysics entries. Packaged JSON descriptor, scalar types, explicit
+local frame/background/magnetisation vectors, external min-distance geometry,
+conditioning/work limits, states/codes and copied requests agree. Prism geometry
+validation is extracted and shared with gravity without changing its contracts
+or numerical formulae. Live JavaScript-validated requests execute in Python.
+
+`calculate_magnetic_prisms` is intentionally Python-only using the existing
+optional Harmonica0.7.0/Choclo0.3.2 backend. JavaScript provides portable result
+and sensitivity types, not a numerical stub. Backend nT/up fields are explicitly
+rescaled from Choclo's 2018 permeability to the native dipole model's pinned
+CODATA2022 constant, with both values/scale recorded and checked. Lower-corner
+origins preserve represented coordinates. Exact TMI is computed after vector
+superposition; derivatives are vector/LINEAR-TMI magnetisation columns only.
+
+Independent dipole-volume quadrature and cube-axis solid-angle solutions,
+dipole-limit convergence, finite differences and 80-digit total-field references
+validate physics beyond runtime agreement. Volume checks use relative 2e-11 /
+absolute 2e-12 nT; these are synthetic test tolerances, not geological accuracy
+guarantees. Native package versions and serialization formats differ. No
+cross-runtime numerical solver parity, induced-only direction, interior magnetic
+field, inversion or uncertainty propagation is claimed. Input geometry is
+atomic, including zero sources and every prism-point exclusion pair.
+
+Magnetic-prism external-distance and background-magnitude guards compare
+fixed-axis-order binary64 squared norms `(x*x + y*y) + z*z` in both runtimes,
+including the squared minimum-distance threshold; equal computed squares pass.
+Distance diagnostics use the square root of that same sum. Runtime-specific
+`hypot` rounding is avoided in these validation decisions. Diagonal near-boundary
+replay and exact 3-4-12 / background magnitude limits have regression coverage.

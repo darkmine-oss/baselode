@@ -1,0 +1,46 @@
+{
+  "schema": "baselode.geophysics.magnetic_prisms_request",
+  "version": 1,
+  "coordinate_frame": {
+    "id": "synthetic-local-grid",
+    "kind": "local_cartesian",
+    "axes": "x_y_up",
+    "units": "m",
+    "height_datum": "local_zero"
+  },
+  "sources": [
+    {
+      "id": "body",
+      "kind": "prism",
+      "bounds_m": [
+        -50,
+        50,
+        -50,
+        50,
+        -150,
+        -50
+      ],
+      "magnetization_x_A_m": 0,
+      "magnetization_y_A_m": 0,
+      "magnetization_z_up_A_m": 1
+    }
+  ],
+  "points": [
+    {
+      "id": "surface",
+      "x_m": 0,
+      "y_m": 0,
+      "z_m": 0
+    }
+  ],
+  "include_sensitivities": true,
+  "metadata": {
+    "purpose": "Independent synthetic uniformly magnetised prism"
+  },
+  "background_nT": {
+    "x": 0,
+    "y": 0,
+    "z_up": 50000
+  },
+  "min_distance_m": 1
+}

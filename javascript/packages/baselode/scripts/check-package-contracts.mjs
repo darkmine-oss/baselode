@@ -220,3 +220,10 @@ assert.equal(prismValidation.state,'ok',JSON.stringify(prismValidation.issues));
 assert.deepEqual(prismValidation.request,prismExample);
 assert.equal(geophysics.describeGeophysicsGravityPrisms().execution.kernel_backend_version,'0.3.2');
 assert.equal(geophysics.describeGeophysicsGravityPrisms().execution.javascript,'native_request_validation_only');
+
+const magneticPrismExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/magnetic_prisms_example.json'),'utf8'));
+const magneticPrismValidation=geophysics.validateGeophysicsMagneticPrisms(magneticPrismExample);
+assert.equal(magneticPrismValidation.state,'ok',JSON.stringify(magneticPrismValidation.issues));
+assert.deepEqual(magneticPrismValidation.request,magneticPrismExample);
+assert.equal(geophysics.describeGeophysicsMagneticPrisms().model.vacuum_magnetic_permeability,1.25663706127e-6);
+assert.equal(geophysics.describeGeophysicsMagneticPrisms().execution.javascript,'native_request_validation_only');

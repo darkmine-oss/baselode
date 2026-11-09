@@ -240,3 +240,9 @@ describe_gravity_prisms = geophysics_gravity_prisms.describe_gravity_prisms
 validate_gravity_prisms = geophysics_gravity_prisms.validate_gravity_prisms
 calculate_gravity_prisms = geophysics_gravity_prisms.calculate_gravity_prisms
 __all__ += ['describe_gravity_prisms', 'validate_gravity_prisms', 'calculate_gravity_prisms']
+
+import baselode.geophysics.magnetic_prisms as geophysics_magnetic_prisms
+describe_magnetic_prisms = geophysics_magnetic_prisms.describe_magnetic_prisms
+validate_magnetic_prisms = geophysics_magnetic_prisms.validate_magnetic_prisms
+calculate_magnetic_prisms = geophysics_magnetic_prisms.calculate_magnetic_prisms
+__all__ += ['describe_magnetic_prisms','validate_magnetic_prisms','calculate_magnetic_prisms']
