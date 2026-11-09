@@ -51,6 +51,7 @@ function withStep(raster, data, step, changes = {}) {
   return createGeophysicsRaster({
     data,
     transform: changes.transform ?? raster.transform,
+    hasExplicitTransform: raster.hasExplicitTransform,
     crs: raster.crs,
     nodata: 'nodata' in changes ? changes.nodata : null,
     bandNames: raster.bandNames,

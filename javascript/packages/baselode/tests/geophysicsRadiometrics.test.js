@@ -4,6 +4,9 @@ import {describe,it,expect} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {createGeophysicsRaster,decimateGeophysicsRaster,geophysicsRasterFromBands} from '../src/data/geophysicsRaster.js';
 import {describeGeophysicsRadiometrics,stackGeophysicsRadiometricGrids,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from '../src/data/geophysicsRadiometrics.js';
+import {processGeophysicsRaster} from '../src/data/geophysicsProcessing.js';
+import {combineGeophysicsRasters,cropGeophysicsRaster} from '../src/data/geophysicsEditing.js';
+import {alignGeophysicsRaster,matchGeophysicsRaster} from '../src/data/geophysicsAlignment.js';
 import {runGeophysicsWorkflow,validateGeophysicsWorkflow} from '../src/data/geophysicsWorkflows.js';
 import {encodeErs,encodeGeoTiff} from '../src/data/geophysicsWriters.js';
 import {readErs} from '../src/data/ersLoader.js';
@@ -93,4 +96,14 @@ it('rejects constructor-generated unit transforms, including copies, in all prod
     expect(()=>calculateGeophysicsRadiometricRatios(g,f.ratio_options)).toThrow(/explicit affine/);expect(()=>createGeophysicsRadiometricTernary(g,f.ternary_options)).toThrow(/explicit affine/);const r=runGeophysicsWorkflow(workflow(),{radio:g});expect(r.state).toBe('rejected');expect(r.completed_steps).toEqual([]);
   }
   const single=sources().map(g=>{const p={...g};delete p.transform;delete p.hasExplicitTransform;return createGeophysicsRaster(p);});expect(()=>stackGeophysicsRadiometricGrids(...single,{reference_policy:'caller_verified',evidence:'checked'})).toThrow(/explicit affine/);
+});
+
+it('preserves undeclared geometry through filtering, editing and workflow copies',()=>{
+  const f=fixture(),p={...f,crs:null,bandNames:f.band_names,metadata:{...f.metadata,crs_units:'m',frame_id:'local'}};delete p.transform;const missing=createGeophysicsRaster(p);
+  const w={schema:'baselode.geophysics.workflow',version:1,steps:[{id:'filtered',operation:'low_pass',version:1,inputs:['radio'],parameters:{wavelength:2}}],outputs:['filtered']};const filtered=runGeophysicsWorkflow(w,{radio:missing});expect(filtered.state,filtered.issues).toBe('ok');
+  for(const result of [processGeophysicsRaster(missing,'low_pass',{wavelength:2}),combineGeophysicsRasters(missing,missing,'add'),cropGeophysicsRaster(missing,[0,0,4,2]),filtered.artifacts.filtered]){
+    expect(result.hasExplicitTransform).toBe(false);expect(()=>calculateGeophysicsRadiometricRatios(result,f.ratio_options)).toThrow(/explicit affine/);expect(()=>createGeophysicsRadiometricTernary(result,f.ternary_options)).toThrow(/explicit affine/);
+  }
+  const target={shape:[2,4],transform:[1,0,0,0,-1,2],crs:null,crs_units:'m',frame_id:'local'};expect(alignGeophysicsRaster(missing,target,{method:'nearest',value_kind:'continuous'}).state).toBe('rejected');
+  const declared=createGeophysicsRaster({...p,transform:target.transform});expect(matchGeophysicsRaster(declared,missing,{method:'nearest',value_kind:'continuous'}).state).toBe('rejected');
 });
