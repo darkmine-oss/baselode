@@ -4766,7 +4766,8 @@
     "scaled_bound_width_range": [
       1e-08,
       100000000.0
-    ]
+    ],
+    "max_normalized_target": 1e+40
   },
   "backend": {
     "python_extra": "inversion",
@@ -4787,6 +4788,7 @@
     "L2 penalties on scaled deviations from explicit reference, with caller-supplied edges",
     "Small dense bounded linear problem with augmented rank/condition and KKT checks",
     "Data nullity is reported; regularisation selects a model, not unique geology or posterior uncertainty",
-    "Core validation cannot establish numerical rank; execution revalidates and may need input"
+    "Core validation cannot establish numerical rank; execution revalidates and may need input",
+    "Normalised target magnitude<=1e40; fitted properties cannot overwrite grid/ID/mask columns"
   ]
 }

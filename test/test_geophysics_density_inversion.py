@@ -61,6 +61,7 @@ def cases():
     add(['version'],True);add(['extra'],1);add(['forward_request','include_sensitivities'],False);add(['forward_request','model','blocks',0,'rho'],1);add(['observed','context','quantity'],'magnetic_bx');add(['observed','context','units'],'nT');add(['observed','context','coordinate_frame','height_datum'],'other','needs_input');add(['observed','records',0,'value'],None,'needs_input');add(['observed','records',0,'value'],1e9);add(['observed','records',0,'standard_deviation'],None,'needs_input');add(['observed','records',0,'standard_deviation'],0);add(['observed','records',0,'x_m'],1,'needs_input');add(['parameters',0,'cell_id'],'other');add(['parameters',0,'lower'],3000);add(['parameters',0,'reference'],4000);add(['parameters',0,'scale'],True);add(['parameters',0,'scale'],1e-6);add(['parameters',0,'parameter'],'absolute_density');add(['regularization','reference_weight'],-1);add(['regularization','smoothness_weight'],1,'needs_input');add(['regularization','edges'],[{'cell_a':'west','cell_b':'east','weight':1}]);add(['solver','method'],'automatic');add(['solver','tolerance'],0);add(['solver','max_iterations'],1.5);add(['solver','condition_limit'],10)
     p=request();p['forward_request']['points']=[dict(p['forward_request']['points'][0],id=str(i)) for i in range(129)];out.append((p,'rejected'))
     p=request();p['metadata']={'large':'x'*131073};out.append((p,'rejected'))
+    add(['regularization','edges'],{});add(['regularization','edges'],'bad');add(['forward_request','properties','density_contrast_kg_m3','column'],'j')
     return out
 
 @pytest.mark.parametrize('p,state',cases())
@@ -94,3 +95,19 @@ def test_native_descriptor_and_positive_negative_portable_replay(tmp_path):
         r=baselode.geophysics.validate_density_inversion(p)
         for key in ['state','request','diagnostics']:assert r[key]==j[key],(key,r,j)
         assert [i['code'] for i in r['issues']]==[i['code'] for i in j['issues']]
+
+@pytest.mark.parametrize('edges',[{},'bad',True])
+def test_malformed_edge_type_is_contract_not_resource(edges):
+    p=request();p['regularization']['edges']=edges;r=baselode.geophysics.validate_density_inversion(p);assert r['state']=='rejected' and r['issues'][0]['code']=='contract'
+
+def test_reserved_property_mapping_is_rejected_before_model_write():
+    p=request();p['forward_request']['properties']['density_contrast_kg_m3']['column']='j';r=baselode.geophysics.validate_density_inversion(p);assert r['state']=='rejected' and r['issues'][0]['code']=='contract'
+
+def test_extreme_normalized_target_needs_input_without_numerical_warnings():
+    p=request();p['forward_request']['points'][0]['z_m']=-100;p['observed']['records'][0]['z_m']=-100;p['regularization']['reference_weight']=1e-320;r=baselode.geophysics.invert_density(p);assert r['state']=='needs_input' and r['parameters']==[] and r['operator'] is None
+
+def test_solver_wrong_version_has_installation_instruction(monkeypatch):
+    original=baselode.geophysics.inversion.importlib.metadata.version
+    monkeypatch.setattr(baselode.geophysics.inversion.importlib.metadata,'version',lambda name:'unsupported' if name=='scipy' else original(name))
+    assert baselode.geophysics.validate_density_inversion(request())['state']=='ok'
+    with pytest.raises(ImportError,match=r'baselode\[inversion\]'):baselode.geophysics.invert_density(request())

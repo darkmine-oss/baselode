@@ -56,6 +56,8 @@ def _prepare(request,kind):
         baselode.geophysics.forward_common._bounded_json(p['metadata'],131072)
     forward=p['forward_request'];prepared=baselode.geophysics.block_forward.prepare_block_forward(forward);_raise_validation(prepared)
     if forward['physics']!='gravity' or forward['include_sensitivities'] is not True:raise ValueError('density inversion requires gravity template with include_sensitivities=true')
+    property_column=forward['properties']['density_contrast_kg_m3']['column']
+    if property_column in ('i','j','k','ni','nj','nk','x','y','z','dx','dy','dz','fill_fraction',forward['cell_id_column'],forward['active_column']):raise ValueError('fitted property column must not overwrite geometry, ID or active policy')
     ids=prepared['cell_ids'];n=len(ids);m=len(forward['points'])
     if n>16 or m>128:raise baselode.geophysics.corrections._ResourceError('inversion limit16 active cells and128 observations')
     for batch in prepared['batches']:
@@ -83,7 +85,8 @@ def _prepare(request,kind):
     regularization=p['regularization'];baselode.geophysics.forward_common._keys(regularization,('reference_weight','smoothness_weight','edges'))
     for key in ('reference_weight','smoothness_weight'):baselode.geophysics.forward_common._number(regularization[key],0,1e12)
     edges=regularization['edges']
-    if type(edges) is not list or len(edges)>128:raise baselode.geophysics.corrections._ResourceError('at most128 explicit smoothing edges')
+    if type(edges) is not list:raise ValueError('edges must be an array')
+    if len(edges)>128:raise baselode.geophysics.corrections._ResourceError('at most128 explicit smoothing edges')
     seen=set();positive=False
     for edge in edges:
         baselode.geophysics.forward_common._keys(edge,('cell_a','cell_b','weight'))
@@ -138,10 +141,16 @@ def validate_density_inversion(request):
 
 def _require_backend():
     if _optimize is None or baselode.geophysics.gravity_prisms._harmonica is None or baselode.geophysics.gravity_prisms._choclo is None:raise ImportError("Inversion requires pip install 'baselode[inversion]'")
+    try:version=importlib.metadata.version('scipy')
+    except importlib.metadata.PackageNotFoundError as error:raise ImportError("Inversion requires supported solver metadata; pip install 'baselode[inversion]'") from error
+    if version!=('1.15.3' if sys.version_info<(3,11) else '1.17.1'):raise ImportError("Inversion requires the supported SciPy pin; pip install 'baselode[inversion]'")
 
 
 def _spectrum(matrix):
-    singular=np.linalg.svd(matrix,compute_uv=False);maximum=float(singular[0]) if len(singular) else 0.
+    try:singular=np.linalg.svd(matrix,compute_uv=False)
+    except np.linalg.LinAlgError as error:raise RuntimeError('operator SVD did not converge') from error
+    if not np.all(np.isfinite(singular)):raise RuntimeError('nonfinite singular values')
+    maximum=float(singular[0]) if len(singular) else 0.
     threshold=np.finfo(float).eps*max(matrix.shape)*maximum;rank=int(np.sum(singular>threshold))
     condition=float(singular[0]/singular[-1]) if rank==matrix.shape[1] else None
     return rank,condition,singular.tolist()
@@ -163,6 +172,7 @@ def _solve(matrix,data,sigma,parameters,regularization,solver,ids):
     data_rank,data_condition,data_singular=_spectrum(design);rank,condition,singular=_spectrum(augmented)
     if rank<n or condition>solver['condition_limit']:raise baselode.geophysics.corrections._NeedsInput('augmented operator rank/condition outside declared domain; supply independent data or explicit regularisation')
     factor=float(np.max(np.abs(augmented)));a=augmented/factor;b=rhs/factor
+    if not np.all(np.isfinite(b)) or np.max(np.abs(b))>1e40:raise baselode.geophysics.corrections._NeedsInput('normalised target exceeds supported conditioning domain; revise scales/errors/regularisation')
     try:
         with warnings.catch_warnings():
             warnings.simplefilter('error')

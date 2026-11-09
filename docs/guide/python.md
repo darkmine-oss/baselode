@@ -1224,3 +1224,9 @@ Harmonica0.7.0/Choclo0.3.2. Versions are recorded in reports. On current macOS,
 use Python3.11+; old SciPy1.15.3 binary wheels have an upstream loader problem
 ([SciPy issue](https://github.com/scipy/scipy/issues/25635)). Core validation works
 without numerical extras. No fallback numerical implementation is substituted.
+
+The `all` extra includes the same solver pins. Missing or differently versioned
+solver installations raise an actionable ImportError naming `baselode[inversion]`.
+The normalized target magnitude must be <=1e40 after matrix scaling; execution
+returns `needs_input` for more extreme scaling. Fitted property columns must be
+distinct from geometry, ID, active-mask and fill-fraction columns.
