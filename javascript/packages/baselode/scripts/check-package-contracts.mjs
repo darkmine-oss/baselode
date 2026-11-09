@@ -40,7 +40,7 @@ assert.deepEqual(extent.center(), [119, -31]);
 assert.equal(extentModule.DEFAULT_EXTENT_CRS, 'EPSG:4326');
 
 const geophysics = await import(pathToFileURL(resolve(root, 'dist/geophysics.js')));
-assert.equal(geophysics.listGeophysicsOperations().length, 13);
+assert.equal(geophysics.listGeophysicsOperations().length, 15);
 const workflowGrid = geophysics.createGeophysicsRaster({
   data: [[1, 2], [3, 4]], transform: [10, 0, 0, 0, -10, 20],
   metadata: { field_type: 'magnetic_anomaly', units: ['nT'], crs_units: 'm' },

@@ -720,3 +720,5 @@ export function processGeophysicsRaster(raster, operation, options = {}) {
 
 // Internal preflight hook: validates coordinates without running a kernel.
 export { coordinateUnit as geophysicsCoordinateUnit };
+// Internal shared numerical core; not re-exported by package entry points.
+export { fourierBands as geophysicsFourierBands };

@@ -1,3 +1,4 @@
+import {preflightMagneticMicrolevelling,MicrolevellingNeedsInput,estimateGeophysicsMagneticMicrolevelling,microlevelGeophysicsMagneticGrid} from './geophysicsMicrolevelling.js';
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
 import {preflightRadiometricProduct,RadiometricNeedsInput,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from './geophysicsRadiometrics.js';
@@ -9,6 +10,7 @@ import { createGeophysicsRaster } from './geophysicsRaster.js';
 import { geophysicsCoordinateUnit, processGeophysicsRaster } from './geophysicsProcessing.js';
 import { combineGeophysicsRasters } from './geophysicsEditing.js';
 
+const microlevelling=['estimate_magnetic_microlevelling','microlevel_magnetic_grid'];
 const pointwise=['radiometric_ratios','radiometric_ternary'];
 const operations = new Map(catalogue.map((item) => [item.id, item]));
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -44,13 +46,14 @@ function parameters(operation, supplied, issue, path) {
       continue;
     }
     const value = Object.hasOwn(supplied, key) ? supplied[key] : rule.default;
-    let valid = rule.type === 'integer' ? Number.isInteger(value) : typeof value === rule.type;
+    let valid = rule.type === 'integer' ? Number.isInteger(value) : rule.type === 'array' ? Array.isArray(value) : typeof value === rule.type;
     if (valid && ['number', 'integer'].includes(rule.type)) {
       valid = Number.isFinite(value) && (rule.minimum === undefined || value >= rule.minimum)
         && (rule.maximum === undefined || value <= rule.maximum)
         && (rule.exclusiveMinimum === undefined || value > rule.exclusiveMinimum);
     }
     if(valid&&rule.type==='string'){const length=[...value].length;valid=(rule.minLength===undefined||length>=rule.minLength)&&(rule.maxLength===undefined||length<=rule.maxLength);}
+    if(valid&&rule.type==='array')valid=(rule.minItems===undefined||value.length>=rule.minItems)&&(rule.maxItems===undefined||value.length<=rule.maxItems);
     if (rule.enum) valid = valid && rule.enum.includes(value);
     if (!valid) issue('rejected', 'parameter', `${path}.${key}`, 'value violates the operation parameter schema');
     else result[key] = value;
@@ -191,10 +194,14 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
       }
       if(pointwise.includes(operation.id)&&!Object.hasOwn(inputs,refs[0]))issue('rejected','radiometric',path,'radiometric product steps require a named verified input stack; run upstream transforms separately and verify their output context/support first');
       if(pointwise.includes(operation.id)&&Object.hasOwn(inputs,refs[0])&&left.grid.width*left.grid.height*left.grid.bandCount<=1000000&&retained+left.grid.width*left.grid.height*left.grid.bandCount<=16000000){try{preflightRadiometricProduct(left.grid,operation.id,params);}catch(error){issue(error instanceof RadiometricNeedsInput?'needs_input':'rejected','radiometric',path,error.message);}}
+      if(microlevelling.includes(operation.id)){
+        if(!Object.hasOwn(inputs,refs[0]))issue('rejected','microlevelling',path,'microlevelling steps require a named verified input grid; verify upstream transforms separately');
+        else if(left.grid.width*left.grid.height*left.grid.bandCount<=1000000&&retained+left.grid.width*left.grid.height*left.grid.bandCount<=16000000){try{preflightMagneticMicrolevelling(left.grid,params);}catch(error){issue(error instanceof MicrolevellingNeedsInput?'needs_input':'rejected','microlevelling',path,error.message);}}
+      }
       contexts.set(name, outputContext(left, operation, params));
       retained += left.grid.width * left.grid.height * left.grid.bandCount;
       if (!['combine', 'horizontal_derivative', 'total_horizontal_derivative',...pointwise].includes(operation.id)) {
-        const length = params.long_wavelength ?? params.wavelength;
+        const length = params.along_line_wavelength ?? params.long_wavelength ?? params.wavelength;
         const [cellX, cellY] = left.spacing;
         if (length !== undefined && ![cellX, cellY].every((spacing) => Number.isFinite(length / spacing))) {
           issue('rejected', 'parameter', path, 'wavelength/cell-size ratio exceeds numeric backend range');
@@ -228,7 +235,9 @@ export function runGeophysicsWorkflow(workflow, inputs) {
       const options = Object.fromEntries(Object.entries(params).map(([key, value]) => [key.replace(/_([a-z])/g, (_, char) => char.toUpperCase()), value]));
       const product = step.operation === 'combine'
         ? combineGeophysicsRasters(sources[0], sources[1], params.operation)
-        : step.operation==='radiometric_ratios'?calculateGeophysicsRadiometricRatios(sources[0],params)
+        : step.operation==='estimate_magnetic_microlevelling'?estimateGeophysicsMagneticMicrolevelling(sources[0],params)
+          :step.operation==='microlevel_magnetic_grid'?microlevelGeophysicsMagneticGrid(sources[0],params)
+          :step.operation==='radiometric_ratios'?calculateGeophysicsRadiometricRatios(sources[0],params)
           :step.operation==='radiometric_ternary'?createGeophysicsRadiometricTernary(sources[0],params)
             :processGeophysicsRaster(sources[0], step.operation, options);
       const field = operations.get(step.operation).outputs.field_type;

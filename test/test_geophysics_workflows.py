@@ -31,7 +31,7 @@ def single(operation="horizontal_derivative", parameters=None):
 
 def test_discovery_contract_and_packaged_json_are_shared():
     contracts = baselode.geophysics.list_operations()
-    assert {item["id"] for item in contracts} == {"low_pass", "high_pass", "band_pass", "vertical_derivative", "horizontal_derivative", "total_horizontal_derivative", "tilt_derivative", "analytic_signal", "upward_continuation", "reduce_to_pole", "combine", "radiometric_ratios", "radiometric_ternary"}
+    assert {item["id"] for item in contracts} == {"low_pass", "high_pass", "band_pass", "vertical_derivative", "horizontal_derivative", "total_horizontal_derivative", "tilt_derivative", "analytic_signal", "upward_continuation", "reduce_to_pole", "combine", "radiometric_ratios", "radiometric_ternary", "estimate_magnetic_microlevelling", "microlevel_magnetic_grid"}
     contracts[0]["parameters"]["properties"].clear()
     assert baselode.geophysics.describe_operation("low_pass")["parameters"]["properties"]
     with pytest.raises(ValueError):

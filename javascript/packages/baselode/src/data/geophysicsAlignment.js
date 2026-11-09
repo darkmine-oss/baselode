@@ -168,3 +168,5 @@ export function matchGeophysicsRaster(source, reference, options) {
     return alignGeophysicsRaster(source, { shape: grid.shape, transform: grid.transform, crs: rasterCrs(reference.crs), crs_units: reference.metadata.crs_units ?? null, frame_id: reference.metadata.frame_id ?? null }, options);
   } catch (error) { return errorResult(report(), error); }
 }
+// Internal shared finite/representable geometry validator.
+export { geometry as geophysicsAlignmentGeometry };

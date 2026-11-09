@@ -883,6 +883,29 @@
           "radiometric_ternary"
         ]
       ]
+    },
+    {
+      "name": "geophysics_microlevelling",
+      "description": "Native directional Gaussian residual striping estimate and bounded application with explicit current-grid states, geological protection, shared schemas/types and workflow replay.",
+      "jsExports": [
+        "describeGeophysicsMicrolevelling",
+        "estimateGeophysicsMagneticMicrolevelling",
+        "microlevelGeophysicsMagneticGrid"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_microlevelling"
+        ],
+        [
+          "baselode.geophysics",
+          "estimate_magnetic_microlevelling"
+        ],
+        [
+          "baselode.geophysics",
+          "microlevel_magnetic_grid"
+        ]
+      ]
     }
   ]
 }

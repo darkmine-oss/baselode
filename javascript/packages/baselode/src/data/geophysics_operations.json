@@ -837,5 +837,267 @@
       "max_retained_cell_values": 16000000,
       "max_fft_cells_per_band": 4194304
     }
+  },
+  {
+    "id": "estimate_magnetic_microlevelling",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly"
+      ],
+      "units": "One-band nT.",
+      "coordinates": "Explicit rectangular projected/local affine with known CRS or local frame_id, declared linear crs_units."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flight_azimuth",
+        "line_spacing",
+        "along_line_wavelength",
+        "across_line_wavelength",
+        "max_abs_correction",
+        "protected_bounds",
+        "edge_margin_cells",
+        "min_training_fraction",
+        "reference_policy",
+        "evidence",
+        "geology_policy"
+      ],
+      "properties": {
+        "flight_azimuth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "description": "Clockwise degrees from CRS north; caller resolves true/grid convergence."
+        },
+        "line_spacing": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100,
+          "description": "Measured flight-line spacing in CRS linear units."
+        },
+        "along_line_wavelength": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100
+        },
+        "across_line_wavelength": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100
+        },
+        "max_abs_correction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100,
+          "description": "Application cap in nT; never clips."
+        },
+        "protected_bounds": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          },
+          "description": "Inclusive cell-centre [xmin,ymin,xmax,ymax] boxes in map coordinates; explicit [] permitted."
+        },
+        "edge_margin_cells": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 262144
+        },
+        "min_training_fraction": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 1
+        },
+        "reference_policy": {
+          "type": "string",
+          "enum": [
+            "caller_verified"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "geology_policy": {
+          "type": "string",
+          "enum": [
+            "directional_overlap_acknowledged"
+          ]
+        }
+      }
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "other",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "Residual grid striping only; caller verifies prior line levelling, anomaly/reference context, geometry and sampling. No raw-field, tie, heading/lag or drape correction is inferred.",
+      "Along cutoff >=2*across cutoff, across cutoff >=2*line spacing; cell sizes <=line spacing/2. Grid spans at least one along cutoff and four line spacings across.",
+      "Protected valid cell centres are excluded from plane/FFT training; correction is zero there and within edge_margin_cells of the rectangular boundary. Each protection box must include a valid input centre. Original missing cells remain missing.",
+      "Minimum 64 unprotected samples and caller min_training_fraction (0.25..1) of all cells; at least one eligible interior application cell. Gaps and artificial boundaries can cause artefacts despite these checks.",
+      "Directional spectra cannot distinguish geological anomalies from identical line noise. Caller must acknowledge overlap and choose protection, parameters and cap; RMS reduction is not geological validation.",
+      "Estimation returns candidate/diagnostics even above cap; application recomputes from original and rejects over-cap candidates atomically, never clips. Applied grid status prevents repetition.",
+      "Both workflow operations require named verified input grids, not outputs from prior steps; run transforms separately and verify their actual context/support first.",
+      "Original source/history/uncertainty is archived in input_lineage, not propagated to an unsupported error estimate. This original Gaussian grid algorithm is not a vendor/Minty implementation or located-line correction."
+    ],
+    "backend": {
+      "python": "numpy FFT",
+      "javascript": "native FFT",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Requires known levelled/unmicrolevelled grid and caller verification; no preceding correction state inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
+  },
+  {
+    "id": "microlevel_magnetic_grid",
+    "version": 1,
+    "inputs": {
+      "count": 1,
+      "kind": "GeophysicsRaster",
+      "field_types": [
+        "magnetic_anomaly"
+      ],
+      "units": "One-band nT.",
+      "coordinates": "Explicit rectangular projected/local affine with known CRS or local frame_id, declared linear crs_units."
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "flight_azimuth",
+        "line_spacing",
+        "along_line_wavelength",
+        "across_line_wavelength",
+        "max_abs_correction",
+        "protected_bounds",
+        "edge_margin_cells",
+        "min_training_fraction",
+        "reference_policy",
+        "evidence",
+        "geology_policy"
+      ],
+      "properties": {
+        "flight_azimuth": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360,
+          "description": "Clockwise degrees from CRS north; caller resolves true/grid convergence."
+        },
+        "line_spacing": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100,
+          "description": "Measured flight-line spacing in CRS linear units."
+        },
+        "along_line_wavelength": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100
+        },
+        "across_line_wavelength": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100
+        },
+        "max_abs_correction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1e+100,
+          "description": "Application cap in nT; never clips."
+        },
+        "protected_bounds": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          },
+          "description": "Inclusive cell-centre [xmin,ymin,xmax,ymax] boxes in map coordinates; explicit [] permitted."
+        },
+        "edge_margin_cells": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 262144
+        },
+        "min_training_fraction": {
+          "type": "number",
+          "minimum": 0.25,
+          "maximum": 1
+        },
+        "reference_policy": {
+          "type": "string",
+          "enum": [
+            "caller_verified"
+          ]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "geology_policy": {
+          "type": "string",
+          "enum": [
+            "directional_overlap_acknowledged"
+          ]
+        }
+      }
+    },
+    "outputs": {
+      "kind": "GeophysicsRaster",
+      "resolution": "full",
+      "field_type": "preserve",
+      "units": "preserve"
+    },
+    "assumptions": [
+      "Residual grid striping only; caller verifies prior line levelling, anomaly/reference context, geometry and sampling. No raw-field, tie, heading/lag or drape correction is inferred.",
+      "Along cutoff >=2*across cutoff, across cutoff >=2*line spacing; cell sizes <=line spacing/2. Grid spans at least one along cutoff and four line spacings across.",
+      "Protected valid cell centres are excluded from plane/FFT training; correction is zero there and within edge_margin_cells of the rectangular boundary. Each protection box must include a valid input centre. Original missing cells remain missing.",
+      "Minimum 64 unprotected samples and caller min_training_fraction (0.25..1) of all cells; at least one eligible interior application cell. Gaps and artificial boundaries can cause artefacts despite these checks.",
+      "Directional spectra cannot distinguish geological anomalies from identical line noise. Caller must acknowledge overlap and choose protection, parameters and cap; RMS reduction is not geological validation.",
+      "Estimation returns candidate/diagnostics even above cap; application recomputes from original and rejects over-cap candidates atomically, never clips. Applied grid status prevents repetition.",
+      "Both workflow operations require named verified input grids, not outputs from prior steps; run transforms separately and verify their actual context/support first.",
+      "Original source/history/uncertainty is archived in input_lineage, not propagated to an unsupported error estimate. This original Gaussian grid algorithm is not a vendor/Minty implementation or located-line correction."
+    ],
+    "backend": {
+      "python": "numpy FFT",
+      "javascript": "native FFT",
+      "algorithm_version": 1
+    },
+    "deterministic": true,
+    "corrections": "Requires known levelled/unmicrolevelled grid and caller verification; no preceding correction state inferred.",
+    "resources": {
+      "max_steps": 64,
+      "max_input_cell_values": 1000000,
+      "max_retained_cell_values": 16000000,
+      "max_fft_cells_per_band": 4194304
+    }
   }
 ]
