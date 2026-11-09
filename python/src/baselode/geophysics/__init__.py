@@ -251,3 +251,9 @@ import baselode.geophysics.misfit as geophysics_misfit
 describe_misfit = geophysics_misfit.describe_misfit
 calculate_misfit = geophysics_misfit.calculate_misfit
 __all__ += ['describe_misfit','calculate_misfit']
+
+import baselode.geophysics.block_forward as geophysics_block_forward
+describe_block_forward = geophysics_block_forward.describe_block_forward
+prepare_block_forward = geophysics_block_forward.prepare_block_forward
+calculate_block_forward = geophysics_block_forward.calculate_block_forward
+__all__ += ['describe_block_forward','prepare_block_forward','calculate_block_forward']

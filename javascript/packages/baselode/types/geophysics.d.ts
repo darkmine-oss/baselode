@@ -894,3 +894,26 @@ export interface GeophysicsMisfitStatistics {count:number;bias:number;mae:number
 export interface GeophysicsMisfitReport {schema:'baselode.geophysics.misfit_result';version:1;state:'ok'|'needs_input'|'rejected'|'failed';issues:Array<{code:string;message:string}>;request:GeophysicsMisfitRequest|null;rows:Array<{id:string;group_id:string|null;observed:number|null;predicted:number|null;standard_deviation:number|null;residual:number|null;normalized_residual:number|null;coordinate_distance_m:number|null;reason:string}>;groups:Array<{group_id:string|null;observed_count:number;paired_count:number;coverage:number;statistics:GeophysicsMisfitStatistics|null}>;summary:{observed_count:number;predicted_count:number;paired_count:number;observed_coverage:number;predicted_coverage:number;statistics:GeophysicsMisfitStatistics;uncertainty_assumption:string}|null;unmatched_predicted_ids:string[];units:Record<string,string|null>|null;producer:Record<string,string|number>;assumptions:string[]}
 export function describeGeophysicsMisfit():Record<string,any>;
 export function calculateGeophysicsMisfit(request:GeophysicsMisfitRequest):GeophysicsMisfitReport;
+
+export interface GeophysicsBlockForwardRequest {
+  schema:'baselode.geophysics.block_forward_request'; version:1;
+  coordinate_frame:GeophysicsGravityPrismsRequest['coordinate_frame'];
+  model:{definition:{name:string;description:string;crs:string;origin:{x:number;y:number;z:number};block_size:{dx:number;dy:number;dz:number};n_blocks:{nx:number;ny:number;nz:number};parent_size:{nx:number;ny:number;nz:number}|null;rotation:{azimuth:number;dip:number;plunge:number};extra:Record<string,unknown>};blocks:Array<Record<string,unknown>>};
+  physics:'gravity'|'magnetic';cell_id_column:string;active_column:string|null;
+  properties:Record<string,{column:string;units:'kg/m^3'|'A/m'}>;
+  points:GeophysicsGravityPrismsRequest['points'];batch_size:number;include_sensitivities:boolean;
+  background_nT:GeophysicsMagneticPrismsRequest['background_nT'];min_distance_m:number|null;metadata?:Record<string,unknown>;
+}
+export interface GeophysicsBlockForwardPreparation {
+  schema:'baselode.geophysics.block_forward_preparation'|'baselode.geophysics.block_forward_result';version:1;
+  state:'ok'|'needs_input'|'rejected'|'failed';issues:Array<{code:string;message:string}>;request:GeophysicsBlockForwardRequest|null;
+  batches:Array<GeophysicsGravityPrismsRequest|GeophysicsMagneticPrismsRequest>;cell_ids:string[];inactive_ids:string[];diagnostics:Record<string,number>;producer:Record<string,string|number>;
+}
+/** Numerical result produced by Python baselode[potential-fields]. */
+export interface GeophysicsBlockForwardReport extends GeophysicsBlockForwardPreparation {
+  fields:Array<GeophysicsGravityForwardField|GeophysicsMagneticForwardField>;
+  sensitivities:Array<GeophysicsGravityPrismsReport['sensitivities'][number]|GeophysicsMagneticPrismsReport['sensitivities'][number]>;
+  field_units:Record<string,string>;
+}
+export function describeGeophysicsBlockForward():Record<string,any>;
+export function prepareGeophysicsBlockForward(request:GeophysicsBlockForwardRequest):GeophysicsBlockForwardPreparation;

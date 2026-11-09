@@ -3276,3 +3276,10 @@ Bounds: 2048 rows/dataset,128 groups, values ±1e20, positive sigma1e-20..1e20,
 coordinates ±1e12m. JSON input/metadata/result 2MiB/128KiB/8MiB, depth32/33,
 nodes100000/500000, finite scalar JSON and valid Unicode. No new dependency.
 The standalone JSON report is separate from raster/observation workflow runners.
+
+### Block-model potential fields
+
+`baselode.geophysics.describe_block_forward()`, `prepare_block_forward(request)`
+(core) and `calculate_block_forward(request)` (`potential-fields` extra) expose
+versioned explicit indexed-cell adapters. Consult descriptor schemas/resources
+and `test/data/block_forward_example.json`; numerical support matches prism kernels.

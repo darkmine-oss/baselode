@@ -289,3 +289,9 @@ calculateGeophysicsMisfit(misfitRequest).summary?.statistics.rmse;
 // @ts-expect-error uncertainties are explicitly nullable, not silently absent
 const badMisfitRecord:GeophysicsMisfitRequest['observed']['records'][0]={id:'a',x_m:0,y_m:0,z_m:0,value:1,group_id:null};
 void badMisfitRecord;
+
+import {describeGeophysicsBlockForward,prepareGeophysicsBlockForward,GeophysicsBlockForwardRequest,GeophysicsBlockForwardPreparation,GeophysicsBlockForwardReport} from '../../types/geophysics.js';
+declare const blockForwardRequest:GeophysicsBlockForwardRequest;
+const blockPreparation:GeophysicsBlockForwardPreparation=prepareGeophysicsBlockForward(blockForwardRequest);
+declare const blockNumerical:GeophysicsBlockForwardReport;
+void [describeGeophysicsBlockForward(),blockPreparation.batches,blockNumerical.fields];

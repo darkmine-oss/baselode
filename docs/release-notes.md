@@ -644,3 +644,7 @@
 - Python package: drillhole data loading (`load_collars`, `load_surveys`, `load_assays`), minimum curvature desurveying, Plotly 2D strip logs and collar map
 - JavaScript/React library: CSV parsing, column normalisation, desurveying, Plotly strip logs (`buildPlotConfig`, `TracePlot`), Three.js 3D scene with orbit controls, drillhole cylinder rendering
 - Demo viewer React app with GSWA sample data
+
+- Add native Python/JS block-model forward preparation and Python gravity/magnetic
+  execution with explicit density/J units, cell IDs/masks, strict indexed geometry,
+  global budgets and correct post-superposition exact TMI. Unrotated full cells only.

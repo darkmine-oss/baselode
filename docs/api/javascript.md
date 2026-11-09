@@ -2450,3 +2450,9 @@ Bounds: 2048 rows/dataset,128 groups, values ±1e20, positive sigma1e-20..1e20,
 coordinates ±1e12m. JSON input/metadata/result 2MiB/128KiB/8MiB, depth32/33,
 nodes100000/500000, finite scalar JSON and valid Unicode. No new dependency.
 The standalone JSON report is separate from raster/observation workflow runners.
+
+### Block-model potential fields
+
+`describeGeophysicsBlockForward()` / `prepareGeophysicsBlockForward(request)`
+export from `baselode/geophysics` and the root bundle. Native preparation returns
+validated portable prism batches; Python executes numerical reports.

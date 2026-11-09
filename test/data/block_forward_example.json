@@ -1,0 +1,85 @@
+{
+  "schema": "baselode.geophysics.block_forward_request",
+  "version": 1,
+  "coordinate_frame": {
+    "id": "synthetic-local-grid",
+    "kind": "local_cartesian",
+    "axes": "x_y_up",
+    "units": "m",
+    "height_datum": "local_zero"
+  },
+  "model": {
+    "definition": {
+      "name": "two cells",
+      "description": "Synthetic signed density contrast",
+      "crs": "synthetic-local-grid",
+      "origin": {
+        "x": -50,
+        "y": -50,
+        "z": -150
+      },
+      "block_size": {
+        "dx": 50,
+        "dy": 100,
+        "dz": 100
+      },
+      "n_blocks": {
+        "nx": 2,
+        "ny": 1,
+        "nz": 1
+      },
+      "parent_size": null,
+      "rotation": {
+        "azimuth": 0,
+        "dip": 0,
+        "plunge": 0
+      },
+      "extra": {}
+    },
+    "blocks": [
+      {
+        "cell_id": "west",
+        "active": true,
+        "i": 0,
+        "j": 0,
+        "k": 0,
+        "ni": 1,
+        "nj": 1,
+        "nk": 1,
+        "rho": 1000
+      },
+      {
+        "cell_id": "east",
+        "active": true,
+        "i": 1,
+        "j": 0,
+        "k": 0,
+        "ni": 1,
+        "nj": 1,
+        "nk": 1,
+        "rho": 1000
+      }
+    ]
+  },
+  "physics": "gravity",
+  "cell_id_column": "cell_id",
+  "active_column": "active",
+  "properties": {
+    "density_contrast_kg_m3": {
+      "column": "rho",
+      "units": "kg/m^3"
+    }
+  },
+  "points": [
+    {
+      "id": "surface",
+      "x_m": 0,
+      "y_m": 0,
+      "z_m": 0
+    }
+  ],
+  "batch_size": 1,
+  "include_sensitivities": true,
+  "background_nT": null,
+  "min_distance_m": null
+}

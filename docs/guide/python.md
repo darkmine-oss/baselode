@@ -1142,3 +1142,25 @@ Open the tour locally:
 pip install baselode jupyter
 jupyter notebook notebooks/example_drill_tour.ipynb
 ```
+
+### Block-model gravity and magnetics
+
+Use `baselode.geophysics.describe_block_forward()` for the v1 contract and
+`prepare_block_forward(request)` for core-only preparation. Serialize a model
+as `{"definition": model.definition.to_dict(), "blocks": model.blocks.to_dict("records")}`.
+`test/data/block_forward_example.json` is an executable two-cell example.
+Declare frame ID equal to definition CRS, known metre/up datum, string cell-ID
+column, explicit boolean active column (or null for all cells), density contrast
+mapping in kg/m^3 or world Cartesian magnetisation components in A/m. No values,
+units or inducing field are inferred. Grid indices are authoritative; supplied
+complete centroids/sizes must agree within absolute 1e-6m. Nonzero rotation and
+partial `fill_fraction` need explicit resolved geometry and return `needs_input`.
+Active overlap is rejected; touching faces are allowed.
+
+`calculate_block_forward(request)` requires `pip install 'baselode[potential-fields]'`.
+Its result preserves input, active/inactive IDs, batches, fields, units and optional
+property sensitivities. Batch size1..64 changes execution partition only; all
+magnetic vectors accumulate before exact TMI. Existing prism size/aspect/far-field
+and magnetic exclusion limits apply to every active cell-point pair. Global caps:
+512 cells,1024 points,32768 pairs; sensitivities4096 gravity or2048 magnetic pairs.
+This is a bounded uniform-cell forward model, not arbitrary-scale block inversion.

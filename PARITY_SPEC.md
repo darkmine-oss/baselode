@@ -434,3 +434,15 @@ values; tolerance-based numerical parity applies (relative/absolute1e-12 for
 statistics), not bitwise arithmetic. Fixed-order scaled coordinate norms avoid
 hypot boundary drift and squared-distance underflow. No interpolation, reference
 conversion, reduced chi-square, inferred uncertainty or observation mutation.
+
+## Block forward v1
+
+`describe_block_forward` / `prepare_block_forward` correspond to native
+`describeGeophysicsBlockForward` / `prepareGeophysicsBlockForward`. Portable
+Baselode definition plus indexed records maps to validated prism batches,
+with identical IDs/masks/property units/geometry gates and replay. Python
+`calculate_block_forward` executes the pinned potential-fields extra;
+JavaScript supplies result types, with no numerical solver parity claim.
+Unrotated grids only. No snapping, bounding-box rotation approximation,
+partial-fill assumption or susceptibility conversion. Global vectors precede
+exact TMI, and global work/sensitivity budgets apply across batches.
