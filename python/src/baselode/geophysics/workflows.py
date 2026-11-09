@@ -182,7 +182,13 @@ def validate_workflow(workflow, inputs):
     if type(inputs) is not dict or not all(_identifier(key) for key in inputs):
         issue("rejected", "input", "inputs", "inputs must be an object with identifier keys")
         return finish()
-    pointwise_only = all(type(step) is dict and step.get("operation") in _POINTWISE for step in steps)
+    # Spatial requirements flow backwards through dependent steps. An unrelated
+    # magnetic branch must not constrain a pointwise concentration input.
+    linear_references = set()
+    for step in reversed(steps):
+        if type(step) is dict and type(step.get('inputs')) is list and all(isinstance(ref, str) for ref in step['inputs']):
+            if step.get('operation') not in _POINTWISE or (isinstance(step.get('id'), str) and step['id'] in linear_references):
+                linear_references.update(step['inputs'])
     retained, largest_fft = 0, 0
     for key, raster in inputs.items():
         path = "inputs." + key
@@ -193,10 +199,11 @@ def validate_workflow(workflow, inputs):
         retained += cells
         if cells > 1_000_000:
             issue("rejected", "resource", path, "input exceeds 1000000 cell values")
+        pointwise_input = key not in linear_references and any(type(step) is dict and step.get('operation') in _POINTWISE and type(step.get('inputs')) is list and key in step['inputs'] for step in steps)
         spacing = (1.0, 1.0)
         try:
             baselode.geophysics.provenance.encode(raster.metadata, "GeoTIFF", "float64")
-            distance = "pointwise" if pointwise_only else baselode.geophysics.processing._coordinate_unit(raster)
+            distance = "pointwise" if pointwise_input else baselode.geophysics.processing._coordinate_unit(raster)
             if distance == "coordinate_unit":
                 issue("needs_input", "coordinates", path, "supply explicit local metadata.crs_units or a projected CRS")
             transform = raster.transform
@@ -206,7 +213,7 @@ def validate_workflow(workflow, inputs):
             if not math.isfinite(determinant) or determinant == 0:
                 raise ValueError("require a finite invertible rectangular affine transform")
             # Use the same rectangular-cell check as the numerical kernels.
-            spacing = (1.0, 1.0) if pointwise_only else raster.cell_size
+            spacing = (1.0, 1.0) if pointwise_input else raster.cell_size
             if not all(math.isfinite(value) and value > 0 for value in spacing):
                 raise ValueError("cell spacing must be positive and finite")
         except (ValueError, TypeError, RecursionError) as error:

@@ -1847,8 +1847,10 @@ calibration and uncertainty remain in input lineage, without unsupported
 uncertainty propagation. All-unsupported products throw actionable errors.
 
 Both unary raster-workflow operations use the same snake_case options.
-Radiometric-only pointwise recipes accept geographic/sheared affine grids;
-spatial-filter recipes retain projected/local rectangular requirements.
+Inputs used exclusively by pointwise branches accept geographic/sheared
+affine grids, including in mixed recipes with unrelated spatial-filter
+branches. Any spatial-filter descendant imposes projected/local rectangular
+requirements on its source inputs.
 Full-resolution products export through ERS/GeoTIFF with units and lineage.
 
 

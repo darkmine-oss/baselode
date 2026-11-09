@@ -171,3 +171,18 @@ def test_transformed_sources_are_rejected_instead_of_preflighting_cached_raw_val
     w=workflow();w['steps']=[{'id':'upstream','operation':operation,'version':1,'inputs':['radio','radio'] if operation=='combine' else ['radio'],'parameters':parameters},w['steps'][0]];w['steps'][1]['inputs']=['upstream'];w['outputs']=['ratios']
     v=baselode.geophysics.validate_workflow(w,{'radio':g});assert v['state']=='rejected' and any('named verified input stack' in i['message'] for i in v['issues'])
     r=baselode.geophysics.run_workflow(w,{'radio':g});assert r['completed_steps']==[] and r['artifacts']=={}
+
+
+@pytest.mark.parametrize('geometry',['geographic','sheared'])
+def test_unrelated_spatial_branch_does_not_constrain_pointwise_input_geometry(geometry):
+    radio=grid()
+    if geometry=='sheared':radio.crs='EPSG:32750';radio.metadata['crs_units']='m';radio.transform=(2,1,500000,0,-2,6500000)
+    magnetic=baselode.geophysics.GeophysicsRaster(np.ones((8,8)),crs='EPSG:32750',transform=(10,0,500000,0,-10,6500000),metadata={'field_type':'magnetic_anomaly','units':['nT'],'crs_units':'m'})
+    w=workflow();w['steps'].append({'id':'filtered','operation':'low_pass','version':1,'inputs':['magnetic'],'parameters':{'wavelength':20}});w['outputs'].append('filtered')
+    v=baselode.geophysics.validate_workflow(w,{'radio':radio,'magnetic':magnetic});assert v['state']=='ok',v['issues']
+    r=baselode.geophysics.run_workflow(w,{'radio':radio,'magnetic':magnetic});assert r['state']=='ok',r['issues'];assert encoded(r['artifacts']['ratios'].data)==fixture()['expected_ratios']
+
+
+def test_spatial_descendant_keeps_angular_input_rejection():
+    w=workflow();w['steps']=w['steps'][:1]+[{'id':'filtered','operation':'low_pass','version':1,'inputs':['ratios'],'parameters':{'wavelength':20}}];w['outputs']=['filtered']
+    r=baselode.geophysics.run_workflow(w,{'radio':grid()});assert r['state']=='rejected' and r['completed_steps']==[] and r['artifacts']=={}

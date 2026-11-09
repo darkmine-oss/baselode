@@ -105,7 +105,8 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
   if (!object(inputs) || !Object.keys(inputs).every(identifier)) {
     issue('rejected', 'input', 'inputs', 'inputs must be an object with identifier keys'); return finish();
   }
-  const pointwiseOnly=steps.every(step=>object(step)&&pointwise.includes(step.operation));
+  const linearReferences=new Set();
+  for(const step of [...steps].reverse())if(object(step)&&Array.isArray(step.inputs)&&step.inputs.every(ref=>typeof ref==='string')){if(!pointwise.includes(step.operation)||linearReferences.has(step.id))step.inputs.forEach(ref=>linearReferences.add(ref));}
   let retained = 0; let largestFft = 0;
   for (const [key, raster] of Object.entries(inputs)) {
     const path = `inputs.${key}`;
@@ -124,10 +125,11 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
     }
     retained += cells;
     if (cells > 1000000) issue('rejected', 'resource', path, 'input exceeds 1000000 cell values');
+    const pointwiseInput=!linearReferences.has(key)&&steps.some(step=>object(step)&&pointwise.includes(step.operation)&&Array.isArray(step.inputs)&&step.inputs.includes(key));
     let distance = 'coordinate_unit'; let spacing = [1, 1];
     try {
       encodeProvenance(raster.metadata, 'GeoTIFF', 'float64');
-      distance = pointwiseOnly?'pointwise':geophysicsCoordinateUnit(raster);
+      distance = pointwiseInput?'pointwise':geophysicsCoordinateUnit(raster);
       if (distance === 'coordinate_unit') issue('needs_input', 'coordinates', path, 'supply explicit local metadata.crs_units or a projected CRS');
       const t = raster.transform;
       if (!Array.isArray(t) || t.length !== 6 || !t.every(Number.isFinite)) throw new RangeError('require a finite invertible rectangular affine transform');
@@ -135,7 +137,7 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
       const column = Math.hypot(t[0], t[3]); const row = Math.hypot(t[1], t[4]);
       spacing = [column, row];
       if (!Number.isFinite(determinant) || determinant === 0 || !Number.isFinite(column) || !Number.isFinite(row)
-        || column === 0 || row === 0 || (!pointwiseOnly&&Math.abs(t[0] * t[1] + t[3] * t[4]) > 1e-9 * column * row)) {
+        || column === 0 || row === 0 || (!pointwiseInput&&Math.abs(t[0] * t[1] + t[3] * t[4]) > 1e-9 * column * row)) {
         throw new RangeError('require a finite invertible rectangular affine transform; sheared grids are unsupported');
       }
     } catch (error) { issue('rejected', 'input', path, error.message); spacing = [1, 1]; }

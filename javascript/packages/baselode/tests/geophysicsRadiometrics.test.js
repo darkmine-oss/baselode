@@ -57,3 +57,12 @@ describe('corrected radiometric products',()=>{
 it.each([['low_pass',{wavelength:20}],['vertical_derivative',{order:1}],['combine',{operation:'multiply'}]])('rejects %s output as a product source before checking cached raw support',(operation,parameters)=>{
   const g=grid();g.crs='EPSG:32750';g.metadata.crs_units='m';g.transform=[10,0,500000,0,-10,6500000];const w=workflow();w.steps=[{id:'upstream',operation,version:1,inputs:operation==='combine'?['radio','radio']:['radio'],parameters},w.steps[0]];w.steps[1].inputs=['upstream'];w.outputs=['ratios'];const v=validateGeophysicsWorkflow(w,{radio:g});expect(v.state).toBe('rejected');expect(v.issues.some(i=>i.message.includes('named verified input stack'))).toBe(true);const r=runGeophysicsWorkflow(w,{radio:g});expect(r.completed_steps).toEqual([]);expect(r.artifacts).toEqual({});
 });
+
+it.each(['geographic','sheared'])('keeps an unrelated spatial branch independent of %s radiometric geometry',geometry=>{
+  const radio=grid();if(geometry==='sheared'){radio.crs='EPSG:32750';radio.metadata.crs_units='m';radio.transform=[2,1,500000,0,-2,6500000];}
+  const magnetic=createGeophysicsRaster({data:Array.from({length:8},()=>Array(8).fill(1)),crs:'EPSG:32750',transform:[10,0,500000,0,-10,6500000],metadata:{field_type:'magnetic_anomaly',units:['nT'],crs_units:'m'}});
+  const w=workflow();w.steps.push({id:'filtered',operation:'low_pass',version:1,inputs:['magnetic'],parameters:{wavelength:20}});w.outputs.push('filtered');const v=validateGeophysicsWorkflow(w,{radio,magnetic});expect(v.state,v.issues).toBe('ok');const r=runGeophysicsWorkflow(w,{radio,magnetic});expect(r.state,r.issues).toBe('ok');expect(r.artifacts.ratios.data).toEqual(fixture().expected_ratios);
+});
+it('propagates a spatial descendant requirement back to its angular concentration input',()=>{
+  const w=workflow();w.steps=[w.steps[0],{id:'filtered',operation:'low_pass',version:1,inputs:['ratios'],parameters:{wavelength:20}}];w.outputs=['filtered'];const r=runGeophysicsWorkflow(w,{radio:grid()});expect(r.state).toBe('rejected');expect(r.completed_steps).toEqual([]);expect(r.artifacts).toEqual({});
+});

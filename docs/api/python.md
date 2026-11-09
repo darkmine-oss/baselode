@@ -442,7 +442,7 @@ Workflow inputs need explicit `metadata.field_type` for all bands: `magnetic_ano
 `gravity_anomaly`, `radiometric`, or `other`, plus one nonempty `metadata.units` string
 per band and finite invertible rectangular affine coordinates (rotations supported; shear rejected). Use separate rasters for mixed field
 families. A projected CRS supplies linear units; a local grid must declare `crs_units`.
-Angular coordinates are rejected for spatial filters. Recipes containing only the pointwise radiometric ratio/ternary operations also accept geographic or sheared affine grids; no spatial distances are used. Potential-field operators reject radiometric/other
+Angular coordinates are rejected for spatial filters. Inputs used exclusively by pointwise radiometric branches also accept geographic or sheared affine grids; no spatial distances are used. Potential-field operators reject radiometric/other
 fields; RTP requires magnetic anomalies, explicit inclination/declination and
 `|inclination| >= 15°`. In this workflow contract declination is **east of grid north**:
 the caller must apply survey-appropriate convergence before supplying it. No field date,
@@ -2590,10 +2590,10 @@ parameters, or no supported cells, raise `ValueError`.
 Saved raster workflows register `radiometric_ratios` and `radiometric_ternary`
 with the same snake_case parameters. Preflight checks calibration/context and
 pointwise support before retaining products; absent support returns
-`needs_input`. Recipes containing only these pointwise operations accept
-geographic and general finite invertible affine grids and use no FFT budget.
-Mixed spatial-filter recipes retain their projected/local rectangular-grid
-requirements. Derived products retain full resolution and export through the
+`needs_input`. Inputs used only by pointwise radiometric branches accept geographic and
+general finite invertible affine grids and use no FFT budget. Unrelated
+spatial-filter branches do not constrain them. Inputs with any spatial-filter
+descendant retain projected/local rectangular-grid requirements. Derived products retain full resolution and export through the
 existing ERS/GeoTIFF writers with source lineage and units.
 
 

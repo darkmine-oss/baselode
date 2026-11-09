@@ -269,5 +269,6 @@ operations define independent dependency masks, explicit denominator floors,
 ppm/% ratio semantics and K-red/eTh-green/eU-blue display mapping. Source
 uncertainty is archived, not inferred from corrected grids. Hand-computed
 mixtures and live Python/JavaScript replay cover masks, unit/context guards,
-source lineage and exports. Pointwise-only recipes accept geographic and
-sheared affines; existing spatial-filter coordinate requirements are unchanged.
+source lineage and exports. Inputs consumed exclusively by pointwise branches accept geographic and
+sheared affines, independently of unrelated spatial-filter branches. Spatial
+requirements propagate to source inputs through all dependent steps.
