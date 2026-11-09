@@ -251,3 +251,13 @@ const invalidForwardSource: GeophysicsGravityForwardSource = {...gravitySource,m
 void invalidForwardSource;
 // @ts-expect-error explicit calculation frame and sensitivity policy are required
 calculateGeophysicsGravityForward({sources:[gravitySource],points:[]});
+
+import {describeGeophysicsMagneticForward,calculateGeophysicsMagneticForward,type GeophysicsMagneticForwardRequest} from 'baselode/geophysics';
+const magneticForwardRequest: GeophysicsMagneticForwardRequest = {schema:'baselode.geophysics.magnetic_forward_request',version:1,coordinate_frame:{id:'local',kind:'local_cartesian',axes:'x_y_up',units:'m',height_datum:'local_zero'},sources:[{id:'dipole',kind:'dipole',x_m:0,y_m:0,z_m:-100,moment_x_A_m2:0,moment_y_A_m2:0,moment_z_up_A_m2:1000}],points:[{id:'p',x_m:0,y_m:0,z_m:0}],include_sensitivities:true,min_distance_m:1,background_nT:null};
+const magneticForwardReport = calculateGeophysicsMagneticForward(magneticForwardRequest);
+const syntheticTmi: number | null | undefined = magneticForwardReport.fields[0]?.tmi_exact;
+void syntheticTmi; describeGeophysicsMagneticForward();
+// @ts-expect-error required nullable background must still be supplied explicitly
+calculateGeophysicsMagneticForward({schema:'baselode.geophysics.magnetic_forward_request',version:1,coordinate_frame:magneticForwardRequest.coordinate_frame,sources:[],points:[],include_sensitivities:false,min_distance_m:1});
+// @ts-expect-error exact TMI derivatives are intentionally absent
+magneticForwardReport.sensitivities[0].fields[0].tmi_exact;

@@ -229,3 +229,8 @@ import baselode.geophysics.gravity_forward as geophysics_gravity_forward
 describe_gravity_forward = geophysics_gravity_forward.describe_gravity_forward
 calculate_gravity_forward = geophysics_gravity_forward.calculate_gravity_forward
 __all__ += ['describe_gravity_forward', 'calculate_gravity_forward']
+
+import baselode.geophysics.magnetic_forward as geophysics_magnetic_forward
+describe_magnetic_forward = geophysics_magnetic_forward.describe_magnetic_forward
+calculate_magnetic_forward = geophysics_magnetic_forward.calculate_magnetic_forward
+__all__ += ['describe_magnetic_forward', 'calculate_magnetic_forward']

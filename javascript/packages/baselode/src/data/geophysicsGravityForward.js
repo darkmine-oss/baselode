@@ -1,41 +1,11 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
 import descriptor from './geophysics_gravity_forward.json';
-import {isObservationLabel,trimObservationText,unicodeStrings} from './geophysicsObservations.js';
+import {boundedJSON,keys,number,label,add,object,NeedsInput,ResourceError,BackendError} from './geophysicsForwardCommon.js';
 const clone=v=>JSON.parse(JSON.stringify(v));
 const limits=descriptor.resources,coords=['x_m','y_m','z_m'],G=descriptor.model.gravitational_constant;
-const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v)&&(Object.getPrototypeOf(v)===Object.prototype||Object.getPrototypeOf(v)===null);
-class NeedsInput extends Error{}
-class ResourceError extends Error{}
-class BackendError extends Error{}
 /** Independent synthetic-response schemas, model constants, conventions and budgets. */
 export function describeGeophysicsGravityForward(){return clone(descriptor);}
-function boundedJSON(value,limit,result=false){
-  const active=new Set();let count=0,textBytes=0;const encoder=new TextEncoder();
-  function visit(v,depth){
-    if(++count>(result?limits.max_result_json_nodes:limits.max_json_nodes)||depth>(result?limits.max_result_json_depth:limits.max_json_depth))throw new ResourceError('JSON node/depth budget exceeded');
-    if(v===null||typeof v==='boolean')return;
-    if(typeof v==='number'){if(!Number.isFinite(v)||Math.abs(v)>1e100)throw Error('require finite portable binary64 JSON numbers within +/-1e100');return;}
-    if(typeof v==='string'){unicodeStrings(v);textBytes+=encoder.encode(v).length;if(textBytes>limit)throw new ResourceError('JSON string byte budget exceeded');return;}
-    if(!Array.isArray(v)&&!object(v))throw Error('require plain scalar JSON objects/arrays');
-    if(active.has(v))throw Error('cyclic JSON is invalid');active.add(v);
-    if(Array.isArray(v)){
-      if(Object.keys(v).length!==v.length)throw Error('JSON arrays must be dense without extra properties');
-      for(let i=0;i<v.length;i++)visit(v[i],depth+1);
-    }else{
-      if(Reflect.ownKeys(v).some(k=>typeof k!=='string'))throw Error('JSON object keys must be strings');
-      for(const [k,d] of Object.entries(Object.getOwnPropertyDescriptors(v))){if(!d.enumerable||!Object.hasOwn(d,'value'))throw Error('JSON objects require enumerable data fields');visit(k,depth+1);visit(d.value,depth+1);}
-    }
-    active.delete(v);
-  }
-  visit(value,0);const encoded=JSON.stringify(value);if(encoder.encode(encoded).length>limit)throw new ResourceError('JSON byte budget exceeded');return JSON.parse(encoded);
-}
-function keys(value,required,optional=[]){
-  if(!object(value)||Object.keys(value).some(k=>!required.includes(k)&&!optional.includes(k)))throw Error('unknown fields or invalid object');
-  if(required.some(k=>!Object.hasOwn(value,k)||value[k]===null))throw new NeedsInput('supply every required request/frame/source/point field');
-}
-function number(v,low,high){if(typeof v!=='number'||!Number.isFinite(v)||v<low||v>high)throw Error('numeric value violates explicit finite range');}
-function label(v){if(!isObservationLabel(v)||['unknown','unspecified'].includes(trimObservationText(v).toLowerCase()))throw Error('IDs and height datum must be known nonblank labels of <=128 characters');}
 function prepare(request){
   const p=boundedJSON(request,limits.max_input_bytes);
   keys(p,['schema','version','coordinate_frame','sources','points','include_sensitivities'],['point_mass_min_distance_m','metadata']);
@@ -85,7 +55,6 @@ function kernel(source,point){
   else{const gm=G*(sphere?4*Math.PI*source.radius_m**3/3:1);factor=gm/distance**3;potential=-gm/distance;}
   return [...delta.map(v=>factor*v*1e5),potential];
 }
-function add(total,correction,i,value){const next=total[i]+value;correction[i]+=Math.abs(total[i])>=Math.abs(value)?(total[i]-next)+value:(value-next)+total[i];total[i]=next;}
 function field(id,v){
   const values=[v[0],v[1],v[2],-v[2],v[3]];
   return {id,...Object.fromEntries(['gx','gy','gz_up','g_down','potential'].map((k,i)=>[k,values[i]===0?0:values[i]]))};

@@ -336,3 +336,28 @@ objects that cannot be represented exactly in binary64; JavaScript numeric
 inputs already are binary64. Request/result depth budgets are separate so the
 request echo preserves the deepest valid request. The standalone JSON API is
 separate from raster and acquisition-observation workflow execution.
+
+## Magnetic dipole forward modelling v1
+
+Python `describe_magnetic_forward` / `calculate_magnetic_forward` correspond to
+JavaScript `describeGeophysicsMagneticForward` / `calculateGeophysicsMagneticForward`
+in the root and geophysics entries. Both execute natively, share request/result
+JSON descriptors and use the gravity forward model's extracted scalar-JSON and
+compensated-sum guards. Gravity numerical formulae/API remain unchanged.
+Moments are independent x/y/up vectors in A m², positions local Cartesian metres,
+background explicitly supplied in nT or null. Signed-vector superposition precedes
+both linear projection and the nonlinear total-field magnitude difference.
+Per-moment-component derivatives cover vectors and LINEAR TMI only.
+
+Independent axial/equatorial laws, Biot-Savart current-loop quadrature and
+80-digit magnitude differences validate results beyond runtime agreement.
+Live fixtures compare fields/derivatives at relative 3e-13 and absolute
+1e-15/1e-18 respectively; descriptors/models/units/request structure and
+negative state/code pairs match exactly. Native package version and binary64
+serialization formatting can differ. As for gravity, Python rejects integer
+objects not exactly representable in binary64, and field zero is canonical
+positive zero. No bitwise JSON identity or geological uniqueness is promised.
+No background/IGRF, induced-only direction, finite-body interior, geometry
+inversion or observation correction is inferred. Missing-background context
+is distinct from explicit null vector-only intent. This standalone JSON API
+is outside raster/acquisition-observation workflow operation catalogues.

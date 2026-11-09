@@ -798,3 +798,37 @@ export interface GeophysicsGravityForwardReport {
 }
 export function describeGeophysicsGravityForward(): Record<string, any>;
 export function calculateGeophysicsGravityForward(request: GeophysicsGravityForwardRequest): GeophysicsGravityForwardReport;
+
+export interface GeophysicsMagneticForwardPoint {id: string; x_m: number; y_m: number; z_m: number}
+export interface GeophysicsMagneticForwardSource extends GeophysicsMagneticForwardPoint {
+  kind: 'dipole'; moment_x_A_m2: number; moment_y_A_m2: number; moment_z_up_A_m2: number;
+}
+export interface GeophysicsMagneticForwardRequest {
+  schema: 'baselode.geophysics.magnetic_forward_request'; version: 1;
+  coordinate_frame: {id: string; kind: 'local_cartesian'; axes: 'x_y_up'; units: 'm'; height_datum: string};
+  sources: GeophysicsMagneticForwardSource[]; points: GeophysicsMagneticForwardPoint[];
+  include_sensitivities: boolean; min_distance_m: number;
+  background_nT: {x: number; y: number; z_up: number} | null;
+  metadata?: Record<string, unknown>;
+}
+export interface GeophysicsMagneticForwardDerivativeField {
+  id: string; bx: number; by: number; bz_up: number; b_down: number; tmi_linear: number | null;
+}
+export interface GeophysicsMagneticForwardField extends GeophysicsMagneticForwardDerivativeField {
+  tmi_exact: number | null; linearization_difference: number | null;
+}
+export interface GeophysicsMagneticForwardSensitivity {
+  source_id: string; parameter: 'moment_x_A_m2' | 'moment_y_A_m2' | 'moment_z_up_A_m2'; parameter_units: 'A*m^2';
+  field_units: Record<Exclude<keyof GeophysicsMagneticForwardDerivativeField,'id'>,string>;
+  fields: GeophysicsMagneticForwardDerivativeField[];
+}
+export interface GeophysicsMagneticForwardReport {
+  schema: 'baselode.geophysics.magnetic_forward_result'; version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  model: Record<string,string | number>; request: GeophysicsMagneticForwardRequest | null;
+  fields: GeophysicsMagneticForwardField[]; sensitivities: GeophysicsMagneticForwardSensitivity[];
+  field_units: Record<Exclude<keyof GeophysicsMagneticForwardField,'id'>,string>;
+  diagnostics: Record<string,number | boolean | null>; producer: Record<string,string | number>; assumptions: string[];
+}
+export function describeGeophysicsMagneticForward(): Record<string, any>;
+export function calculateGeophysicsMagneticForward(request: GeophysicsMagneticForwardRequest): GeophysicsMagneticForwardReport;

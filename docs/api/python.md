@@ -2932,3 +2932,91 @@ result JSON (8 MiB), input depth (32), result depth (33, allowing the request
 echo), input nodes (100000) and result nodes (500000).
 Finite binary64 scalars, valid Unicode, strict keys and immutable inputs are
 required. No optional backend or new dependency is needed.
+
+### Magnetic dipole forward responses
+
+`describe_magnetic_forward()` returns shared request/result JSON Schemas and
+model conventions; `calculate_magnetic_forward(request)` executes natively.
+
+```python
+import json
+import baselode.geophysics
+
+with open("test/data/magnetic_forward_example.json") as source:
+    request = json.load(source)
+report = baselode.geophysics.calculate_magnetic_forward(request)
+assert report["state"] == "ok", report["issues"]
+assert abs(report["fields"][0]["bz_up"] - 0.19999999997359344) < 1e-14
+# +1000 A m² up-directed dipole 100 m below the point; all fields in nT.
+```
+
+The required `coordinate_frame` matches the gravity forward contract:
+known `id`, `kind: "local_cartesian"`, `axes: "x_y_up"`, `units: "m"`,
+and known `height_datum`. All positions and vectors must already share that
+frame. x/y need not be true east/north. Perform coordinate, grid/true-north
+and height-datum conversions upstream.
+
+Each source has a unique `id`, `kind: "dipole"`, `x_m`/`y_m`/`z_m`, and
+**all three** signed `moment_x_A_m2`, `moment_y_A_m2`, `moment_z_up_A_m2`
+components in A m². Each evaluation point needs its own unique `id` and metre
+coordinates. No moment direction, susceptibility, volume or induced/remanent
+partition is inferred. Supply `min_distance_m` explicitly (0.001–100000 m);
+every source–point pair must respect it, including zero moments. There is no
+softening, clipping or finite-body interior model. The point-dipole approximation
+requires caller-verified geometry appropriate to the real source dimensions.
+
+`background_nT` is **required**, either `{x, y, z_up}` in the same axes or
+explicit `null` for vectors only. A supplied background must have magnitude
+1–1000000 nT. No IGRF, direction conversion or background estimate is automatic.
+`include_sensitivities` is also a required boolean. Optional `metadata` is
+preserved in the copied request snapshot.
+
+The model pins μ₀ = 1.25663706127 × 10⁻⁶ N/A² from the
+[NIST 2022 CODATA listing](https://physics.nist.gov/cuu/Constants/Table/allascii.txt).
+It is treated as fixed; measurement uncertainty is not propagated. With
+r = point − source, n = r/|r| and moment m,
+B = μ₀/(4π|r|³) [3n(n·m) − m]. Output converts tesla to **nT**.
+Independent moment components make the kernel useful for remanent directions;
+they do not constitute recovered magnetisation or magnetic vector inversion.
+
+`fields` contain `id`, `bx`, `by`, `bz_up`, `b_down = -bz_up`, and:
+
+- `tmi_linear`: the **summed** B vector projected onto the unit background;
+- `tmi_exact`: |background + **summed** B| − |background|;
+- `linearization_difference`: exact minus linear total-field anomaly.
+
+All field values use nT. The three TMI/difference fields are null without a
+background, as is `diagnostics.max_response_to_background_ratio`. With a
+background, that diagnostic is the maximum |B|/|background| across the points.
+The exact magnitude response is **not additive across sources**. “Exact” names
+the norm formula for the assumed model/background, not an accuracy claim about
+measured geology. A rationalised norm difference with factored numerator
+Σ Bᵢ(2 backgroundᵢ + Bᵢ) retains weak transverse responses and avoids subtracting
+large squared terms near field reversal. Component/source sums are compensated.
+All calculations use binary64 arithmetic; last-bit runtime differences remain.
+The linearization difference/ratio describes approximation behaviour, not
+calibrated uncertainty or probability of mineralisation.
+
+If requested, `sensitivities` has **three entries per source**, one for each
+moment-component parameter. Entries provide `source_id`, `parameter`,
+`parameter_units: "A*m^2"`, per-field derivative units `nT/(A*m^2)` and point
+fields `bx`, `by`, `bz_up`, `b_down`, `tmi_linear`. Geometry and background
+are fixed. Linear TMI derivatives are null without background. **Exact TMI
+and geometry derivatives are absent.** Derivatives remain meaningful for zero
+moments, provided the exclusion geometry is valid.
+
+Reports have `state: ok | needs_input | rejected | failed`, actionable `issues`,
+model/units/version/producer and an independent replayable request. Every failure
+withholds all `fields`, `sensitivities` and the request snapshot. Inputs are not
+mutated. This is a standalone bounded synthetic calculation: it neither applies
+observation corrections nor modifies raster/observation histories, and is not
+registered as an acquisition-observation or raster workflow stage.
+
+Limits: 128 sources, 4096 points, 262144 source–point pairs, or 4096 pairs when
+requesting the three-column sensitivities. Coordinates are ±10¹² m, combined
+span ≤200 km/axis, and each moment component is ±10¹⁵ A m². These are numerical
+budgets, not physical accuracy bounds. Input/metadata/result JSON budgets are
+2 MiB / 128 KiB / 8 MiB; input/result depth 32/33; nodes 100000/500000.
+Strict keys, finite portable binary64 numbers and valid Unicode are required.
+No new dependency or optional backend is needed. Native gravity and magnetic
+models share the same scalar-JSON guards and compensated-sum helpers.

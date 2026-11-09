@@ -7,7 +7,7 @@ import math
 import pathlib
 
 import baselode.geophysics.corrections
-import baselode.geophysics.observations
+import baselode.geophysics.forward_common
 
 _DESCRIPTOR = json.loads((pathlib.Path(__file__).parent / 'geophysics_gravity_forward.json').read_text())
 _LIMITS = _DESCRIPTOR['resources']
@@ -28,78 +28,16 @@ def describe_gravity_forward():
     return copy.deepcopy(_DESCRIPTOR)
 
 
-def _bounded_json(value, limit, result=False):
-    """Validate scalar JSON before serialization, including cycles and huge ints."""
-    active = set()
-    count = 0
-    text_bytes = 0
-
-    def visit(item, depth):
-        nonlocal count, text_bytes
-        count += 1
-        if count > (_LIMITS['max_result_json_nodes'] if result else _LIMITS['max_json_nodes']) or depth > (_LIMITS['max_result_json_depth'] if result else _LIMITS['max_json_depth']):
-            raise baselode.geophysics.corrections._ResourceError('JSON node/depth budget exceeded')
-        if item is None or type(item) is bool:
-            return
-        if type(item) in (int, float):
-            if abs(item) > 1e100 or not math.isfinite(item) or (type(item) is int and int(float(item)) != item):
-                raise ValueError('require finite exactly portable binary64 JSON numbers within +/-1e100')
-            return
-        if type(item) is str:
-            text_bytes += len(item.encode('utf-8'))
-            if text_bytes > limit:
-                raise baselode.geophysics.corrections._ResourceError('JSON string byte budget exceeded')
-            return
-        if type(item) not in (dict, list):
-            raise ValueError('require plain scalar JSON objects/arrays')
-        identity = id(item)
-        if identity in active:
-            raise ValueError('cyclic JSON is invalid')
-        active.add(identity)
-        if type(item) is dict:
-            for key, child in item.items():
-                if type(key) is not str:
-                    raise ValueError('JSON object keys must be strings')
-                visit(key, depth + 1)
-                visit(child, depth + 1)
-        else:
-            for child in item:
-                visit(child, depth + 1)
-        active.remove(identity)
-    visit(value, 0)
-    encoded = json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
-    if len(encoded) > limit:
-        raise baselode.geophysics.corrections._ResourceError('JSON byte budget exceeded')
-    return copy.deepcopy(value)
-
-
-def _keys(value, required, optional=()):
-    if type(value) is not dict or value.keys() - set(required) - set(optional):
-        raise ValueError('unknown fields or invalid object')
-    if set(required) - value.keys() or any(value[k] is None for k in required):
-        raise baselode.geophysics.corrections._NeedsInput('supply every required request/frame/source/point field')
-
-
-def _number(value, low, high):
-    if type(value) not in (int, float) or not low <= value <= high or not math.isfinite(value):
-        raise ValueError('numeric value violates explicit finite range')
-
-
-def _label(value):
-    if not baselode.geophysics.observations._label(value) or baselode.geophysics.observations._trim(value).lower() in ('unknown', 'unspecified'):
-        raise ValueError('IDs and height datum must be known nonblank labels of <=128 characters')
-
-
 def _prepare(request):
-    p = _bounded_json(request, _LIMITS['max_input_bytes'])
-    _keys(p, ('schema', 'version', 'coordinate_frame', 'sources', 'points', 'include_sensitivities'), ('point_mass_min_distance_m', 'metadata'))
+    p = baselode.geophysics.forward_common._bounded_json(request, _LIMITS['max_input_bytes'])
+    baselode.geophysics.forward_common._keys(p, ('schema', 'version', 'coordinate_frame', 'sources', 'points', 'include_sensitivities'), ('point_mass_min_distance_m', 'metadata'))
     if p['schema'] != 'baselode.geophysics.gravity_forward_request' or type(p['version']) not in (int, float) or p['version'] != 1:
         raise ValueError('unsupported gravity forward request schema/version')
     if type(p['include_sensitivities']) is not bool:
         raise ValueError('include_sensitivities must be boolean')
     frame = p['coordinate_frame']
-    _keys(frame, ('id', 'kind', 'axes', 'units', 'height_datum'))
-    _label(frame['id']); _label(frame['height_datum'])
+    baselode.geophysics.forward_common._keys(frame, ('id', 'kind', 'axes', 'units', 'height_datum'))
+    baselode.geophysics.forward_common._label(frame['id']); baselode.geophysics.forward_common._label(frame['height_datum'])
     if (frame['kind'], frame['axes'], frame['units']) != ('local_cartesian', 'x_y_up', 'm'):
         raise ValueError('declare local_cartesian, x_y_up axes and metre units; transform upstream')
     for key, maximum in (('sources', _LIMITS['max_sources']), ('points', _LIMITS['max_points'])):
@@ -113,7 +51,7 @@ def _prepare(request):
     if 'metadata' in p:
         if type(p['metadata']) is not dict:
             raise ValueError('metadata must be an object')
-        _bounded_json(p['metadata'], _LIMITS['max_metadata_bytes'])
+        baselode.geophysics.forward_common._bounded_json(p['metadata'], _LIMITS['max_metadata_bytes'])
     low = [math.inf] * 3; high = [-math.inf] * 3
     has_point = False
     for collection in ('sources', 'points'):
@@ -128,8 +66,8 @@ def _prepare(request):
                 if row['kind'] not in ('sphere', 'point_mass'):
                     raise ValueError('source kind must be sphere or point_mass')
                 extra = ('kind', 'radius_m', 'density_contrast_kg_m3') if row['kind'] == 'sphere' else ('kind', 'mass_contrast_kg')
-            _keys(row, ('id', *_COORDS, *extra))
-            _label(row['id'])
+            baselode.geophysics.forward_common._keys(row, ('id', *_COORDS, *extra))
+            baselode.geophysics.forward_common._label(row['id'])
             if row['id'] in ids:
                 raise ValueError('source/point IDs must be unique within their collection')
             ids.add(row['id'])
@@ -137,13 +75,13 @@ def _prepare(request):
             if collection == 'sources':
                 if row['kind'] == 'sphere':
                     radius = row['radius_m']
-                    _number(radius, .001, 100000)
-                    _number(row['density_contrast_kg_m3'], -100000, 100000)
+                    baselode.geophysics.forward_common._number(radius, .001, 100000)
+                    baselode.geophysics.forward_common._number(row['density_contrast_kg_m3'], -100000, 100000)
                 else:
                     has_point = True
-                    _number(row['mass_contrast_kg'], -1e21, 1e21)
+                    baselode.geophysics.forward_common._number(row['mass_contrast_kg'], -1e21, 1e21)
             for axis, key in enumerate(_COORDS):
-                v = row[key]; _number(v, -1e12, 1e12)
+                v = row[key]; baselode.geophysics.forward_common._number(v, -1e12, 1e12)
                 low[axis] = min(low[axis], v - radius)
                 high[axis] = max(high[axis], v + radius)
     if any(b - a > _LIMITS['max_axis_span_m'] for a, b in zip(low, high)):
@@ -151,7 +89,7 @@ def _prepare(request):
     if has_point:
         if p.get('point_mass_min_distance_m') is None:
             raise baselode.geophysics.corrections._NeedsInput('point masses require explicit point_mass_min_distance_m')
-        _number(p['point_mass_min_distance_m'], .001, 100000)
+        baselode.geophysics.forward_common._number(p['point_mass_min_distance_m'], .001, 100000)
         # Geometry validation is amplitude-independent, including zero masses.
         for source in p['sources']:
             if source['kind'] == 'point_mass':
@@ -177,12 +115,6 @@ def _kernel(source, point):
         factor = gm / distance**3
         potential = -gm / distance
     return [factor * v * 1e5 for v in delta] + [potential]
-
-
-def _add(total, correction, index, value):
-    next_value = total[index] + value
-    correction[index] += ((total[index] - next_value) + value) if abs(total[index]) >= abs(value) else ((value - next_value) + total[index])
-    total[index] = next_value
 
 
 def _field(identity, values):
@@ -229,7 +161,7 @@ def calculate_gravity_forward(request):
             for index, point in enumerate(p['points']):
                 basis = _kernel(source, point)
                 for k, value in enumerate(basis):
-                    _add(totals[index], corrections[index], k, value * source[parameter])
+                    baselode.geophysics.forward_common._add(totals[index], corrections[index], k, value * source[parameter])
                 if p['include_sensitivities']:
                     fields.append(_field(point['id'], basis))
             if p['include_sensitivities']:
@@ -242,7 +174,7 @@ def calculate_gravity_forward(request):
             report['fields'].append(_field(point['id'], values))
         report['request'] = p
         report['diagnostics'] = {'source_count': len(p['sources']), 'point_count': len(p['points']), 'pair_count': len(p['sources']) * len(p['points']), 'synthetic': True, 'uncertainty_propagated': False}
-        _bounded_json(report, _LIMITS['max_result_bytes'], result=True)
+        baselode.geophysics.forward_common._bounded_json(report, _LIMITS['max_result_bytes'], result=True)
     except (ValueError, TypeError, RecursionError, ArithmeticError, RuntimeError) as error:
         context = isinstance(error, baselode.geophysics.corrections._NeedsInput)
         resource = isinstance(error, baselode.geophysics.corrections._ResourceError)
