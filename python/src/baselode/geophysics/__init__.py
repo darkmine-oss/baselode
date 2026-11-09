@@ -219,3 +219,8 @@ import baselode.geophysics.spectrum as geophysics_spectrum
 describe_spectrum = geophysics_spectrum.describe_spectrum
 analyze_grid_spectrum = geophysics_spectrum.analyze_grid_spectrum
 __all__ += ['describe_spectrum', 'analyze_grid_spectrum']
+
+import baselode.geophysics.regional as geophysics_regional
+describe_regional_trend = geophysics_regional.describe_regional_trend
+fit_regional_trend = geophysics_regional.fit_regional_trend
+__all__ += ['describe_regional_trend', 'fit_regional_trend']

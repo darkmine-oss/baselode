@@ -16,6 +16,7 @@ import baselode.geophysics.gravity_topography
 import baselode.geophysics.normal_gravity
 import baselode.geophysics.observations
 import baselode.geophysics.provenance
+import baselode.geophysics.regional
 import baselode.geophysics.spectrum
 import baselode.geophysics.workflows
 
@@ -163,7 +164,7 @@ def _prepare(workflow, inputs):
                 if kind == 'observations':
                     context.update(sources[0])
                 elif kind == 'raster':
-                    if operation.startswith('raster_'):
+                    if operation.startswith('raster_') or operation == 'fit_regional_trend':
                         context['cells'] = sources[0]['cells']
                     else:
                         shape, channels = params.get('shape'), params.get('channels')
@@ -207,6 +208,9 @@ def _execute(step, sources):
         workflow = {'schema': 'baselode.geophysics.workflow', 'version': 1, 'steps': [{'id': 'product', 'operation': operation[7:], 'version': 1, 'inputs': ['left', 'right'][:len(sources)], 'parameters': params}], 'outputs': ['product']}
         report = baselode.geophysics.workflows.run_workflow(workflow, dict(zip(['left', 'right'], sources)))
         ports = {'raster': report['artifacts']['product']} if report['state'] == 'ok' else {}
+    elif operation == 'fit_regional_trend':
+        report = baselode.geophysics.regional.fit_regional_trend(sources[0], params)
+        ports = report['artifacts']
     elif operation == 'analyze_grid_spectrum':
         report = baselode.geophysics.spectrum.analyze_grid_spectrum(sources[0], params)
         ports = {}

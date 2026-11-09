@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "band": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 64
+      },
+      "degree": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 2
+      },
+      "estimator": {
+        "type": "string",
+        "enum": [
+          "least_squares",
+          "huber"
+        ]
+      },
+      "exclude_bounds": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "number",
+            "minimum": -1e+100,
+            "maximum": 1e+100
+          }
+        }
+      },
+      "min_training_fraction": {
+        "type": "number",
+        "minimum": 0.1,
+        "maximum": 1
+      },
+      "max_condition": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 100000000.0
+      },
+      "domain_policy": {
+        "type": "string",
+        "enum": [
+          "source_footprint"
+        ]
+      },
+      "huber_threshold": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      },
+      "max_iterations": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      },
+      "convergence_tolerance": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1e+100
+      }
+    },
+    "required": [
+      "band",
+      "degree",
+      "estimator",
+      "exclude_bounds",
+      "min_training_fraction",
+      "max_condition",
+      "domain_policy"
+    ],
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "estimator": {
+              "const": "huber"
+            }
+          }
+        },
+        "then": {
+          "required": [
+            "huber_threshold",
+            "max_iterations",
+            "convergence_tolerance"
+          ]
+        },
+        "else": {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "huber_threshold"
+                ]
+              },
+              {
+                "required": [
+                  "max_iterations"
+                ]
+              },
+              {
+                "required": [
+                  "convergence_tolerance"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "model": {
+    "algorithm": "polynomial_regional_v1",
+    "basis": "[1], [1,u,v], or [1,u,v,u^2,u*v,v^2]; u,v are normalized zero-based column,row indices spanning[-1,1].",
+    "estimator": "Least squares initialization; Huber IRLS weights min(1,threshold/abs(residual)), unit weight at zero; explicit field-unit threshold.",
+    "condition": "Infinity-norm condition of the last solved weighted normal matrix, not of the design matrix. No ridge or automatic regularization.",
+    "convergence": "Maximum predicted surface change across originally valid source cells <=explicit absolute field-unit tolerance; no artifacts on iteration exhaustion."
+  },
+  "resources": {
+    "max_source_values": 1000000,
+    "max_selected_cells": 262144,
+    "min_axis_cells": 8,
+    "min_training_cells": 64,
+    "max_metadata_bytes": 524288,
+    "max_exclusion_boxes": 16,
+    "max_fit_work": 100000000
+  },
+  "assumptions": [
+    "Polynomial degree, estimator, training exclusions and threshold are explicit choices; broad geology can enter the regional and residuals are not uniquely geological. No automatic noise scale or filter selection.",
+    "All originally valid cells retain regional predictions and residual=source-regional, including exclusions. Exclusions remove fitting influence, not subtraction. Missing original cells stay missing in all artifacts.",
+    "Source-footprint policy permits prediction away from training. Reported training index bounds are not a convex hull or local-support guarantee; gaps/excluded regions can yield unsupported extrapolation.",
+    "Conditioning is checked for the weighted normal equations. Huber convergence/threshold and conditioning gates do not establish geological correctness or statistical confidence.",
+    "Huber-downweighted training counts are algorithmic residual diagnostics, not labels of erroneous data. Source uncertainty/history remains archived without propagation.",
+    "Source field_type/units are preserved for regional/residual; raw fields never become corrected anomalies implicitly. Training mask is other/1.",
+    "Budgeted fit work=(training_cells*terms^2+valid_cells*terms)*(1+Huber iteration limit, or1 for least squares). No random subsampling, implicit I/O or optional numerical backend."
+  ],
+  "references": [
+    "https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html",
+    "https://numpy.org/doc/stable/reference/generated/numpy.linalg.cond.html"
+  ]
+}

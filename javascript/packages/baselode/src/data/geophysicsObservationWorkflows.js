@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
+import {fitGeophysicsRegionalTrend} from './geophysicsRegional.js';
 import {analyzeGeophysicsGridSpectrum} from './geophysicsSpectrum.js';
 import descriptor from './geophysics_observation_workflow.json';
 import recipe from './magnetic_observation_recipe.json';
@@ -88,7 +89,7 @@ async function prepare(workflow,inputs) {
         const context={kind,records:0,readings:0,cells:0};
         if(kind==='observations')Object.assign(context,sources[0]);
         else if(kind==='raster') {
-          if(operation.startsWith('raster_'))context.cells=sources[0].cells;
+          if(operation.startsWith('raster_')||operation==='fit_regional_trend')context.cells=sources[0].cells;
           else if(Array.isArray(params.shape)&&params.shape.length===2&&params.shape.every(v=>Number.isInteger(v)&&v>0)&&Array.isArray(params.channels))context.cells=params.shape[0]*params.shape[1]*params.channels.length;
         }
         contexts.set(`step:${id}:${port}`,context);reserve(report.resource_estimate,context);
@@ -115,7 +116,8 @@ async function execute(step,sources) {
     const names=['left','right'].slice(0,sources.length);
     report=runGeophysicsWorkflow({schema:'baselode.geophysics.workflow',version:1,steps:[{id:'product',operation:operation.slice(7),version:1,inputs:names,parameters:params}],outputs:['product']},Object.fromEntries(names.map((name,i)=>[name,sources[i]])));
     ports=report.state==='ok'?{raster:report.artifacts.product}:{};
-  } else if(operation==='analyze_grid_spectrum'){report=analyzeGeophysicsGridSpectrum(sources[0],params);ports={};}
+  } else if(operation==='fit_regional_trend'){report=fitGeophysicsRegionalTrend(sources[0],params);ports=report.artifacts;}
+  else if(operation==='analyze_grid_spectrum'){report=analyzeGeophysicsGridSpectrum(sources[0],params);ports={};}
   else if(operation==='qc_observations') {
     requireValue(object(params.qc),'qc must be an explicit options object','parameter');
     requireValue(Number.isInteger(params.max_flags)&&params.max_flags>=0&&params.max_flags<=10000,'max_flags must be integer 0..10000','parameter');
