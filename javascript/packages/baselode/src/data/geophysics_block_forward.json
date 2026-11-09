@@ -1449,7 +1449,8 @@
     "rotation": "zero_only",
     "properties": "explicit_density_contrast_kg_m3_or_world_J_A_m",
     "partial_fill": "rejected",
-    "geometry": "authoritative_indices_optional_centroid_agreement_1e-6_m"
+    "geometry": "authoritative_indices_optional_centroid_agreement_1e-6_m",
+    "python_model_entry_point": "prepare_block_model_forward(model, options): pandas missing cells to JSON null; no active values filled"
   },
   "assumptions": [
     "Uniform fully filled nonoverlapping active cells",

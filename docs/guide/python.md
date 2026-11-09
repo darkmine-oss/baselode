@@ -1146,8 +1146,13 @@ jupyter notebook notebooks/example_drill_tour.ipynb
 ### Block-model gravity and magnetics
 
 Use `baselode.geophysics.describe_block_forward()` for the v1 contract and
-`prepare_block_forward(request)` for core-only preparation. Serialize a model
-as `{"definition": model.definition.to_dict(), "blocks": model.blocks.to_dict("records")}`.
+`prepare_block_forward(request)` for core-only preparation. For a live pandas-backed model, call `prepare_block_model_forward(model, options)`,
+where options contains every request field except schema/version/model. It maps
+pandas missing cells to explicit JSON null and returns the same portable preparation
+report; call `calculate_block_forward(report["request"])` after checking state.
+The primitive JSON contract accepts a definition.to_dict() and records snapshot
+whose missing cells are JSON null. Raw pandas to_dict("records") can contain NaN/NA;
+use the model helper to normalize those without replacing required active values.
 `test/data/block_forward_example.json` is an executable two-cell example.
 Declare frame ID equal to definition CRS, known metre/up datum, string cell-ID
 column, explicit boolean active column (or null for all cells), density contrast

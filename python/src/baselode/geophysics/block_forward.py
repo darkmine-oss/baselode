@@ -5,6 +5,10 @@ import copy
 import json
 import pathlib
 
+import pandas as pd
+
+import baselode.blockmodel.data
+
 import baselode.geophysics.corrections
 import baselode.geophysics.forward_common
 import baselode.geophysics.gravity_prisms
@@ -206,4 +210,35 @@ def calculate_block_forward(request):
         baselode.geophysics.forward_common._bounded_json(report,8388608,result=True)
     except (ValueError,TypeError,RecursionError,ArithmeticError,RuntimeError) as error:
         _error(report,error);report['field_units']={}
+    return report
+
+
+def prepare_block_model_forward(model, options):
+    """Prepare a Baselode BlockModel without asking agents to clean pandas cells.
+
+    Parameters
+    ----------
+    model : baselode.blockmodel.data.BlockModel
+        Defined indexed block model. Pandas missing cells (NaN/NA/NaT) become
+        explicit JSON null, including unused attributes and inactive properties.
+        Infinity and other non-JSON objects remain invalid; no values are filled.
+    options : dict
+        Required block_forward_request fields except schema, version and model.
+        Optional metadata allowed. All policies/property names/units explicit.
+
+    Returns
+    -------
+    dict
+        Same atomic preparation report as prepare_block_forward. Missing active
+        properties fail validation. Original model/table/options are unchanged.
+    """
+    report=_report('preparation')
+    try:
+        _keys(options,('coordinate_frame','physics','cell_id_column','active_column','properties','points','batch_size','include_sensitivities','background_nT','min_distance_m'),('metadata',))
+        if not isinstance(model,baselode.blockmodel.data.BlockModel):raise ValueError('model must be a Baselode BlockModel')
+        if model.definition is None:raise baselode.geophysics.corrections._NeedsInput('model requires an explicit grid definition')
+        records=model.blocks.astype(object).where(pd.notna(model.blocks),None).to_dict('records')
+        request={'schema':'baselode.geophysics.block_forward_request','version':1,'model':{'definition':model.definition.to_dict(),'blocks':records},**options}
+        return prepare_block_forward(request)
+    except (ValueError,TypeError,RecursionError,ArithmeticError,RuntimeError) as error:_error(report,error)
     return report

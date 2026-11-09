@@ -257,3 +257,6 @@ describe_block_forward = geophysics_block_forward.describe_block_forward
 prepare_block_forward = geophysics_block_forward.prepare_block_forward
 calculate_block_forward = geophysics_block_forward.calculate_block_forward
 __all__ += ['describe_block_forward','prepare_block_forward','calculate_block_forward']
+
+prepare_block_model_forward = geophysics_block_forward.prepare_block_model_forward
+__all__ += ['prepare_block_model_forward']

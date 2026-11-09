@@ -106,3 +106,11 @@ def test_invalid_flag_is_contract_before_work_budget_in_both_runtimes(tmp_path):
     p=request();p['include_sensitivities']=[];p['points']=[dict(p['points'][0],id=str(i)) for i in range(2049)]
     py=baselode.geophysics.prepare_block_forward(p);assert py['state']=='rejected' and py['issues'][0]['code']=='contract'
     a=tmp_path/'in.json';b=tmp_path/'out.json';a.write_text(json.dumps([p]));subprocess.run(['node',str(ROOT/'test/data/block_forward_parity.mjs'),str(a),str(b)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True);js=json.loads(b.read_text())['reports'][0];assert js['state']==py['state'] and js['issues'][0]['code']=='contract'
+
+def test_public_live_model_helper_handles_pandas_missing_attributes_without_filling():
+    p=request();frame=pd.DataFrame(p['model']['blocks']);frame.loc[1,'active']=False;frame.loc[1,'rho']=float('nan');frame['unused_grade']=[float('nan'),2.];frame['unused_nullable']=pd.Series([pd.NA,1],dtype='Int64');d=baselode.blockmodel.BlockModelDefinition.from_dict(p['model']['definition']);model=baselode.blockmodel.BlockModel(frame,definition=d);before=model.blocks.copy(deep=True);options={k:v for k,v in p.items() if k not in ['schema','version','model']}
+    r=baselode.geophysics.prepare_block_model_forward(model,options);assert r['state']=='ok',r;assert r['inactive_ids']==['east'];assert r['request']['model']['blocks'][0]['unused_grade'] is None and r['request']['model']['blocks'][0]['unused_nullable'] is None and r['request']['model']['blocks'][1]['rho'] is None
+    assert run(r['request'])['cell_ids']==['west'];pd.testing.assert_frame_equal(model.blocks,before)
+    model.blocks.loc[0,'rho']=float('nan');bad=baselode.geophysics.prepare_block_model_forward(model,options);assert bad['state']=='rejected' and bad['request'] is None
+    model.blocks.loc[0,'rho']=float('inf');assert baselode.geophysics.prepare_block_model_forward(model,options)['state']=='rejected'
+    assert baselode.geophysics.prepare_block_model_forward({},options)['state']=='rejected'

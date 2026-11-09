@@ -3283,3 +3283,6 @@ The standalone JSON report is separate from raster/observation workflow runners.
 (core) and `calculate_block_forward(request)` (`potential-fields` extra) expose
 versioned explicit indexed-cell adapters. Consult descriptor schemas/resources
 and `test/data/block_forward_example.json`; numerical support matches prism kernels.
+
+`prepare_block_model_forward(model, options)` accepts the live BlockModel and
+normalizes pandas missing attributes to JSON null before portable preparation.
