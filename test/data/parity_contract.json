@@ -830,6 +830,31 @@
       "description": "Native per-record supplied gravity tide effects, absolute base tying/piecewise-linear drift, loop/repeat QC and bound history with per-channel datums.",
       "jsExports": ["describeGeophysicsGravityTemporal", "applyGeophysicsGravityTide", "correctGeophysicsGravityDrift", "analyzeGeophysicsGravityRepeats"],
       "pythonSymbols": [["baselode.geophysics", "describe_gravity_temporal"], ["baselode.geophysics", "apply_gravity_tide"], ["baselode.geophysics", "correct_gravity_drift"], ["baselode.geophysics", "analyze_gravity_repeats"]]
+    },
+    {
+      "name": "geophysics_gravity_topography",
+      "description": "Explicit-density land Bouguer plates and finite-zone signed-prism terrain reductions, Python numerical execution; shared contracts/types and native bound ledger replay.",
+      "jsExports": [
+        "describeGeophysicsGravityTopography"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_gravity_topography"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_bouguer_plate"
+        ],
+        [
+          "baselode.geophysics",
+          "apply_bouguer_plate"
+        ],
+        [
+          "baselode.geophysics",
+          "correct_gravity_terrain"
+        ]
+      ]
     }
   ]
 }

@@ -1,0 +1,133 @@
+{
+  "method": "Independent 50-digit double quadrature of Newtonian downward gravity after analytical vertical integration. Known flat reference plate plus signed hill/valley terrain effects injected into known 7/11 mGal disturbances; no Baselode/Harmonica/Choclo import.",
+  "survey": {
+    "crs": "EPSG:32750",
+    "crs_units": "m",
+    "channels": {
+      "g": {
+        "field_type": "gravity_disturbance",
+        "units": "mGal"
+      },
+      "other": {
+        "field_type": "gravity_disturbance",
+        "units": "mGal"
+      }
+    },
+    "records": [
+      {
+        "id": "p0",
+        "x": 500000,
+        "y": 6500000,
+        "z": 100,
+        "values": {
+          "g": 17.984453069679006,
+          "other": 2
+        }
+      },
+      {
+        "id": "p1",
+        "x": 500010,
+        "y": 6500000,
+        "z": 100,
+        "values": {
+          "g": 22.11279816521753,
+          "other": 3
+        }
+      },
+      {
+        "id": "missing",
+        "values": {
+          "g": null,
+          "other": 5
+        }
+      }
+    ],
+    "metadata": {
+      "height_units": "m",
+      "height_datum": "WGS84_ellipsoid",
+      "z_positive": "up",
+      "gravity_datum": "synthetic absolute datum",
+      "tide_system": "tide_free",
+      "corrections": {
+        "gravity_normal": "applied",
+        "gravity_drift": "applied",
+        "gravity_tide": "applied",
+        "gravity_free_air": "unapplied",
+        "gravity_bouguer": "unapplied",
+        "gravity_terrain": "unapplied"
+      },
+      "uncertainty": {
+        "g": 0.01
+      }
+    }
+  },
+  "plate_options": {
+    "channel": "g",
+    "density_kg_m3": 2670,
+    "reference_height_m": 0,
+    "height_datum": "WGS84_ellipsoid",
+    "reference_policy": "caller_verified",
+    "max_abs_correction_mGal": 100,
+    "event_id": "plate",
+    "evidence": "independent synthetic Newtonian terrain and supplied land density"
+  },
+  "terrain_options": {
+    "channel": "g",
+    "density_kg_m3": 2670,
+    "reference_height_m": 0,
+    "height_datum": "WGS84_ellipsoid",
+    "reference_policy": "caller_verified",
+    "max_abs_correction_mGal": 100,
+    "event_id": "terrain",
+    "evidence": "independent synthetic Newtonian terrain and supplied land density",
+    "dem": {
+      "id": "synthetic-relief",
+      "crs": "EPSG:32750",
+      "crs_units": "m",
+      "frame_id": null,
+      "height_datum": "WGS84_ellipsoid",
+      "bounds": [
+        499985,
+        6499985,
+        500015,
+        6500015
+      ],
+      "heights": [
+        [
+          100,
+          120,
+          100
+        ],
+        [
+          80,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100
+        ]
+      ]
+    },
+    "outside_dem_policy": "flat_at_station_height",
+    "min_edge_distance_m": 1,
+    "ground_tolerance_m": 0
+  },
+  "expected": [
+    {
+      "id": "p0",
+      "truth_mGal": 7,
+      "plate_mGal": 11.196875606754226,
+      "terrain_mGal": 0.212422537075219,
+      "raw_disturbance_mGal": 17.984453069679006
+    },
+    {
+      "id": "p1",
+      "truth_mGal": 11,
+      "plate_mGal": 11.196875606754226,
+      "terrain_mGal": 0.0840774415366949,
+      "raw_disturbance_mGal": 22.11279816521753
+    }
+  ]
+}

@@ -402,7 +402,7 @@ def _validate(data, ledger, current, check_summary=True):
             ids.add(entry["id"])
             previous = entry["output_binding"]
             continue
-        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}, "gravity_normal": {"parameters", "model", "normal_binding", "affected_records"}, "gravity_tide": {"parameters", "temporal_binding", "affected_records"}, "gravity_drift": {"parameters", "model", "temporal_binding", "affected_records"}}
+        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}, "gravity_normal": {"parameters", "model", "normal_binding", "affected_records"}, "gravity_bouguer": {"parameters", "model", "topography_binding", "affected_records"}, "gravity_terrain": {"parameters", "model", "topography_binding", "affected_records"}, "gravity_tide": {"parameters", "temporal_binding", "affected_records"}, "gravity_drift": {"parameters", "model", "temporal_binding", "affected_records"}}
         name = entry.get("correction") if type(entry) is dict else None
         extra = extras.get(name, base_extra) if isinstance(name, str) else base_extra
         if type(entry) is not dict or entry.get("kind") not in ("declaration", "application") or set(entry) != common | (extra if entry["kind"] == "application" else set()):
@@ -424,11 +424,11 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
             try:
-                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options, "magnetic_levelling": _levelling_options, "gravity_normal": _normal_options, "gravity_tide": _gravity_tide_options, "gravity_drift": _gravity_drift_options}.get(correction, _base_options)(entry["parameters"])
+                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options, "magnetic_levelling": _levelling_options, "gravity_bouguer": _gravity_plate_options, "gravity_terrain": _gravity_terrain_options, "gravity_normal": _normal_options, "gravity_tide": _gravity_tide_options, "gravity_drift": _gravity_drift_options}.get(correction, _base_options)(entry["parameters"])
             except _NeedsInput as error:
                 raise ValueError("invalid stored application parameters: " + str(error)) from error
             count = counts.get(index)
-            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading", "magnetic_levelling", "gravity_normal", "gravity_tide", "gravity_drift") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
+            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading", "magnetic_levelling", "gravity_normal", "gravity_tide", "gravity_drift", "gravity_bouguer", "gravity_terrain") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied supported correction history for one channel")
             if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"]:
                 raise ValueError("application parameters do not match the ledger event")
@@ -472,6 +472,18 @@ def _validate(data, ledger, current, check_summary=True):
                     raise ValueError("invalid stored temporal gravity context: " + str(error)) from error
                 if not _digest(entry["temporal_binding"]) or entry["temporal_binding"] != temporal_binding:
                     raise ValueError("stale temporal gravity context/effects/model binding")
+            if correction in ("gravity_bouguer", "gravity_terrain"):
+                try:
+                    _gravity_topography_history(states, channels[0], correction == "gravity_terrain")
+                    if entry["model"] != _DESCRIPTOR["gravity_topography_models"][correction]:
+                        raise ValueError("invalid gravity topography model identity")
+                    if correction == "gravity_terrain":
+                        _matching_gravity_plate(ledger["entries"][:index], params)
+                    bound = _gravity_topography_binding({**data, **frames[index]}, params, entry["model"])
+                except _NeedsInput as error:
+                    raise ValueError("invalid stored topography context: " + str(error)) from error
+                if not _digest(entry["topography_binding"]) or entry["topography_binding"] != bound:
+                    raise ValueError("stale gravity topography parameters/model/context binding")
             if type(entry["affected_records"]) not in (int, float) or entry["affected_records"] != count or count < 1:
                 raise ValueError("application must account for every nonnull channel reading immediately before that event")
         for name in channels:
@@ -501,7 +513,7 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines", "reproject_observations", "remove_normal_gravity", "apply_gravity_tide", "correct_gravity_drift") for step in data["metadata"].get("processing", [])):
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines", "reproject_observations", "remove_normal_gravity", "apply_gravity_tide", "correct_gravity_drift", "apply_bouguer_plate", "correct_gravity_terrain") for step in data["metadata"].get("processing", [])):
         raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
@@ -1462,4 +1474,126 @@ def _gravity_temporal_binding(data, params, model=None):
     encoded = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(encoded) > _LIMITS["max_binding_bytes"]:
         raise _ResourceError("temporal gravity binding exceeds byte limit")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+
+def _gravity_topography_options(options, terrain):
+    schema = _DESCRIPTOR['gravity_terrain_parameters' if terrain else 'gravity_plate_parameters']
+    if type(options) is not dict or options.keys() - schema['properties'].keys():
+        raise ValueError('gravity topography requires known option names')
+    params = _json(options)
+    if any(key not in params for key in schema['required']):
+        raise _NeedsInput('supply every explicit density/reference/height/support/event option')
+    if not isinstance(params['channel'], str) or re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}', params['channel']) is None:
+        raise ValueError('select a declared gravity channel')
+    if not _label(params['event_id']) or not _evidence(params['evidence']) or not _known_gravity_label(params['height_datum']):
+        raise ValueError('height datum/event ID/evidence require bounded known labels')
+    if params['reference_policy'] != 'caller_verified':
+        raise _NeedsInput('caller_verified reference policy required')
+    for key, low, high in [('density_kg_m3', 0, 10000), ('reference_height_m', -10000, 10000), ('max_abs_correction_mGal', 0, 1e100)]:
+        if not _number(params[key]) or not low <= params[key] <= high or (key == 'density_kg_m3' and params[key] == 0):
+            raise ValueError('invalid density/reference/correction bounds')
+    if terrain:
+        if params['outside_dem_policy'] != 'flat_at_station_height':
+            raise ValueError('explicit flat_at_station_height outside DEM policy required')
+        if not _number(params['min_edge_distance_m']) or not 0 < params['min_edge_distance_m'] <= 50000 or not _number(params['ground_tolerance_m']) or not 0 <= params['ground_tolerance_m'] <= 1:
+            raise ValueError('invalid terrain edge support or ground tolerance')
+        dem = params['dem']
+        required = {'id', 'crs', 'crs_units', 'frame_id', 'height_datum', 'bounds', 'heights'}
+        if type(dem) is not dict or set(dem) != required or not _label(dem['id']) or (dem['crs'] is not None and not _label(dem['crs'])) or (dem['frame_id'] is not None and not _label(dem['frame_id'])) or dem['crs_units'] != 'm' or dem['height_datum'] != params['height_datum']:
+            raise ValueError('invalid DEM identity/frame/metre/height context')
+        bounds, heights = dem['bounds'], dem['heights']
+        if type(bounds) is not list or len(bounds) != 4 or not all(_number(v) and abs(v) <= 1e9 for v in bounds):
+            raise ValueError('DEM bounds need finite metre coordinates within +/-1e9')
+        if not 0 < bounds[2]-bounds[0] <= 100000 or not 0 < bounds[3]-bounds[1] <= 100000:
+            raise ValueError('DEM extent must be positive and at most 100 km per axis')
+        if type(heights) is not list or not heights or type(heights[0]) is not list or not heights[0]:
+            raise ValueError('DEM needs a rectangular north-up height matrix')
+        if len(heights)*len(heights[0]) > 1024:
+            raise _ResourceError('terrain accepts at most 1024 DEM cells')
+        if any(type(row) is not list or len(row) != len(heights[0]) or any(not _number(v) or not 0 <= v-params['reference_height_m'] <= 10000 for v in row) for row in heights):
+            raise ValueError('DEM must be complete rectangular finite land heights within 10 km above reference')
+    return params
+
+
+def _gravity_plate_options(options):
+    return _gravity_topography_options(options, False)
+
+
+def _gravity_terrain_options(options):
+    return _gravity_topography_options(options, True)
+
+
+def _gravity_topography_history(states, channel, terrain):
+    expected = {'gravity_normal': 'applied', 'gravity_drift': 'applied', 'gravity_tide': 'applied', 'gravity_free_air': 'unapplied', 'gravity_bouguer': 'applied' if terrain else 'unapplied', 'gravity_terrain': 'unapplied'}
+    for name, required in expected.items():
+        state = states[name][channel]
+        if state == 'unknown':
+            raise _NeedsInput('declare evidence-backed ' + required + ' ' + name + ' history')
+        if state != required:
+            raise ValueError('gravity topography order/repeat conflicts with ' + name)
+
+
+def _matching_gravity_plate(entries, params):
+    matches = [e for e in entries if e.get('kind') == 'application' and e.get('correction') == 'gravity_bouguer' and e.get('channels') == [params['channel']]]
+    if len(matches) != 1:
+        raise _NeedsInput('terrain requires the native bound Bouguer plate event, not an unspecified external plate')
+    if any(matches[0]['parameters'][key] != params[key] for key in ('density_kg_m3', 'reference_height_m', 'height_datum')):
+        raise ValueError('terrain and Bouguer density/reference/height datum must match')
+
+
+def _gravity_topography_context(data, params, check_geometry=True):
+    if len(data['records']) > 512:
+        raise _ResourceError('gravity topography accepts at most 512 records')
+    channel, metadata = params['channel'], data['metadata']
+    if channel not in data['channels'] or data['channels'][channel]['field_type'] != 'gravity_disturbance' or data['channels'][channel]['units'] != 'mGal':
+        raise ValueError('topography requires gravity_disturbance in mGal, not observed gravity or a classical anomaly')
+    datum = _effective_gravity_datum(data, channel)
+    if metadata.get('height_units') != 'm' or metadata.get('z_positive') != 'up' or metadata.get('height_datum') != params['height_datum'] or not _known_gravity_label(datum) or metadata.get('tide_system') not in ('tide_free', 'zero_tide', 'mean_tide'):
+        raise _NeedsInput('declare matching height datum/metres/up, selected gravity datum and tide system')
+    readings = [row for row in data['records'] if row['values'][channel] is not None]
+    if not readings:
+        raise _NeedsInput('gravity topography needs nonnull readings')
+    if any(not _number(row['z']) or not 0 <= row['z']-params['reference_height_m'] <= 10000 for row in readings):
+        raise _NeedsInput('each reading requires land height within 10 km above the explicit reference')
+    if 'dem' in params:
+        dem = params['dem']
+        unit = baselode.geophysics.processing._coordinate_unit(types.SimpleNamespace(crs=data['crs'], metadata={'crs_units': data['crs_units']}))
+        if unit != 'm' or data['crs'] != dem['crs'] or data['crs_units'] != 'm' or (data['crs'] is None and (not _known_gravity_label(metadata.get('frame_id')) or metadata['frame_id'] != dem['frame_id'])) or (data['crs'] is not None and dem['frame_id'] is not None):
+            raise _NeedsInput('DEM and survey require the same projected/local metre frame; projected DEM frame_id must be null')
+        west, south, east, north = dem['bounds']
+        rows, cols = len(dem['heights']), len(dem['heights'][0])
+        if len(readings)*rows*cols > 524288:
+            raise _ResourceError('terrain station-cell pair budget exceeded')
+        for row in readings if check_geometry else []:
+            if not _number(row['x']) or not _number(row['y']):
+                raise _NeedsInput('terrain needs finite XY for every nonnull reading')
+            margin = min(row['x']-west, east-row['x'], row['y']-south, north-row['y'])
+            if margin < params['min_edge_distance_m']:
+                raise _NeedsInput('station lacks the explicitly required DEM edge support')
+            i = min(rows-1, int((north-row['y'])/(north-south)*rows))
+            j = min(cols-1, int((row['x']-west)/(east-west)*cols))
+            if abs(row['z']-dem['heights'][i][j]) > params['ground_tolerance_m']:
+                raise _NeedsInput('station height does not match containing DEM cell within ground tolerance')
+    return [data['crs'], data['crs_units'], metadata.get('frame_id'), metadata['height_units'], metadata['height_datum'], metadata['z_positive'], datum, metadata['tide_system']]
+
+
+def _gravity_topography_binding(data, params, model):
+    context = _gravity_topography_context(data, params, check_geometry=False)
+    def canonical(value):
+        if type(value) in (int, float):
+            if not _number(value):
+                raise ValueError('topography numbers must be finite portable binary64')
+            return ['f64', struct.pack('>d', 0.0 if value == 0 else float(value)).hex()]
+        if type(value) is list:
+            return [canonical(item) for item in value]
+        if type(value) is dict:
+            return [[key, canonical(value[key])] for key in sorted(value)]
+        return value
+    semantic = {key: value for key, value in params.items() if key not in ('event_id', 'evidence')}
+    rows = [[row['id'], row['z']] for row in data['records']]
+    encoded = json.dumps(['baselode.gravity_topography_binding.v1', canonical(semantic), canonical(model), canonical(context), canonical(rows)], ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    if len(encoded) > _LIMITS['max_binding_bytes']:
+        raise _ResourceError('gravity topography binding exceeds byte limit')
     return hashlib.sha256(encoded).hexdigest()

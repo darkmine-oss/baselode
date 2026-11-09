@@ -240,7 +240,7 @@ async function validate(data, ledger, current, checkSummary = true) {
       if (ids.has(entry.id) || entry.input_binding !== previous) throw Error('duplicate event ID or broken reprojection binding chain');
       ids.add(entry.id); previous = entry.output_binding; continue;
     }
-    const extraSets={magnetic_igrf:igrfExtra,magnetic_lag:['parameters','masked_records','affected_records'],magnetic_heading:['parameters','heading_binding','affected_records'],magnetic_levelling:['parameters','line_offsets','levelling_binding','affected_records'],gravity_normal:['parameters','model','normal_binding','affected_records'],gravity_tide:['parameters','temporal_binding','affected_records'],gravity_drift:['parameters','model','temporal_binding','affected_records']};
+    const extraSets={magnetic_igrf:igrfExtra,magnetic_lag:['parameters','masked_records','affected_records'],magnetic_heading:['parameters','heading_binding','affected_records'],magnetic_levelling:['parameters','line_offsets','levelling_binding','affected_records'],gravity_bouguer:['parameters','model','topography_binding','affected_records'],gravity_terrain:['parameters','model','topography_binding','affected_records'],gravity_normal:['parameters','model','normal_binding','affected_records'],gravity_tide:['parameters','temporal_binding','affected_records'],gravity_drift:['parameters','model','temporal_binding','affected_records']};
     const extra=typeof entry?.correction==='string'&&Object.hasOwn(extraSets,entry.correction)?extraSets[entry.correction]:baseExtra;
     if (!object(entry) || !['declaration', 'application'].includes(entry.kind) || !keys(entry, [...common, ...(entry.kind === 'application' ? extra : [])])) throw Error('malformed correction ledger event');
     const correction = entry.correction;
@@ -254,10 +254,10 @@ async function validate(data, ledger, current, checkSummary = true) {
       if (entry.output_binding !== previous || channels.some((name) => states[correction][name] !== 'unknown' && states[correction][name] !== entry.state)) throw Error('declarations cannot change data or reset known correction history');
     } else {
       let params;
-      try { const parsers=new Map([['magnetic_igrf',igrfOptions],['magnetic_lag',lagOptions],['magnetic_heading',headingOptions],['magnetic_levelling',levellingOptions],['gravity_normal',normalOptions],['gravity_tide',gravityTideOptions],['gravity_drift',gravityDriftOptions]]);params=(parsers.get(correction)??baseOptions)(entry.parameters); }
+      try { const parsers=new Map([['magnetic_igrf',igrfOptions],['magnetic_lag',lagOptions],['magnetic_heading',headingOptions],['magnetic_levelling',levellingOptions],['gravity_bouguer',gravityPlateOptions],['gravity_terrain',gravityTerrainOptions],['gravity_normal',normalOptions],['gravity_tide',gravityTideOptions],['gravity_drift',gravityDriftOptions]]);params=(parsers.get(correction)??baseOptions)(entry.parameters); }
       catch (error) { if (error instanceof NeedsInput) throw Error(`invalid stored application parameters: ${error.message}`); throw error; }
       const count = counts.get(index);
-      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading', 'magnetic_levelling', 'gravity_normal','gravity_tide','gravity_drift'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
+      if (!['magnetic_diurnal', 'magnetic_igrf', 'magnetic_lag', 'magnetic_heading', 'magnetic_levelling', 'gravity_normal','gravity_tide','gravity_drift','gravity_bouguer','gravity_terrain'].includes(correction) || channels.length !== 1 || entry.state !== 'applied' || channels.some((name) => states[correction][name] !== 'unapplied')) throw Error('application requires unapplied supported correction history for one channel');
       if (params.channel !== channels[0] || params.event_id !== entry.id || params.evidence !== entry.evidence) throw Error('application parameters do not match the ledger event');
       if (correction === 'magnetic_diurnal' && (!digest(entry.base_binding) || !label(entry.base_station_id))) throw Error('invalid base application binding/station');
       if (correction === 'magnetic_igrf' && (!keys(entry.model, Object.keys(descriptor.igrf_model.const)) || Object.entries(descriptor.igrf_model.const).some(([key, value]) => entry.model[key] !== value))) throw Error('invalid IGRF model/coefficient/convention identity');
@@ -290,6 +290,17 @@ async function validate(data, ledger, current, checkSummary = true) {
         catch(error){if(error instanceof NeedsInput)throw Error(`invalid stored temporal gravity context: ${error.message}`);throw error;}
         if(!digest(entry.temporal_binding)||entry.temporal_binding!==temporal)throw Error('stale temporal gravity context/effects/model binding');
       }
+      if(['gravity_bouguer','gravity_terrain'].includes(correction)) {
+        let bound;
+        try {
+          gravityTopographyHistory(states,channels[0],correction==='gravity_terrain');
+          const model=descriptor.gravity_topography_models[correction];
+          if(!keys(entry.model,Object.keys(model))||Object.entries(model).some(([k,v])=>entry.model[k]!==v))throw Error('invalid gravity topography model identity');
+          if(correction==='gravity_terrain')matchingGravityPlate(ledger.entries.slice(0,index),params);
+          bound=await gravityTopographyBinding({...data,...frames[index]},params,entry.model);
+        }catch(error){if(error instanceof NeedsInput)throw Error('invalid stored topography context: '+error.message);throw error;}
+        if(!digest(entry.topography_binding)||entry.topography_binding!==bound)throw Error('stale gravity topography parameters/model/context binding');
+      }
       if (!Number.isInteger(entry.affected_records) || entry.affected_records !== count || count < 1) throw Error('application must account for every nonnull channel reading immediately before that event');
     }
     for (const name of channels) states[correction][name] = entry.state;
@@ -312,7 +323,7 @@ async function load(data) {
   const current = await binding(data);
   encodeProvenance(data.metadata, 'GeoTIFF', 'float64');
   if (Object.hasOwn(data.metadata, 'correction_ledger')) return validate(data, clone(data.metadata.correction_ledger), current);
-  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines', 'reproject_observations','remove_normal_gravity','apply_gravity_tide','correct_gravity_drift'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
+  if ((data.metadata.processing ?? []).some((step) => ['correct_magnetic_base', 'remove_igrf', 'correct_magnetic_lag', 'correct_magnetic_heading', 'level_magnetic_lines', 'reproject_observations','remove_normal_gravity','apply_gravity_tide','correct_gravity_drift','apply_bouguer_plate','correct_gravity_terrain'].includes(step.operation))) throw Error('processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied');
   const ledger = { schema, version: 1, algorithm, initial_binding: current, current_binding: current, entries: [] }; const groups = new Map();
   for (const [alias, state] of Object.entries(data.metadata.corrections ?? {})) {
     const correction = canonical(alias);
@@ -901,4 +912,56 @@ export async function correctGeophysicsGravityDrift(payload,options) {
     result.diagnostics.repeats_after=gravityRepeats(data,channel);result.diagnostics.uncertainty_propagated=false;
     return await finishGravityTemporal(data,params,ledger,result,before,model);
   } catch(error){return errorResult(result,error);}
+}
+
+
+function gravityTopographyOptions(options,terrain) {
+  const schema=descriptor[terrain?'gravity_terrain_parameters':'gravity_plate_parameters'];
+  if(!object(options)||Object.keys(options).some(k=>!Object.hasOwn(schema.properties,k)))throw Error('gravity topography requires known option names');const params=json(options);
+  if(schema.required.some(k=>!Object.hasOwn(params,k)))throw new NeedsInput('supply every explicit density/reference/height/support/event option');
+  if(typeof params.channel!=='string'||!/^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(params.channel))throw Error('select a declared gravity channel');
+  if(!label(params.event_id)||!evidence(params.evidence)||!knownGravityLabel(params.height_datum))throw Error('height datum/event ID/evidence require bounded known labels');
+  if(params.reference_policy!=='caller_verified')throw new NeedsInput('caller_verified reference policy required');
+  if(!number(params.density_kg_m3)||!(params.density_kg_m3>0&&params.density_kg_m3<=10000)||!number(params.reference_height_m)||Math.abs(params.reference_height_m)>10000||!number(params.max_abs_correction_mGal)||params.max_abs_correction_mGal<0)throw Error('invalid density/reference/correction bounds');
+  if(terrain) {
+    if(params.outside_dem_policy!=='flat_at_station_height')throw Error('explicit flat_at_station_height outside DEM policy required');
+    if(!number(params.min_edge_distance_m)||!(params.min_edge_distance_m>0&&params.min_edge_distance_m<=50000)||!number(params.ground_tolerance_m)||params.ground_tolerance_m<0||params.ground_tolerance_m>1)throw Error('invalid terrain edge support or ground tolerance');
+    const d=params.dem;if(!keys(d,['id','crs','crs_units','frame_id','height_datum','bounds','heights'])||!label(d.id)||(d.crs!==null&&!label(d.crs))||(d.frame_id!==null&&!label(d.frame_id))||d.crs_units!=='m'||d.height_datum!==params.height_datum)throw Error('invalid DEM identity/frame/metre/height context');
+    const b=d.bounds,h=d.heights;if(!Array.isArray(b)||b.length!==4||b.some(v=>!number(v)||Math.abs(v)>1e9))throw Error('DEM bounds need finite metre coordinates within +/-1e9');
+    if(!(b[2]-b[0]>0&&b[2]-b[0]<=100000&&b[3]-b[1]>0&&b[3]-b[1]<=100000))throw Error('DEM extent must be positive and at most 100 km per axis');
+    if(!Array.isArray(h)||!h.length||!Array.isArray(h[0])||!h[0].length)throw Error('DEM needs a rectangular north-up height matrix');
+    if(h.length*h[0].length>1024)throw new ResourceError('terrain accepts at most 1024 DEM cells');
+    if(h.some(row=>!Array.isArray(row)||row.length!==h[0].length||row.some(v=>!number(v)||v-params.reference_height_m<0||v-params.reference_height_m>10000)))throw Error('DEM must be complete rectangular finite land heights within 10 km above reference');
+  }return params;
+}
+function gravityPlateOptions(options){return gravityTopographyOptions(options,false);}
+function gravityTerrainOptions(options){return gravityTopographyOptions(options,true);}
+function gravityTopographyHistory(states,channel,terrain) {
+  const expected={gravity_normal:'applied',gravity_drift:'applied',gravity_tide:'applied',gravity_free_air:'unapplied',gravity_bouguer:terrain?'applied':'unapplied',gravity_terrain:'unapplied'};
+  for(const [name,required] of Object.entries(expected)){if(states[name][channel]==='unknown')throw new NeedsInput('declare evidence-backed '+required+' '+name+' history');if(states[name][channel]!==required)throw Error('gravity topography order/repeat conflicts with '+name);}
+}
+function matchingGravityPlate(entries,params) {
+  const matches=entries.filter(e=>e.kind==='application'&&e.correction==='gravity_bouguer'&&e.channels.length===1&&e.channels[0]===params.channel);
+  if(matches.length!==1)throw new NeedsInput('terrain requires the native bound Bouguer plate event');
+  if(['density_kg_m3','reference_height_m','height_datum'].some(k=>matches[0].parameters[k]!==params[k]))throw Error('terrain and Bouguer density/reference/height datum must match');
+}
+function gravityTopographyContext(data,params,checkGeometry=true) {
+  if(data.records.length>512)throw new ResourceError('gravity topography accepts at most 512 records');const c=params.channel,m=data.metadata;
+  if(!Object.hasOwn(data.channels,c)||data.channels[c].field_type!=='gravity_disturbance'||data.channels[c].units!=='mGal')throw Error('topography requires gravity_disturbance in mGal');
+  const datum=effectiveGravityDatum(data,c);if(m.height_units!=='m'||m.z_positive!=='up'||m.height_datum!==params.height_datum||!knownGravityLabel(datum)||!['tide_free','zero_tide','mean_tide'].includes(m.tide_system))throw new NeedsInput('declare matching height datum/metres/up, selected gravity datum and tide system');
+  const readings=data.records.filter(r=>r.values[c]!==null);if(!readings.length)throw new NeedsInput('gravity topography needs nonnull readings');
+  if(readings.some(r=>!number(r.z)||r.z-params.reference_height_m<0||r.z-params.reference_height_m>10000))throw new NeedsInput('each reading requires land height within 10 km above reference');
+  if(Object.hasOwn(params,'dem')) {
+    const d=params.dem;const unit=geophysicsCoordinateUnit({crs:data.crs,metadata:{crs_units:data.crs_units}});
+    if(unit!=='m'||data.crs!==d.crs||data.crs_units!=='m'||(data.crs===null&&(!knownGravityLabel(m.frame_id)||m.frame_id!==d.frame_id))||(data.crs!==null&&d.frame_id!==null))throw new NeedsInput('DEM and survey require the same projected/local metre frame');
+    const [w,s,e,n]=d.bounds,rows=d.heights.length,cols=d.heights[0].length;if(readings.length*rows*cols>524288)throw new ResourceError('terrain station-cell pair budget exceeded');
+    for(const r of checkGeometry?readings:[]){if(!number(r.x)||!number(r.y))throw new NeedsInput('terrain needs finite XY for every nonnull reading');const margin=Math.min(r.x-w,e-r.x,r.y-s,n-r.y);if(margin<params.min_edge_distance_m)throw new NeedsInput('station lacks the explicitly required DEM edge support');const i=Math.min(rows-1,Math.floor((n-r.y)/(n-s)*rows)),j=Math.min(cols-1,Math.floor((r.x-w)/(e-w)*cols));if(Math.abs(r.z-d.heights[i][j])>params.ground_tolerance_m)throw new NeedsInput('station height does not match containing DEM cell');}
+  }return [data.crs,data.crs_units,m.frame_id??null,m.height_units,m.height_datum,m.z_positive,datum,m.tide_system];
+}
+async function gravityTopographyBinding(data,params,model) {
+  const context=gravityTopographyContext(data,params,false),buffer=new ArrayBuffer(8),view=new DataView(buffer);
+  function canonical(value){if(typeof value==='number'){if(!number(value))throw Error('topography numbers must be finite portable binary64');view.setFloat64(0,value===0?0:value,false);return ['f64',[...new Uint8Array(buffer)].map(b=>b.toString(16).padStart(2,'0')).join('')];}if(Array.isArray(value))return value.map(canonical);if(object(value))return Object.keys(value).sort().map(k=>[k,canonical(value[k])]);return value;}
+  const semantic=Object.fromEntries(Object.entries(params).filter(([k])=>!['event_id','evidence'].includes(k))),rows=data.records.map(r=>[r.id,r.z]);const encoded=new TextEncoder().encode(JSON.stringify(['baselode.gravity_topography_binding.v1',canonical(semantic),canonical(model),canonical(context),canonical(rows)]));
+  if(encoded.length>limits.max_binding_bytes)throw new ResourceError('gravity topography binding exceeds byte limit');if(!globalThis.crypto?.subtle)throw new NeedsInput('SHA-256 binding requires Web Crypto');
+  return [...new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',encoded))].map(b=>b.toString(16).padStart(2,'0')).join('');
 }

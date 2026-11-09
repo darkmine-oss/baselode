@@ -2464,3 +2464,63 @@ observation workflows register all three operations. Limits: 4,096 records/effec
 [GA gravity practice](https://www.ga.gov.au/image_cache/GA2236.pdf) and
 [USGS field processing](https://pubs.usgs.gov/tm/02/d04/tm2d4.pdf) describe the
 underlying loop-drift assumptions and independent repeat checks.
+
+
+### Gravity land plate and finite-zone terrain
+
+`baselode.geophysics.describe_gravity_topography()` exposes the schemas,
+fixed model identities and resource limits. `calculate_bouguer_plate` accepts
+`{density_kg_m3, thicknesses_m}` and returns positive plate attractions in
+mGal and exact linear density derivatives. No default reduction density is
+inferred.
+
+```python
+import baselode.geophysics
+
+plate = baselode.geophysics.calculate_bouguer_plate({
+    "density_kg_m3": 2670, "thicknesses_m": [0, 100],
+})
+options = {
+    "channel": "g", "density_kg_m3": 2670, "reference_height_m": 0,
+    "height_datum": "WGS84_ellipsoid", "reference_policy": "caller_verified",
+    "max_abs_correction_mGal": 100, "event_id": "plate", "evidence": "checked",
+}
+reduced = baselode.geophysics.apply_bouguer_plate(survey, options)
+```
+
+`apply_bouguer_plate` subtracts `2*pi*G*density*(z-reference_height_m)` from
+`gravity_disturbance` in mGal. It requires applied normal/drift/tide and
+unapplied free-air/Bouguer/terrain histories, explicit height datum/m/up,
+selected gravity datum and tide system. All nonnull readings require land
+heights 0..10000 m above reference; density is in (0,10000] kg/m3. Output
+retains gravity disturbance semantics, all geometry, other channels/datums and
+nulls. It appends a bound native event and archives source uncertainty.
+
+`correct_gravity_terrain(reduced["observations"], terrain_options)` adds a
+finite-zone signed-prism correction using the pinned optional Harmonica 0.7.0
+backend (`pip install 'baselode[potential-fields]'`). It requires the native
+plate event with identical density, reference height and height datum.
+`terrain_options` contains the plate options with a new event ID and:
+
+- `dem`: `id`, `crs`, `crs_units="m"`, `frame_id` (null for projected CRS),
+  `height_datum`, `bounds=[west,south,east,north]` and a rectangular north-up
+  `heights` matrix of finite cell heights in metres. No NoData cells.
+- `outside_dem_policy="flat_at_station_height"`, explicit
+  `min_edge_distance_m` in (0,50000], and `ground_tolerance_m` in [0,1].
+
+The DEM and survey must share a projected/local metre frame and height datum.
+Nonnull ground station heights must match the containing DEM cell within the
+supplied tolerance. At most 512 observations, 1024 cells and 100 km per DEM
+axis are accepted. Each cell becomes a signed prism between its height and
+the station level; the negative downward attraction is added to the
+plate-reduced disturbance. Per-record proposals report the correction,
+density derivative and distance to the DEM boundary.
+
+This model explicitly assumes flat station-level terrain outside the DEM.
+It is a finite-zone approximation, with no airborne/marine, curvature, far-zone
+or geoid conversion. Density sensitivity describes the supplied linear model;
+it does not estimate density or propagate uncertainty. Saved observation
+workflows register both operations. Native input/output bindings cover XY and
+readings; supplementary model/context/height bindings replay through explicit
+horizontal reprojection without reconstructing historical XY from rounded
+inverse transforms.

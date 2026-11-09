@@ -1790,3 +1790,18 @@ instrument-datum change, so prior tide history remains valid after base tying.
 Limits: 4,096 records/effects, 128 controls, 256 KiB options and existing event/
 observation/workflow budgets. Inspect structured state/issues before consuming
 outputs; any unsupported reading prevents the complete correction.
+
+
+### Gravity topography contracts
+
+`describeGeophysicsGravityTopography()` (root and `baselode/geophysics`)
+returns independent land plate/finite-zone terrain schemas, fixed models,
+limits, sign conventions and installation guidance. TypeScript exports
+`GravityPlateOptions`, `GravityTerrainOptions` and `GravityTerrainDem`.
+Numerical `apply_bouguer_plate` and `correct_gravity_terrain` execute in Python;
+JavaScript saved-workflow preflight returns `needs_input` before any step.
+JavaScript inspects their native correction ledgers and replays historical
+CRS/model contexts through explicit horizontal reprojection. It rejects changed
+DEM/density/height/datum/history rather than silently resetting corrections.
+Terrain support is finite and assumes flat station-level terrain outside the
+DEM; this is not a global or airborne/marine correction.

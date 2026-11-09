@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add explicit-density land Bouguer plate and bounded finite-zone signed-prism terrain corrections, density sensitivity, saved workflow integration and portable native history. Python numerics; JavaScript contracts/types/replay. Terrain pins the existing optional Harmonica extra to 0.7.0.
+
 - Add native supplied gravity tide effects, absolute base tying/piecewise-linear
   loop drift and repeat-station QC in Python/JavaScript. Explicit calibration,
   coverage/quality/history gates and per-channel datums preserve other readings;
