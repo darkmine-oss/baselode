@@ -44,7 +44,7 @@ function context(r,stack){
   }return c;
 }
 function metadata(sources,operation,params,units,diagnostics){
-  const first=sources[0],m={field_type:operation==='stack_radiometric_grids'?'radiometric':'other',units,uncertainty_propagated:false,input_lineage:[],processing:[]};
+  const first=sources[0],m={field_type:operation==='stack_radiometric_grids'?'radiometric':'other',units:[...units],uncertainty_propagated:false,input_lineage:[],processing:[]};
   for(const k of ['crs_units','frame_id'])if(Object.hasOwn(first.metadata,k))m[k]=clone(first.metadata[k]);
   sources.forEach((s,i)=>{const {nodes,operand}=appendInput(m,s.metadata);m.input_lineage=nodes;m.processing.push({operation:operation+'_input',version:1,input_index:i,operand_lineage:operand});});
   m.processing.push({operation,version:1,parameters:clone(params),diagnostics:clone(diagnostics)});

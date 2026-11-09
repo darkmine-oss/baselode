@@ -38,6 +38,7 @@ def _label(value):
 def _policy(reference_policy, evidence, negative_policy='mask'):
     if reference_policy != 'caller_verified' or not baselode.geophysics.observations._text(evidence) or len(evidence)>4096:
         raise _NeedsInput('declare caller_verified corrected concentrations and bounded supporting evidence')
+    evidence.encode('utf-8')
     if negative_policy != 'mask':
         raise ValueError('negative_policy must be mask; no clipping or pseudocounts')
 
@@ -50,6 +51,7 @@ def _context(raster, stack):
     if raster.data.size>1000000:
         raise ValueError('radiometrics accepts at most 1000000 input cell values')
     baselode.geophysics.provenance.encode(raster.metadata,'GeoTIFF','float64')
+    json.dumps(raster.metadata,ensure_ascii=False,allow_nan=False).encode('utf-8')
     transform=raster.transform
     if transform is None or not all(math.isfinite(v) for v in transform) or not math.isfinite(transform[0]*transform[4]-transform[1]*transform[3]) or transform[0]*transform[4]-transform[1]*transform[3]==0:
         raise ValueError('require a finite invertible affine transform')
@@ -86,7 +88,7 @@ def _context(raster, stack):
 def _metadata(sources, operation, params, units, diagnostics):
     first=sources[0]
     metadata={key:copy.deepcopy(first.metadata[key]) for key in ('crs_units','frame_id') if key in first.metadata}
-    metadata.update(field_type='radiometric' if operation=='stack_radiometric_grids' else 'other',units=units,uncertainty_propagated=False,input_lineage=[],processing=[])
+    metadata.update(field_type='radiometric' if operation=='stack_radiometric_grids' else 'other',units=copy.deepcopy(units),uncertainty_propagated=False,input_lineage=[],processing=[])
     for i,source in enumerate(sources):
         nodes,operand=baselode.geophysics.provenance.append_input(metadata,source.metadata);metadata['input_lineage']=nodes
         metadata['processing'].append({'operation':operation+'_input','version':1,'input_index':i,'operand_lineage':operand})

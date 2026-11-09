@@ -53,5 +53,30 @@
     "target": "crs",
     "value": "\ud800",
     "accepted": false
+  },
+  {
+    "target": "height_datum",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "calibration_id",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "frame_id",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "crs_units",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "extension",
+    "value": "\ud800",
+    "accepted": false
   }
 ]

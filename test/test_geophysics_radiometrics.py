@@ -197,7 +197,22 @@ def test_shared_unicode_whitespace_labels_and_scalar_string_contract(case):
     if target=='calibration_id':g.metadata['radiometric']['calibration_ids'][0]=value
     if target=='frame_id':g.crs=None;g.metadata['frame_id']=value
     if target=='crs':g.crs=value
+    if target=='crs_units':g.metadata['crs_units']=value
+    if target=='extension':g.metadata['extension']={'note':value}
     if case['accepted']:assert baselode.geophysics.radiometric_ratios(g,**p).band_count==3
     else:
         with pytest.raises(ValueError):baselode.geophysics.radiometric_ratios(g,**p)
     w=workflow();w['steps']=w['steps'][:1];w['steps'][0]['parameters']=p;w['outputs']=['ratios'];r=baselode.geophysics.run_workflow(w,{'radio':g});assert (r['state']=='ok')==case['accepted']
+
+
+@pytest.mark.parametrize('operation',['ratios','ternary'])
+def test_product_units_are_independent_of_global_contract_and_other_outputs(operation):
+    f=fixture();d=baselode.geophysics.describe_radiometrics();calculate=baselode.geophysics.radiometric_ratios if operation=='ratios' else baselode.geophysics.radiometric_ternary;p=f['ratio_options' if operation=='ratios' else 'ternary_options']
+    a=calculate(grid(),**p);b=calculate(grid(),**p);expected=list(b.metadata['units']);a.metadata['units'][0]='changed'
+    assert b.metadata['units']==expected;assert calculate(grid(),**p).metadata['units']==expected;assert baselode.geophysics.describe_radiometrics()==d
+
+
+def test_stack_rejects_invalid_unicode_evidence_and_source_metadata():
+    with pytest.raises(ValueError):baselode.geophysics.stack_radiometric_grids(*sources(),reference_policy='caller_verified',evidence='\ud800')
+    s=sources();s[0].metadata['radiometric']['calibration_id']='\ud800'
+    with pytest.raises(ValueError):baselode.geophysics.stack_radiometric_grids(*s,reference_policy='caller_verified',evidence='checked')

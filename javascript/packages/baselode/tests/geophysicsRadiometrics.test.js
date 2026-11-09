@@ -69,6 +69,13 @@ it('propagates a spatial descendant requirement back to its angular concentratio
 
 const textCases=JSON.parse(readFileSync(new URL('../../../../test/data/radiometrics_text_reference.json',import.meta.url),'utf8'));
 it.each(textCases)('matches the shared Unicode/whitespace contract for $target',item=>{
-  const g=grid(),p=fixture().ratio_options;if(item.target==='evidence')p.evidence=item.value;if(item.target==='height_datum')g.metadata.radiometric.height_datum=item.value;if(item.target==='calibration_id')g.metadata.radiometric.calibration_ids[0]=item.value;if(item.target==='frame_id'){g.crs=null;g.metadata.frame_id=item.value;}if(item.target==='crs')g.crs=item.value;
+  const g=grid(),p=fixture().ratio_options;if(item.target==='evidence')p.evidence=item.value;if(item.target==='height_datum')g.metadata.radiometric.height_datum=item.value;if(item.target==='calibration_id')g.metadata.radiometric.calibration_ids[0]=item.value;if(item.target==='frame_id'){g.crs=null;g.metadata.frame_id=item.value;}if(item.target==='crs')g.crs=item.value;if(item.target==='crs_units')g.metadata.crs_units=item.value;if(item.target==='extension')g.metadata.extension={note:item.value};
   if(item.accepted)expect(calculateGeophysicsRadiometricRatios(g,p).bandCount).toBe(3);else expect(()=>calculateGeophysicsRadiometricRatios(g,p)).toThrow();const w=workflow();w.steps=w.steps.slice(0,1);w.steps[0].parameters=p;w.outputs=['ratios'];expect(runGeophysicsWorkflow(w,{radio:g}).state==='ok').toBe(item.accepted);
+});
+
+it.each(['ratios','ternary'])('keeps %s product units independent from contracts and other outputs',operation=>{
+  const f=fixture(),d=describeGeophysicsRadiometrics(),calculate=operation==='ratios'?calculateGeophysicsRadiometricRatios:createGeophysicsRadiometricTernary,p=operation==='ratios'?f.ratio_options:f.ternary_options,a=calculate(grid(),p),b=calculate(grid(),p),expected=[...b.metadata.units];a.metadata.units[0]='changed';expect(b.metadata.units).toEqual(expected);expect(calculate(grid(),p).metadata.units).toEqual(expected);expect(describeGeophysicsRadiometrics()).toEqual(d);
+});
+it('rejects invalid Unicode in stack evidence and source metadata',()=>{
+  expect(()=>stackGeophysicsRadiometricGrids(...sources(),{reference_policy:'caller_verified',evidence:'\ud800'})).toThrow();const s=sources();s[0].metadata.radiometric.calibration_id='\ud800';expect(()=>stackGeophysicsRadiometricGrids(...s,{reference_policy:'caller_verified',evidence:'checked'})).toThrow();
 });
