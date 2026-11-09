@@ -33,3 +33,8 @@ for(const [key,count]of [['sources',65],['points',1025]]){const p=fixture();p[ke
 for(const [sensitive,count]of [[true,3],[false,33]]){const p=fixture();p.include_sensitivities=sensitive;p.sources=Array.from({length:count},(_,i)=>({...p.sources[0],id:String(i)}));p.points=Array.from({length:1024},(_,i)=>({...p.points[0],id:String(i)}));cases.push(['pair budget '+sensitive,p,'rejected','resource']);}
 it.each(cases)('withholds invalid request: %s',(_label,p,state,code)=>{const r=validate(p);expect(r.state,r.issues).toBe(state);expect(r.issues[0].code).toBe(code);expect(r.request).toBeNull();expect(r.diagnostics).toEqual({});});
 it('rejects cyclic metadata without mutation',()=>{const p=fixture();p.metadata.cycle=p;expect(validate(p).state).toBe('rejected');expect(p.metadata.cycle).toBe(p);});
+
+it.each([[9.754524941581598,'ok'],[9.7545249415816,'needs_input'],[13,'ok']])('fixed-order diagonal guard at margin %s', (margin,state)=>{
+ const p=fixture();p.sources[0].bounds_m=[0,1,0,1,0,1];p.points=[margin===13?{id:'p',x_m:4,y_m:5,z_m:13}:{id:'p',x_m:3.4453125,y_m:6.984375,z_m:8.3046875}];p.min_distance_m=margin;const r=validate(p);expect(r.state,r.issues).toBe(state);
+});
+it.each([{x:.6,y:.8,z_up:0},{x:600000,y:800000,z_up:0}])('fixed-order background bound %s',background=>{const p=fixture();p.background_nT=background;expect(validate(p).state).toBe('ok');});

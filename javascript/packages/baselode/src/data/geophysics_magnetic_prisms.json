@@ -860,7 +860,8 @@
     "kernel_backend_version": "0.3.2",
     "summation": "neumaier_compensated",
     "sensitivity": "fixed_geometry_magnetization_components_vector_and_linear_tmi",
-    "domain": "external_only"
+    "domain": "external_only",
+    "norm_guard": "binary64_fixed_axis_order_squared"
   },
   "field_units": {
     "bx": "nT",
@@ -907,7 +908,8 @@
     "Harmonica returns nT with up-directed components. Choclo0.3.2 permeability is explicitly rescaled to CODATA2022 to align native dipoles; both constants/versions are checked.",
     "Linear and exact TMI use SUMMED vector and fixed explicit background; exact magnitude difference is nonlinear and not additive. Without background, all TMI outputs are null.",
     "Three per-source fixed-geometry magnetisation-component derivatives cover vectors and LINEAR TMI only in nT/(A/m); no exact-TMI/geometry derivatives or inversion.",
-    "Python optional backend performs numerical execution. JavaScript/core Python validate portable requests without the optional extra."
+    "Python optional backend performs numerical execution. JavaScript/core Python validate portable requests without the optional extra.",
+    "External-distance and background-magnitude guards compare fixed-order binary64 squared norms; equal computed squares are accepted. Distance diagnostics use sqrt of that same squared sum."
   ],
   "references": [
     "https://www.fatiando.org/harmonica/v0.7.0/api/generated/harmonica.prism_magnetic.html",

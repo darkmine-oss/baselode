@@ -226,11 +226,18 @@ def test_live_python_js_request_validation_and_backend_replay(tmp_path):
         except (ValueError,UnicodeError):continue
         if value.get('points') and type(value['points'][0]['x_m']) is int and abs(value['points'][0]['x_m'])>1e100:continue
         cases.append(value)
-    a=tmp_path/'in.json';b=tmp_path/'out.json';a.write_text(json.dumps({'request':p,'negative':cases}))
+    diagonal=[]
+    for margin in (9.754524941581598,9.7545249415816):
+        q=request();q['sources'][0]['bounds_m']=[0,1,0,1,0,1];q['points']=[{'id':'diagonal','x_m':3.4453125,'y_m':6.984375,'z_m':8.3046875}];q['min_distance_m']=margin;diagonal.append(q)
+    a=tmp_path/'in.json';b=tmp_path/'out.json';a.write_text(json.dumps({'request':p,'negative':cases,'diagonal':diagonal}))
     subprocess.run(['node',str(ROOT/'test/data/magnetic_prisms_parity.mjs'),str(a),str(b)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True)
     js=json.loads(b.read_text());py=baselode.geophysics.validate_magnetic_prisms(p)
     assert js['descriptor']==baselode.geophysics.describe_magnetic_prisms() and js['result']['request']==p and js['result']['diagnostics']==py['diagnostics']
     assert calculate(js['result']['request'])['fields']==calculate(p)['fields']
+    expected_diagonal=[baselode.geophysics.validate_magnetic_prisms(q) for q in diagonal]
+    assert [r['state'] for r in js['diagonal']]==['ok','needs_input']
+    for actual,expected in zip(js['diagonal'],expected_diagonal):
+        assert actual['state']==expected['state'] and actual['diagnostics']==expected['diagnostics'] and actual['request']==expected['request']
     expected=[baselode.geophysics.validate_magnetic_prisms(v) for v in cases];assert js['negative']==[{'state':v['state'],'code':v['issues'][0]['code'],'request':v['request']} for v in expected]
 
 
@@ -239,3 +246,21 @@ def test_worst_supported_magnetic_conditioning_against_independent_volume(bounds
     p=request();p['sources'][0]['bounds_m']=bounds;p['sources'][0].update(dict(zip(PARAMETERS,[.4,-.7,1.2])));p['points']=[{'id':'limit','x_m':20,'y_m':-20,'z_m':20}];p['background_nT']=None
     r=calculate(p);assert r['diagnostics']['max_point_offset_to_min_dimension']==20
     expected=volume_reference(p['sources'][0],p['points'][0]);np.testing.assert_allclose([r['fields'][0][k] for k in VECTOR[:3]],expected,rtol=2e-9,atol=1e-14)
+
+
+@pytest.mark.parametrize('gaps,margin,state',[
+    ([2.4453125,5.984375,7.3046875],9.754524941581598,'ok'),
+    ([2.4453125,5.984375,7.3046875],9.7545249415816,'needs_input'),
+    ([3,4,12],13,'ok')])
+def test_fixed_order_squared_external_boundary(gaps,margin,state):
+    p=request();p['sources'][0]['bounds_m']=[0,1,0,1,0,1];p['points']=[dict(zip(('id',*COORDS),['diagonal',*[1+v for v in gaps]]))];p['min_distance_m']=margin
+    r=baselode.geophysics.validate_magnetic_prisms(p);assert r['state']==state
+    if state=='ok':
+        expected=math.sqrt((gaps[0]*gaps[0]+gaps[1]*gaps[1])+gaps[2]*gaps[2]);assert r['diagnostics']['min_point_to_prism_distance_m']==expected
+        assert calculate(p)['state']=='ok'
+    else:assert r['request'] is None
+
+
+@pytest.mark.parametrize('background',[{'x':.6,'y':.8,'z_up':0},{'x':600000,'y':800000,'z_up':0}])
+def test_fixed_order_background_magnitude_boundaries(background):
+    p=request();p['background_nT']=background;assert baselode.geophysics.validate_magnetic_prisms(p)['state']=='ok'

@@ -414,3 +414,10 @@ guarantees. Native package versions and serialization formats differ. No
 cross-runtime numerical solver parity, induced-only direction, interior magnetic
 field, inversion or uncertainty propagation is claimed. Input geometry is
 atomic, including zero sources and every prism-point exclusion pair.
+
+Magnetic-prism external-distance and background-magnitude guards compare
+fixed-axis-order binary64 squared norms `(x*x + y*y) + z*z` in both runtimes,
+including the squared minimum-distance threshold; equal computed squares pass.
+Distance diagnostics use the square root of that same sum. Runtime-specific
+`hypot` rounding is avoided in these validation decisions. Diagonal near-boundary
+replay and exact 3-4-12 / background magnitude limits have regression coverage.

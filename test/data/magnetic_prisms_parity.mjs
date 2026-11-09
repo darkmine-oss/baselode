@@ -6,5 +6,5 @@ const server=await createServer({server:{middlewareMode:true}});
 try{
  const api=await server.ssrLoadModule('/src/data/geophysicsMagneticPrisms.js'),input=JSON.parse(readFileSync(process.argv[2],'utf8'));
  const result=api.validateGeophysicsMagneticPrisms(input.request),negative=input.negative.map(v=>{const r=api.validateGeophysicsMagneticPrisms(v);return {state:r.state,code:r.issues[0]?.code,request:r.request};});
- writeFileSync(process.argv[3],JSON.stringify({result,negative,descriptor:api.describeGeophysicsMagneticPrisms()}));
+ writeFileSync(process.argv[3],JSON.stringify({result,negative,diagonal:input.diagonal.map(v=>api.validateGeophysicsMagneticPrisms(v)),descriptor:api.describeGeophysicsMagneticPrisms()}));
 }finally{await server.close();}

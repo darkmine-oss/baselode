@@ -2328,7 +2328,10 @@ is retained in the independent request snapshot.
 every closed prism** by at least this Euclidean point-to-box distance. Interior,
 face, edge and corner locations are excluded, even for zero magnetisation,
 because the unit-magnetisation responses must be valid too. No silent masking
-or softening is performed. Exact distance equality is accepted. This API makes
+or softening is performed. Guards use fixed-order binary64 squared distances, accepting equal computed
+squares; the distance diagnostic is the square root of that same sum. Background
+magnitude bounds use the same fixed-order squared norm to keep native validators
+consistent at rounded boundaries. This API makes
 no finite-body interior or boundary magnetic-field convention claim.
 
 `background_nT` is required, either `{x,y,z_up}` in nT or explicit `null` for

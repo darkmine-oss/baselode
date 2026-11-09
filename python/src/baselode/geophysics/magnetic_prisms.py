@@ -45,6 +45,12 @@ def describe_magnetic_prisms():
     return copy.deepcopy(_DESCRIPTOR)
 
 
+def _squared_norm3(values):
+    # Preserve this evaluation order in both runtimes at geometric boundaries.
+    x,y,z = values
+    return (x*x + y*y) + z*z
+
+
 def _prepare(request):
     p,geometries,diagnostics = baselode.geophysics.prism_geometry._prepare(
         request,'baselode.geophysics.magnetic_prisms_request',
@@ -57,15 +63,17 @@ def _prepare(request):
         baselode.geophysics.forward_common._keys(background,('x','y','z_up'))
         for value in background.values():
             baselode.geophysics.forward_common._number(value,-1e6,1e6)
-        if not 1 <= math.hypot(*(background[k] for k in ('x','y','z_up'))) <= 1e6:
+        if not 1 <= _squared_norm3([background[k] for k in ('x','y','z_up')]) <= 1e12:
             raise ValueError('background magnitude must be between 1 and 1000000 nT')
     minimum_distance = math.inf
     for dimensions,origins in geometries:
         for point in p['points']:
             offsets = [point[k]-origins[i] for i,k in enumerate(_COORDS)]
-            distance = math.hypot(*(max(-x,x-d,0) for x,d in zip(offsets,dimensions)))
+            gaps = [max(-x,x-d,0) for x,d in zip(offsets,dimensions)]
+            squared_distance = _squared_norm3(gaps)
+            distance = math.sqrt(squared_distance)
             minimum_distance = min(minimum_distance,distance)
-            if distance < p['min_distance_m']:
+            if squared_distance < p['min_distance_m']*p['min_distance_m']:
                 raise baselode.geophysics.corrections._NeedsInput('every point must be external to every closed prism by min_distance_m; interiors/boundaries and zero-source geometry are excluded')
     diagnostics['min_point_to_prism_distance_m'] = minimum_distance
     return p,geometries,diagnostics
