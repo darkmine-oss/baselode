@@ -3302,3 +3302,12 @@ prediction/residual QC and rank/convergence evidence. See guide and shared examp
 explicit induced-only SI susceptibility with fixed B0/H0 conversion, bounded L2
 fit, weak-response applicability and separate exact-TMI residual QC. Numerical
 execution requires the same pinned `inversion` extra as density.
+
+### Magnetic vector inversion
+
+`baselode.geophysics.describe_magnetic_vector_inversion()`,
+`validate_magnetic_vector_inversion(request)` and `invert_magnetic_vector(request)`:
+independently bounded Jx/Jy/Jz (A/m), explicit vector-channel or linear-TMI objective,
+componentwise L2 priors/edges, amplitude/frame direction and per-channel residuals.
+Numerical execution uses `inversion`; see shared analytic example and guide for
+rank/nonuniqueness, weak-response and independent-error policies.

@@ -1110,6 +1110,28 @@
           "invert_susceptibility"
         ]
       ]
+    },
+    {
+      "name": "geophysics_magnetic_vector_inversion",
+      "description": "Native independent Cartesian magnetisation/TMI-or-vector channel contract; Python bounded componentwise L2 inversion with amplitude/frame direction, per-channel QC and nullity/convergence evidence.",
+      "jsExports": [
+        "describeGeophysicsMagneticVectorInversion",
+        "validateGeophysicsMagneticVectorInversion"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_magnetic_vector_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_magnetic_vector_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "invert_magnetic_vector"
+        ]
+      ]
     }
   ]
 }

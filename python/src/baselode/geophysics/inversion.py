@@ -22,7 +22,7 @@ import baselode.geophysics.gravity_prisms
 import baselode.geophysics.misfit
 import baselode.geophysics.magnetic_prisms
 
-_DESCRIPTORS={kind:json.loads((pathlib.Path(__file__).parent/('geophysics_'+kind+'_inversion.json')).read_text()) for kind in ('density','susceptibility')}
+_DESCRIPTORS={kind:json.loads((pathlib.Path(__file__).parent/('geophysics_'+kind+'_inversion.json')).read_text()) for kind in ('density','susceptibility','magnetic_vector')}
 _J=('magnetization_x_A_m','magnetization_y_A_m','magnetization_z_up_A_m')
 
 
@@ -50,25 +50,52 @@ def _misfit_request(observed,predicted):
 
 
 def _configuration(kind):
-    if kind=='density':return {'physics':'gravity','parameter':'density_contrast_kg_m3','properties':('density_contrast_kg_m3',),'bounds':(-100000,100000),'scale':(1e-6,100000),'quantity':'gravity_g_down','field':'g_down','data_units':'mGal','parameter_units':'kg/m^3'}
-    return {'physics':'magnetic','parameter':'susceptibility_SI','properties':_J,'bounds':(-.1,.1),'scale':(1e-8,.1),'quantity':'magnetic_tmi_anomaly','field':'tmi_linear','data_units':'nT','parameter_units':'dimensionless'}
+    if kind=='density':return {'physics':'gravity','parameters':('density_contrast_kg_m3',),'properties':('density_contrast_kg_m3',),'bounds':(-100000,100000),'scale':(1e-6,100000),'quantities':('gravity_g_down',),'data_units':'mGal','parameter_units':'kg/m^3'}
+    if kind=='susceptibility':return {'physics':'magnetic','parameters':('susceptibility_SI',),'properties':_J,'bounds':(-.1,.1),'scale':(1e-8,.1),'quantities':('magnetic_tmi_anomaly',),'data_units':'nT','parameter_units':'dimensionless'}
+    return {'physics':'magnetic','parameters':_J,'properties':_J,'bounds':(-1000,1000),'scale':(1e-6,1000),'quantities':('magnetic_tmi_anomaly','magnetic_bx','magnetic_by','magnetic_bz_up','magnetic_b_down'),'data_units':'nT','parameter_units':'A/m'}
+
+
+def _component(quantity):
+    return {'gravity_g_down':'g_down','magnetic_tmi_anomaly':'tmi_linear','magnetic_bx':'bx','magnetic_by':'by','magnetic_bz_up':'bz_up','magnetic_b_down':'b_down'}[quantity]
+
+
+def _datasets(p,kind):
+    if kind!='magnetic_vector':return [p['observed']]
+    datasets=p['observed']
+    if type(datasets) is not list:raise ValueError('MVI observed must be an array of datasets')
+    if not datasets:raise baselode.geophysics.corrections._NeedsInput('supply at least one observed channel')
+    if len(datasets)>3:raise baselode.geophysics.corrections._ResourceError('at most3 nonredundant observed datasets')
+    return datasets
 
 
 def _background(p):
     vector=p['forward_request']['background_nT']
-    if vector is None:raise baselode.geophysics.corrections._NeedsInput('induced linear-TMI inversion requires a fixed nonnull inducing field')
+    if vector is None:raise baselode.geophysics.corrections._NeedsInput('linear-TMI inversion requires a fixed nonnull background field')
     values=[vector[k] for k in ('x','y','z_up')]
     return values,math.sqrt(baselode.geophysics.magnetic_prisms._squared_norm3(values))
 
 
-def _magnetic_context(p,observed):
-    assumptions=p['magnetic_assumptions'];baselode.geophysics.forward_common._keys(assumptions,('model','objective','background_reference_id','max_response_to_background_ratio'))
-    if assumptions['model']!='induced_only_no_demagnetization' or assumptions['objective']!='linear_tmi':raise ValueError('declare induced_only_no_demagnetization and linear_tmi objective')
+def _magnetic_context(p,datasets,kind):
+    assumptions=p['magnetic_assumptions'];vector=kind=='magnetic_vector'
+    required=('model','objective','background_reference_id')+(('error_model',) if vector else ('max_response_to_background_ratio',))
+    baselode.geophysics.forward_common._keys(assumptions,required,('max_response_to_background_ratio',) if vector else ())
+    model='uniform_cartesian_magnetization' if vector else 'induced_only_no_demagnetization'
+    if assumptions['model']!=model or assumptions['objective'] not in (('linear_tmi','vector_components') if vector else ('linear_tmi',)):raise ValueError('declare supported magnetisation model and objective')
     baselode.geophysics.forward_common._label(assumptions['background_reference_id'])
-    if observed['context']['reference_id']!=assumptions['background_reference_id']:raise baselode.geophysics.corrections._NeedsInput('observation reference must match the declared fixed background')
+    if any(observed['context']['reference_id']!=assumptions['background_reference_id'] for observed in datasets):raise baselode.geophysics.corrections._NeedsInput('observation reference must match the declared fixed background')
+    if vector:
+        if assumptions['error_model']!='independent_standard_deviations':raise ValueError('declare independent supplied standard deviations; correlated errors require another model')
+        if 'max_response_to_background_ratio' not in assumptions:raise baselode.geophysics.corrections._NeedsInput('declare weak-response cap or explicit null for vector objective')
+    quantities=[observed['context']['quantity'] for observed in datasets]
+    if assumptions['objective']=='vector_components':
+        canonical=['magnetic_bz_up' if q=='magnetic_b_down' else q for q in quantities]
+        if any(q not in ('magnetic_bx','magnetic_by','magnetic_bz_up','magnetic_b_down') for q in quantities) or len(set(canonical))!=len(canonical):raise ValueError('vector objective requires distinct nonredundant Cartesian component channels')
+        if assumptions['max_response_to_background_ratio'] is not None:raise ValueError('vector objective requires explicit null weak-response cap; no TMI linearisation is used')
+        return
+    if quantities!=['magnetic_tmi_anomaly']:raise ValueError('linear TMI requires exactly one TMI anomaly channel')
     baselode.geophysics.forward_common._number(assumptions['max_response_to_background_ratio'],1e-12,.05)
     _,magnitude=_background(p)
-    if any(abs(float(row['value']))/magnitude>assumptions['max_response_to_background_ratio'] for row in observed['records']):raise baselode.geophysics.corrections._NeedsInput('observed anomaly exceeds declared weak-response/background policy')
+    if any(abs(float(row['value']))/magnitude>assumptions['max_response_to_background_ratio'] for observed in datasets for row in observed['records']):raise baselode.geophysics.corrections._NeedsInput('observed anomaly exceeds declared weak-response/background policy')
 
 
 def _prepare(request,kind):
@@ -89,22 +116,23 @@ def _prepare(request,kind):
     for batch in prepared['batches']:
         for source in batch['sources']:
             if any(source[parameter]!=0 for parameter in cfg['properties']):raise ValueError('all active template properties must be zero; declare reference in parameters')
-    observed=p['observed']
-    # Existing QC validates labels, sigma presence, exact-ID coverage/coordinates,
-    # compatible quantity/units/field type and explicit frame/reference context.
-    if type(observed) is not dict or type(observed.get('context')) is not dict:raise ValueError('observed dataset/context required')
-    context=observed['context']
-    if context.get('quantity')!=cfg['quantity']:raise ValueError('declare the supported inversion quantity '+cfg['quantity'])
-    predicted={'context':{**context,'coordinate_frame':forward['coordinate_frame']},'records':[{**point,'value':0.} for point in forward['points']]}
-    _raise_validation(baselode.geophysics.misfit.calculate_misfit(_misfit_request(observed,predicted)))
-    for row in observed['records']:
-        baselode.geophysics.forward_common._number(row['value'],-1e8,1e8);baselode.geophysics.forward_common._number(row['standard_deviation'],1e-8,1e8)
-    if kind!='density':_magnetic_context(p,observed)
-    parameters=p['parameters']
-    if type(parameters) is not list or len(parameters)!=n:raise ValueError('one ordered scalar parameter per active cell required')
-    for identity,param in zip(ids,parameters):
+    datasets=_datasets(p,kind);total=0
+    for observed in datasets:
+        if type(observed) is not dict or type(observed.get('context')) is not dict:raise ValueError('observed dataset/context required')
+        context=observed['context']
+        if context.get('quantity') not in cfg['quantities']:raise ValueError('declare a supported inversion quantity')
+        predicted={'context':{**context,'coordinate_frame':forward['coordinate_frame']},'records':[{**point,'value':0.} for point in forward['points']]}
+        _raise_validation(baselode.geophysics.misfit.calculate_misfit(_misfit_request(observed,predicted)))
+        total+=len(observed['records'])
+        for row in observed['records']:
+            baselode.geophysics.forward_common._number(row['value'],-1e8,1e8);baselode.geophysics.forward_common._number(row['standard_deviation'],1e-8,1e8)
+    if total>128:raise baselode.geophysics.corrections._ResourceError('at most128 total observations across channels')
+    if kind!='density':_magnetic_context(p,datasets,kind)
+    parameters=p['parameters'];expected=[(identity,parameter) for identity in ids for parameter in cfg['parameters']]
+    if type(parameters) is not list or len(parameters)!=len(expected):raise ValueError('one ordered parameter per active cell/component required')
+    for (identity,parameter),param in zip(expected,parameters):
         baselode.geophysics.forward_common._keys(param,('cell_id','parameter','lower','upper','reference','scale'))
-        if param['cell_id']!=identity or param['parameter']!=cfg['parameter']:raise ValueError('parameters must follow active cell order and declared parameterisation')
+        if param['cell_id']!=identity or param['parameter']!=parameter:raise ValueError('parameters must follow active cell then component order')
         for key in ('lower','upper','reference'):baselode.geophysics.forward_common._number(param[key],*cfg['bounds'])
         baselode.geophysics.forward_common._number(param['scale'],*cfg['scale'])
         if not param['lower']<param['upper'] or not param['lower']<=param['reference']<=param['upper']:raise ValueError('strict lower<upper and reference inside bounds required')
@@ -126,7 +154,9 @@ def _prepare(request,kind):
     if solver['method']!='bvls':raise ValueError('only bounded dense bvls supported')
     baselode.geophysics.forward_common._number(solver['tolerance'],1e-12,1e-6);baselode.geophysics.forward_common._number(solver['max_iterations'],1,1000);baselode.geophysics.forward_common._number(solver['condition_limit'],100,1e12)
     if int(solver['max_iterations'])!=solver['max_iterations']:raise ValueError('max_iterations must be integer')
-    return p,prepared,{'active_cells':n,'observations':m,'parameters':n,'pair_count':n*m,'edge_count':len(edges)}
+    diagnostics={'active_cells':n,'observations':total,'parameters':len(expected),'pair_count':n*m,'edge_count':len(edges)}
+    if kind=='magnetic_vector':diagnostics.update(dataset_count=len(datasets),prediction_points=m)
+    return p,prepared,diagnostics
 
 
 def _report(kind,phase):
@@ -137,6 +167,7 @@ def _error(report,error):
     baselode.geophysics.gravity_prisms._error(report,error)
     if 'parameters' in report:report.update(parameters=[],fitted_forward_request=None,predicted=None,misfit=None,operator=None,objective=None,convergence=None,forward_result=None)
     if 'magnetic_model' in report:report.update(magnetic_model=None,exact_tmi_misfit=None)
+    if 'magnetization' in report:report['magnetization']=[]
 
 
 def _validate(request,kind):
@@ -190,9 +221,10 @@ def _solve(matrix,data,sigma,parameters,regularization,solver,ids):
     weighted=matrix/sigma[:,None];design=weighted*scale;target=(data-matrix@reference)/sigma
     n=len(parameters);rows=[design];targets=[target]
     if regularization['reference_weight']>0:rows.append(math.sqrt(regularization['reference_weight'])*np.eye(n));targets.append(np.zeros(n))
-    differences=[]
+    differences=[];parameter_names=list(dict.fromkeys(p['parameter'] for p in parameters));parameter_indices={(p['cell_id'],p['parameter']):i for i,p in enumerate(parameters)}
     for edge in regularization['edges']:
-        row=np.zeros(n);row[ids.index(edge['cell_a'])]=math.sqrt(edge['weight']);row[ids.index(edge['cell_b'])]=-math.sqrt(edge['weight']);differences.append(row)
+        for parameter in parameter_names:
+            row=np.zeros(n);row[parameter_indices[(edge['cell_a'],parameter)]]=math.sqrt(edge['weight']);row[parameter_indices[(edge['cell_b'],parameter)]]=-math.sqrt(edge['weight']);differences.append(row)
     differences=np.array(differences,dtype=float).reshape((-1,n))
     if regularization['smoothness_weight']>0:rows.append(math.sqrt(regularization['smoothness_weight'])*differences);targets.append(np.zeros(len(differences)))
     augmented=np.vstack(rows);rhs=np.concatenate(targets)
@@ -227,12 +259,17 @@ def _solve(matrix,data,sigma,parameters,regularization,solver,ids):
     return values,active,np.linalg.norm(weighted,axis=0),diagnostics,convergence,penalties
 
 
+def _predicted(observed,result,field):
+    values={row['id']:row[field] for row in result['fields']}
+    return {'context':copy.deepcopy(observed['context']),'records':[{k:row[k] for k in ('id','x_m','y_m','z_m')}|{'value':values[row['id']]} for row in observed['records']]}
+
+
 def _invert(request,kind):
     _require_backend();report=_report(kind,'result');report.update(parameters=[],fitted_forward_request=None,predicted=None,misfit=None,operator=None,objective=None,convergence=None,forward_result=None,assumptions=copy.deepcopy(_DESCRIPTORS[kind]['assumptions']))
     if kind!='density':report.update(magnetic_model=None,exact_tmi_misfit=None)
+    if kind=='magnetic_vector':report['magnetization']=[]
     try:
-        cfg=_configuration(kind)
-        p,prepared,diagnostics=_prepare(request,kind)
+        cfg=_configuration(kind);p,prepared,diagnostics=_prepare(request,kind);datasets=_datasets(p,kind)
         try:version=importlib.metadata.version('scipy')
         except importlib.metadata.PackageNotFoundError as error:raise RuntimeError('missing scipy metadata; install inversion extra') from error
         if version!=('1.15.3' if sys.version_info<(3,11) else '1.17.1'):raise RuntimeError('unsupported scipy version; install baselode[inversion]')
@@ -240,40 +277,54 @@ def _invert(request,kind):
         if forward['state']!='ok':raise RuntimeError('forward operator failed: '+forward['issues'][0]['message'])
         expected=[(identity,parameter) for identity in prepared['cell_ids'] for parameter in cfg['properties']]
         if [(column.get('source_id'),column.get('parameter')) for column in forward['sensitivities']]!=expected:raise RuntimeError('forward columns disagree with ordered parameters')
-        observed=p['observed'];point_indices={point['id']:i for i,point in enumerate(p['forward_request']['points'])};indices=[point_indices[r['id']] for r in observed['records']]
-        basis=np.array([[column['fields'][i][cfg['field']] for column in forward['sensitivities']] for i in indices],dtype=float)
-        magnetic_model=None
-        if kind=='density':matrix=basis
-        else:
+        point_indices={point['id']:i for i,point in enumerate(p['forward_request']['points'])}
+        records=[row for observed in datasets for row in observed['records']]
+        operator_rows=[{'id':row['id'],'quantity':observed['context']['quantity']} for observed in datasets for row in observed['records']]
+        basis=np.array([[column['fields'][point_indices[row['id']]][_component(row['quantity'])] for column in forward['sensitivities']] for row in operator_rows],dtype=float)
+        magnetic_model=None;h0=None;magnitude=None
+        if kind=='susceptibility':
             background,magnitude=_background(p);mu0=baselode.geophysics.magnetic_prisms.describe_magnetic_prisms()['model']['vacuum_magnetic_permeability'];h0=[v*1e-9/mu0 for v in background]
             matrix=np.array([[math.fsum(float(row[3*c+j])*h0[j] for j in range(3)) for c in range(len(prepared['cell_ids']))] for row in basis],dtype=float)
             magnetic_model={'background_nT':copy.deepcopy(p['forward_request']['background_nT']),'inducing_field_H_A_m':dict(zip(('x','y','z_up'),h0)),'vacuum_magnetic_permeability':mu0,'assumptions':copy.deepcopy(p['magnetic_assumptions']),'max_fitted_response_to_background_ratio':None}
-        if matrix.shape!=(len(indices),len(p['parameters'])) or not np.all(np.isfinite(matrix)):raise RuntimeError('malformed forward sensitivity operator')
-        data=np.array([r['value'] for r in observed['records']],dtype=float);sigma=np.array([r['standard_deviation'] for r in observed['records']],dtype=float)
+        else:
+            matrix=basis
+            if kind=='magnetic_vector':
+                if p['forward_request']['background_nT'] is not None:_,magnitude=_background(p)
+                magnetic_model={'background_nT':copy.deepcopy(p['forward_request']['background_nT']),'vacuum_magnetic_permeability':baselode.geophysics.magnetic_prisms.describe_magnetic_prisms()['model']['vacuum_magnetic_permeability'],'assumptions':copy.deepcopy(p['magnetic_assumptions']),'max_fitted_response_to_background_ratio':None}
+        if matrix.shape!=(len(records),len(p['parameters'])) or not np.all(np.isfinite(matrix)):raise RuntimeError('malformed forward sensitivity operator')
+        data=np.array([row['value'] for row in records],dtype=float);sigma=np.array([row['standard_deviation'] for row in records],dtype=float)
         values,active,norms,spectral,convergence,penalties=_solve(matrix,data,sigma,p['parameters'],p['regularization'],p['solver'],prepared['cell_ids'])
-        fitted=copy.deepcopy(p['forward_request']);fitted['include_sensitivities']=False;lookup=dict(zip(prepared['cell_ids'],values))
+        fitted=copy.deepcopy(p['forward_request']);fitted['include_sensitivities']=False;lookup={(param['cell_id'],param['parameter']):float(value) for param,value in zip(p['parameters'],values)}
         for row in fitted['model']['blocks']:
             identity=row[fitted['cell_id_column']]
-            if identity not in lookup:continue
-            for j,parameter in enumerate(cfg['properties']):row[fitted['properties'][parameter]['column']]=float(lookup[identity])*(1 if kind=='density' else h0[j])
+            if identity not in prepared['cell_ids']:continue
+            for j,parameter in enumerate(cfg['properties']):row[fitted['properties'][parameter]['column']]=lookup[(identity,parameter)] if kind!='susceptibility' else lookup[(identity,'susceptibility_SI')]*h0[j]
         result=baselode.geophysics.block_forward.calculate_block_forward(fitted)
         if result['state']!='ok':raise RuntimeError('fitted forward evaluation failed: '+result['issues'][0]['message'])
-        predicted_values={r['id']:r[cfg['field']] for r in result['fields']}
-        predicted={'context':copy.deepcopy(observed['context']),'records':[{k:r[k] for k in ('id','x_m','y_m','z_m')}|{'value':predicted_values[r['id']]} for r in observed['records']]}
-        qc=baselode.geophysics.misfit.calculate_misfit(_misfit_request(observed,predicted))
-        if qc['state']!='ok':raise RuntimeError('fitted residual QC failed: '+qc['issues'][0]['message'])
-        if not np.allclose(matrix@values,np.array([r['value'] for r in predicted['records']]),rtol=1e-10,atol=1e-10):raise RuntimeError('fitted forward does not replay assembled operator')
+        predictions=[_predicted(observed,result,_component(observed['context']['quantity'])) for observed in datasets]
+        qcs=[baselode.geophysics.misfit.calculate_misfit(_misfit_request(observed,predicted)) for observed,predicted in zip(datasets,predictions)]
+        if any(qc['state']!='ok' for qc in qcs):raise RuntimeError('fitted residual QC failed')
+        if not np.allclose(matrix@values,np.array([row['value'] for predicted in predictions for row in predicted['records']]),rtol=1e-10,atol=1e-10):raise RuntimeError('fitted forward does not replay assembled operator')
         if kind!='density':
-            ratios=[math.sqrt(baselode.geophysics.magnetic_prisms._squared_norm3([row[k] for k in ('bx','by','bz_up')]))/magnitude for row in result['fields']]
-            magnetic_model['max_fitted_response_to_background_ratio']=max(ratios)
-            if max(ratios)>p['magnetic_assumptions']['max_response_to_background_ratio']:raise baselode.geophysics.corrections._NeedsInput('fitted full magnetic vector exceeds declared weak-response/background policy')
-            exact_values={row['id']:row['tmi_exact'] for row in result['fields']};exact_predicted=copy.deepcopy(predicted)
-            for row in exact_predicted['records']:row['value']=exact_values[row['id']]
-            exact_qc=baselode.geophysics.misfit.calculate_misfit(_misfit_request(observed,exact_predicted))
-            if exact_qc['state']!='ok':raise RuntimeError('exact-TMI residual QC failed')
-            report.update(magnetic_model=magnetic_model,exact_tmi_misfit=exact_qc)
-        objective={'weighted_data':qc['summary']['statistics']['chi_squared'],'reference':penalties['reference'],'smoothness':penalties['smoothness']};objective['total']=math.fsum(objective.values())
-        report.update(request=p,parameters=[{**param,'units':cfg['parameter_units'],'value':float(value),'active_bound':int(bound),'weighted_column_norm':float(norm)} for param,value,bound,norm in zip(p['parameters'],values,active,norms)],fitted_forward_request=copy.deepcopy(fitted),predicted=predicted,misfit=qc,operator={'row_ids':[r['id'] for r in observed['records']],'columns':[{'cell_id':param['cell_id'],'parameter':param['parameter']} for param in p['parameters']],'matrix':matrix.tolist(),'data_units':cfg['data_units'],'parameter_units':cfg['parameter_units']},objective=objective,convergence=convergence,forward_result=result,diagnostics={**diagnostics,**spectral})
+            if magnitude is not None:
+                ratio=max(math.sqrt(baselode.geophysics.magnetic_prisms._squared_norm3([row[k] for k in ('bx','by','bz_up')]))/magnitude for row in result['fields']);magnetic_model['max_fitted_response_to_background_ratio']=ratio
+                if p['magnetic_assumptions']['objective']=='linear_tmi' and ratio>p['magnetic_assumptions']['max_response_to_background_ratio']:raise baselode.geophysics.corrections._NeedsInput('fitted full magnetic vector exceeds declared weak-response/background policy')
+            exact_qcs=[]
+            for observed in datasets:
+                if observed['context']['quantity']!='magnetic_tmi_anomaly':continue
+                exact=baselode.geophysics.misfit.calculate_misfit(_misfit_request(observed,_predicted(observed,result,'tmi_exact')))
+                if exact['state']!='ok':raise RuntimeError('exact-TMI residual QC failed')
+                exact_qcs.append(exact)
+            report.update(magnetic_model=magnetic_model,exact_tmi_misfit=(exact_qcs if kind=='magnetic_vector' else exact_qcs[0]) if exact_qcs else None)
+        objective={'weighted_data':math.fsum(qc['summary']['statistics']['chi_squared'] for qc in qcs),'reference':penalties['reference'],'smoothness':penalties['smoothness']};objective['total']=math.fsum(objective.values())
+        operator={'columns':[{'cell_id':param['cell_id'],'parameter':param['parameter']} for param in p['parameters']],'matrix':matrix.tolist(),'data_units':cfg['data_units'],'parameter_units':cfg['parameter_units']}
+        if kind=='magnetic_vector':operator['rows']=operator_rows
+        else:operator['row_ids']=[row['id'] for row in records]
+        report.update(request=p,parameters=[{**param,'units':cfg['parameter_units'],'value':float(value),'active_bound':int(bound),'weighted_column_norm':float(norm)} for param,value,bound,norm in zip(p['parameters'],values,active,norms)],fitted_forward_request=copy.deepcopy(fitted),predicted=predictions if kind=='magnetic_vector' else predictions[0],misfit=qcs if kind=='magnetic_vector' else qcs[0],operator=operator,objective=objective,convergence=convergence,forward_result=result,diagnostics={**diagnostics,**spectral})
+        if kind=='magnetic_vector':
+            for identity in prepared['cell_ids']:
+                vector=[lookup[(identity,parameter)] for parameter in _J];amplitude=math.hypot(*vector);direction=None if amplitude==0 else dict(zip(('x','y','z_up'),[v/amplitude for v in vector]))
+                report['magnetization'].append({'cell_id':identity,'x_A_m':vector[0],'y_A_m':vector[1],'z_up_A_m':vector[2],'amplitude_A_m':amplitude,'unit_direction':direction})
         baselode.geophysics.forward_common._bounded_json(report,8388608,result=True)
     except (ValueError,TypeError,RecursionError,ArithmeticError,RuntimeError,Warning) as error:
         if isinstance(error,Warning):error=RuntimeError('numerical backend warning: '+str(error))
@@ -364,3 +415,65 @@ def invert_susceptibility(request):
         Requires the supported baselode[inversion] solver and prism backends.
     """
     return _invert(request,'susceptibility')
+
+
+def describe_magnetic_vector_inversion():
+    """Return independent Cartesian magnetisation inversion schemas and policies.
+
+    Returns
+    -------
+    dict
+        Native contracts, supported component/TMI objectives, units, independent
+        error assumptions, explicit regularisation and bounded work limits.
+    """
+    return copy.deepcopy(_DESCRIPTORS['magnetic_vector'])
+
+
+def validate_magnetic_vector_inversion(request):
+    """Validate portable MVI inputs without optional numerical execution.
+
+    Parameters
+    ----------
+    request : dict
+        V1 magnetic_vector_inversion_request. Zero-J fixed block template;
+        observed array of one linear-TMI channel or distinct vector components;
+        independent supplied sigma, ordered Jx/Jy/Jz bounds/reference/scales and
+        explicit uniform_cartesian_magnetization/objective/background policies.
+
+    Returns
+    -------
+    dict
+        Atomic state/issues and independent request snapshot. Numerical rank and
+        postfit linear-TMI weak-response applicability require execution.
+    """
+    return _validate(request,'magnetic_vector')
+
+
+def invert_magnetic_vector(request):
+    """Fit independently bounded Cartesian magnetisation direction and strength.
+
+    Parameters
+    ----------
+    request : dict
+        V1 contract with A/m J components, fixed geometry and declared reference.
+        Vector-component objective is linear in J and needs no weak-field
+        approximation. Linear TMI requires a fixed nonnull background and explicit
+        weak-response cap. Edges penalise each component's scaled deviation from
+        its supplied reference; bounds/scales/priors can favour directions.
+
+    Returns
+    -------
+    dict
+        Fitted J, amplitude and frame unit direction (null exactly at zero),
+        reusable forward request, per-channel residual QC, physical operator,
+        separate exact-TMI QC when fitting linear TMI, objectives/nullity/
+        sensitivities/bounds/KKT evidence. No induced/remanent decomposition,
+        geographic angles, nonlinear exact objective, geological uniqueness or
+        posterior uncertainty is inferred.
+
+    Raises
+    ------
+    ImportError
+        Install baselode[inversion] for supported solver and prism backends.
+    """
+    return _invert(request,'magnetic_vector')

@@ -271,3 +271,8 @@ describe_susceptibility_inversion = geophysics_inversion.describe_susceptibility
 validate_susceptibility_inversion = geophysics_inversion.validate_susceptibility_inversion
 invert_susceptibility = geophysics_inversion.invert_susceptibility
 __all__ += ['describe_susceptibility_inversion','validate_susceptibility_inversion','invert_susceptibility']
+
+describe_magnetic_vector_inversion = geophysics_inversion.describe_magnetic_vector_inversion
+validate_magnetic_vector_inversion = geophysics_inversion.validate_magnetic_vector_inversion
+invert_magnetic_vector = geophysics_inversion.invert_magnetic_vector
+__all__ += ['describe_magnetic_vector_inversion','validate_magnetic_vector_inversion','invert_magnetic_vector']

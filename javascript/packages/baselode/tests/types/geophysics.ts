@@ -307,3 +307,9 @@ declare const susceptibilityRequest:GeophysicsSusceptibilityInversionRequest;
 const susceptibilityValidation:GeophysicsSusceptibilityInversionValidation=validateGeophysicsSusceptibilityInversion(susceptibilityRequest);
 declare const susceptibilityNumerical:GeophysicsSusceptibilityInversionReport;
 void [describeGeophysicsSusceptibilityInversion(),susceptibilityValidation.state,susceptibilityNumerical.exact_tmi_misfit?.summary];
+
+import {describeGeophysicsMagneticVectorInversion,validateGeophysicsMagneticVectorInversion,GeophysicsMagneticVectorInversionRequest,GeophysicsMagneticVectorInversionValidation,GeophysicsMagneticVectorInversionReport} from '../../types/geophysics.js';
+declare const mviRequest:GeophysicsMagneticVectorInversionRequest;
+const mviValidation:GeophysicsMagneticVectorInversionValidation=validateGeophysicsMagneticVectorInversion(mviRequest);
+declare const mviNumerical:GeophysicsMagneticVectorInversionReport;
+void [describeGeophysicsMagneticVectorInversion(),mviValidation.state,mviNumerical.magnetization[0]?.unit_direction,mviNumerical.misfit?.[0].summary];

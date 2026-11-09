@@ -2470,3 +2470,11 @@ Python numerical-report types; no JavaScript numerical solver stub.
 `baselode/geophysics`. Native portable validation; Python numerical report types
 include susceptibility, conversion provenance, bounds/sensitivity/convergence
 and distinct exact-TMI precision diagnostics.
+
+### Magnetic vector inversion
+
+`describeGeophysicsMagneticVectorInversion()` /
+`validateGeophysicsMagneticVectorInversion(request)` export from root and
+`baselode/geophysics`. Native portable request validation and typed Python numerical
+reports include component parameters, amplitude/direction, channel QC, physical
+operator, nullity/conditioning, bounds and convergence. No JS solver stub.
