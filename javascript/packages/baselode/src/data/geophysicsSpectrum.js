@@ -93,7 +93,7 @@ function calculate({r,p,values,shape,frequencyArea,limit,unit,max}){
 }
 /** Versioned JSON report: explicit spatial periodogram; no gap filling or inferred cutoffs. */
 export function analyzeGeophysicsGridSpectrum(raster,options){
-  const result={schema:'baselode.geophysics.spectrum_result',version:1,state:'ok',issues:[],radial:[],directional:[],producer:{library:'baselode',version:typeof __BASELODE_VERSION__==='undefined'?'unversioned':__BASELODE_VERSION__,algorithm_version:1,backend:'baselode-native'},assumptions:clone(descriptor.assumptions)};
+  const result={schema:'baselode.geophysics.spectrum_result',version:1,state:'ok',issues:[],radial:[],directional:[],producer:{library:'baselode',version:typeof __BASELODE_VERSION__==='undefined'?'unversioned':__BASELODE_VERSION__,algorithm_version:1,backend:'baselode-native'},assumptions:clone(descriptor.assumptions),model:clone(descriptor.model)};
   try{
     const content=calculate(prepare(raster,options));jsonValue(content);
     if(new TextEncoder().encode(JSON.stringify({...result,...content})).length>2097152)throw Error('spectrum report exceeds 2 MiB');

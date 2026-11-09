@@ -55,7 +55,7 @@ def _parameters(options):
                 raise ValueError(key + ' violates its bounded integer schema')
         elif not isinstance(value, str) or value not in spec['enum']:
             raise ValueError(key + ' requires an explicit supported policy')
-    return copy.deepcopy(options)
+    return {key: int(value) if schema['properties'][key]['type'] == 'integer' else value for key, value in options.items()}
 
 
 def _prepare(raster, options):
@@ -70,7 +70,7 @@ def _prepare(raster, options):
         raise _NeedsInput('declare affine geometry before spectral analysis')
     baselode.geophysics.alignment._source(raster)
     baselode.geophysics.provenance.encode(raster.metadata, 'GeoTIFF', 'float64')
-    if len(json.dumps(raster.metadata, ensure_ascii=False, allow_nan=False).encode('utf-8')) > 524288:
+    if len(json.dumps(raster.metadata, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')) > 524288:
         raise ValueError('source metadata exceeds 512 KiB spectrum budget')
     frame = raster.metadata.get('frame_id')
     if frame is not None and not _label(frame):
@@ -199,11 +199,11 @@ def analyze_grid_spectrum(raster, options):
         power does not identify noise, geology, mineralisation or source depth.
     """
     result = {'schema': 'baselode.geophysics.spectrum_result', 'version': 1, 'state': 'ok', 'issues': [], 'radial': [], 'directional': [],
-              'producer': {'library': 'baselode', 'version': baselode.__version__, 'algorithm_version': 1, 'backend': 'numpy', 'backend_version': np.__version__}, 'assumptions': copy.deepcopy(_DESCRIPTOR['assumptions'])}
+              'producer': {'library': 'baselode', 'version': baselode.__version__, 'algorithm_version': 1, 'backend': 'numpy', 'backend_version': np.__version__}, 'assumptions': copy.deepcopy(_DESCRIPTOR['assumptions']), 'model': copy.deepcopy(_DESCRIPTOR['model'])}
     try:
         prepared = _prepare(raster, options)
         content = _calculate(raster, *prepared)
-        if len(json.dumps({**result, **content}, ensure_ascii=False, allow_nan=False).encode('utf-8')) > 2097152:
+        if len(json.dumps({**result, **content}, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')) > 2097152:
             raise ValueError('spectrum report exceeds 2 MiB')
         result.update(content)
     except (_BackendError, np.linalg.LinAlgError) as error:

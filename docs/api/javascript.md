@@ -1936,3 +1936,54 @@ not earlier step outputs. Preflight checks geometry/support/budgets without an
 FFT; numerical cap failures return `failed` with no artifacts. See the Python
 API's model discussion and primary references; this is residual grid striping
 processing, with no claim to located-line or vendor-equivalent corrections.
+
+### Spatial power spectra
+
+`describeGeophysicsSpectrum()` and
+`analyzeGeophysicsGridSpectrum(grid, options)` provide native, bounded radial
+and directional spatial-periodogram reports using the same snake_case options,
+model and units as Python:
+
+```javascript
+const report = analyzeGeophysicsGridSpectrum(grid, {
+  band: 1, detrend: 'mean', window: 'hann_periodic',
+  radial_bins: 32, direction_bins: 12, missing_policy: 'reject',
+});
+if (report.state === 'ok') {
+  const {radial, directional, diagnostics} = report;
+}
+```
+
+Declare selected-band units, a scalar field type, rectangular projected/local
+affine geometry and linear coordinate units. A selected-band gap produces
+`needs_input`; select a complete region explicitly. Other bands may contain
+missing cells. Mean/plane removal precedes a boxcar or periodic separable Hann
+window, followed by zero padding to powers of two, without mirror extension.
+
+Integrated bin power is `abs(DFT(residual*window))**2/(M*sum(window**2))`, for
+padded cell count M. Its sum matches the weighted spatial mean square.
+Density divides by map-frequency cell area `1/(M*abs(affine determinant))`.
+Power has squared source units; two-dimensional density also has squared CRS
+linear units. This is not an amplitude-normalized spectrum or 1D annular PSD.
+
+Radial bins cover the inscribed Nyquist circle; DC and excluded corners have
+separate power/count diagnostics. Axial directional bins [0,180) are wavevector
+azimuths clockwise from CRS north, generally orthogonal to ideal stripe strike.
+Counts include both frequency signs without extra doubling. Empty-bin mean
+density and the unbounded wavelength endpoint are null. Boundary snapping and
+normalization are specified in the descriptor and Python API.
+
+The report states `ok`, `needs_input`, `rejected` or `failed`, with no scientific
+arrays on failure. Source uncertainty/history remains archived, without inferred
+propagation. Zero padding adds frequency samples, not independent resolution;
+counts are not confidence intervals. The numerical floor is diagnostic, and
+weak energy is retained. Spectra cannot automatically identify noise, geology,
+source depth or filter cutoffs.
+
+Limits: at least 8x8, 262144 selected cells, 1000000 total source values,
+1048576 FFT cells, 512 KiB metadata, 2 MiB report. Band 1..64, radial bins 4..128
+and direction bins 4..36; all options explicit. The typed observation-workflow
+`analyze_grid_spectrum` operation consumes an actual raster output from gridding
+or filtering and emits a report. Scientific checks run at execution; any non-ok
+step withholds every requested artifact. See `test/data/spectrum_example.json`
+for a complete observations-to-spectrum recipe.

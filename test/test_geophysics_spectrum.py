@@ -172,3 +172,20 @@ def test_parameters_models_lineage_and_source_are_independent():
     p = options(); g = grid(); a = baselode.geophysics.analyze_grid_spectrum(g, p); b = baselode.geophysics.analyze_grid_spectrum(g, p)
     a['parameters']['band'] = 2; a['metadata']['input_lineage'][-1]['metadata']['uncertainty']['sigma'] = 99
     assert p == options() and b['parameters'] == p and g.metadata['uncertainty'] == {'sigma': 1}
+
+
+def test_energy_below_numerical_floor_is_retained_and_all_frequency_power_accounted():
+    g = grid(); _, col = np.indices((32, 32)); g.data[:] = 1e-15 * np.cos(2 * np.pi * col / 8)
+    r = baselode.geophysics.analyze_grid_spectrum(g, options()); d = r['diagnostics']
+    assert r['state'] == 'ok' and d['below_numerical_floor']
+    assert d['spectral_total_power'] == pytest.approx(5e-31, rel=1e-12, abs=0)
+    assert d['dc_power'] + d['included_power'] + d['outside_circle_power'] == pytest.approx(d['spectral_total_power'], rel=1e-12, abs=0)
+    assert 1 + d['included_count'] + d['outside_circle_count'] == 32 * 32
+
+
+def test_json_integral_numbers_normalise_to_integer_indices_without_mutation():
+    p = {**options(), 'band': 1.0, 'radial_bins': 16.0, 'direction_bins': 12.0}; before = copy.deepcopy(p)
+    result = baselode.geophysics.analyze_grid_spectrum(grid(), p)
+    assert result['state'] == 'ok', result['issues']
+    assert all(type(result['parameters'][key]) is int for key in ('band', 'radial_bins', 'direction_bins'))
+    assert p == before and type(p['band']) is float

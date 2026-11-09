@@ -176,3 +176,13 @@ const microEstimate=geophysics.estimateGeophysicsMagneticMicrolevelling(microGri
 assert.equal(microEstimate.metadata.field_type,'other');
 assert.ok(Math.abs(microCorrected.data[0][16][16]-(7+.0625*Math.cos(2*Math.PI*16.5/8)))<1e-10);
 assert.throws(()=>geophysics.microlevelGeophysicsMagneticGrid(microCorrected,microOptions));
+
+const spectrumExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/spectrum_example.json'),'utf8'));
+const spectrumGrid=geophysics.createGeophysicsRaster(spectrumExample.raster);
+const spectrumReport=geophysics.analyzeGeophysicsGridSpectrum(spectrumGrid,spectrumExample.options);
+assert.equal(spectrumReport.state,'ok',JSON.stringify(spectrumReport.issues));
+assert.ok(Math.abs(spectrumReport.diagnostics.spectral_total_power-6.5)<1e-10);
+assert.equal(geophysics.describeGeophysicsSpectrum().version,1);
+const spectrumWorkflow=await geophysics.runGeophysicsObservationWorkflow(spectrumExample.workflow,{survey:spectrumExample.survey});
+assert.equal(spectrumWorkflow.state,'ok',JSON.stringify(spectrumWorkflow.issues));
+assert.ok(Math.abs(spectrumWorkflow.artifacts.spectrum.diagnostics.spectral_total_power-6.5)<1e-10);

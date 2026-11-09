@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native radial/directional spatial power-spectrum reports with explicit window/detrend normalization, Parseval/DC/Nyquist support diagnostics, typed observation-workflow report ports and shared Python/JavaScript schemas.
+
 - Add native Python/JavaScript controlled magnetic grid microlevelling: inspectable directional Gaussian residual estimates, explicit geological protection and correction caps, current-grid history, shared schemas/types/workflows and independent signal-retention tests.
 
 - Add native Python/JavaScript corrected radiometric grid stacking, guarded eTh/K, eU/K and eU/eTh ratios, and fixed-stretch K/eTh/eU ternary RGB. Include shared contracts, typed APIs, pointwise workflows, explicit masks/units and source uncertainty lineage. Complete the typed workflow operation names for prior Bouguer/terrain stages.

@@ -45,3 +45,7 @@ it('returns an atomic failed report on FFT backend errors',()=>{
 it('keeps parameters/source/lineage and separate reports independent',()=>{
   const p=options(),g=grid(),a=analyzeGeophysicsGridSpectrum(g,p),b=analyzeGeophysicsGridSpectrum(g,p);a.parameters.band=2;a.metadata.input_lineage.at(-1).metadata.uncertainty.sigma=99;expect(p).toEqual(options());expect(b.parameters).toEqual(p);expect(g.metadata.uncertainty).toEqual({sigma:1});
 });
+
+it('retains energy below the numerical diagnostic floor and accounts all frequencies',()=>{
+  const g=grid();g.data[0]=g.data[0].map(row=>row.map((_,j)=>1e-15*Math.cos(2*Math.PI*j/4)));const r=analyzeGeophysicsGridSpectrum(g,options()),d=r.diagnostics;expect(r.state).toBe('ok');expect(d.below_numerical_floor).toBe(true);expect(Math.abs(d.spectral_total_power/5e-31-1)).toBeLessThan(1e-12);expect(Math.abs((d.dc_power+d.included_power+d.outside_circle_power)/d.spectral_total_power-1)).toBeLessThan(1e-12);expect(1+d.included_count+d.outside_circle_count).toBe(64);
+});

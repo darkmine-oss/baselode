@@ -286,3 +286,16 @@ uncertainty remain archived, with no inferred propagation. Independent analytic
 stripe/geological/plane amplitudes, protected-feature no-leakage, rotated and
 scaled coordinates, failure gates and ERS/GeoTIFF exports are tested in both
 runtimes; live numeric and recipe replay uses an absolute tolerance of 1e-10 nT.
+
+### Spatial spectrum diagnostics
+
+Native NumPy and JavaScript FFT implementations share radial/axial-wavevector
+spatial periodogram schemas and normalization, explicit detrend/window/missing
+policies, zero padding, inscribed Nyquist support, DC/corner accounting and
+source lineage. Typed observation workflows consume actual grid/filter outputs
+and return report ports with atomic failure behavior. Independent direct DFT and
+Parseval references, known amplitudes/wavelengths/directions, rotation/unit
+scaling, Nyquist/empty bins and fault/input guards validate both runtimes.
+Live report/recipe parity uses absolute tolerance 1e-10 for power and 1e-9 for
+mean density on the documented nT/metre fixtures; no inference of independent
+resolution, calibrated uncertainty or geological depth is made.

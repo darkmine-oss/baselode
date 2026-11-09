@@ -739,7 +739,7 @@ export interface GeophysicsSpectrumOptions {
 }
 export interface GeophysicsSpectrumBin {count: number; power_sum: number; mean_power_density: number | null}
 export interface GeophysicsSpectrumReport {
-  schema: 'baselode.geophysics.spectrum_result'; version: 1;
+  schema: 'baselode.geophysics.spectrum_result'; version: 1; model: Record<string,string>;
   state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
   radial: Array<GeophysicsSpectrumBin & {frequency_low: number; frequency_high: number; wavelength_low: number; wavelength_high: number | null}>;
   directional: Array<GeophysicsSpectrumBin & {azimuth_low: number; azimuth_high: number}>;

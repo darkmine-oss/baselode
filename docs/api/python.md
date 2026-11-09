@@ -2699,3 +2699,73 @@ independently from the original. Run prior transforms separately and verify
 their output state/support first. Preflight checks parameters, geometry,
 training and FFT budgets without executing FFTs. A numerical application cap
 failure returns workflow state `failed` with no output artifacts.
+
+### Spatial power spectra
+
+`describe_spectrum()` exposes the shared parameter schema, normalization,
+resource limits and assumptions. `analyze_grid_spectrum(grid, options)` returns
+a versioned JSON report with `ok`, `needs_input`, `rejected` or `failed` state.
+It preserves the raster and its source uncertainty/history.
+
+```python
+report = baselode.geophysics.analyze_grid_spectrum(grid, {
+    "band": 1, "detrend": "mean", "window": "hann_periodic",
+    "radial_bins": 32, "direction_bins": 12, "missing_policy": "reject",
+})
+if report["state"] == "ok":
+    radial = report["radial"]
+    directional = report["directional"]
+    conservation = report["diagnostics"]["parseval_absolute_error"]
+```
+
+The selected band must be complete and have declared units and field type.
+Projected/local rectangular affine geometry and explicit linear coordinate
+units are required; rotated grids are supported. Missing cells produce
+`needs_input`: crop/select a complete region explicitly. Other bands may be
+missing. Mean or plane removal precedes the explicit boxcar or periodic Hann
+window. The existing FFT computes a two-sided DFT, zero-padded at the array
+origin to powers of two without mirror extension.
+
+For padded cell count `M` and window energy `U=sum(window**2)`, integrated
+frequency-bin power is `abs(DFT(residual*window))**2/(M*U)`. Its sum equals
+`sum(residual**2*window**2)/U` by Parseval. Density divides bin power by
+`1/(M*abs(affine determinant))`, the two-dimensional map-frequency cell area.
+Source values in nT and coordinates in metres yield power in nT² and density
+in nT²·m². This spatial normalization follows the DFT conventions in
+[NumPy](https://numpy.org/doc/stable/reference/routines.fft.html) and
+window-energy density scaling described by
+[SciPy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.periodogram.html).
+It is not an amplitude-normalized spectrum.
+
+Radial bins cover non-DC frequencies inside the conservative inscribed Nyquist
+circle, `min(1/(2*column_spacing),1/(2*row_spacing))`. Each reports frequency
+and wavelength intervals, frequency-sample count, integrated `power_sum` and
+`mean_power_density`; an empty bin has null mean density. Radial mean density
+is not a one-dimensional annular PSD. DC and excluded corner power/count are
+reported separately; included + outside + DC power accounts for the total.
+Opposing frequencies are included once each, without additional doubling.
+
+Directional bins are **axial wavevector azimuths**, [0,180), clockwise from CRS
+north. This is the direction of spatial variation, generally orthogonal to an
+ideal stripe's elongation. It is not an inferred flight direction or geological
+strike. Scaled bin indices within 1e-10 of an integer snap to that boundary;
+the last radial edge is included, and direction 180 wraps to 0.
+
+Zero padding interpolates frequency samples; it adds no independent physical
+resolution. Counts are not independent degrees of freedom. Windowing, region
+selection and detrending alter the result. The numerical amplitude floor is a
+diagnostic estimate; weak energy is retained. Spectra alone cannot label noise,
+recover source depth, quantify geological uncertainty or choose filter cutoffs.
+Compare explicit processing choices and independent geological evidence.
+
+Limits: 8x8 minimum, 262144 selected cells, 1000000 total source values, 1048576
+FFT cells, 512 KiB source metadata and 2 MiB report. Band is 1-based (1..64),
+radial bins 4..128 and direction bins 4..36. Invalid/failed reports contain no
+scientific arrays. Native Python/JavaScript share the contract and algorithm.
+
+The typed observation workflow registers `analyze_grid_spectrum` with a raster
+input and report output, usable after `grid_observations` or a raster filter.
+Structural preflight defers actual support checks until that stage; a failed
+spectrum withholds all requested workflow artifacts. The raster-only catalogue
+continues to describe raster-producing operations. A complete saved example is
+provided in `test/data/spectrum_example.json`.
