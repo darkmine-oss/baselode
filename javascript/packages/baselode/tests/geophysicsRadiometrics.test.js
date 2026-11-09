@@ -66,3 +66,9 @@ it.each(['geographic','sheared'])('keeps an unrelated spatial branch independent
 it('propagates a spatial descendant requirement back to its angular concentration input',()=>{
   const w=workflow();w.steps=[w.steps[0],{id:'filtered',operation:'low_pass',version:1,inputs:['ratios'],parameters:{wavelength:20}}];w.outputs=['filtered'];const r=runGeophysicsWorkflow(w,{radio:grid()});expect(r.state).toBe('rejected');expect(r.completed_steps).toEqual([]);expect(r.artifacts).toEqual({});
 });
+
+const textCases=JSON.parse(readFileSync(new URL('../../../../test/data/radiometrics_text_reference.json',import.meta.url),'utf8'));
+it.each(textCases)('matches the shared Unicode/whitespace contract for $target',item=>{
+  const g=grid(),p=fixture().ratio_options;if(item.target==='evidence')p.evidence=item.value;if(item.target==='height_datum')g.metadata.radiometric.height_datum=item.value;if(item.target==='calibration_id')g.metadata.radiometric.calibration_ids[0]=item.value;if(item.target==='frame_id'){g.crs=null;g.metadata.frame_id=item.value;}if(item.target==='crs')g.crs=item.value;
+  if(item.accepted)expect(calculateGeophysicsRadiometricRatios(g,p).bandCount).toBe(3);else expect(()=>calculateGeophysicsRadiometricRatios(g,p)).toThrow();const w=workflow();w.steps=w.steps.slice(0,1);w.steps[0].parameters=p;w.outputs=['ratios'];expect(runGeophysicsWorkflow(w,{radio:g}).state==='ok').toBe(item.accepted);
+});

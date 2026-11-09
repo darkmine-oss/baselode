@@ -1,11 +1,12 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
+import {trimObservationText,isObservationText,isObservationLabel,unicodeStrings} from './geophysicsObservations.js';
 import descriptor from './geophysics_radiometrics.json';
 import {createGeophysicsRaster} from './geophysicsRaster.js';
 import {appendInput,encodeProvenance,jsonValue} from './geophysicsProvenance.js';
 const clone=v=>JSON.parse(JSON.stringify(v));
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
-const label=v=>typeof v==='string'&&[...v].length<=128&&v.trim().length>0&&!['unknown','unspecified'].includes(v.trim().toLowerCase());
+const label=v=>isObservationLabel(v)&&!['unknown','unspecified'].includes(trimObservationText(v).toLowerCase());
 const number=v=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=1e100;
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const valid=(v,nodata)=>v!==null&&v!==undefined&&Number.isFinite(v)&&v!==nodata;
@@ -20,15 +21,16 @@ function asRaster(value){
   return createGeophysicsRaster(value);
 }
 function policy(reference,evidence,negative='mask'){
-  if(reference!=='caller_verified'||typeof evidence!=='string'||!evidence.trim()||[...evidence].length>4096)throw new RadiometricNeedsInput('declare caller_verified corrected concentrations and bounded supporting evidence');
+  if(reference!=='caller_verified'||!isObservationText(evidence)||[...evidence].length>4096)throw new RadiometricNeedsInput('declare caller_verified corrected concentrations and bounded supporting evidence');
+  unicodeStrings(evidence);
   if(negative!=='mask')throw Error('negative_policy must be mask; no clipping or pseudocounts');
 }
 function context(r,stack){
-  encodeProvenance(r.metadata,'GeoTIFF','float64');const t=r.transform;
+  unicodeStrings(r.metadata);unicodeStrings(r.crs);encodeProvenance(r.metadata,'GeoTIFF','float64');const t=r.transform;
   if(!Array.isArray(t)||t.length!==6||!t.every(Number.isFinite)||!Number.isFinite(t[0]*t[4]-t[1]*t[3])||t[0]*t[4]-t[1]*t[3]===0)throw Error('require a finite invertible affine transform');
   for(const col of [0,r.width])for(const row of [0,r.height])if(!Number.isFinite(t[0]*col+t[1]*row+t[2])||!Number.isFinite(t[3]*col+t[4]*row+t[5]))throw Error('affine grid coordinates exceed finite range');
   if(r.crs===null&&!label(r.metadata.frame_id))throw new RadiometricNeedsInput('declare a raster CRS or local metadata.frame_id');
-  if(r.crs!==null&&(typeof r.crs!=='string'||!r.crs.trim()||[...r.crs].length>4096||['unknown','unspecified'].includes(r.crs.trim().toLowerCase())))throw Error('CRS must be a bounded known label');
+  if(r.crs!==null&&(!isObservationText(r.crs)||[...r.crs].length>4096||['unknown','unspecified'].includes(trimObservationText(r.crs).toLowerCase())))throw Error('CRS must be a bounded known label');
   if(!label(r.metadata.crs_units))throw new RadiometricNeedsInput('declare shared coordinate units; pointwise products allow degrees');
   const c=r.metadata.radiometric;
   if(r.metadata.field_type!=='radiometric'||!object(c)||c.state!=='corrected_concentration')throw new RadiometricNeedsInput('declare field_type radiometric and corrected_concentration context, not raw counts');
@@ -66,7 +68,7 @@ export function stackGeophysicsRadiometricGrids(potassium,uranium,thorium,option
 }
 function parameters(operation,options){
   const schema=descriptor[operation==='radiometric_ratios'?'ratio_parameters':'ternary_parameters'];
-  if(!object(options)||Object.keys(options).some(k=>!Object.hasOwn(schema.properties,k)))throw Error('unknown radiometric parameter');jsonValue(options);const p=clone(options);if(!Object.hasOwn(p,'negative_policy'))p.negative_policy='mask';
+  if(!object(options)||Object.keys(options).some(k=>!Object.hasOwn(schema.properties,k)))throw Error('unknown radiometric parameter');jsonValue(options);unicodeStrings(options);const p=clone(options);if(!Object.hasOwn(p,'negative_policy'))p.negative_policy='mask';
   if(schema.required.some(k=>!Object.hasOwn(p,k)))throw new RadiometricNeedsInput('supply every explicit floor/stretch/gamma/reference/evidence parameter');
   if(new TextEncoder().encode(JSON.stringify(p)).length>262144)throw Error('radiometric parameters exceed 256 KiB');policy(p.reference_policy,p.evidence,p.negative_policy);
   const names=operation==='radiometric_ratios'?['potassium_floor','thorium_floor']:['k_min','k_max','u_min','u_max','th_min','th_max','gamma'];if(names.some(k=>!number(p[k])))throw Error('radiometric parameters require finite numeric values');

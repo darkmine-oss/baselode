@@ -13,6 +13,8 @@ const trim = (value) => typeof value === 'string' ? value.replace(surroundingWhi
 const text = (value) => typeof value === 'string' && trim(value).length > 0;
 const number = (value) => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1e100;
 const label = (value) => typeof value === 'string' && [...value].length >= 1 && [...value].length <= 128 && text(value);
+// Shared internal validation vocabulary; intentionally not re-exported by package entry points.
+export {trim as trimObservationText,text as isObservationText,label as isObservationLabel};
 const knownKeys = (value, keys) => object(value) && Object.keys(value).every((key) => keys.includes(key));
 const fields = ['magnetic_total_field', 'magnetic_anomaly', 'gravity_observed', 'gravity_relative', 'gravity_anomaly', 'gravity_disturbance', 'radiometric', 'radiometric_counts', 'other'];
 const limits = descriptor.resources;

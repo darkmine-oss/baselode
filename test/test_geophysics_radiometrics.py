@@ -158,11 +158,12 @@ def test_quantitative_product_and_calibration_lineage_survive_export(tmp_path,op
 
 
 def test_live_native_python_javascript_masks_values_workflows_and_lineage(tmp_path):
-    source=tmp_path/'in.json';target=tmp_path/'out.json';f=fixture();source.write_text(json.dumps({**f,'workflow':workflow()}))
+    source=tmp_path/'in.json';target=tmp_path/'out.json';f=fixture();source.write_text(json.dumps({**f,'workflow':workflow(),'text_cases':json.loads((ROOT/'test/data/radiometrics_text_reference.json').read_text())}))
     subprocess.run(['node',str(ROOT/'test/data/radiometrics_parity.mjs'),str(source),str(target)],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True)
     js=json.loads(target.read_text());assert js['ratios']['data']==f['expected_ratios'] and js['rgb']['data']==f['expected_ternary'];assert js['workflow']['state']=='ok',js['workflow']['issues']
     for key in ['ratios','rgb']:assert js[key]['metadata']['units']==baselode.geophysics.run_workflow(workflow(),{'radio':grid()})['artifacts'][key].metadata['units']
     for key in ['ratios','rgb']:baselode.geophysics.provenance.encode(js[key]['metadata'],'GeoTIFF','float64')
+    assert js['text_results']==[c['accepted'] for c in json.loads((ROOT/'test/data/radiometrics_text_reference.json').read_text())]
 
 
 @pytest.mark.parametrize('operation,parameters',[('low_pass',{'wavelength':20}),('vertical_derivative',{'order':1}),('combine',{'operation':'multiply'})])
@@ -186,3 +187,17 @@ def test_unrelated_spatial_branch_does_not_constrain_pointwise_input_geometry(ge
 def test_spatial_descendant_keeps_angular_input_rejection():
     w=workflow();w['steps']=w['steps'][:1]+[{'id':'filtered','operation':'low_pass','version':1,'inputs':['ratios'],'parameters':{'wavelength':20}}];w['outputs']=['filtered']
     r=baselode.geophysics.run_workflow(w,{'radio':grid()});assert r['state']=='rejected' and r['completed_steps']==[] and r['artifacts']=={}
+
+
+@pytest.mark.parametrize('case',json.loads((ROOT/'test/data/radiometrics_text_reference.json').read_text()))
+def test_shared_unicode_whitespace_labels_and_scalar_string_contract(case):
+    g=grid();p=fixture()['ratio_options'];target,value=case['target'],case['value']
+    if target=='evidence':p['evidence']=value
+    if target=='height_datum':g.metadata['radiometric']['height_datum']=value
+    if target=='calibration_id':g.metadata['radiometric']['calibration_ids'][0]=value
+    if target=='frame_id':g.crs=None;g.metadata['frame_id']=value
+    if target=='crs':g.crs=value
+    if case['accepted']:assert baselode.geophysics.radiometric_ratios(g,**p).band_count==3
+    else:
+        with pytest.raises(ValueError):baselode.geophysics.radiometric_ratios(g,**p)
+    w=workflow();w['steps']=w['steps'][:1];w['steps'][0]['parameters']=p;w['outputs']=['ratios'];r=baselode.geophysics.run_workflow(w,{'radio':g});assert (r['state']=='ok')==case['accepted']

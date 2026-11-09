@@ -32,11 +32,11 @@ def describe_radiometrics():
 
 
 def _label(value):
-    return baselode.geophysics.observations._label(value) and value.strip().lower() not in ('unknown','unspecified')
+    return baselode.geophysics.observations._label(value) and baselode.geophysics.observations._trim(value).lower() not in ('unknown','unspecified')
 
 
 def _policy(reference_policy, evidence, negative_policy='mask'):
-    if reference_policy != 'caller_verified' or not isinstance(evidence,str) or not evidence.strip() or len(evidence)>4096:
+    if reference_policy != 'caller_verified' or not baselode.geophysics.observations._text(evidence) or len(evidence)>4096:
         raise _NeedsInput('declare caller_verified corrected concentrations and bounded supporting evidence')
     if negative_policy != 'mask':
         raise ValueError('negative_policy must be mask; no clipping or pseudocounts')
@@ -58,8 +58,10 @@ def _context(raster, stack):
         raise ValueError('affine grid coordinates exceed finite range')
     if raster.crs is None and not _label(raster.metadata.get('frame_id')):
         raise _NeedsInput('declare a raster CRS or local metadata.frame_id')
-    if raster.crs is not None and (not isinstance(raster.crs,str) or not raster.crs.strip() or len(raster.crs)>4096 or raster.crs.strip().lower() in ('unknown','unspecified')):
+    if raster.crs is not None and (not baselode.geophysics.observations._text(raster.crs) or len(raster.crs)>4096 or baselode.geophysics.observations._trim(raster.crs).lower() in ('unknown','unspecified')):
         raise ValueError('CRS must be a bounded known label')
+    if raster.crs is not None:
+        raster.crs.encode('utf-8')
     if not _label(raster.metadata.get('crs_units')):
         raise _NeedsInput('declare shared coordinate units; pointwise products allow degrees')
     context=raster.metadata.get('radiometric')
