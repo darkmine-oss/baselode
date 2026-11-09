@@ -130,6 +130,7 @@
               "magnetic_total_field",
               "magnetic_anomaly",
               "gravity_observed",
+              "gravity_relative",
               "gravity_anomaly",
               "gravity_disturbance",
               "radiometric",

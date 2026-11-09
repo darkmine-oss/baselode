@@ -103,6 +103,7 @@ async function prepare(workflow,inputs) {
  */
 export async function validateGeophysicsObservationWorkflow(workflow,inputs) {return (await prepare(workflow,inputs)).report;}
 const kernels=new Map([
+  ['apply_gravity_tide',corrections.applyGeophysicsGravityTide],['correct_gravity_drift',corrections.correctGeophysicsGravityDrift],['analyze_gravity_repeats',corrections.analyzeGeophysicsGravityRepeats],
   ['correct_magnetic_base',corrections.correctGeophysicsMagneticBase],['correct_magnetic_lag',corrections.correctGeophysicsMagneticLag],
   ['correct_magnetic_heading',corrections.correctGeophysicsMagneticHeading],['reproject_observations',corrections.reprojectGeophysicsObservations],
   ['analyze_crossovers',corrections.analyzeGeophysicsCrossovers],['level_magnetic_lines',corrections.levelGeophysicsMagneticLines],

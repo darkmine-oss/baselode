@@ -2403,3 +2403,64 @@ contract; missing optional backends block preflight before any earlier stage.
 [Boule conventions](https://www.fatiando.org/boule/latest/api/generated/boule.Ellipsoid.html)
 and [gravity disturbances](https://www.fatiando.org/boule/latest/user_guide/gravity_disturbance.html)
 provide the reference context.
+
+### Gravity tides, drift and repeat-station QC
+
+`describe_gravity_temporal()` exposes native parameter/model schemas, bounds and
+assumptions. Readings must already be scale-calibrated in mGal. Use
+`gravity_relative` for calibrated instrument readings with an arbitrary zero
+(including negative/zero values), and `gravity_observed` for positive absolute
+gravity. No raw dial scale or reference value is invented. Declare one
+`instrument_id`, `gravity_scale_calibration_id`, height datum/metres/up and
+permanent `tide_system` per document. A selected gravity datum comes from
+`metadata.gravity_channel_datums[channel]`, falling back to `metadata.gravity_datum`;
+normal-gravity removal and history replay use the same selection rule.
+
+`apply_gravity_tide(observations, options)` subtracts explicitly supplied
+`effects=[{"record_id": ..., "effect_mGal": ...}]`, with exactly one entry per
+nonnull selected reading. Supply channel, model_id, max_abs_effect_mGal,
+`effect_convention="observed_minus_reference"`, `clock_policy="synchronized"`,
+`reference_policy="caller_verified"`, event_id and evidence. Every affected record
+needs finite XY/Z and UTC time; the caller verifies the supplied effects at those
+positions/heights/times. Tide/normal/free-air/Bouguer/terrain history must be known
+unapplied. No astronomical, loading or permanent-tide transformation is calculated;
+the declared permanent tide system remains unchanged.
+
+`correct_gravity_drift(observations, options)` requires known applied tide history
+and known unapplied drift/reference/height reductions. Supply:
+
+- `controls=[{"record_id": ..., "reference_mGal": ...}]`: 2–128 nonnull control
+  records with positive absolute references and station IDs; controls are sorted
+  by UTC time while observations retain their order.
+- channel, model_id, target_gravity_datum, max_gap_seconds,
+  max_abs_correction_mGal, max_drift_rate_mGal_per_s,
+  synchronized/caller_verified policies, event_id and evidence.
+
+The fit uses `bias = calibrated_reading - reference` at each control and linear
+interpolation between controls. Subtract bias from every nonnull reading. Exact
+knots are supported; interior predictions need a sufficiently short bracket;
+extrapolation is rejected. The correction cap includes any relative-to-absolute
+datum offset. Each adjacent control slope must satisfy the drift-rate cap.
+Every reading and quality gate must pass before one atomic output/event.
+Successful selected readings become positive `gravity_observed` in the explicit
+target datum; only that channel's datum override changes. Other channels retain
+their original data and datums.
+
+Reports retain original/proposed readings, bound tie models, consecutive-control
+loop/delta diagnostics and before/after repeat statistics. Fitted tie residuals
+are zero by construction; validate using independent non-control repeats.
+This is fixed-reference piecewise-linear loop adjustment, not a global network
+least-squares solve, tare detection or automatic reference selection.
+`analyze_gravity_repeats(observations, {"channel": "g"})` reuses native station
+statistics with same-location/height and `geometry_comparable` flags. These are
+raw QC statistics, not inferred instrument drift or propagated uncertainty.
+
+Both correction operations preserve nulls/IDs/order/geometry/extras/other channels,
+archive source uncertainty in standard lineage, and reject stale/repeated/unknown
+history. Offset-datum-invariant tide bindings survive absolute base tying;
+drift bindings protect original/target datums and tie/calibration context. Native
+observation workflows register all three operations. Limits: 4,096 records/effects,
+128 controls, 256 KiB options, plus existing event/output/workflow budgets.
+[GA gravity practice](https://www.ga.gov.au/image_cache/GA2236.pdf) and
+[USGS field processing](https://pubs.usgs.gov/tm/02/d04/tm2d4.pdf) describe the
+underlying loop-drift assumptions and independent repeat checks.

@@ -402,7 +402,7 @@ def _validate(data, ledger, current, check_summary=True):
             ids.add(entry["id"])
             previous = entry["output_binding"]
             continue
-        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}, "gravity_normal": {"parameters", "model", "normal_binding", "affected_records"}}
+        extras = {"magnetic_igrf": igrf_extra, "magnetic_lag": {"parameters", "masked_records", "affected_records"}, "magnetic_heading": {"parameters", "heading_binding", "affected_records"}, "magnetic_levelling": {"parameters", "line_offsets", "levelling_binding", "affected_records"}, "gravity_normal": {"parameters", "model", "normal_binding", "affected_records"}, "gravity_tide": {"parameters", "temporal_binding", "affected_records"}, "gravity_drift": {"parameters", "model", "temporal_binding", "affected_records"}}
         name = entry.get("correction") if type(entry) is dict else None
         extra = extras.get(name, base_extra) if isinstance(name, str) else base_extra
         if type(entry) is not dict or entry.get("kind") not in ("declaration", "application") or set(entry) != common | (extra if entry["kind"] == "application" else set()):
@@ -424,11 +424,11 @@ def _validate(data, ledger, current, check_summary=True):
                 raise ValueError("declarations cannot change data or reset known correction history")
         else:
             try:
-                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options, "magnetic_levelling": _levelling_options, "gravity_normal": _normal_options}.get(correction, _base_options)(entry["parameters"])
+                params = {"magnetic_igrf": _igrf_options, "magnetic_lag": _lag_options, "magnetic_heading": _heading_options, "magnetic_levelling": _levelling_options, "gravity_normal": _normal_options, "gravity_tide": _gravity_tide_options, "gravity_drift": _gravity_drift_options}.get(correction, _base_options)(entry["parameters"])
             except _NeedsInput as error:
                 raise ValueError("invalid stored application parameters: " + str(error)) from error
             count = counts.get(index)
-            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading", "magnetic_levelling", "gravity_normal") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
+            if correction not in ("magnetic_diurnal", "magnetic_igrf", "magnetic_lag", "magnetic_heading", "magnetic_levelling", "gravity_normal", "gravity_tide", "gravity_drift") or len(channels) != 1 or entry["state"] != "applied" or any(states[correction][name] != "unapplied" for name in channels):
                 raise ValueError("application requires unapplied supported correction history for one channel")
             if params["channel"] != channels[0] or params["event_id"] != entry["id"] or params["evidence"] != entry["evidence"]:
                 raise ValueError("application parameters do not match the ledger event")
@@ -463,6 +463,15 @@ def _validate(data, ledger, current, check_summary=True):
                     raise ValueError("invalid stored gravity context: " + str(error)) from error
                 if not _digest(entry["normal_binding"]) or entry["normal_binding"] != normal_binding:
                     raise ValueError("stale normal gravity context/model binding")
+            if correction in ("gravity_tide", "gravity_drift"):
+                if any(states[k][channels[0]] != "unapplied" for k in ("gravity_normal", "gravity_free_air", "gravity_bouguer", "gravity_terrain")) or (correction == "gravity_drift" and states["gravity_tide"][channels[0]] != "applied"):
+                    raise ValueError("temporal gravity application conflicts with reference/height or tide history")
+                try:
+                    temporal_binding = _gravity_temporal_binding(data, params, entry.get("model"))
+                except _NeedsInput as error:
+                    raise ValueError("invalid stored temporal gravity context: " + str(error)) from error
+                if not _digest(entry["temporal_binding"]) or entry["temporal_binding"] != temporal_binding:
+                    raise ValueError("stale temporal gravity context/effects/model binding")
             if type(entry["affected_records"]) not in (int, float) or entry["affected_records"] != count or count < 1:
                 raise ValueError("application must account for every nonnull channel reading immediately before that event")
         for name in channels:
@@ -492,7 +501,7 @@ def _load(data):
     baselode.geophysics.provenance.encode(data["metadata"], "GeoTIFF", "float64")
     if "correction_ledger" in data["metadata"]:
         return _validate(data, copy.deepcopy(data["metadata"]["correction_ledger"]), current)
-    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines", "reproject_observations", "remove_normal_gravity") for step in data["metadata"].get("processing", [])):
+    if any(step["operation"] in ("correct_magnetic_base", "remove_igrf", "correct_magnetic_lag", "correct_magnetic_heading", "level_magnetic_lines", "reproject_observations", "remove_normal_gravity", "apply_gravity_tide", "correct_gravity_drift") for step in data["metadata"].get("processing", [])):
         raise ValueError("processing records a correction but its ledger is missing; restore the bound document instead of declaring unapplied")
     ledger = {"schema": _SCHEMA, "version": 1, "algorithm": _ALGORITHM, "initial_binding": current, "current_binding": current, "entries": []}
     groups = {}
@@ -1310,7 +1319,7 @@ def _gravity_context(data, params):
     crs = ("EPSG:4326",) if model == "WGS84" else ("EPSG:4283", "EPSG:7844")
     if data["crs"] not in crs or data["crs_units"] not in ("degree", "degrees") or metadata.get("height_units") != "m" or metadata.get("height_datum") != model + "_ellipsoid" or metadata.get("z_positive") != "up":
         raise _NeedsInput("supply matching model geographic CRS, degree/degrees, height_units=m, model_ellipsoid height_datum and z_positive=up")
-    datum = metadata.get("gravity_datum")
+    datum = _effective_gravity_datum(data, params["channel"])
     if not _label(datum) or baselode.geophysics.observations._trim(datum).lower() in ("unknown", "unspecified") or metadata.get("tide_system") not in ("tide_free", "zero_tide", "mean_tide"):
         raise _NeedsInput("declare gravity_datum and tide_system=tide_free/zero_tide/mean_tide; caller verifies normal-reference comparability")
     return [data["crs"], data["crs_units"], metadata["height_units"], metadata["height_datum"], metadata["z_positive"], datum, metadata["tide_system"]]
@@ -1322,3 +1331,135 @@ def _normal_binding(data, params):
     numbers = [struct.pack(">d", float(model[k])).hex() for k in ("semimajor_axis", "flattening", "geocentric_grav_const", "angular_velocity")]
     snapshot = ["baselode.gravity_normal_binding.v1", params["channel"], params["model"], params["reference_policy"], params["height_policy"], context, model["backend"], model["backend_version"], model["algorithm"], numbers]
     return hashlib.sha256(json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")).hexdigest()
+
+
+
+def _effective_gravity_datum(data, channel):
+    metadata = data["metadata"]
+    overrides = metadata.get("gravity_channel_datums", {})
+    if type(overrides) is not dict:
+        raise ValueError("metadata.gravity_channel_datums must be an object")
+    return overrides.get(channel, metadata.get("gravity_datum"))
+
+
+def _known_gravity_label(value):
+    return _label(value) and baselode.geophysics.observations._trim(value).lower() not in ("unknown", "unspecified")
+
+
+def _gravity_temporal_options(options, drift):
+    schema = _DESCRIPTOR["gravity_drift_parameters" if drift else "gravity_tide_parameters"]
+    if type(options) is not dict or options.keys() - schema["properties"].keys():
+        raise ValueError("temporal gravity requires known option names")
+    params = _json(options)
+    if any(key not in params for key in schema["required"]):
+        raise _NeedsInput("supply every explicit gravity model/reference/clock/quality/event option")
+    if not isinstance(params["channel"], str) or re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}", params["channel"]) is None:
+        raise ValueError("select a declared gravity channel")
+    if not _label(params["model_id"]) or not _label(params["event_id"]) or not _evidence(params["evidence"]):
+        raise ValueError("model_id/event_id/evidence must be bounded labels")
+    if params["clock_policy"] != "synchronized" or params["reference_policy"] != "caller_verified":
+        raise _NeedsInput("explicit synchronized clock and caller_verified reference policies required")
+    key = "controls" if drift else "effects"
+    items = params[key]
+    limit = 128 if drift else 4096
+    if type(items) is not list or len(items) < (2 if drift else 1):
+        raise ValueError("supply at least two controls or one effect")
+    if len(items) > limit:
+        raise _ResourceError("gravity control/effect table exceeds its limit")
+    ids = set()
+    for item in items:
+        value_key = "reference_mGal" if drift else "effect_mGal"
+        if type(item) is not dict or set(item) != {"record_id", value_key} or not _label(item["record_id"]) or item["record_id"] in ids or not _number(item[value_key]) or (drift and item[value_key] <= 0):
+            raise ValueError("control/effect rows need unique record IDs and valid mGal values")
+        ids.add(item["record_id"])
+    caps = ("max_abs_correction_mGal", "max_drift_rate_mGal_per_s") if drift else ("max_abs_effect_mGal",)
+    if any(not _number(params[k]) or params[k] < 0 for k in caps):
+        raise ValueError("gravity quality caps must be finite nonnegative mGal or mGal/s")
+    if drift:
+        if not _known_gravity_label(params["target_gravity_datum"]) or not _number(params["max_gap_seconds"]) or not 0 < params["max_gap_seconds"] <= 1e9:
+            raise ValueError("declare target gravity datum and max_gap_seconds in (0,1e9]")
+    elif params["effect_convention"] != "observed_minus_reference" or any(abs(item["effect_mGal"]) > params["max_abs_effect_mGal"] for item in items):
+        raise ValueError("effect convention/correction cap violated")
+    return params
+
+
+def _gravity_tide_options(options):
+    return _gravity_temporal_options(options, False)
+
+
+def _gravity_drift_options(options):
+    return _gravity_temporal_options(options, True)
+
+
+def _gravity_temporal_context(data, params):
+    if len(data["records"]) > 4096:
+        raise _ResourceError("temporal gravity accepts at most 4096 records")
+    channel = params["channel"]
+    if channel not in data["channels"] or data["channels"][channel]["units"] != "mGal":
+        raise ValueError("temporal gravity needs a declared mGal channel")
+    metadata = data["metadata"]
+    if any(not _known_gravity_label(metadata.get(k)) for k in ("instrument_id", "gravity_scale_calibration_id", "height_datum")) or metadata.get("height_units") != "m" or metadata.get("z_positive") != "up" or metadata.get("tide_system") not in ("tide_free", "zero_tide", "mean_tide"):
+        raise _NeedsInput("declare instrument_id, gravity_scale_calibration_id, height datum/m/up and tide_system")
+    for row in data["records"]:
+        if row["values"][channel] is not None and not all(_number(row[k]) for k in ("x", "y", "z", "time")):
+            raise _NeedsInput("each nonnull gravity reading needs finite XY/Z and synchronized UTC time")
+    return [metadata[k] for k in ("instrument_id", "gravity_scale_calibration_id", "height_units", "height_datum", "z_positive", "tide_system")]
+
+
+def _validate_gravity_drift_model(data, params, model):
+    if type(model) is not dict or set(model) != {"algorithm", "source_gravity_datum", "input_field_type", "ties"} or model["algorithm"] != "piecewise_linear_absolute_ties_v1" or not _known_gravity_label(model["source_gravity_datum"]) or model["input_field_type"] not in ("gravity_relative", "gravity_observed"):
+        raise ValueError("invalid fixed-reference gravity drift model")
+    ties = model["ties"]
+    controls = {item["record_id"]: item["reference_mGal"] for item in params["controls"]}
+    rows = {row["id"]: row for row in data["records"]}
+    if type(ties) is not list or len(ties) != len(controls):
+        raise ValueError("drift ties must represent exactly the declared controls")
+    ids = set()
+    for index, tie in enumerate(ties):
+        if type(tie) is not dict or set(tie) != {"record_id", "station_id", "time", "original_mGal", "reference_mGal", "bias_mGal"} or not _label(tie["record_id"]) or tie["record_id"] in ids or tie["record_id"] not in controls or tie["record_id"] not in rows:
+            raise ValueError("malformed gravity tie model")
+        ids.add(tie["record_id"])
+        row = rows[tie["record_id"]]
+        if not _label(tie["station_id"]) or tie["station_id"] != row["station_id"] or tie["time"] != row["time"] or not all(_number(tie[k]) for k in ("time", "original_mGal", "reference_mGal", "bias_mGal")) or tie["reference_mGal"] != controls[tie["record_id"]] or tie["bias_mGal"] != tie["original_mGal"] - tie["reference_mGal"]:
+            raise ValueError("gravity tie inputs/time/reference changed")
+        if model["input_field_type"] == "gravity_observed" and tie["original_mGal"] <= 0:
+            raise ValueError("absolute tie readings must be positive")
+        if abs(tie["bias_mGal"]) > params["max_abs_correction_mGal"]:
+            raise ValueError("gravity tie correction exceeds declared cap")
+        if index:
+            gap = tie["time"] - ties[index - 1]["time"]
+            if not _number(gap) or gap <= 0 or abs((tie["bias_mGal"] - ties[index - 1]["bias_mGal"]) / gap) > params["max_drift_rate_mGal_per_s"]:
+                raise ValueError("gravity tie times/rate violate declared model bounds")
+    if ids != set(controls):
+        raise ValueError("drift model must cover every declared control")
+
+
+def _gravity_temporal_binding(data, params, model=None):
+    context = _gravity_temporal_context(data, params)
+    if "controls" in params:
+        _validate_gravity_drift_model(data, params, model)
+        datum = _effective_gravity_datum(data, params["channel"])
+        if datum != params["target_gravity_datum"]:
+            raise ValueError("drift target channel gravity datum changed")
+        context.append(datum)
+    else:
+        affected = {row["id"] for row in data["records"] if row["values"][params["channel"]] is not None}
+        if {item["record_id"] for item in params["effects"]} != affected:
+            raise ValueError("tide effect table must cover exactly all nonnull selected records")
+    def canonical(value):
+        if type(value) in (int, float):
+            if not _number(value):
+                raise ValueError("temporal model numbers must be finite portable binary64")
+            return ["f64", struct.pack(">d", 0.0 if value == 0 else float(value)).hex()]
+        if type(value) is list:
+            return [canonical(item) for item in value]
+        if type(value) is dict:
+            return [[key, canonical(value[key])] for key in sorted(value)]
+        return value
+    semantic = {key: value for key, value in params.items() if key not in ("event_id", "evidence")}
+    rows = [[row["id"], row["time"], row["z"], row["station_id"]] for row in data["records"]]
+    snapshot = ["baselode.gravity_temporal_binding.v1", canonical(semantic), canonical(model), canonical(context), canonical(rows)]
+    encoded = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    if len(encoded) > _LIMITS["max_binding_bytes"]:
+        raise _ResourceError("temporal gravity binding exceeds byte limit")
+    return hashlib.sha256(encoded).hexdigest()

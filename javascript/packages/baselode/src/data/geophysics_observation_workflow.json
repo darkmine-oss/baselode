@@ -60,7 +60,10 @@
                 "raster_upward_continuation",
                 "raster_reduce_to_pole",
                 "raster_combine",
-                "remove_normal_gravity"
+                "remove_normal_gravity",
+                "apply_gravity_tide",
+                "correct_gravity_drift",
+                "analyze_gravity_repeats"
               ]
             },
             "version": {
@@ -1374,6 +1377,227 @@
       "execution": {
         "python": true,
         "javascript": false
+      }
+    },
+    {
+      "id": "apply_gravity_tide",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "model_id",
+          "reference_policy",
+          "clock_policy",
+          "event_id",
+          "evidence",
+          "effects",
+          "effect_convention",
+          "max_abs_effect_mGal"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reference_policy": {
+            "const": "caller_verified"
+          },
+          "clock_policy": {
+            "const": "synchronized"
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "effects": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_id",
+                "effect_mGal"
+              ],
+              "properties": {
+                "record_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "effect_mGal": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                }
+              }
+            }
+          },
+          "effect_convention": {
+            "const": "observed_minus_reference"
+          },
+          "max_abs_effect_mGal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "correct_gravity_drift",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel",
+          "model_id",
+          "reference_policy",
+          "clock_policy",
+          "event_id",
+          "evidence",
+          "controls",
+          "target_gravity_datum",
+          "max_gap_seconds",
+          "max_abs_correction_mGal",
+          "max_drift_rate_mGal_per_s"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          },
+          "model_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reference_policy": {
+            "const": "caller_verified"
+          },
+          "clock_policy": {
+            "const": "synchronized"
+          },
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "controls": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 128,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "record_id",
+                "reference_mGal"
+              ],
+              "properties": {
+                "record_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "reference_mGal": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1e+100
+                }
+              }
+            }
+          },
+          "target_gravity_datum": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "max_gap_seconds": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000000.0
+          },
+          "max_abs_correction_mGal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          },
+          "max_drift_rate_mGal_per_s": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1e+100
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "observations": "observations",
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "analyze_gravity_repeats",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "channel"
+        ],
+        "properties": {
+          "channel": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+          }
+        }
+      },
+      "inputs": [
+        "observations"
+      ],
+      "outputs": {
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
       }
     }
   ],

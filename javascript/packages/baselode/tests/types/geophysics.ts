@@ -178,3 +178,12 @@ if(correctionEvent.kind==='application'&&correctionEvent.correction==='gravity_n
 // @ts-expect-error ellipsoidal height required
 const missingNormalHeight: GeophysicsNormalGravityRequest = {model:'WGS84',points:[{id:'station',longitude:117,latitude:-32}]};
 void missingNormalHeight;
+
+import { describeGeophysicsGravityTemporal, applyGeophysicsGravityTide, correctGeophysicsGravityDrift, analyzeGeophysicsGravityRepeats, type GeophysicsGravityTideOptions, type GeophysicsGravityDriftOptions } from 'baselode/geophysics';
+declare const gravityTideOptions: GeophysicsGravityTideOptions;
+declare const gravityDriftOptions: GeophysicsGravityDriftOptions;
+void applyGeophysicsGravityTide(observations,gravityTideOptions);void correctGeophysicsGravityDrift(observations,gravityDriftOptions);void analyzeGeophysicsGravityRepeats(observations,{channel:'g'});void describeGeophysicsGravityTemporal();
+if(correctionEvent.kind==='application'&&correctionEvent.correction==='gravity_drift'){const datum:string=correctionEvent.model.source_gravity_datum;void datum;}
+// @ts-expect-error explicit effect sign is required
+const missingGravitySign: GeophysicsGravityTideOptions = {channel:'g',model_id:'t',reference_policy:'caller_verified',clock_policy:'synchronized',event_id:'t',evidence:'checked',effects:[],max_abs_effect_mGal:1};
+void missingGravitySign;

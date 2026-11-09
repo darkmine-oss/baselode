@@ -1,0 +1,180 @@
+{
+  "method": "Independent station gravity B=980000, S=980010 mGal, relative instrument zero 980000; imposed drift=.01*time mGal and explicit dyadic tide effects. Non-control station S repeats must recover exactly; fitting endpoints alone is not validation.",
+  "survey": {
+    "crs": "EPSG:4326",
+    "crs_units": "degrees",
+    "channels": {
+      "g": {
+        "field_type": "gravity_relative",
+        "units": "mGal"
+      },
+      "other": {
+        "field_type": "gravity_relative",
+        "units": "mGal"
+      }
+    },
+    "records": [
+      {
+        "id": "b0",
+        "station_id": "B",
+        "line_id": "loop",
+        "x": 117,
+        "y": -32,
+        "z": 100,
+        "time": 0,
+        "values": {
+          "g": -0.125,
+          "other": 0
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "s1",
+        "station_id": "S",
+        "line_id": "loop",
+        "x": 117.001,
+        "y": -32,
+        "z": 100,
+        "time": 25,
+        "values": {
+          "g": 10.5,
+          "other": -1
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "s2",
+        "station_id": "S",
+        "line_id": "loop",
+        "x": 117.001,
+        "y": -32,
+        "z": 100,
+        "time": 75,
+        "values": {
+          "g": 10.5,
+          "other": 2
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "b1",
+        "station_id": "B",
+        "line_id": "loop",
+        "x": 117,
+        "y": -32,
+        "z": 100,
+        "time": 100,
+        "values": {
+          "g": 1.125,
+          "other": 3
+        },
+        "extra": {
+          "keep": true
+        }
+      },
+      {
+        "id": "missing",
+        "values": {
+          "g": null,
+          "other": 99
+        }
+      }
+    ],
+    "metadata": {
+      "instrument_id": "meter-1",
+      "gravity_scale_calibration_id": "scale-lab-2026",
+      "height_units": "m",
+      "height_datum": "WGS84_ellipsoid",
+      "z_positive": "up",
+      "gravity_datum": "relative instrument zero",
+      "tide_system": "tide_free",
+      "corrections": {
+        "gravity_tide": "unapplied",
+        "gravity_drift": "unapplied",
+        "gravity_normal": "unapplied",
+        "gravity_free_air": "unapplied",
+        "gravity_bouguer": "unapplied",
+        "gravity_terrain": "unapplied"
+      },
+      "uncertainty": {
+        "g": 0.01
+      },
+      "variance": {
+        "g": 0.0001
+      },
+      "standard_deviation": {
+        "g": 0.01
+      }
+    }
+  },
+  "tide_options": {
+    "channel": "g",
+    "model_id": "independent-synthetic",
+    "reference_policy": "caller_verified",
+    "clock_policy": "synchronized",
+    "evidence": "synthetic independently specified station gravities/tide/drift",
+    "effects": [
+      {
+        "record_id": "b0",
+        "effect_mGal": -0.125
+      },
+      {
+        "record_id": "s1",
+        "effect_mGal": 0.25
+      },
+      {
+        "record_id": "s2",
+        "effect_mGal": -0.25
+      },
+      {
+        "record_id": "b1",
+        "effect_mGal": 0.125
+      }
+    ],
+    "effect_convention": "observed_minus_reference",
+    "max_abs_effect_mGal": 1,
+    "event_id": "tide"
+  },
+  "drift_options": {
+    "channel": "g",
+    "model_id": "independent-synthetic",
+    "reference_policy": "caller_verified",
+    "clock_policy": "synchronized",
+    "evidence": "synthetic independently specified station gravities/tide/drift",
+    "controls": [
+      {
+        "record_id": "b1",
+        "reference_mGal": 980000
+      },
+      {
+        "record_id": "b0",
+        "reference_mGal": 980000
+      }
+    ],
+    "target_gravity_datum": "synthetic absolute datum",
+    "max_gap_seconds": 200,
+    "max_abs_correction_mGal": 1000000,
+    "max_drift_rate_mGal_per_s": 0.02,
+    "event_id": "drift"
+  },
+  "expected_values": [
+    980000,
+    980010,
+    980010,
+    980000,
+    null
+  ],
+  "expected_tide_values": [
+    0,
+    10.25,
+    10.75,
+    1,
+    null
+  ]
+}

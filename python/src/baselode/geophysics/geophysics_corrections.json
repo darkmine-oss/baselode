@@ -65,7 +65,7 @@
         "gravity_drift",
         "drift"
       ],
-      "calculator": null
+      "calculator": "correct_gravity_drift"
     },
     "gravity_tide": {
       "family": "gravity",
@@ -74,7 +74,7 @@
         "tide",
         "tides"
       ],
-      "calculator": null
+      "calculator": "apply_gravity_tide"
     },
     "gravity_normal": {
       "family": "gravity",
@@ -1752,6 +1752,418 @@
                   "maximum": 512
                 }
               }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "correction",
+                "channels",
+                "state",
+                "evidence",
+                "producer",
+                "input_binding",
+                "output_binding",
+                "parameters",
+                "temporal_binding",
+                "affected_records"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "kind": {
+                  "const": "application"
+                },
+                "correction": {
+                  "const": "gravity_tide"
+                },
+                "channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "state": {
+                  "const": "applied"
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "producer": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "library",
+                    "version",
+                    "algorithm_version"
+                  ],
+                  "properties": {
+                    "library": {
+                      "const": "baselode"
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "algorithm_version": {
+                      "const": 1
+                    }
+                  }
+                },
+                "input_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "output_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "parameters": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "model_id",
+                    "reference_policy",
+                    "clock_policy",
+                    "event_id",
+                    "evidence",
+                    "effects",
+                    "effect_convention",
+                    "max_abs_effect_mGal"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "model_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "reference_policy": {
+                      "const": "caller_verified"
+                    },
+                    "clock_policy": {
+                      "const": "synchronized"
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "effects": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 4096,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "record_id",
+                          "effect_mGal"
+                        ],
+                        "properties": {
+                          "record_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "effect_mGal": {
+                            "type": "number",
+                            "minimum": -1e+100,
+                            "maximum": 1e+100
+                          }
+                        }
+                      }
+                    },
+                    "effect_convention": {
+                      "const": "observed_minus_reference"
+                    },
+                    "max_abs_effect_mGal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    }
+                  }
+                },
+                "temporal_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "affected_records": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "correction",
+                "channels",
+                "state",
+                "evidence",
+                "producer",
+                "input_binding",
+                "output_binding",
+                "parameters",
+                "temporal_binding",
+                "affected_records",
+                "model"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "kind": {
+                  "const": "application"
+                },
+                "correction": {
+                  "const": "gravity_drift"
+                },
+                "channels": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "state": {
+                  "const": "applied"
+                },
+                "evidence": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "producer": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "library",
+                    "version",
+                    "algorithm_version"
+                  ],
+                  "properties": {
+                    "library": {
+                      "const": "baselode"
+                    },
+                    "version": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "algorithm_version": {
+                      "const": 1
+                    }
+                  }
+                },
+                "input_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "output_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "parameters": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "channel",
+                    "model_id",
+                    "reference_policy",
+                    "clock_policy",
+                    "event_id",
+                    "evidence",
+                    "controls",
+                    "target_gravity_datum",
+                    "max_gap_seconds",
+                    "max_abs_correction_mGal",
+                    "max_drift_rate_mGal_per_s"
+                  ],
+                  "properties": {
+                    "channel": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                    },
+                    "model_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "reference_policy": {
+                      "const": "caller_verified"
+                    },
+                    "clock_policy": {
+                      "const": "synchronized"
+                    },
+                    "event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "evidence": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4096
+                    },
+                    "controls": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 128,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "record_id",
+                          "reference_mGal"
+                        ],
+                        "properties": {
+                          "record_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "reference_mGal": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1e+100
+                          }
+                        }
+                      }
+                    },
+                    "target_gravity_datum": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "max_gap_seconds": {
+                      "type": "number",
+                      "exclusiveMinimum": 0,
+                      "maximum": 1000000000.0
+                    },
+                    "max_abs_correction_mGal": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "max_drift_rate_mGal_per_s": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    }
+                  }
+                },
+                "temporal_binding": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "affected_records": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4096
+                },
+                "model": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "algorithm",
+                    "source_gravity_datum",
+                    "input_field_type",
+                    "ties"
+                  ],
+                  "properties": {
+                    "algorithm": {
+                      "const": "piecewise_linear_absolute_ties_v1"
+                    },
+                    "source_gravity_datum": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "input_field_type": {
+                      "enum": [
+                        "gravity_relative",
+                        "gravity_observed"
+                      ]
+                    },
+                    "ties": {
+                      "type": "array",
+                      "minItems": 2,
+                      "maxItems": 128,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "record_id",
+                          "station_id",
+                          "time",
+                          "original_mGal",
+                          "reference_mGal",
+                          "bias_mGal"
+                        ],
+                        "properties": {
+                          "record_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "station_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "time": {
+                            "type": "number",
+                            "minimum": -1e+100,
+                            "maximum": 1e+100
+                          },
+                          "original_mGal": {
+                            "type": "number",
+                            "minimum": -1e+100,
+                            "maximum": 1e+100
+                          },
+                          "reference_mGal": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1e+100
+                          },
+                          "bias_mGal": {
+                            "type": "number",
+                            "minimum": -1e+100,
+                            "maximum": 1e+100
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           ]
         }
@@ -2282,6 +2694,245 @@
           "analytic_continuation"
         ],
         "default": "external_only"
+      }
+    }
+  },
+  "gravity_tide_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "model_id",
+      "reference_policy",
+      "clock_policy",
+      "event_id",
+      "evidence",
+      "effects",
+      "effect_convention",
+      "max_abs_effect_mGal"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "model_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "clock_policy": {
+        "const": "synchronized"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "effects": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4096,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_id",
+            "effect_mGal"
+          ],
+          "properties": {
+            "record_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "effect_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          }
+        }
+      },
+      "effect_convention": {
+        "const": "observed_minus_reference"
+      },
+      "max_abs_effect_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      }
+    }
+  },
+  "gravity_drift_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "channel",
+      "model_id",
+      "reference_policy",
+      "clock_policy",
+      "event_id",
+      "evidence",
+      "controls",
+      "target_gravity_datum",
+      "max_gap_seconds",
+      "max_abs_correction_mGal",
+      "max_drift_rate_mGal_per_s"
+    ],
+    "properties": {
+      "channel": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+      },
+      "model_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "reference_policy": {
+        "const": "caller_verified"
+      },
+      "clock_policy": {
+        "const": "synchronized"
+      },
+      "event_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "controls": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 128,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_id",
+            "reference_mGal"
+          ],
+          "properties": {
+            "record_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "reference_mGal": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1e+100
+            }
+          }
+        }
+      },
+      "target_gravity_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "max_gap_seconds": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000000.0
+      },
+      "max_abs_correction_mGal": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "max_drift_rate_mGal_per_s": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      }
+    }
+  },
+  "gravity_drift_model": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "algorithm",
+      "source_gravity_datum",
+      "input_field_type",
+      "ties"
+    ],
+    "properties": {
+      "algorithm": {
+        "const": "piecewise_linear_absolute_ties_v1"
+      },
+      "source_gravity_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "input_field_type": {
+        "enum": [
+          "gravity_relative",
+          "gravity_observed"
+        ]
+      },
+      "ties": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 128,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_id",
+            "station_id",
+            "time",
+            "original_mGal",
+            "reference_mGal",
+            "bias_mGal"
+          ],
+          "properties": {
+            "record_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "station_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "time": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            },
+            "original_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            },
+            "reference_mGal": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1e+100
+            },
+            "bias_mGal": {
+              "type": "number",
+              "minimum": -1e+100,
+              "maximum": 1e+100
+            }
+          }
+        }
       }
     }
   }

@@ -824,6 +824,12 @@
       "description": "Explicit WGS84/GRS80 external normal gravity and guarded disturbance removal, optional Python Boule execution with shared JS schemas/types and bound ledger replay.",
       "jsExports": ["describeGeophysicsNormalGravity"],
       "pythonSymbols": [["baselode.geophysics", "describe_normal_gravity"], ["baselode.geophysics", "calculate_normal_gravity"], ["baselode.geophysics", "remove_normal_gravity"]]
+    },
+    {
+      "name": "geophysics_gravity_temporal",
+      "description": "Native per-record supplied gravity tide effects, absolute base tying/piecewise-linear drift, loop/repeat QC and bound history with per-channel datums.",
+      "jsExports": ["describeGeophysicsGravityTemporal", "applyGeophysicsGravityTide", "correctGeophysicsGravityDrift", "analyzeGeophysicsGravityRepeats"],
+      "pythonSymbols": [["baselode.geophysics", "describe_gravity_temporal"], ["baselode.geophysics", "apply_gravity_tide"], ["baselode.geophysics", "correct_gravity_drift"], ["baselode.geophysics", "analyze_gravity_repeats"]]
     }
   ]
 }
