@@ -11,6 +11,10 @@ import { restoreProvenance, recordSelection } from './geophysicsProvenance.js';
  *
  * The transform uses GDAL's six-value affine form:
  * x = a * column + b * row + c; y = d * column + e * row + f.
+ * Missing geometry gets a display-only pixel transform. An explicit false
+ * hasExplicitTransform stays authoritative through copies and edits. To attach
+ * verified geometry to such a copy, supply BOTH transform and
+ * hasExplicitTransform: true; replacing numbers alone does not verify them.
  *
  * @param {object} payload
  * @returns {object}

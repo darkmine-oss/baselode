@@ -1870,3 +1870,12 @@ transform; clones and decimation preserve that marker, and radiometric kernels
 reject it. Existing pixel/display raster defaults remain available. Catalogue
 `outputs.units` remains a string; optional `outputs.band_units` gives exact
 per-band units for radiometric operations.
+
+When attaching verified geometry to a JavaScript raster copied from an
+undeclared source, supply both fields explicitly:
+`createGeophysicsRaster({...raster, transform: verifiedTransform, hasExplicitTransform: true})`.
+The same options apply to `geophysicsRasterFromBands`. A carried `false` remains
+authoritative even when transform numbers change: numerical editing cannot
+verify geometry. Python `GeophysicsRaster.from_payload` maps `false` to
+`transform=None`, so transfer preserves this distinction. To declare verified
+geometry in a portable payload, supply its transform and set the marker to true.

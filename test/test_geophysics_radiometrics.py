@@ -264,3 +264,12 @@ def test_payload_transform_declaration_is_explicit_boolean(marker):
     else:
         rebuilt=baselode.geophysics.GeophysicsRaster.from_payload(payload)
         assert rebuilt.transform==(grid().transform if marker else None)
+
+
+def test_payload_verified_replacement_requires_explicit_declaration():
+    payload=grid().to_payload();payload.update(transform=[.02,0,117,0,-.02,-32],hasExplicitTransform=False)
+    assert baselode.geophysics.GeophysicsRaster.from_payload(payload).transform is None
+    payload['hasExplicitTransform']=True
+    declared=baselode.geophysics.GeophysicsRaster.from_payload(payload)
+    assert declared.transform==tuple(payload['transform'])
+    assert baselode.geophysics.radiometric_ratios(declared,**fixture()['ratio_options']).band_count==3

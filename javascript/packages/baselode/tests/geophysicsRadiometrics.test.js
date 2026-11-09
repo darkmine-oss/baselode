@@ -107,3 +107,9 @@ it('preserves undeclared geometry through filtering, editing and workflow copies
   const target={shape:[2,4],transform:[1,0,0,0,-1,2],crs:null,crs_units:'m',frame_id:'local'};expect(alignGeophysicsRaster(missing,target,{method:'nearest',value_kind:'continuous'}).state).toBe('rejected');
   const declared=createGeophysicsRaster({...p,transform:target.transform});expect(matchGeophysicsRaster(declared,missing,{method:'nearest',value_kind:'continuous'}).state).toBe('rejected');
 });
+
+it('requires explicit redeclaration when attaching verified geometry to an undeclared copy',()=>{
+  const f=fixture(),p={...f,bandNames:f.band_names};delete p.transform;const missing=createGeophysicsRaster(p),transform=[.02,0,117,0,-.02,-32];
+  const carried=createGeophysicsRaster({...missing,transform});expect(carried.hasExplicitTransform).toBe(false);expect(()=>calculateGeophysicsRadiometricRatios(carried,f.ratio_options)).toThrow();
+  for(const declared of [createGeophysicsRaster({...missing,transform,hasExplicitTransform:true}),geophysicsRasterFromBands(missing.data.map(b=>Float64Array.from(b.flat().map(v=>v??NaN))),{...missing,transform,hasExplicitTransform:true})]){expect(declared.hasExplicitTransform).toBe(true);expect(calculateGeophysicsRadiometricRatios(declared,f.ratio_options).data).toEqual(f.expected_ratios);}
+});

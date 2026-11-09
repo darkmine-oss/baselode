@@ -30,6 +30,7 @@ export interface GeophysicsRasterMetadata {
 export interface GeophysicsRasterPayload {
   data: GeophysicsCell[][] | GeophysicsCell[][][];
   transform?: GeophysicsTransform | null;
+  /** False remains authoritative on copies; set true alongside a verified replacement transform. */
   hasExplicitTransform?: boolean;
   crs?: string | null;
   nodata?: number | null;
@@ -43,6 +44,7 @@ export interface GeophysicsRaster {
   height: number;
   bandCount: number;
   transform: GeophysicsTransform;
+  /** False remains authoritative on copies; set true alongside a verified replacement transform. */
   hasExplicitTransform?: boolean;
   crs: string | null;
   nodata: number | null;
