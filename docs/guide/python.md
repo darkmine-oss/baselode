@@ -1174,3 +1174,59 @@ Block numerical accumulation evaluates each active prism separately and keeps
 one compensated source-order sum across all prepared batches. This avoids
 rounding multi-source batch totals before cancellation. Prepared batches, their
 point/frame data and the replay request are independent mutable snapshots.
+
+### Bounded density inversion
+
+`describe_density_inversion()` publishes v1 request/validation/result schemas.
+`validate_density_inversion(request)` is core-only; `invert_density(request)`
+requires `pip install 'baselode[inversion]'`. Start from
+`test/data/density_inversion_example.json`: one cell with a known 1000kg/m^3
+contrast. Supply an unrotated block forward template with every active density
+zero and sensitivities enabled. Inversion does not silently ignore an existing
+nonzero model: the reference belongs explicitly in the ordered parameter rows.
+Each row declares cell ID, density parameter, lower/upper kg/m^3, reference and
+positive scale. Observations require complete ID/coordinate coverage, explicit
+gravity_g_down mGal anomaly/disturbance/reference context and supplied positive
+independent standard deviations. No field/datum conversion or error is inferred.
+
+For `z=(density-reference)/scale`, the minimised objective is:
+
+```
+sum(((A*density-observed)/sigma)**2)
++ reference_weight * sum(z**2)
++ smoothness_weight * sum(edge.weight * (z_a-z_b)**2)
+```
+
+Smoothing acts on **scaled deviations from the reference**, not raw densities.
+Edges are explicit distinct cell-ID pairs; adjacency, depth weighting and a
+regularisation strength are never guessed. Weights are objective multipliers,
+not their square roots. Zero penalties are valid when independent data determine
+the model. A regularised underdetermined fit reports data nullity separately;
+it does not establish unique geology or posterior uncertainty.
+
+Dense bounded-variable least squares uses SciPy BVLS and an exact dense subsolve
+([SciPy documentation](https://docs.scipy.org/doc/scipy-1.15.3/reference/generated/scipy.optimize.lsq_linear.html)).
+The augmented scaled operator must have full column rank and condition below the
+caller limit. After solver termination, shape/finiteness/bounds/active flags and
+projected-gradient convergence are checked. Output includes fitted parameters,
+a reusable `fitted_forward_request`, re-executed forward predictions, residual QC,
+physical operator/weighted column norms, objective terms, rank/singular values and
+solver evidence. Failures withhold all models and numerical outputs.
+
+V1 budgets are16 active cells,128 observations,2048 pairs,128 smoothing edges and
+1..1000 requested BVLS iterations (initialisation is additional and bounded by the
+small parameter count). Values are within +/-1e8mGal, sigma1e-8..1e8mGal, scale
+1e-6..100000kg/m^3, and dimensionless bound width1e-8..1e8. Existing prism geometry
+limits apply. This is an inspectable small dense solver, not a survey-scale engine.
+
+The extra pins SciPy1.15.3 on Python3.10 and1.17.1 on Python3.11+, with pinned
+Harmonica0.7.0/Choclo0.3.2. Versions are recorded in reports. On current macOS,
+use Python3.11+; old SciPy1.15.3 binary wheels have an upstream loader problem
+([SciPy issue](https://github.com/scipy/scipy/issues/25635)). Core validation works
+without numerical extras. No fallback numerical implementation is substituted.
+
+The `all` extra includes the same solver pins. Missing or differently versioned
+solver installations raise an actionable ImportError naming `baselode[inversion]`.
+The normalized target magnitude must be <=1e40 after matrix scaling; execution
+returns `needs_input` for more extreme scaling. Fitted property columns must be
+distinct from geometry, ID, active-mask and fill-fraction columns.

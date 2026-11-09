@@ -1,0 +1,14 @@
+/* Copyright (C) 2026 Darkmine Pty Ltd
+ * SPDX-License-Identifier: GPL-3.0-or-later */
+import {it,expect} from 'vitest';
+import {readFileSync} from 'node:fs';
+import {describeGeophysicsDensityInversion,validateGeophysicsDensityInversion as run} from '../src/data/geophysicsInversion.js';
+const fixture=()=>JSON.parse(readFileSync(new URL('../../../../test/data/density_inversion_example.json',import.meta.url),'utf8'));
+it('validates portable zero-density template and explicit ordered solver inputs without mutation',()=>{const p=fixture(),before=structuredClone(p),r=run(p);expect(r.state,r.issues).toBe('ok');expect(r.diagnostics).toEqual({active_cells:1,observations:1,parameters:1,pair_count:1,edge_count:0});expect(p).toEqual(before);expect(run(r.request).request).toEqual(p);r.request.parameters[0].reference=1;expect(p).toEqual(before);const d=describeGeophysicsDensityInversion();d.resources.max_active_cells=0;expect(describeGeophysicsDensityInversion().resources.max_active_cells).toBe(16);});
+const bad=[];function add(path,value,state='rejected'){const p=fixture();let row=p;for(const k of path.slice(0,-1))row=row[k];row[path.at(-1)]=value;bad.push([path.join('.'),p,state]);}
+for(const k of ['schema','version','forward_request','observed','parameters','regularization','solver']){const p=fixture();delete p[k];bad.push(['missing '+k,p,'needs_input']);}
+add(['version'],true);add(['extra'],1);add(['forward_request','include_sensitivities'],false);add(['forward_request','model','blocks',0,'rho'],1);add(['observed','records',0,'standard_deviation'],0);add(['observed','records',0,'value'],null,'needs_input');add(['observed','records',0,'x_m'],1,'needs_input');add(['observed','context','units'],'nT');add(['parameters',0,'lower'],3000);add(['parameters',0,'reference'],4000);add(['parameters',0,'scale'],true);add(['parameters',0,'scale'],1e-6);add(['regularization','smoothness_weight'],1,'needs_input');add(['solver','method'],'automatic');add(['solver','max_iterations'],1.5);add(['solver','condition_limit'],10);
+it.each(bad)('withholds invalid %s',(_name,p,state)=>{const r=run(p);expect(r.state,r.issues).toBe(state);expect(r.request).toBeNull();expect(r.diagnostics).toEqual({});});
+it('rejects cyclic metadata and explicit observation budget overflow',()=>{const p=fixture();p.metadata={p};expect(run(p).state).toBe('rejected');const q=fixture();q.forward_request.points=Array.from({length:129},(_,i)=>({...q.forward_request.points[0],id:String(i)}));expect(run(q).issues[0].code).toBe('resource');});
+it.each([{},'bad',true])('labels malformed edges as contract errors (%s)',edges=>{const p=fixture();p.regularization.edges=edges;expect(run(p).issues[0].code).toBe('contract');});
+it('rejects an invertible property mapping that would overwrite grid geometry',()=>{const p=fixture();p.forward_request.properties.density_contrast_kg_m3.column='j';expect(run(p).issues[0].code).toBe('contract');});

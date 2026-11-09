@@ -2456,3 +2456,9 @@ The standalone JSON report is separate from raster/observation workflow runners.
 `describeGeophysicsBlockForward()` / `prepareGeophysicsBlockForward(request)`
 export from `baselode/geophysics` and the root bundle. Native preparation returns
 validated portable prism batches; Python executes numerical reports.
+
+### Bounded density inversion
+
+`describeGeophysicsDensityInversion()` / `validateGeophysicsDensityInversion(request)`
+export from root and `baselode/geophysics`. Native request validation and portable
+Python numerical-report types; no JavaScript numerical solver stub.
