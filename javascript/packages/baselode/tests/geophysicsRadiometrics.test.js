@@ -53,3 +53,7 @@ describe('corrected radiometric products',()=>{
     for(const back of [readErs(ers.header,ers.data),await loadGeoTiff(encodeGeoTiff(r,{dtype:'float64'}))]){expect(back.data).toEqual(r.data);expect(back.metadata.units).toEqual(r.metadata.units);expect(back.metadata.input_lineage).toEqual(r.metadata.input_lineage);expect(back.metadata.radiometric_product).toEqual(r.metadata.radiometric_product);}
   });
 });
+
+it.each([['low_pass',{wavelength:20}],['vertical_derivative',{order:1}],['combine',{operation:'multiply'}]])('rejects %s output as a product source before checking cached raw support',(operation,parameters)=>{
+  const g=grid();g.crs='EPSG:32750';g.metadata.crs_units='m';g.transform=[10,0,500000,0,-10,6500000];const w=workflow();w.steps=[{id:'upstream',operation,version:1,inputs:operation==='combine'?['radio','radio']:['radio'],parameters},w.steps[0]];w.steps[1].inputs=['upstream'];w.outputs=['ratios'];const v=validateGeophysicsWorkflow(w,{radio:g});expect(v.state).toBe('rejected');expect(v.issues.some(i=>i.message.includes('named verified input stack'))).toBe(true);const r=runGeophysicsWorkflow(w,{radio:g});expect(r.completed_steps).toEqual([]);expect(r.artifacts).toEqual({});
+});

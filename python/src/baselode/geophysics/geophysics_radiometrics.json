@@ -168,7 +168,8 @@
     "Stacking requires exactly matching shape/affine/CRS and matching reference height/height datum; use explicit alignment separately, no silent resampling.",
     "Ternary is fixed-stretch display RGB with K red/eTh green/eU blue, not compositional closure or concentration estimation.",
     "No pseudocounts, negative clipping or automatic histogram refits; invalid dependencies and weak denominators are masked visibly.",
-    "Source uncertainty is archived in input lineage; corrected/merged grids do not justify a raw-count Poisson assumption or covariance-free propagated errors."
+    "Source uncertainty is archived in input lineage; corrected/merged grids do not justify a raw-count Poisson assumption or covariance-free propagated errors.",
+    "Saved radiometric product steps require named verified input stacks; run upstream transforms separately and verify their actual output context/support, rather than treating cached source grids as transformed data."
   ],
   "references": [
     "https://www.resources.nsw.gov.au/geological-survey/products-and-data/geophysical-images-and-data",

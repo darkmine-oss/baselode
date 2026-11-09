@@ -264,7 +264,9 @@ def validate_workflow(workflow, inputs):
                     issue("rejected", "alignment", path, "combine requires exactly matching shape, transform and CRS")
                 if left["units"] != right["units"] or left["field_type"] != right["field_type"]:
                     issue("rejected", "units", path, "combine requires matching units and field_type")
-            if operation['id'] in _POINTWISE and left['grid'].data.size <= 1000000 and retained + left['grid'].data.size <= 16000000:
+            if operation['id'] in _POINTWISE and refs[0] not in inputs:
+                issue('rejected', 'radiometric', path, 'radiometric product steps require a named verified input stack; run upstream transforms separately and verify their output context/support first')
+            if operation['id'] in _POINTWISE and refs[0] in inputs and left['grid'].data.size <= 1000000 and retained + left['grid'].data.size <= 16000000:
                 try:
                     baselode.geophysics.radiometrics._calculate(left['grid'], operation['id'], params, preflight=True)
                 except (ValueError, TypeError, RecursionError) as error:

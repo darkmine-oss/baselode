@@ -2595,3 +2595,10 @@ geographic and general finite invertible affine grids and use no FFT budget.
 Mixed spatial-filter recipes retain their projected/local rectangular-grid
 requirements. Derived products retain full resolution and export through the
 existing ERS/GeoTIFF writers with source lineage and units.
+
+
+Radiometric product steps consume named verified workflow input stacks. They
+reject references to earlier transform outputs, whose actual values/derived
+units cannot be checked from a cached structural context. Run an upstream
+filter/combine recipe separately, inspect its output calibration/units/support,
+then supply a compatible verified stack as an input to the product recipe.

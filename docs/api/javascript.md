@@ -1850,3 +1850,10 @@ Both unary raster-workflow operations use the same snake_case options.
 Radiometric-only pointwise recipes accept geographic/sheared affine grids;
 spatial-filter recipes retain projected/local rectangular requirements.
 Full-resolution products export through ERS/GeoTIFF with units and lineage.
+
+
+Radiometric product workflow steps require named verified input stacks.
+References to earlier transform outputs are rejected before execution;
+preflight cannot infer their actual values or changed units from cached input
+grids. Run upstream transforms separately, verify their output concentration
+context, then supply compatible stacks as named inputs.

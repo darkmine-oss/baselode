@@ -186,7 +186,8 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
         }
         if (!equal(left.units, right.units) || left.field_type !== right.field_type) issue('rejected', 'units', path, 'combine requires matching units and field_type');
       }
-      if(pointwise.includes(operation.id)&&left.grid.width*left.grid.height*left.grid.bandCount<=1000000&&retained+left.grid.width*left.grid.height*left.grid.bandCount<=16000000){try{preflightRadiometricProduct(left.grid,operation.id,params);}catch(error){issue(error instanceof RadiometricNeedsInput?'needs_input':'rejected','radiometric',path,error.message);}}
+      if(pointwise.includes(operation.id)&&!Object.hasOwn(inputs,refs[0]))issue('rejected','radiometric',path,'radiometric product steps require a named verified input stack; run upstream transforms separately and verify their output context/support first');
+      if(pointwise.includes(operation.id)&&Object.hasOwn(inputs,refs[0])&&left.grid.width*left.grid.height*left.grid.bandCount<=1000000&&retained+left.grid.width*left.grid.height*left.grid.bandCount<=16000000){try{preflightRadiometricProduct(left.grid,operation.id,params);}catch(error){issue(error instanceof RadiometricNeedsInput?'needs_input':'rejected','radiometric',path,error.message);}}
       contexts.set(name, outputContext(left, operation, params));
       retained += left.grid.width * left.grid.height * left.grid.bandCount;
       if (!['combine', 'horizontal_derivative', 'total_horizontal_derivative',...pointwise].includes(operation.id)) {

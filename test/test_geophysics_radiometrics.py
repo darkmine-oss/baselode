@@ -163,3 +163,11 @@ def test_live_native_python_javascript_masks_values_workflows_and_lineage(tmp_pa
     js=json.loads(target.read_text());assert js['ratios']['data']==f['expected_ratios'] and js['rgb']['data']==f['expected_ternary'];assert js['workflow']['state']=='ok',js['workflow']['issues']
     for key in ['ratios','rgb']:assert js[key]['metadata']['units']==baselode.geophysics.run_workflow(workflow(),{'radio':grid()})['artifacts'][key].metadata['units']
     for key in ['ratios','rgb']:baselode.geophysics.provenance.encode(js[key]['metadata'],'GeoTIFF','float64')
+
+
+@pytest.mark.parametrize('operation,parameters',[('low_pass',{'wavelength':20}),('vertical_derivative',{'order':1}),('combine',{'operation':'multiply'})])
+def test_transformed_sources_are_rejected_instead_of_preflighting_cached_raw_values(operation,parameters):
+    g=grid();g.crs='EPSG:32750';g.metadata['crs_units']='m';g.transform=(10,0,500000,0,-10,6500000)
+    w=workflow();w['steps']=[{'id':'upstream','operation':operation,'version':1,'inputs':['radio','radio'] if operation=='combine' else ['radio'],'parameters':parameters},w['steps'][0]];w['steps'][1]['inputs']=['upstream'];w['outputs']=['ratios']
+    v=baselode.geophysics.validate_workflow(w,{'radio':g});assert v['state']=='rejected' and any('named verified input stack' in i['message'] for i in v['issues'])
+    r=baselode.geophysics.run_workflow(w,{'radio':g});assert r['completed_steps']==[] and r['artifacts']=={}
