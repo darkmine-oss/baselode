@@ -703,3 +703,5 @@ export {describeGeophysicsRadiometrics,stackGeophysicsRadiometricGrids,calculate
 export {describeGeophysicsMicrolevelling,estimateGeophysicsMagneticMicrolevelling,microlevelGeophysicsMagneticGrid} from './data/geophysicsMicrolevelling.js';
 
 export {describeGeophysicsSpectrum,analyzeGeophysicsGridSpectrum} from './data/geophysicsSpectrum.js';
+
+export {describeGeophysicsRegionalTrend,fitGeophysicsRegionalTrend} from './data/geophysicsRegional.js';

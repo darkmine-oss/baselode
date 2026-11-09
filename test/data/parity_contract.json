@@ -924,6 +924,24 @@
           "analyze_grid_spectrum"
         ]
       ]
+    },
+    {
+      "name": "geophysics_regional_trend",
+      "description": "Native controlled polynomial regional/residual fits with explicit least-squares/Huber estimators, conditioning/convergence gates, training exclusions, source lineage and typed workflow ports.",
+      "jsExports": [
+        "describeGeophysicsRegionalTrend",
+        "fitGeophysicsRegionalTrend"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_regional_trend"
+        ],
+        [
+          "baselode.geophysics",
+          "fit_regional_trend"
+        ]
+      ]
     }
   ]
 }

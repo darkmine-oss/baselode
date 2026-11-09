@@ -2769,3 +2769,87 @@ Structural preflight defers actual support checks until that stage; a failed
 spectrum withholds all requested workflow artifacts. The raster-only catalogue
 continues to describe raster-producing operations. A complete saved example is
 provided in `test/data/spectrum_example.json`.
+
+### Controlled regional/residual separation
+
+`describe_regional_trend()` publishes the parameter schema, model and resource
+limits. `fit_regional_trend(grid, options)` fits one selected band and returns
+`regional`, `residual` and `training_mask` rasters, plus model and fit diagnostics.
+Original data, geometry, masks and source history remain intact.
+
+```python
+report = baselode.geophysics.fit_regional_trend(grid, {
+    "band": 1, "degree": 2, "estimator": "huber", "exclude_bounds": [],
+    "min_training_fraction": 0.5, "max_condition": 1e6,
+    "domain_policy": "source_footprint",
+    "huber_threshold": 1, "max_iterations": 50,
+    "convergence_tolerance": 1e-9,
+})
+if report["state"] == "ok":
+    regional = report["artifacts"]["regional"]
+    residual = report["artifacts"]["residual"]
+```
+
+All controls are explicit. `degree` 0, 1 or 2 uses `[1]`, `[1,u,v]` or
+`[1,u,v,u²,u*v,v²]`, with zero-based column/row cell indices normalized to
+[-1,1]. The returned `index_origin`, `index_scale`, terms, coefficients and
+source geometry describe that basis. Coefficients are in field units against
+**dimensionless index coordinates**, not physical east/north gradients. Full
+polynomial spaces remain equivalent under the declared affine transformation.
+
+`estimator="least_squares"` uses ordinary least squares and forbids Huber-only
+controls. `estimator="huber"` starts from LS and iteratively solves weighted
+normal equations with weights `min(1,huber_threshold/abs(training_residual))`
+(unit weight at zero). The positive threshold uses selected-band field units;
+no noise scale is estimated. This implements the
+[Huber loss](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html)
+with an original deterministic IRLS solver, not a promise of equivalence to
+SciPy's nonlinear solver.
+
+Conditioning is the infinity-norm condition of the **last solved weighted
+normal matrix**, not the design matrix. It must stay below the caller's
+`max_condition` (1..1e8); no ridge is added. Huber convergence requires the
+maximum surface change across originally valid cells to be <= the explicit
+absolute `convergence_tolerance`, which must be <=0.01*threshold. Scale threshold
+and tolerance when changing field units. Rank/condition failures and iteration
+exhaustion return `needs_input` with no artifacts; backend failures return
+`failed`. No partial result is presented as converged.
+
+Use `exclude_bounds` as inclusive map-coordinate `[xmin,ymin,xmax,ymax]` boxes
+that remove valid cell centres from fitting. Each must have positive area and
+contain a valid centre. **Exclusion does not preserve original output values**:
+the regional is still subtracted there, allowing a known feature to remain in
+the residual. Originally missing cells stay missing in all three outputs;
+training mask is 1 for training and 0 for excluded valid cells.
+
+`domain_policy="source_footprint"` explicitly requests prediction at all
+originally valid source cells, including excluded cells away from training.
+Diagnostics include training index bounds `[colmin,rowmin,colmax,rowmax]` and
+valid cells outside them. Those bounds are not a convex hull or a local-support
+guarantee. Excluded areas and gaps can require extrapolation. Check the selected
+region, degree, estimator and exclusions against geological evidence: broad
+geology can enter the regional model and the decomposition is not unique.
+
+Reports include counts/fraction, condition, iterations/convergence/change,
+Huber-downweighted training count and training residual RMS/maximum. Downweighting
+is an algorithmic diagnostic, not proof of erroneous data. Source uncertainty
+is archived without covariance/confidence propagation. Regional/residual retain
+the source field type and selected unit; raw fields never become corrected
+anomalies implicitly. Mask is `other/1`. Calibration/correction assertions stay
+in source lineage rather than being promoted to the new mathematical products.
+
+Require explicit projected/local rectangular affine geometry, linear coordinate
+units, scalar field type and selected units. Rotated and gapped grids are
+supported. Limits: minimum 8x8, 262144 selected/1000000 total source values,
+64 training cells, caller training fraction 0.1..1 of all cells, 16 boxes,
+512 KiB source metadata. The work estimate
+`(training_cells*terms²+valid_cells*terms)*(1+Huber_iteration_limit or1 for LS)`
+must be <=100 million; reduce region, degree or iteration limit explicitly
+rather than relying on hidden subsampling.
+
+The typed observation workflow registers `fit_regional_trend` with raster input
+and `regional`, `residual`, `training_mask`, `report` ports. Static size estimates
+conservatively use source cell counts; actual limits also apply at execution.
+Any non-ok stage withholds all requested artifacts. Feed the residual port to
+`analyze_grid_spectrum` for an explicit comparison. The synthetic recipe in
+`test/data/regional_example.json` demonstrates gridding→fit→residual spectrum.

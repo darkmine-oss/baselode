@@ -602,7 +602,7 @@ export function describeGeophysicsReprojection(): Record<string, unknown>;
 export function reprojectGeophysicsObservations(payload: unknown, options: GeophysicsReprojectionOptions): Promise<GeophysicsCorrectionReport>;
 
 export type GeophysicsObservationWorkflowReference = { input: string; step?: never; output?: never } | { step: string; output: string; input?: never };
-export type GeophysicsObservationWorkflowOperation = 'analyze_grid_spectrum' | 'apply_bouguer_plate' | 'correct_gravity_terrain' | 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats' | 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
+export type GeophysicsObservationWorkflowOperation = 'fit_regional_trend' | 'analyze_grid_spectrum' | 'apply_bouguer_plate' | 'correct_gravity_terrain' | 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats' | 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
 export interface GeophysicsObservationWorkflowStep {
   id: string;
   operation: GeophysicsObservationWorkflowOperation;
@@ -750,3 +750,21 @@ export interface GeophysicsSpectrumReport {
 }
 export function describeGeophysicsSpectrum(): Record<string, any>;
 export function analyzeGeophysicsGridSpectrum(raster: GeophysicsRasterInput, options: GeophysicsSpectrumOptions): GeophysicsSpectrumReport;
+
+export interface GeophysicsRegionalBaseOptions {
+  band: number; degree: 0 | 1 | 2; exclude_bounds: Array<[number,number,number,number]>;
+  min_training_fraction: number; max_condition: number; domain_policy: 'source_footprint';
+}
+export type GeophysicsRegionalOptions = GeophysicsRegionalBaseOptions & (
+  {estimator: 'least_squares'; huber_threshold?: never; max_iterations?: never; convergence_tolerance?: never}
+  | {estimator: 'huber'; huber_threshold: number; max_iterations: number; convergence_tolerance: number}
+);
+export interface GeophysicsRegionalReport {
+  schema: 'baselode.geophysics.regional_result'; version: 1;
+  state: 'ok' | 'needs_input' | 'rejected' | 'failed'; issues: Array<{code: string; message: string}>;
+  artifacts: Partial<Record<'regional' | 'residual' | 'training_mask',GeophysicsRaster>>;
+  parameters?: GeophysicsRegionalOptions; model?: Record<string, any>;
+  diagnostics: Record<string, any>; producer: Record<string, string | number>; assumptions: string[];
+}
+export function describeGeophysicsRegionalTrend(): Record<string, any>;
+export function fitGeophysicsRegionalTrend(raster: GeophysicsRasterInput, options: GeophysicsRegionalOptions): GeophysicsRegionalReport;

@@ -186,3 +186,12 @@ assert.equal(geophysics.describeGeophysicsSpectrum().version,1);
 const spectrumWorkflow=await geophysics.runGeophysicsObservationWorkflow(spectrumExample.workflow,{survey:spectrumExample.survey});
 assert.equal(spectrumWorkflow.state,'ok',JSON.stringify(spectrumWorkflow.issues));
 assert.ok(Math.abs(spectrumWorkflow.artifacts.spectrum.diagnostics.spectral_total_power-6.5)<1e-10);
+
+const regionalExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/regional_example.json'),'utf8'));
+const regionalReport=geophysics.fitGeophysicsRegionalTrend(geophysics.createGeophysicsRaster(regionalExample.raster),regionalExample.options);
+assert.equal(regionalReport.state,'ok',JSON.stringify(regionalReport.issues));
+assert.ok(Math.abs(regionalReport.model.coefficients[0]-regionalExample.expected_constant)<1e-8);
+assert.equal(geophysics.describeGeophysicsRegionalTrend().version,1);
+const regionalRecipe=await geophysics.runGeophysicsObservationWorkflow(regionalExample.workflow,{survey:regionalExample.survey});
+assert.equal(regionalRecipe.state,'ok',JSON.stringify(regionalRecipe.issues));
+assert.ok(Math.abs(regionalRecipe.artifacts.spectrum.diagnostics.spectral_total_power-1093.75)<1e-7);

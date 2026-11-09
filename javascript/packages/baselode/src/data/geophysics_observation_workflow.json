@@ -64,7 +64,8 @@
                 "apply_gravity_tide",
                 "correct_gravity_drift",
                 "analyze_gravity_repeats",
-                "analyze_grid_spectrum"
+                "analyze_grid_spectrum",
+                "fit_regional_trend"
               ]
             },
             "version": {
@@ -1876,6 +1877,139 @@
         "raster"
       ],
       "outputs": {
+        "report": "report"
+      },
+      "execution": {
+        "python": true,
+        "javascript": true
+      }
+    },
+    {
+      "id": "fit_regional_trend",
+      "version": 1,
+      "parameters": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 64
+          },
+          "degree": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "estimator": {
+            "type": "string",
+            "enum": [
+              "least_squares",
+              "huber"
+            ]
+          },
+          "exclude_bounds": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              }
+            }
+          },
+          "min_training_fraction": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 1
+          },
+          "max_condition": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100000000.0
+          },
+          "domain_policy": {
+            "type": "string",
+            "enum": [
+              "source_footprint"
+            ]
+          },
+          "huber_threshold": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1e+100
+          },
+          "max_iterations": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "convergence_tolerance": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1e+100
+          }
+        },
+        "required": [
+          "band",
+          "degree",
+          "estimator",
+          "exclude_bounds",
+          "min_training_fraction",
+          "max_condition",
+          "domain_policy"
+        ],
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "estimator": {
+                  "const": "huber"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "huber_threshold",
+                "max_iterations",
+                "convergence_tolerance"
+              ]
+            },
+            "else": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "huber_threshold"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "max_iterations"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "convergence_tolerance"
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "inputs": [
+        "raster"
+      ],
+      "outputs": {
+        "regional": "raster",
+        "residual": "raster",
+        "training_mask": "raster",
         "report": "report"
       },
       "execution": {

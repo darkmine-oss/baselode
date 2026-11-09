@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native polynomial regional/residual decomposition with explicit least-squares/Huber estimators, training exclusions, conditioning/convergence/work gates, model/history-preserving rasters and typed residual-to-spectrum workflows.
+
 - Add native radial/directional spatial power-spectrum reports with explicit window/detrend normalization, Parseval/DC/Nyquist support diagnostics, typed observation-workflow report ports and shared Python/JavaScript schemas.
 
 - Add native Python/JavaScript controlled magnetic grid microlevelling: inspectable directional Gaussian residual estimates, explicit geological protection and correction caps, current-grid history, shared schemas/types/workflows and independent signal-retention tests.

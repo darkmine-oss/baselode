@@ -1987,3 +1987,58 @@ and direction bins 4..36; all options explicit. The typed observation-workflow
 or filtering and emits a report. Scientific checks run at execution; any non-ok
 step withholds every requested artifact. See `test/data/spectrum_example.json`
 for a complete observations-to-spectrum recipe.
+
+### Controlled regional/residual separation
+
+`describeGeophysicsRegionalTrend()` and
+`fitGeophysicsRegionalTrend(grid, options)` execute natively with the same
+polynomial, training, conditioning and Huber contracts as Python.
+
+```javascript
+const report = fitGeophysicsRegionalTrend(grid, {
+  band: 1, degree: 2, estimator: 'huber', exclude_bounds: [],
+  min_training_fraction: 0.5, max_condition: 1e6,
+  domain_policy: 'source_footprint',
+  huber_threshold: 1, max_iterations: 50, convergence_tolerance: 1e-9,
+});
+if (report.state === 'ok') {
+  const {regional, residual, training_mask} = report.artifacts;
+}
+```
+
+Choose degree 0/1/2 and `least_squares` or `huber` explicitly. Huber uses weighted
+normal equations with weights `min(1,threshold/abs(residual))`, initialized by LS.
+Threshold and absolute convergence tolerance use selected-band units; no noise
+scale is inferred. Tolerance must be <=0.01*threshold. LS forbids the unused
+Huber controls. A normalized column/row basis, source geometry and coefficients
+are retained in the model; these are not east/north gradient coefficients.
+
+Valid training centres inside explicit map-coordinate `exclude_bounds` are
+removed from fitting. They still receive regional predictions and subtraction;
+original missing cells remain missing. `source_footprint` permits prediction
+outside training; reported index bounds are not a convex hull or local-support
+assurance. Broad geology can enter a chosen polynomial regional model.
+
+Conditioning refers to the last solved weighted **normal matrix**, bounded by
+`max_condition` 1..1e8. Convergence measures maximum surface change at originally
+valid cells. Ill-conditioned/rank-deficient/nonconverged fits return `needs_input`
+with no artifacts; backend faults return `failed`. There is no implicit ridge,
+subsampling, geological classification or calibrated uncertainty propagation.
+
+Successful reports contain regional/residual/training-mask rasters and explicit
+counts, bounds, condition, convergence and residual diagnostics. Regional and
+residual preserve source field type and units; the mask is `other/1`. Source
+history/uncertainty remains archived, without promoting contractor/calibration
+assertions to newly derived mathematical products. All outputs retain geometry
+and full resolution and export through ERS/GeoTIFF with model/history.
+
+Require rectangular projected/local geometry and linear units. Budgets are
+minimum 8x8, 262144 selected/1000000 total source values, at least 64 training cells,
+explicit minimum fraction 0.1..1, 16 exclusion boxes, 512 KiB metadata and a
+100-million work estimate covering normal assembly and valid-footprint prediction.
+See the descriptor/Python API for exact bounds and formulas.
+
+The typed observation-workflow operation `fit_regional_trend` exposes regional,
+residual, training_mask and report ports. It can feed actual residual output to
+`analyze_grid_spectrum`; non-ok stages withhold every artifact. The complete
+synthetic example is `test/data/regional_example.json`.
