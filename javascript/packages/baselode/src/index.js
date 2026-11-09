@@ -721,3 +721,5 @@ export {describeGeophysicsBlockForward,prepareGeophysicsBlockForward} from './da
 export {describeGeophysicsDensityInversion,validateGeophysicsDensityInversion} from './data/geophysicsInversion.js';
 
 export {describeGeophysicsSusceptibilityInversion,validateGeophysicsSusceptibilityInversion} from './data/geophysicsInversion.js';
+
+export {describeGeophysicsMagneticVectorInversion,validateGeophysicsMagneticVectorInversion} from './data/geophysicsInversion.js';

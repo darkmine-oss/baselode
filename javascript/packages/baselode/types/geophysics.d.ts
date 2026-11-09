@@ -957,3 +957,22 @@ export interface GeophysicsSusceptibilityInversionReport extends Omit<Geophysics
 }
 export function describeGeophysicsSusceptibilityInversion():Record<string,any>;
 export function validateGeophysicsSusceptibilityInversion(request:GeophysicsSusceptibilityInversionRequest):GeophysicsSusceptibilityInversionValidation;
+
+export type GeophysicsMagneticVectorParameterName='magnetization_x_A_m'|'magnetization_y_A_m'|'magnetization_z_up_A_m';
+export type GeophysicsMagneticVectorQuantity='magnetic_bx'|'magnetic_by'|'magnetic_bz_up'|'magnetic_b_down'|'magnetic_tmi_anomaly';
+export interface GeophysicsMagneticVectorParameter extends Omit<GeophysicsInversionParameter,'parameter'> {parameter:GeophysicsMagneticVectorParameterName}
+export type GeophysicsVectorAssumptions={model:'uniform_cartesian_magnetization';background_reference_id:string;error_model:'independent_standard_deviations'} & ({objective:'vector_components';max_response_to_background_ratio:null}|{objective:'linear_tmi';max_response_to_background_ratio:number});
+export interface GeophysicsMagneticVectorInversionRequest extends Omit<GeophysicsDensityInversionRequest,'schema'|'observed'|'parameters'> {schema:'baselode.geophysics.magnetic_vector_inversion_request';observed:Array<GeophysicsMisfitRequest['observed']>;parameters:GeophysicsMagneticVectorParameter[];magnetic_assumptions:GeophysicsVectorAssumptions}
+export interface GeophysicsMagneticVectorInversionValidation extends Omit<GeophysicsDensityInversionValidation,'schema'|'request'> {schema:'baselode.geophysics.magnetic_vector_inversion_validation'|'baselode.geophysics.magnetic_vector_inversion_result';request:GeophysicsMagneticVectorInversionRequest|null}
+/** Python fixed-geometry total J fit. Cartesian bounds/reference/scales can favour directions. */
+export interface GeophysicsMagneticVectorInversionReport extends Omit<GeophysicsDensityInversionReport,'schema'|'request'|'parameters'|'predicted'|'misfit'|'operator'> {
+  schema:GeophysicsMagneticVectorInversionValidation['schema'];request:GeophysicsMagneticVectorInversionRequest|null;
+  parameters:Array<GeophysicsMagneticVectorParameter & {units:'A/m';value:number;active_bound:-1|0|1;weighted_column_norm:number}>;
+  magnetization:Array<{cell_id:string;x_A_m:number;y_A_m:number;z_up_A_m:number;amplitude_A_m:number;unit_direction:{x:number;y:number;z_up:number}|null}>;
+  predicted:Array<GeophysicsMisfitRequest['predicted']>|null;misfit:GeophysicsMisfitReport[]|null;
+  operator:{rows:Array<{id:string;quantity:GeophysicsMagneticVectorQuantity}>;columns:Array<{cell_id:string;parameter:GeophysicsMagneticVectorParameterName}>;matrix:number[][];data_units:'nT';parameter_units:'A/m'}|null;
+  magnetic_model:{background_nT:GeophysicsMagneticPrismsRequest['background_nT'];vacuum_magnetic_permeability:number;assumptions:GeophysicsVectorAssumptions;max_fitted_response_to_background_ratio:number|null}|null;
+  exact_tmi_misfit:GeophysicsMisfitReport[]|null;
+}
+export function describeGeophysicsMagneticVectorInversion():Record<string,any>;
+export function validateGeophysicsMagneticVectorInversion(request:GeophysicsMagneticVectorInversionRequest):GeophysicsMagneticVectorInversionValidation;

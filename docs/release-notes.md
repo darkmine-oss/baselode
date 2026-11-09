@@ -658,3 +658,9 @@
   field/reference, J=chi*H0 conversion, observed/full-vector weak-response checks,
   physical sensitivities and separate linear/exact-TMI residual QC. Native Python/
   JS contracts reuse the pinned Python solver and existing explicit L2 controls.
+
+- Add magnetic vector inversion for independently bounded Cartesian J, with explicit
+  vector-component or weak linear-TMI objectives, componentwise L2 controls,
+  amplitude/frame direction (undefined at zero), per-channel QC and exact-TMI
+  diagnostics. Native Python/JS validation, physical operators, replay, nullity,
+  sensitivity and convergence evidence reuse the pinned Python numerical backend.

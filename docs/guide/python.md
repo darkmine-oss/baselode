@@ -1266,3 +1266,53 @@ remanence. The inversion fits the linear objective and exposes this distinction.
 Data nullity, sensitivity, objective terms, explicit L2 edges/reference, bounds,
 conditioning and KKT convergence remain visible; no unique geology or posterior
 uncertainty is implied by convergence.
+
+### Magnetic vector inversion (MVI)
+
+`describe_magnetic_vector_inversion()`, `validate_magnetic_vector_inversion(request)`
+(core) and `invert_magnetic_vector(request)` (`inversion` extra) fit independent
+world Cartesian Jx/Jy/Jz in A/m. The shared
+`test/data/magnetic_vector_inversion_example.json` uses an analytic cube tensor:
+three vector-component observations recover J=(0.2,-0.3,1.1)A/m. This fixes geometry;
+it does not infer source shape, induced/remanent decomposition or geographic angles.
+
+Supply a zero-J magnetic block template with distinct property columns, external
+points/min-distance and ordered parameters: each active cell in input order,
+then magnetization_x_A_m, magnetization_y_A_m, magnetization_z_up_A_m. Every
+component declares lower/upper/reference/scale in A/m. V1 bounds are within
++/-1000A/m, scales1e-6..1000A/m and scaled bound width1e-8..1e8. The same L2 objective
+acts on scaled deviations from each component's reference. Each explicit cell
+edge contributes a separate difference for all three components. Cartesian bounds,
+scales and priors can favour directions; these choices remain in the result.
+
+`observed` is an array of datasets. Each has the familiar context/records, exact
+coverage of forward point IDs/coordinates, anomaly units nT and supplied positive
+sigma. Explicit `magnetic_assumptions` sets
+`model="uniform_cartesian_magnetization"`, known `background_reference_id`,
+`error_model="independent_standard_deviations"` and one of:
+
+- `objective="vector_components"`: one to three distinct bx/by/bz_up/b_down
+  channels, with no repeated component or simultaneous bz_up/b_down. Set
+  `max_response_to_background_ratio=null`; the background may explicitly be null.
+  Component fields are linear in uniform J and need no weak-TMI approximation.
+- `objective="linear_tmi"`: exactly one magnetic_tmi_anomaly dataset, a fixed
+  nonnull background and explicit response/background cap1e-12..0.05. Native
+  validation checks observed anomalies; execution checks the full fitted vector.
+  Separate `exact_tmi_misfit` exposes magnitude linearisation error at supplied sigma.
+
+The reference ID must match every dataset. Errors/covariances are not inferred;
+correlated components require a different error model. Total data across channels
+is capped at128, with16 active cells/48 parameters,128 explicit edges and the same
+bounded solver/conditioning policies. Every dataset must cover the declared points.
+
+Results include per-cell `magnetization` (components, amplitude_A_m and
+unit_direction in the declared x/y/up frame). Direction is null exactly at zero
+amplitude. `predicted` and `misfit` are arrays in input channel order; operator
+rows explicitly pair point ID and quantity so repeated IDs across channels are
+unambiguous. The physical matrix, weighted column norms, total weighted data
+misfit, separate reference/smoothing terms, active bounds, convergence and data
+nullity/augmented rank remain visible. `fitted_forward_request` replays the full
+model through the released forward adapter. Exact-TMI QC is null for component
+objectives and an array for linear TMI; it is diagnostic, not a nonlinear objective.
+A regularised fit selects a model under declared priors and geometry; it does not
+establish geological uniqueness, posterior uncertainty or an induced/remanent split.

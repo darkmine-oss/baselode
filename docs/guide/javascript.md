@@ -1785,3 +1785,15 @@ shared induced-only SI/linear-TMI contract. Replay the accepted request into Pyt
 field/reference, weak-response cap and physical-model assumptions. TypeScript
 includes the numerical result, fixed-field conversion and separate linear/exact
 TMI residual QC. Operator rank and fitted full-vector applicability need execution.
+
+### Magnetic vector inversion requests
+
+`describeGeophysicsMagneticVectorInversion()` and
+`validateGeophysicsMagneticVectorInversion(request)` natively validate portable
+independent Cartesian-J requests. `observed` is an array of distinct component
+channels or one linear-TMI channel, with explicit independent sigma/reference/
+objective policies. Replay accepted requests into Python `invert_magnetic_vector`.
+The shared analytic cube example and Python guide describe ordered J bounds,
+componentwise L2 edges, weak-TMI applicability and16-cell/48-parameter/128-total-data
+limits. TypeScript defines amplitude/frame direction (null at zero), channel QC,
+point-plus-quantity operator rows, exact-TMI diagnostics and convergence results.

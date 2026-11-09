@@ -476,3 +476,22 @@ Linear objective QC and exact-TMI magnitude QC are separate; numerical JS solver
 parity, nonlinear exact-TMI inversion, demagnetisation, remanence or uniqueness/
 posterior uncertainty are not claimed. All numerical failures withhold both QC
 reports, conversion/model fields and fitted properties atomically.
+
+## Magnetic vector inversion v1
+
+Python describe_magnetic_vector_inversion/validate_magnetic_vector_inversion map
+to native describeGeophysicsMagneticVectorInversion/
+validateGeophysicsMagneticVectorInversion. Shared schemas and live native replay
+cover independent Cartesian-J parameter order, zero-J/distinct properties,
+nonredundant component or single-TMI dataset arrays, independent supplied sigma,
+reference binding, explicit cap/null policies and total resource gates.
+Python invert_magnetic_vector reuses pinned BVLS/prism operators. Componentwise
+L2 edges, data nullity versus augmented rank, bounds and KKT remain explicit.
+Independent analytic cube tensor/signs validate all three J components and their
+amplitude/unit direction; zero amplitude has no direction. Weighted noisy channels,
+ID/channel order, scalar-versus-vector remanent synthetic fits, selected nonunique
+models and full-vector TMI policy have scientific regressions. Component objectives
+are linear without weak approximation; linear TMI requires a fixed field/cap and
+exposes separate exact magnitude QC. No numerical JS solver parity, nonlinear exact
+objective, geographic angle, geological uniqueness, uncertainty or induced/remanent
+split is claimed. Raw forward constants/units and fitted replay requests are retained.
