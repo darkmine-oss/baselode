@@ -220,3 +220,14 @@ def test_declared_geometric_support_boundary_is_rotation_stable():
     source = grid(); angle = .3; source.transform = (math.cos(angle), math.sin(angle), 0, math.sin(angle), -math.cos(angle), 128)
     p = {**options(), 'flight_azimuth': 360 - math.degrees(angle), 'line_spacing': 2, 'along_line_wavelength': 128}
     assert baselode.geophysics.validate_workflow(workflow(p), {'magnetic': source})['state'] == 'ok'
+
+
+@pytest.mark.parametrize('history', [None, {}, [{}]])
+def test_provenance_rejects_malformed_history_before_current_grid_check(history, monkeypatch):
+    source = grid(); source.metadata['processing'] = history
+    def forbidden(*args, **kwargs): pytest.fail('malformed provenance must reject before FFT')
+    monkeypatch.setattr(baselode.geophysics.processing, '_fourier_bands', forbidden)
+    with pytest.raises(ValueError, match='provenance processing must be a list of named operations'):
+        baselode.geophysics.estimate_magnetic_microlevelling(source, options())
+    report = baselode.geophysics.run_workflow(workflow(), {'magnetic': source})
+    assert report['state'] == 'rejected' and report['completed_steps'] == [] and report['artifacts'] == {}

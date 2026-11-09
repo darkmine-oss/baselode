@@ -46,6 +46,7 @@ function prepare(value,options){
   geophysicsAlignmentGeometry([height,width],value.transform);
   if(!Array.from(bands[0]).every(row=>Array.isArray(row)&&row.length===width&&Array.from(row).every(v=>v===null||v===undefined||(typeof v==='number'&&(!Number.isFinite(v)||v===value.nodata||Math.abs(v)<=1e100)))))throw Error('source values must be real numeric scalars within +/-1e100 or missing');
   const r=createGeophysicsRaster(value);
+  // Validates processing as a list of named operations, including when null.
   encodeProvenance(r.metadata,'GeoTIFF','float64');unicodeStrings(r.metadata);unicodeStrings(r.crs);
   const frame=r.metadata.frame_id??null;
   if(frame!==null&&!label(frame))throw Error('frame_id must be a known bounded string or null');

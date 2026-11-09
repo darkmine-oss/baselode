@@ -79,6 +79,7 @@ def _prepare(raster, options):
     if raster.band_count != 1 or min(raster.height, raster.width) < 16 or raster.data.size > 262144:
         raise ValueError('require one band, at least 16x16 and at most 262144 source cells')
     baselode.geophysics.alignment._source(raster)
+    # Validates processing as a list of named operations, including when null.
     baselode.geophysics.provenance.encode(raster.metadata, 'GeoTIFF', 'float64')
     json.dumps(raster.metadata, ensure_ascii=False, allow_nan=False).encode('utf-8')
     frame = raster.metadata.get('frame_id')

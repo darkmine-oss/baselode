@@ -67,3 +67,6 @@ it('rejects unknown options and keeps caller/descriptor/product models independe
 it('accepts a rotated exact support boundary without promoting sparse rows',()=>{
   const g=grid(),t=.3;g.transform=[Math.cos(t),Math.sin(t),0,Math.sin(t),-Math.cos(t),128];const p={...options(),flight_azimuth:360-t*180/Math.PI,line_spacing:2,along_line_wavelength:128};expect(validateGeophysicsWorkflow(workflow(p),{magnetic:g}).state).toBe('ok');delete g.data[0][12];expect(()=>estimateGeophysicsMagneticMicrolevelling(g,p)).toThrow();
 });
+it.each([null,{},[{}]])('rejects malformed provenance before current-grid history checking: %j',history=>{
+  const g=grid();g.metadata.processing=history;expect(()=>estimateGeophysicsMagneticMicrolevelling(g,options())).toThrow(/provenance processing must be a list of named operations/);const report=runGeophysicsWorkflow(workflow(),{magnetic:g});expect(report.state).toBe('rejected');expect(report.completed_steps).toEqual([]);expect(report.artifacts).toEqual({});
+});
