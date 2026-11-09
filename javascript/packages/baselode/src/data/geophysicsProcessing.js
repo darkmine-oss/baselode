@@ -134,6 +134,7 @@ function derivedRaster(raster, bands, step) {
   return createGeophysicsRaster({
     data: bands,
     transform: raster.transform,
+    hasExplicitTransform: raster.hasExplicitTransform,
     crs: raster.crs,
     nodata: null,
     bandNames: raster.bandNames,

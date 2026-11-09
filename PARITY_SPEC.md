@@ -258,3 +258,17 @@ are Python-only, explicitly gated during JavaScript preflight. The independent
 50-digit Newtonian integration fixture verifies known disturbances after
 plate/hill/valley effects; Python tests exchange live ledgers with JavaScript.
 Shared static native-history fixtures exercise npm exports, guards and types.
+
+
+### Corrected radiometric products
+
+Python and JavaScript natively stack exactly aligned corrected K(%), eU(ppm),
+eTh(ppm) grids and calculate quantitative ratios/fixed-stretch ternary RGB.
+Shared descriptors, context/parameter schemas and versioned raster-workflow
+operations define independent dependency masks, explicit denominator floors,
+ppm/% ratio semantics and K-red/eTh-green/eU-blue display mapping. Source
+uncertainty is archived, not inferred from corrected grids. Hand-computed
+mixtures and live Python/JavaScript replay cover masks, unit/context guards,
+source lineage and exports. Inputs consumed exclusively by pointwise branches accept geographic and
+sheared affines, independently of unrelated spatial-filter branches. Spatial
+requirements propagate to source inputs through all dependent steps.

@@ -11,6 +11,10 @@ import { restoreProvenance, recordSelection } from './geophysicsProvenance.js';
  *
  * The transform uses GDAL's six-value affine form:
  * x = a * column + b * row + c; y = d * column + e * row + f.
+ * Missing geometry gets a display-only pixel transform. An explicit false
+ * hasExplicitTransform stays authoritative through copies and edits. To attach
+ * verified geometry to such a copy, supply BOTH transform and
+ * hasExplicitTransform: true; replacing numbers alone does not verify them.
  *
  * @param {object} payload
  * @returns {object}
@@ -19,6 +23,7 @@ export function createGeophysicsRaster(payload = {}) {
   const data = normalizeRasterData(payload.data);
   const height = data[0].length;
   const width = data[0][0].length;
+  if (payload.hasExplicitTransform !== undefined && typeof payload.hasExplicitTransform !== 'boolean') throw new TypeError('hasExplicitTransform must be boolean when supplied.');
   const transform = normalizeTransform(payload.transform, height);
   const bandNames = payload.bandNames ?? data.map((_, index) => `band_${index + 1}`);
 
@@ -32,6 +37,7 @@ export function createGeophysicsRaster(payload = {}) {
     height,
     bandCount: data.length,
     transform,
+    hasExplicitTransform: payload.hasExplicitTransform !== false && payload.transform !== undefined && payload.transform !== null,
     crs: payload.crs ?? null,
     nodata: parseNoData(payload.nodata),
     bandNames: bandNames.map(String),
@@ -125,6 +131,7 @@ export function geophysicsRasterFromBands(bands, options) {
   const readers = bands.map((band) => (typeof band === 'function' ? band : (index) => band[index]));
   const payload = {
     transform: options.transform,
+    hasExplicitTransform: options.hasExplicitTransform,
     crs: options.crs,
     // The source-precision sentinel, so widened cells still match it.
     nodata: sentinel,
@@ -162,6 +169,7 @@ function decimatedRaster(data, payload, { width, height, factor, rows, columns }
     ...payload,
     data,
     transform: [a * columnScale, b * rowScale, c, d * columnScale, e * rowScale, f],
+    hasExplicitTransform: payload.hasExplicitTransform !== false && payload.transform !== undefined && payload.transform !== null,
     nodata: null,
     metadata: {
       ...metadata,

@@ -69,6 +69,8 @@ function geometry(shape, transform) {
   return { shape: [...shape], transform: [...transform] };
 }
 function sourceRaster(raster) {
+  if(raster?.hasExplicitTransform!==undefined&&typeof raster.hasExplicitTransform!=="boolean")throw Error("hasExplicitTransform must be boolean when supplied");
+  if(raster?.hasExplicitTransform===false)throw Error("source alignment requires an explicit affine transform");
   if (!object(raster) || !Number.isInteger(raster.width) || !Number.isInteger(raster.height) || !Number.isInteger(raster.bandCount) || raster.bandCount < 1 || !Array.isArray(raster.data) || !object(raster.metadata)) throw Error('source/reference must be a GeophysicsRaster');
   if (raster.width * raster.height * raster.bandCount > limits.max_source_values) throw new ResourceError('source/reference exceeds 1000000 cell values');
   if (raster.nodata !== null && typeof raster.nodata !== 'number') throw Error('source/reference nodata must be numeric or null');
@@ -159,6 +161,8 @@ export function alignGeophysicsRaster(source, target, options) {
 /** Match reference geometry while retaining source bands/scientific metadata. */
 export function matchGeophysicsRaster(source, reference, options) {
   try {
+    if(reference?.hasExplicitTransform!==undefined&&typeof reference.hasExplicitTransform!=='boolean')throw Error('hasExplicitTransform must be boolean when supplied');
+    if(reference?.hasExplicitTransform===false)throw Error('reference alignment requires an explicit affine transform');
     if (!object(reference) || !object(reference.metadata)) throw Error('source/reference must be a GeophysicsRaster');
     const grid = geometry([reference.height, reference.width], reference.transform);
     return alignGeophysicsRaster(source, { shape: grid.shape, transform: grid.transform, crs: rasterCrs(reference.crs), crs_units: reference.metadata.crs_units ?? null, frame_id: reference.metadata.frame_id ?? null }, options);

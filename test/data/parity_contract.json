@@ -855,6 +855,34 @@
           "correct_gravity_terrain"
         ]
       ]
+    },
+    {
+      "name": "geophysics_radiometrics",
+      "description": "Native corrected concentration stacking, weak-denominator quantitative ratios and fixed-stretch K/eTh/eU ternary products with shared schemas/types, source uncertainty lineage and workflow replay.",
+      "jsExports": [
+        "describeGeophysicsRadiometrics",
+        "stackGeophysicsRadiometricGrids",
+        "calculateGeophysicsRadiometricRatios",
+        "createGeophysicsRadiometricTernary"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_radiometrics"
+        ],
+        [
+          "baselode.geophysics",
+          "stack_radiometric_grids"
+        ],
+        [
+          "baselode.geophysics",
+          "radiometric_ratios"
+        ],
+        [
+          "baselode.geophysics",
+          "radiometric_ternary"
+        ]
+      ]
     }
   ]
 }

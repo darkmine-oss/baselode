@@ -1,0 +1,190 @@
+{
+  "method": "Hand-computed independent K percent, eU/eTh ppm concentrations; explicit missing/negative dependencies. Expected ratios retain ppm/% and normalized RGB uses fixed K/4,eTh/16,eU/8, not closure.",
+  "data": [
+    [
+      [
+        2,
+        0,
+        0.05,
+        null
+      ],
+      [
+        4,
+        -1,
+        1,
+        0
+      ]
+    ],
+    [
+      [
+        4,
+        2,
+        null,
+        1
+      ],
+      [
+        0,
+        1,
+        -1,
+        0
+      ]
+    ],
+    [
+      [
+        8,
+        4,
+        2,
+        2
+      ],
+      [
+        16,
+        2,
+        4,
+        0
+      ]
+    ]
+  ],
+  "transform": [
+    0.01,
+    0,
+    117,
+    0,
+    -0.01,
+    -32
+  ],
+  "crs": "EPSG:4326",
+  "band_names": [
+    "K",
+    "eU",
+    "eTh"
+  ],
+  "metadata": {
+    "field_type": "radiometric",
+    "units": [
+      "%",
+      "ppm",
+      "ppm"
+    ],
+    "crs_units": "degrees",
+    "radiometric": {
+      "state": "corrected_concentration",
+      "calibration_ids": [
+        "K-cal",
+        "U-cal",
+        "Th-cal"
+      ],
+      "reference_height_m": 100,
+      "height_datum": "ground_surface"
+    },
+    "uncertainty": {
+      "method": "source-dependent corrected-grid uncertainty, covariance not supplied"
+    }
+  },
+  "ratio_options": {
+    "potassium_floor": 0.1,
+    "thorium_floor": 0.5,
+    "reference_policy": "caller_verified",
+    "evidence": "independent synthetic corrected concentrations",
+    "negative_policy": "mask"
+  },
+  "ternary_options": {
+    "k_min": 0,
+    "k_max": 4,
+    "u_min": 0,
+    "u_max": 8,
+    "th_min": 0,
+    "th_max": 16,
+    "gamma": 1,
+    "reference_policy": "caller_verified",
+    "evidence": "independent synthetic corrected concentrations",
+    "negative_policy": "mask"
+  },
+  "expected_ratios": [
+    [
+      [
+        4,
+        null,
+        null,
+        null
+      ],
+      [
+        4,
+        null,
+        4,
+        null
+      ]
+    ],
+    [
+      [
+        2,
+        null,
+        null,
+        null
+      ],
+      [
+        0,
+        null,
+        null,
+        null
+      ]
+    ],
+    [
+      [
+        0.5,
+        0.5,
+        null,
+        0.5
+      ],
+      [
+        0,
+        0.5,
+        null,
+        null
+      ]
+    ]
+  ],
+  "expected_ternary": [
+    [
+      [
+        0.5,
+        0,
+        null,
+        null
+      ],
+      [
+        1,
+        null,
+        null,
+        0
+      ]
+    ],
+    [
+      [
+        0.5,
+        0.25,
+        null,
+        null
+      ],
+      [
+        1,
+        null,
+        null,
+        0
+      ]
+    ],
+    [
+      [
+        0.5,
+        0.25,
+        null,
+        null
+      ],
+      [
+        0,
+        null,
+        null,
+        0
+      ]
+    ]
+  ]
+}

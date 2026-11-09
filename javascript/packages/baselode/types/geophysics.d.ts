@@ -30,6 +30,8 @@ export interface GeophysicsRasterMetadata {
 export interface GeophysicsRasterPayload {
   data: GeophysicsCell[][] | GeophysicsCell[][][];
   transform?: GeophysicsTransform | null;
+  /** False remains authoritative on copies; set true alongside a verified replacement transform. */
+  hasExplicitTransform?: boolean;
   crs?: string | null;
   nodata?: number | null;
   bandNames?: string[];
@@ -42,6 +44,8 @@ export interface GeophysicsRaster {
   height: number;
   bandCount: number;
   transform: GeophysicsTransform;
+  /** False remains authoritative on copies; set true alongside a verified replacement transform. */
+  hasExplicitTransform?: boolean;
   crs: string | null;
   nodata: number | null;
   bandNames: string[];
@@ -208,7 +212,7 @@ export interface GeophysicsOperationDescription {
   version: 1;
   inputs: { count: number; kind: string; field_types: string[]; units: string; coordinates: string };
   parameters: { type: 'object'; properties: Record<string, Record<string, unknown>>; required: string[]; additionalProperties: false };
-  outputs: { kind: string; resolution: string; field_type: string; units: string };
+  outputs: { kind: string; resolution: string; field_type: string; units: string; band_units?: string[] };
   assumptions: string[];
   backend: Record<string, unknown>;
   deterministic: boolean;
@@ -598,7 +602,7 @@ export function describeGeophysicsReprojection(): Record<string, unknown>;
 export function reprojectGeophysicsObservations(payload: unknown, options: GeophysicsReprojectionOptions): Promise<GeophysicsCorrectionReport>;
 
 export type GeophysicsObservationWorkflowReference = { input: string; step?: never; output?: never } | { step: string; output: string; input?: never };
-export type GeophysicsObservationWorkflowOperation = 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats' | 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
+export type GeophysicsObservationWorkflowOperation = 'apply_bouguer_plate' | 'correct_gravity_terrain' | 'apply_gravity_tide' | 'correct_gravity_drift' | 'analyze_gravity_repeats' | 'remove_normal_gravity' | 'qc_observations' | 'inspect_corrections' | 'declare_corrections' | 'correct_magnetic_base' | 'remove_igrf' | 'correct_magnetic_lag' | 'correct_magnetic_heading' | 'reproject_observations' | 'analyze_crossovers' | 'level_magnetic_lines' | 'grid_observations' | 'raster_low_pass' | 'raster_high_pass' | 'raster_band_pass' | 'raster_vertical_derivative' | 'raster_horizontal_derivative' | 'raster_total_horizontal_derivative' | 'raster_tilt_derivative' | 'raster_analytic_signal' | 'raster_upward_continuation' | 'raster_reduce_to_pole' | 'raster_combine';
 export interface GeophysicsObservationWorkflowStep {
   id: string;
   operation: GeophysicsObservationWorkflowOperation;
@@ -695,3 +699,23 @@ export interface GravityTerrainOptions extends GravityPlateOptions {
   min_edge_distance_m: number; ground_tolerance_m: number;
 }
 export function describeGeophysicsGravityTopography(): Record<string, any>;
+
+/** Context asserts already corrected equivalent concentrations; not raw counts. */
+export interface GeophysicsRadiometricContext {
+  state: 'corrected_concentration'; reference_height_m: number; height_datum: string;
+  calibration_ids: [string,string,string];
+}
+export interface GeophysicsRadiometricVerification {
+  reference_policy: 'caller_verified'; evidence: string;
+}
+export interface GeophysicsRadiometricRatioOptions extends GeophysicsRadiometricVerification {
+  potassium_floor: number; thorium_floor: number; negative_policy?: 'mask';
+}
+export interface GeophysicsRadiometricTernaryOptions extends GeophysicsRadiometricVerification {
+  k_min: number; k_max: number; u_min: number; u_max: number; th_min: number; th_max: number;
+  gamma: number; negative_policy?: 'mask';
+}
+export function describeGeophysicsRadiometrics(): Record<string, any>;
+export function stackGeophysicsRadiometricGrids(potassium: GeophysicsRasterInput, uranium: GeophysicsRasterInput, thorium: GeophysicsRasterInput, options: GeophysicsRadiometricVerification): GeophysicsRaster;
+export function calculateGeophysicsRadiometricRatios(raster: GeophysicsRasterInput, options: GeophysicsRadiometricRatioOptions): GeophysicsRaster;
+export function createGeophysicsRadiometricTernary(raster: GeophysicsRasterInput, options: GeophysicsRadiometricTernaryOptions): GeophysicsRaster;

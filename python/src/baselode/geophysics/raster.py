@@ -407,12 +407,18 @@ class GeophysicsRaster:
 
     @classmethod
     def from_payload(cls, payload):
-        """Build a raster from :meth:`to_payload` output."""
+        """Build a raster from a Python or JavaScript payload.
+
+        JavaScript's display-only default transform is undeclared geometry.
+        Preserve that distinction as ``transform=None`` in Python.
+        """
         if not isinstance(payload, dict):
             raise ValueError("payload must be a dictionary")
+        if 'hasExplicitTransform' in payload and type(payload['hasExplicitTransform']) is not bool:
+            raise ValueError('hasExplicitTransform must be a boolean when supplied')
         return cls(
             payload.get("data"),
-            transform=payload.get("transform"),
+            transform=None if payload.get('hasExplicitTransform') is False else payload.get("transform"),
             crs=payload.get("crs"),
             nodata=payload.get("nodata"),
             band_names=payload.get("bandNames"),

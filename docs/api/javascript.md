@@ -1805,3 +1805,77 @@ CRS/model contexts through explicit horizontal reprojection. It rejects changed
 DEM/density/height/datum/history rather than silently resetting corrections.
 Terrain support is finite and assumes flat station-level terrain outside the
 DEM; this is not a global or airborne/marine correction.
+
+
+### Corrected-grid radiometric products
+
+The root package and `baselode/geophysics` export
+`describeGeophysicsRadiometrics`, `stackGeophysicsRadiometricGrids`,
+`calculateGeophysicsRadiometricRatios` and `createGeophysicsRadiometricTernary`.
+All calculations run natively in both Python and JavaScript. TypeScript exports
+verification, ratio/ternary parameter and corrected-stack context interfaces.
+
+Stack three exactly aligned one-band sources in K(%), eU(ppm), eTh(ppm) order:
+
+```javascript
+const stack = stackGeophysicsRadiometricGrids(k, u, th, {
+  reference_policy: 'caller_verified', evidence: 'source processing checked',
+});
+const ratios = calculateGeophysicsRadiometricRatios(stack, {
+  potassium_floor: 0.1, thorium_floor: 0.5,
+  reference_policy: 'caller_verified', evidence: 'source processing checked',
+});
+const rgb = createGeophysicsRadiometricTernary(stack, {
+  k_min: 0, k_max: 4, u_min: 0, u_max: 8, th_min: 0, th_max: 16, gamma: 1,
+  reference_policy: 'caller_verified', evidence: 'source processing checked',
+});
+```
+
+Thresholds/stretches above are demonstration choices. Sources declare
+`metadata.radiometric` with corrected concentration state, element,
+calibration ID, reference height and height datum. Canonical stack band names
+are `K,eU,eTh`, units `%,ppm,ppm`, with ordered calibration IDs. No alignment,
+raw-count calibration or equilibrium state is inferred.
+
+Ratio bands eTh/K and eU/K use ppm/%; eU/eTh uses 1. Explicit positive
+denominator floors accept equality. Missing/negative dependencies and weak or
+nonfinite denominators/results are masked per ratio. Ternary normalized RGB
+uses K red/eTh green/eU blue, fixed linear endpoints and `scaled**(1/gamma)`;
+its three bands share a missing/negative mask and retain valid black zeros.
+Diagnostics expose support/overflow/clipping counts. Quantitative source
+calibration and uncertainty remain in input lineage, without unsupported
+uncertainty propagation. All-unsupported products throw actionable errors.
+
+Both unary raster-workflow operations use the same snake_case options.
+Inputs used exclusively by pointwise branches accept geographic/sheared
+affine grids, including in mixed recipes with unrelated spatial-filter
+branches. Any spatial-filter descendant imposes projected/local rectangular
+requirements on its source inputs.
+Full-resolution products export through ERS/GeoTIFF with units and lineage.
+
+
+Radiometric product workflow steps require named verified input stacks.
+References to earlier transform outputs are rejected before execution;
+preflight cannot infer their actual values or changed units from cached input
+grids. Run upstream transforms separately, verify their output concentration
+context, then supply compatible stacks as named inputs.
+
+Optional raster `metadata.frame_id` must be null or a known bounded string,
+even with a projected CRS. Evidence length/type schema violations are rejected;
+missing required evidence remains `needs_input` during recipe preflight.
+
+Radiometric products require declared affine geometry. JavaScript rasters keep
+`hasExplicitTransform=false` when the constructor supplies its default pixel
+transform; clones and decimation preserve that marker, and radiometric kernels
+reject it. Existing pixel/display raster defaults remain available. Catalogue
+`outputs.units` remains a string; optional `outputs.band_units` gives exact
+per-band units for radiometric operations.
+
+When attaching verified geometry to a JavaScript raster copied from an
+undeclared source, supply both fields explicitly:
+`createGeophysicsRaster({...raster, transform: verifiedTransform, hasExplicitTransform: true})`.
+The same options apply to `geophysicsRasterFromBands`. A carried `false` remains
+authoritative even when transform numbers change: numerical editing cannot
+verify geometry. Python `GeophysicsRaster.from_payload` maps `false` to
+`transform=None`, so transfer preserves this distinction. To declare verified
+geometry in a portable payload, supply its transform and set the marker to true.

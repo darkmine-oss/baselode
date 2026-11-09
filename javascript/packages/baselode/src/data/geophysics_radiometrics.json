@@ -1,0 +1,271 @@
+{
+  "id": "baselode.geophysics.radiometrics",
+  "version": 1,
+  "stack_order": [
+    "K",
+    "eU",
+    "eTh"
+  ],
+  "stack_units": [
+    "%",
+    "ppm",
+    "ppm"
+  ],
+  "input_context": {
+    "state": "corrected_concentration",
+    "single_band": "metadata.radiometric = {element: K/eU/eTh, state, calibration_id, reference_height_m, height_datum}",
+    "stack": "metadata.radiometric = {state, calibration_ids: [K,eU,eTh], reference_height_m, height_datum}; band names/order K,eU,eTh, field_type radiometric, metadata.units [%,ppm,ppm]"
+  },
+  "ratio_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "potassium_floor",
+      "thorium_floor",
+      "reference_policy",
+      "evidence"
+    ],
+    "properties": {
+      "potassium_floor": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000
+      },
+      "thorium_floor": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "maximum": 1000000
+      },
+      "reference_policy": {
+        "type": "string",
+        "enum": [
+          "caller_verified"
+        ]
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "negative_policy": {
+        "type": "string",
+        "enum": [
+          "mask"
+        ],
+        "default": "mask"
+      }
+    }
+  },
+  "ternary_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "k_min",
+      "k_max",
+      "u_min",
+      "u_max",
+      "th_min",
+      "th_max",
+      "gamma",
+      "reference_policy",
+      "evidence"
+    ],
+    "properties": {
+      "k_min": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "k_max": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "u_min": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "u_max": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "th_min": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "th_max": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1e+100
+      },
+      "gamma": {
+        "type": "number",
+        "minimum": 0.1,
+        "maximum": 10
+      },
+      "reference_policy": {
+        "type": "string",
+        "enum": [
+          "caller_verified"
+        ]
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "negative_policy": {
+        "type": "string",
+        "enum": [
+          "mask"
+        ],
+        "default": "mask"
+      }
+    }
+  },
+  "resources": {
+    "max_input_cell_values": 1000000,
+    "max_options_bytes": 262144
+  },
+  "ratio_outputs": {
+    "bands": [
+      "eTh_K",
+      "eU_K",
+      "eU_eTh"
+    ],
+    "units": [
+      "ppm/%",
+      "ppm/%",
+      "1"
+    ],
+    "missing_policy": "per-ratio dependencies; denominator >= explicit positive floor; negative dependencies masked; nonfinite results masked"
+  },
+  "ternary_outputs": {
+    "bands": [
+      "red",
+      "green",
+      "blue"
+    ],
+    "units": [
+      "fraction",
+      "fraction",
+      "fraction"
+    ],
+    "mapping": [
+      "K",
+      "eTh",
+      "eU"
+    ],
+    "formula": "clamp((value-low)/(high-low),0,1) ** (1/gamma)",
+    "missing_policy": "common mask for all missing/negative components; all-zero valid concentrations remain black if stretches begin at zero"
+  },
+  "assumptions": [
+    "Use already corrected calibrated concentrations, not raw counts/spectra; no correction or equilibrium state is inferred. eU/eTh remain equivalent concentrations.",
+    "K is percent; eU and eTh are ppm. eU/K and eTh/K are ppm per percent, not dimensionless mass ratios.",
+    "Stacking requires exactly matching shape/affine/CRS and matching reference height/height datum; use explicit alignment separately, no silent resampling.",
+    "Ternary is fixed-stretch display RGB with K red/eTh green/eU blue, not compositional closure or concentration estimation.",
+    "No pseudocounts, negative clipping or automatic histogram refits; invalid dependencies and weak denominators are masked visibly.",
+    "Source uncertainty is archived in input lineage; corrected/merged grids do not justify a raw-count Poisson assumption or covariance-free propagated errors.",
+    "Saved radiometric product steps require named verified input stacks; run upstream transforms separately and verify their actual output context/support, rather than treating cached source grids as transformed data."
+  ],
+  "references": [
+    "https://www.resources.nsw.gov.au/geological-survey/products-and-data/geophysical-images-and-data",
+    "https://www.wa.gov.au/organisation/department-of-mines-petroleum-and-exploration/geological-survey-of-western-australia/regional-airborne-radiometric-data",
+    "https://open.canada.ca/data/en/dataset/289c931c-a1b1-55f8-8d93-4d88e66f1810"
+  ],
+  "source_context_schema": {
+    "type": "object",
+    "required": [
+      "state",
+      "reference_height_m",
+      "height_datum",
+      "element",
+      "calibration_id"
+    ],
+    "properties": {
+      "state": {
+        "const": "corrected_concentration"
+      },
+      "reference_height_m": {
+        "type": "number",
+        "minimum": -1e+100,
+        "maximum": 1e+100
+      },
+      "height_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "element": {
+        "enum": [
+          "K",
+          "eU",
+          "eTh"
+        ]
+      },
+      "calibration_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  },
+  "stack_context_schema": {
+    "type": "object",
+    "required": [
+      "state",
+      "reference_height_m",
+      "height_datum",
+      "calibration_ids"
+    ],
+    "properties": {
+      "state": {
+        "const": "corrected_concentration"
+      },
+      "reference_height_m": {
+        "type": "number",
+        "minimum": -1e+100,
+        "maximum": 1e+100
+      },
+      "height_datum": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "calibration_ids": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    }
+  },
+  "stack_parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "reference_policy",
+      "evidence"
+    ],
+    "properties": {
+      "reference_policy": {
+        "type": "string",
+        "enum": [
+          "caller_verified"
+        ]
+      },
+      "evidence": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      }
+    }
+  }
+}

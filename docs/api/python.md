@@ -442,7 +442,7 @@ Workflow inputs need explicit `metadata.field_type` for all bands: `magnetic_ano
 `gravity_anomaly`, `radiometric`, or `other`, plus one nonempty `metadata.units` string
 per band and finite invertible rectangular affine coordinates (rotations supported; shear rejected). Use separate rasters for mixed field
 families. A projected CRS supplies linear units; a local grid must declare `crs_units`.
-Angular coordinates are rejected. Potential-field operators reject radiometric/other
+Angular coordinates are rejected for spatial filters. Inputs used exclusively by pointwise radiometric branches also accept geographic or sheared affine grids; no spatial distances are used. Potential-field operators reject radiometric/other
 fields; RTP requires magnetic anomalies, explicit inclination/declination and
 `|inclination| >= 15°`. In this workflow contract declination is **east of grid north**:
 the caller must apply survey-appropriate convergence before supplying it. No field date,
@@ -2524,3 +2524,101 @@ workflows register both operations. Native input/output bindings cover XY and
 readings; supplementary model/context/height bindings replay through explicit
 horizontal reprojection without reconstructing historical XY from rounded
 inverse transforms.
+
+
+### Corrected radiometric concentrations and products
+
+`describe_radiometrics()` exposes schemas for corrected source/stack metadata,
+parameter contracts, band roles/units, mask conventions and resource limits.
+Use already corrected and calibrated concentrations: K in percent, eU and eTh
+in ppm. The equivalent labels do not assert radioactive equilibrium or direct
+chemical concentrations. Raw spectra/counts require external processing.
+
+```python
+import baselode.geophysics
+
+# Each one-band source declares metadata.field_type="radiometric", units and
+# metadata.radiometric={element:"K"/"eU"/"eTh", state:"corrected_concentration",
+# calibration_id, reference_height_m, height_datum}.
+stack = baselode.geophysics.stack_radiometric_grids(
+    potassium, uranium, thorium,
+    reference_policy="caller_verified", evidence="source processing checked",
+)
+ratios = baselode.geophysics.radiometric_ratios(
+    stack, potassium_floor=0.1, thorium_floor=0.5,
+    reference_policy="caller_verified", evidence="source processing checked",
+)
+rgb = baselode.geophysics.radiometric_ternary(
+    stack, k_min=0, k_max=4, u_min=0, u_max=8, th_min=0, th_max=16,
+    gamma=1, reference_policy="caller_verified", evidence="source processing checked",
+)
+```
+
+The example thresholds/stretches are explicit demonstration choices, not
+survey-independent recommendations. Stacking requires exactly matching shape,
+affine, CRS, coordinate units/local frame, reference height and height datum.
+It never aligns or resamples implicitly. Each source's calibration and metadata
+are retained in flat input lineage. A canonical stack has bands `K,eU,eTh`,
+units `%,ppm,ppm`, field type `radiometric`, and
+`metadata.radiometric={state:"corrected_concentration", calibration_ids:[K,eU,eTh],
+reference_height_m, height_datum}`. A local grid needs `frame_id`; all grids
+need explicit `crs_units` and finite invertible affine coordinates.
+
+Ratio bands are `eTh_K,eU_K,eU_eTh`, with units `ppm/%,ppm/%,1`. These are
+concentration ratios using the stated units; percent-to-ppm conversion is not
+silently applied. A denominator equal to its positive floor is accepted.
+Missing/negative dependencies, denominators below the floor and nonfinite
+results are masked independently for each ratio, without pseudocounts or
+negative clipping. A missing K does not remove valid eU/eTh. Diagnostics report
+per-band support, unsupported and overflow counts.
+
+Ternary output is a georeferenced three-band normalized RGB raster: K red,
+eTh green, eU blue. Each component uses
+`clamp((value-low)/(high-low),0,1)**(1/gamma)` with explicit nonnegative low/high
+stretches and gamma in [0.1,10]. A missing/negative component masks all RGB
+bands. Valid zeros remain valid black when stretches begin at zero. Clipping
+counts remain visible; there is no per-tile histogram refit or compositional
+closure. Output units are `fraction`; this is a display product.
+
+Products use `field_type="other"` and archive quantitative input calibration,
+processing and uncertainty in `input_lineage`; `uncertainty_propagated=False`.
+Corrected/merged grids do not justify a raw-count Poisson or covariance-free
+uncertainty estimate. No input mutation. At most 1,000,000 total input cell
+values and bounded parameters/provenance are accepted. Invalid context or
+parameters, or no supported cells, raise `ValueError`.
+
+Saved raster workflows register `radiometric_ratios` and `radiometric_ternary`
+with the same snake_case parameters. Preflight checks calibration/context and
+pointwise support before retaining products; absent support returns
+`needs_input`. Inputs used only by pointwise radiometric branches accept geographic and
+general finite invertible affine grids and use no FFT budget. Unrelated
+spatial-filter branches do not constrain them. Inputs with any spatial-filter
+descendant retain projected/local rectangular-grid requirements. Derived products retain full resolution and export through the
+existing ERS/GeoTIFF writers with source lineage and units.
+
+
+Radiometric product steps consume named verified workflow input stacks. They
+reject references to earlier transform outputs, whose actual values/derived
+units cannot be checked from a cached structural context. Run an upstream
+filter/combine recipe separately, inspect its output calibration/units/support,
+then supply a compatible verified stack as an input to the product recipe.
+
+Optional raster `metadata.frame_id` must be null or a known bounded string,
+even with a projected CRS. Evidence length/type schema violations are rejected;
+missing required evidence remains `needs_input` during recipe preflight.
+
+Radiometric products require declared affine geometry. JavaScript rasters keep
+`hasExplicitTransform=false` when the constructor supplies its default pixel
+transform; clones and decimation preserve that marker, and radiometric kernels
+reject it. Existing pixel/display raster defaults remain available. Catalogue
+`outputs.units` remains a string; optional `outputs.band_units` gives exact
+per-band units for radiometric operations.
+
+When attaching verified geometry to a JavaScript raster copied from an
+undeclared source, supply both fields explicitly:
+`createGeophysicsRaster({...raster, transform: verifiedTransform, hasExplicitTransform: true})`.
+The same options apply to `geophysicsRasterFromBands`. A carried `false` remains
+authoritative even when transform numbers change: numerical editing cannot
+verify geometry. Python `GeophysicsRaster.from_payload` maps `false` to
+`transform=None`, so transfer preserves this distinction. To declare verified
+geometry in a portable payload, supply its transform and set the marker to true.

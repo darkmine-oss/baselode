@@ -40,7 +40,7 @@ assert.deepEqual(extent.center(), [119, -31]);
 assert.equal(extentModule.DEFAULT_EXTENT_CRS, 'EPSG:4326');
 
 const geophysics = await import(pathToFileURL(resolve(root, 'dist/geophysics.js')));
-assert.equal(geophysics.listGeophysicsOperations().length, 11);
+assert.equal(geophysics.listGeophysicsOperations().length, 13);
 const workflowGrid = geophysics.createGeophysicsRaster({
   data: [[1, 2], [3, 4]], transform: [10, 0, 0, 0, -10, 20],
   metadata: { field_type: 'magnetic_anomaly', units: ['nT'], crs_units: 'm' },
@@ -162,3 +162,9 @@ assert.equal(geophysics.describeGeophysicsGravityTemporal().version,1);
 assert.equal(geophysics.describeGeophysicsGravityTopography().models.gravity_bouguer.algorithm,'infinite_land_plate_v1');
 const topographyReplay=JSON.parse(readFileSync(resolve(root,'../../../test/data/gravity_topography_ledger_reference.json'),'utf8'));
 assert.equal((await geophysics.inspectGeophysicsCorrections(topographyReplay.terrain_observations)).state,'ok');
+
+const radioExample=JSON.parse(readFileSync(resolve(root,'../../../test/data/radiometrics_reference.json'),'utf8'));
+const radioStack=geophysics.createGeophysicsRaster({...radioExample,bandNames:radioExample.band_names});
+assert.deepEqual(geophysics.calculateGeophysicsRadiometricRatios(radioStack,radioExample.ratio_options).data,radioExample.expected_ratios);
+assert.deepEqual(geophysics.createGeophysicsRadiometricTernary(radioStack,radioExample.ternary_options).data,radioExample.expected_ternary);
+assert.equal(geophysics.describeGeophysicsRadiometrics().version,1);

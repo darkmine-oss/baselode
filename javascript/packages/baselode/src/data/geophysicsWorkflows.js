@@ -1,5 +1,6 @@
 /* Copyright (C) 2026 Darkmine Pty Ltd
  * SPDX-License-Identifier: GPL-3.0-or-later */
+import {preflightRadiometricProduct,RadiometricNeedsInput,calculateGeophysicsRadiometricRatios,createGeophysicsRadiometricTernary} from './geophysicsRadiometrics.js';
 import catalogue from './geophysics_operations.json';
 import schema from './geophysics_workflow.schema.json';
 import recipe from './magnetic_grid_recipe.json';
@@ -8,6 +9,7 @@ import { createGeophysicsRaster } from './geophysicsRaster.js';
 import { geophysicsCoordinateUnit, processGeophysicsRaster } from './geophysicsProcessing.js';
 import { combineGeophysicsRasters } from './geophysicsEditing.js';
 
+const pointwise=['radiometric_ratios','radiometric_ternary'];
 const operations = new Map(catalogue.map((item) => [item.id, item]));
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const identifier = (value) => typeof value === 'string' && /^[A-Za-z][A-Za-z0-9_]{0,63}$/.test(value);
@@ -48,6 +50,7 @@ function parameters(operation, supplied, issue, path) {
         && (rule.maximum === undefined || value <= rule.maximum)
         && (rule.exclusiveMinimum === undefined || value > rule.exclusiveMinimum);
     }
+    if(valid&&rule.type==='string'){const length=[...value].length;valid=(rule.minLength===undefined||length>=rule.minLength)&&(rule.maxLength===undefined||length<=rule.maxLength);}
     if (rule.enum) valid = valid && rule.enum.includes(value);
     if (!valid) issue('rejected', 'parameter', `${path}.${key}`, 'value violates the operation parameter schema');
     else result[key] = value;
@@ -64,7 +67,8 @@ function parameters(operation, supplied, issue, path) {
 function outputContext(context, operation, params) {
   const result = { ...context, units: [...context.units] };
   if (operation.outputs.field_type !== 'preserve') result.field_type = operation.outputs.field_type;
-  if (operation.id === 'tilt_derivative') result.units = context.units.map(() => 'degree');
+  if(pointwise.includes(operation.id))result.units=[...operation.outputs.band_units];
+  else if (operation.id === 'tilt_derivative') result.units = context.units.map(() => 'degree');
   else if (['vertical_derivative', 'horizontal_derivative', 'total_horizontal_derivative', 'analytic_signal'].includes(operation.id)) {
     const order = params.order ?? 1;
     const denominator = order === 1 ? context.distance_unit : `${context.distance_unit}^${order}`;
@@ -74,7 +78,7 @@ function outputContext(context, operation, params) {
 }
 
 /**
- * Preflight all steps without running numerical kernels or doing I/O.
+ * Preflight all steps without retaining products or doing I/O. Pointwise support QC reads source values.
  * Portable parameter names are snake_case in both languages.
  * Limits bound retained cells/FFT shapes, not exact peak bytes or wall time.
  */
@@ -102,6 +106,8 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
   if (!object(inputs) || !Object.keys(inputs).every(identifier)) {
     issue('rejected', 'input', 'inputs', 'inputs must be an object with identifier keys'); return finish();
   }
+  const linearReferences=new Set();
+  for(const step of [...steps].reverse())if(object(step)&&Array.isArray(step.inputs)&&step.inputs.every(ref=>typeof ref==='string')){if(!pointwise.includes(step.operation)||linearReferences.has(step.id))step.inputs.forEach(ref=>linearReferences.add(ref));}
   let retained = 0; let largestFft = 0;
   for (const [key, raster] of Object.entries(inputs)) {
     const path = `inputs.${key}`;
@@ -120,10 +126,11 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
     }
     retained += cells;
     if (cells > 1000000) issue('rejected', 'resource', path, 'input exceeds 1000000 cell values');
+    const pointwiseInput=!linearReferences.has(key)&&steps.some(step=>object(step)&&pointwise.includes(step.operation)&&Array.isArray(step.inputs)&&step.inputs.includes(key));
     let distance = 'coordinate_unit'; let spacing = [1, 1];
     try {
       encodeProvenance(raster.metadata, 'GeoTIFF', 'float64');
-      distance = geophysicsCoordinateUnit(raster);
+      distance = pointwiseInput?'pointwise':geophysicsCoordinateUnit(raster);
       if (distance === 'coordinate_unit') issue('needs_input', 'coordinates', path, 'supply explicit local metadata.crs_units or a projected CRS');
       const t = raster.transform;
       if (!Array.isArray(t) || t.length !== 6 || !t.every(Number.isFinite)) throw new RangeError('require a finite invertible rectangular affine transform');
@@ -131,7 +138,7 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
       const column = Math.hypot(t[0], t[3]); const row = Math.hypot(t[1], t[4]);
       spacing = [column, row];
       if (!Number.isFinite(determinant) || determinant === 0 || !Number.isFinite(column) || !Number.isFinite(row)
-        || column === 0 || row === 0 || Math.abs(t[0] * t[1] + t[3] * t[4]) > 1e-9 * column * row) {
+        || column === 0 || row === 0 || (!pointwiseInput&&Math.abs(t[0] * t[1] + t[3] * t[4]) > 1e-9 * column * row)) {
         throw new RangeError('require a finite invertible rectangular affine transform; sheared grids are unsupported');
       }
     } catch (error) { issue('rejected', 'input', path, error.message); spacing = [1, 1]; }
@@ -182,9 +189,11 @@ export function validateGeophysicsWorkflow(workflow, inputs) {
         }
         if (!equal(left.units, right.units) || left.field_type !== right.field_type) issue('rejected', 'units', path, 'combine requires matching units and field_type');
       }
+      if(pointwise.includes(operation.id)&&!Object.hasOwn(inputs,refs[0]))issue('rejected','radiometric',path,'radiometric product steps require a named verified input stack; run upstream transforms separately and verify their output context/support first');
+      if(pointwise.includes(operation.id)&&Object.hasOwn(inputs,refs[0])&&left.grid.width*left.grid.height*left.grid.bandCount<=1000000&&retained+left.grid.width*left.grid.height*left.grid.bandCount<=16000000){try{preflightRadiometricProduct(left.grid,operation.id,params);}catch(error){issue(error instanceof RadiometricNeedsInput?'needs_input':'rejected','radiometric',path,error.message);}}
       contexts.set(name, outputContext(left, operation, params));
       retained += left.grid.width * left.grid.height * left.grid.bandCount;
-      if (!['combine', 'horizontal_derivative', 'total_horizontal_derivative'].includes(operation.id)) {
+      if (!['combine', 'horizontal_derivative', 'total_horizontal_derivative',...pointwise].includes(operation.id)) {
         const length = params.long_wavelength ?? params.wavelength;
         const [cellX, cellY] = left.spacing;
         if (length !== undefined && ![cellX, cellY].every((spacing) => Number.isFinite(length / spacing))) {
@@ -219,7 +228,9 @@ export function runGeophysicsWorkflow(workflow, inputs) {
       const options = Object.fromEntries(Object.entries(params).map(([key, value]) => [key.replace(/_([a-z])/g, (_, char) => char.toUpperCase()), value]));
       const product = step.operation === 'combine'
         ? combineGeophysicsRasters(sources[0], sources[1], params.operation)
-        : processGeophysicsRaster(sources[0], step.operation, options);
+        : step.operation==='radiometric_ratios'?calculateGeophysicsRadiometricRatios(sources[0],params)
+          :step.operation==='radiometric_ternary'?createGeophysicsRadiometricTernary(sources[0],params)
+            :processGeophysicsRaster(sources[0], step.operation, options);
       const field = operations.get(step.operation).outputs.field_type;
       product.metadata.field_type = field === 'preserve' ? sources[0].metadata.field_type : field;
       product.metadata.processing = [...(product.metadata.processing ?? []), {

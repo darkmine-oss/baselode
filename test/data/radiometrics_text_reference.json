@@ -1,0 +1,82 @@
+[
+  {
+    "target": "evidence",
+    "value": "\u001c",
+    "accepted": false
+  },
+  {
+    "target": "evidence",
+    "value": "\ufeff",
+    "accepted": false
+  },
+  {
+    "target": "evidence",
+    "value": "verified\ud83d\ude00\u001f",
+    "accepted": true
+  },
+  {
+    "target": "height_datum",
+    "value": "\u0085",
+    "accepted": false
+  },
+  {
+    "target": "height_datum",
+    "value": "\ufeffunknown\ufeff",
+    "accepted": false
+  },
+  {
+    "target": "calibration_id",
+    "value": "unknown\u001f",
+    "accepted": false
+  },
+  {
+    "target": "calibration_id",
+    "value": "test\ud83d\ude00\u001f",
+    "accepted": true
+  },
+  {
+    "target": "frame_id",
+    "value": "\u001c",
+    "accepted": false
+  },
+  {
+    "target": "crs",
+    "value": "\u0085",
+    "accepted": false
+  },
+  {
+    "target": "evidence",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "crs",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "height_datum",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "calibration_id",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "frame_id",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "crs_units",
+    "value": "\ud800",
+    "accepted": false
+  },
+  {
+    "target": "extension",
+    "value": "\ud800",
+    "accepted": false
+  }
+]
