@@ -201,7 +201,11 @@ def calculate_gravity_prisms(request):
     try:
         p,geometries,diagnostics = _prepare(request)
         for package,expected in (('harmonica','0.7.0'),('choclo','0.3.2')):
-            if importlib.metadata.version(package) != expected:
+            try:
+                installed_version = importlib.metadata.version(package)
+            except importlib.metadata.PackageNotFoundError as error:
+                raise _BackendError('missing '+package+' distribution metadata; install the declared potential-fields extra') from error
+            if installed_version != expected:
                 raise _BackendError('unsupported '+package+' version; install the declared potential-fields extra')
         if _choclo.constants.GRAVITATIONAL_CONST != report['model']['gravitational_constant']:
             raise _BackendError('changed backend gravitational constant')

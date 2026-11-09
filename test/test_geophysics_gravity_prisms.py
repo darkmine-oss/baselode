@@ -218,3 +218,17 @@ def test_rotated_rectangular_body_preserves_vector_and_potential():
     assert rotated['gx']==pytest.approx(-original['gy'],rel=1e-12,abs=1e-14)
     assert rotated['gy']==pytest.approx(original['gx'],rel=1e-12,abs=1e-14)
     for key in ('gz_up','g_down','potential'):assert rotated[key]==pytest.approx(original[key],rel=1e-12,abs=1e-14)
+
+
+@pytest.mark.parametrize('missing',['harmonica','choclo'])
+def test_importable_backend_without_distribution_metadata_fails_atomically(missing,monkeypatch):
+    actual=baselode.geophysics.gravity_prisms.importlib.metadata.version
+    def missing_metadata(name):
+        if name==missing:
+            raise baselode.geophysics.gravity_prisms.importlib.metadata.PackageNotFoundError(name)
+        return actual(name)
+    monkeypatch.setattr(baselode.geophysics.gravity_prisms.importlib.metadata,'version',missing_metadata)
+    r=baselode.geophysics.calculate_gravity_prisms(request())
+    assert r['state']=='failed' and r['issues'][0]['code']=='backend'
+    assert 'distribution metadata' in r['issues'][0]['message'] and missing in r['issues'][0]['message']
+    assert r['fields']==[] and r['sensitivities']==[] and r['request'] is None
