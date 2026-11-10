@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add native calibrated raw airborne radiometric processing from integer spectra through live-time/background/stripping/height/sensitivity corrections to K/eU/eTh, with conditional per-record covariance, signed quality flags, explicit calibration/acquisition guards, portable schemas/types/recipe replay and independent scientific tests.
+
 - Add bounded model reliability and registered-raster processing ensembles with explicit seeded perturbations, saved member replay, partial-failure/coverage ledgers, empirical model/vector statistics and masked anomaly-stability maps. Include native contracts/types, scientific ambiguity/line-geology/edge tests and portable examples.
 
 - Add bounded smoothed-Lp/logarithmic compact IRLS potential-field inversion with explicit starting models/epsilon paths, actual objective history, certified inner/outer gradients, bounded polishing/backtracking, native contracts/types and independent signed/compact/contact/multichannel regressions. Preserve portable diagnostics for exact-zero operators.

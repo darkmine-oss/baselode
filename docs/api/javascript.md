@@ -2489,3 +2489,12 @@ operator, nullity/conditioning, bounds and convergence. No JS solver stub.
 unit, operation and resource gates with Python. Types include partial outcomes,
 member replay, model/vector statistics and masked raster stability maps. Python
 executes both runners; the processing runner needs no optional numerical extra.
+
+### Calibrated raw airborne radiometrics
+
+`describeGeophysicsRawRadiometrics()`,
+`validateGeophysicsRawRadiometrics(request)` and
+`processGeophysicsRawRadiometrics(request)` export from root and
+`baselode/geophysics`. These are native calculations with shared schemas and
+TypeScript request/calibration/record/covariance/report types. Complete portable
+requests replay in core Python; no optional numerical solver is needed.

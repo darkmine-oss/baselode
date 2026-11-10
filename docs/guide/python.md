@@ -1577,5 +1577,106 @@ bounds are 16/64MiB; processing lineage permits result depth 40 versus input 32.
 
 Aggregate metadata has65536 model/131072 raster structural budget units: UTF-8
 JSON string/key bytes, punctuation and booleans/null count normally; every
-numeric scalar costs32 units. This explicit accounting avoids host-dependent
+numeric scalar costs 32 units. This explicit accounting avoids host-dependent
 float spellings. The enclosing JSON payload also has its own byte/node limits.
+
+## Calibrated raw airborne radiometric processing
+
+The complete synthetic request in `test/data/raw_radiometrics_example.json` is
+an arithmetic example, not an instrument calibration. Supply the acquisition
+spectra and the matching detector calibration to use the same API on a survey:
+
+```python
+import json
+import baselode.geophysics
+
+with open("test/data/raw_radiometrics_example.json") as stream:
+    request = json.load(stream)
+validation = baselode.geophysics.validate_raw_radiometrics(request)
+if validation["state"] == "ok":
+    result = baselode.geophysics.process_raw_radiometrics(request)
+    if result["state"] == "ok":
+        channels = result["records"][0]["channels"]
+        covariance = result["records"][0]["concentration_covariance"]
+```
+
+All numerical execution works in core Python; JavaScript has the same native
+calculation. This standalone request/report API retains an ordered versioned
+correction recipe. The recipe is part of this contract; it is not a raster
+`run_workflow` recipe. Full raw spectra remain in `result.request`, and that
+request can be executed again. Record IDs and optional metadata preserve joins
+to survey coordinates; this API does not guess a CRS or grid the results.
+
+Provide calibration ID, revision, detector/source IDs and an inclusive UTC
+acquisition validity interval. UTC dates use `YYYY-MM-DDTHH:MM:SSZ`; validation
+checks the acquisition time, allowing historical replay. The explicit raw state
+must have an empty applied-correction list. A corrected-state input is rejected
+with `needs_input`; no correction is silently applied twice. Any invalid record
+withholds the whole corrected batch.
+
+Energy centres follow `offset_keV + gain_keV_per_channel * channel_index` with
+zero-based indices. Each supplied K/eU/eTh window selects complete integer bins,
+inclusive first and exclusive last. The three windows must be disjoint. Derived
+energy edges are reported; no fractional rebinning, energy-drift fitting or
+assumed detector windows occur. Main and cosmic monitor live times must be
+positive and no greater than their aligned real accumulation interval.
+
+The correction sequence follows the live-time, background, stripping, height
+and sensitivity treatment in [IAEA-TECDOC-1363, sections 5.5.3 and 5.5.5–9](https://www-pub.iaea.org/MTCD/Publications/PDF/te_1363_web.pdf).
+Counts are normalised by supplied live time. Aircraft calibration background,
+cosmic leakage times the independent monitor rate, and a supplied independent
+radon estimate are subtracted. No background or pulse dead-time constant is
+inferred. The reference-air height generalises the IAEA STP density formula:
+
+```text
+h_eff = height_AGL * (pressure / reference_pressure)
+                   * (reference_temperature_K / temperature_K)
+S(h)  = S0 + (h_eff - h0) * supplied_height_slopes
+Q     = diag(exp(mu * (h_eff - h0)) / sensitivity) * inverse(S(h))
+[K%, eU_ppm, eTh_ppm] = Q * background_corrected_window_cps
+```
+
+Every height-dependent calibration coefficient must use that same declared
+air reference. With 273.15K and 101325Pa this is the IAEA STP convention; other
+references require coefficients calibrated to them. `S` maps stripped count
+rates into observed net windows, with unit diagonal. Off-diagonal height slopes
+are supplied explicitly, including zeros. Calibration endpoints, nominal height
+and each actual height are checked for response sign and a caller-limited
+Frobenius condition estimate/bound. The inverse residual is reported.
+
+The flat, effectively infinite-source exponential height model is bounded to
+geometric/effective heights 50..250m and caller-declared calibrated subsets.
+Both nominal-height attenuation/amplification and response conditioning have
+explicit caller limits. This model does not correct rugged terrain or recover
+a detector footprint. Sensitivities convert nominal-height stripped count rates
+to K%, equivalent U ppm and equivalent Th ppm. Equivalent values do not verify
+secular equilibrium or delineate deep mineralisation.
+
+Conditional covariance uses window counts/live_time², the independent cosmic
+monitor's rank-one contribution, and supplied aircraft/radon covariance. A
+scale-normalised pivoted semidefinite Cholesky handles zero, rank-one and widely
+scaled PSD inputs; nonzero covariance entries must be at least 1e-200 in
+magnitude. Positive pivots are retained. A nonpositive roundoff block may be
+truncated only within 64 machine epsilons, with rank and actual reconstruction
+adjustment retained; the relative reconstruction bound is 512 epsilons. Positive
+factors are propagated through the same stripping/height/sensitivity transform,
+so mixing-induced covariance and mixed units remain visible.
+
+These are per-record plug-in counting uncertainties conditional on fixed live
+times, heights, energy calibration and response coefficients. They exclude
+renewal-process dead-time statistics, calibration/height/exposure uncertainty
+and cross-record covariance; shared calibration background can correlate
+records. They are not confidence intervals or posterior uncertainties. A
+zero-count plug-in variance does not imply certainty.
+
+Negative estimates remain visible, with flags for negative stages, low counts,
+high dead-time fractions and high relative standard uncertainty. Zero values or
+relative ratios exceeding the portable 1e100 bound have null relative uncertainty and explicit flags.
+Caller thresholds affect flags, not clipping or pseudocounts. Inspect flags and
+the full covariance before using downstream concentration ratios.
+
+Limits: 1..128 records, 4..4096 channels, integer counts 0..1e9 per channel, and
+live/real times 0.001..3600s. The joint maximum is tested in both languages.
+Input/result bounds are 16/32MiB, 1m/2m JSON nodes and depth 32/33. Aggregate
+metadata has 131072 structural units: UTF-8 JSON strings/keys/punctuation and
+booleans/null count normally; each numeric scalar costs 32 units.

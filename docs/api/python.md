@@ -3357,3 +3357,13 @@ and identity controls in core Python. See the guide, descriptor schemas and
 `test/data/{potential_field,processing}_ensemble_example.json`. Reports preserve
 all outcomes, executed inputs, replay requests, explicit coverage and empirical
 statistics; `partial` requires the caller's collect/minimum-success policy.
+
+### Calibrated raw airborne radiometrics
+
+`describe_raw_radiometrics()`, `validate_raw_radiometrics(request)` and
+`process_raw_radiometrics(request)` execute in core Python. Complete raw spectra,
+supplied detector/energy/response calibration, live times and independent
+background estimates produce K(%), eU/eTh(ppm), per-record covariance, quality
+flags and a versioned correction recipe. The raw request is retained for replay.
+See `test/data/raw_radiometrics_example.json`, the descriptor schemas and guide
+for height domains, supplied-calibration conventions and uncertainty limitations.

@@ -1087,3 +1087,38 @@ export interface GeophysicsProcessingEnsembleReport {
 }
 export function describeGeophysicsProcessingEnsemble():Record<string,any>;
 export function validateGeophysicsProcessingEnsemble(request:GeophysicsProcessingEnsembleRequest):GeophysicsProcessingEnsembleReport;
+
+/** K, equivalent U, equivalent Th ordering; covariance entries carry row-unit × column-unit. */
+export type GeophysicsRadiometricTriple=[number,number,number];
+export type GeophysicsRadiometricMatrix=[GeophysicsRadiometricTriple,GeophysicsRadiometricTriple,GeophysicsRadiometricTriple];
+export interface GeophysicsRadiometricCalibration {
+ id:string;version:string;source_id:string;detector_id:string;valid_from_utc:string;valid_to_utc:string;
+ energy:{channels:number;offset_keV:number;gain_keV_per_channel:number;channel_convention:'zero_based_centres'};
+ windows:[{element:'K';first_channel:number;last_channel_exclusive:number},{element:'eU';first_channel:number;last_channel_exclusive:number},{element:'eTh';first_channel:number;last_channel_exclusive:number}];
+ air_reference:{pressure_Pa:number;temperature_K:number;model:'ideal_dry_air_density_ratio'};
+ nominal_effective_height_m:number;geometric_height_range_m:[number,number];effective_height_range_m:[number,number];response_matrix:GeophysicsRadiometricMatrix;response_height_slopes_per_m:GeophysicsRadiometricMatrix;attenuation_per_m:GeophysicsRadiometricTriple;sensitivity_cps_per_unit:GeophysicsRadiometricTriple;
+ aircraft_background:{window_rates_cps:GeophysicsRadiometricTriple;covariance_cps2:GeophysicsRadiometricMatrix};cosmic_leakage:GeophysicsRadiometricTriple;metadata?:Record<string,unknown>;
+}
+export interface GeophysicsRawRadiometricRecord {
+ id:string;detector_id:string;calibration_id:string;acquired_at_utc:string;spectrum_counts:number[];live_time_s:number;real_time_s:number;height_agl_m:number;pressure_Pa:number;temperature_K:number;
+ cosmic_monitor:{counts:number;live_time_s:number;real_time_s:number;independent_of_spectrum:true};radon_background:{estimate_id:string;window_rates_cps:GeophysicsRadiometricTriple;covariance_cps2:GeophysicsRadiometricMatrix;independent_of_main_and_cosmic:true};metadata?:Record<string,unknown>;
+}
+export interface GeophysicsRawRadiometricsRequest {
+ schema:'baselode.geophysics.raw_radiometrics_request';version:1;reference_id:string;calibration:GeophysicsRadiometricCalibration;records:GeophysicsRawRadiometricRecord[];processing_state:{kind:'raw_counts';applied_corrections:[]};uncertainty_model:'conditional_independent_poisson_fixed_live_times_and_calibration';
+ options:{minimum_window_counts:number;maximum_relative_standard_uncertainty:number;dead_time_warning_fraction:number;maximum_height_factor:number;maximum_response_condition:number};metadata?:Record<string,unknown>;
+}
+export interface GeophysicsRadiometricConcentration {element:'K'|'eU'|'eTh';units:'%'|'ppm';value:number;standard_uncertainty:number;relative_standard_uncertainty:number|null;flags:string[]}
+export interface GeophysicsRadiometricCovarianceAudit {rank:number;maximum_adjustment_cps2:number;relative_adjustment:number}
+export interface GeophysicsProcessedRadiometricRecord {
+ id:string;calibration_id:string;detector_id:string;acquired_at_utc:string;channels:[GeophysicsRadiometricConcentration,GeophysicsRadiometricConcentration,GeophysicsRadiometricConcentration];flags:string[];dead_time_fraction:number;cosmic_dead_time_fraction:number;window_counts:GeophysicsRadiometricTriple;
+ observed_rates_cps:GeophysicsRadiometricTriple;live_rates_cps:GeophysicsRadiometricTriple;aircraft_background_cps:GeophysicsRadiometricTriple;cosmic_monitor_rate_cps:number;cosmic_background_cps:GeophysicsRadiometricTriple;radon_background_cps:GeophysicsRadiometricTriple;background_corrected_rates_cps:GeophysicsRadiometricTriple;stripped_rates_cps:GeophysicsRadiometricTriple;nominal_height_rates_cps:GeophysicsRadiometricTriple;
+ effective_height_m:number;height_factors:GeophysicsRadiometricTriple;response_matrix:GeophysicsRadiometricMatrix;inverse_response:GeophysicsRadiometricMatrix;response_condition_bound:number;inverse_residual:number;concentration_transform:GeophysicsRadiometricMatrix;count_rate_covariance_cps2:GeophysicsRadiometricMatrix;stripped_covariance_cps2:GeophysicsRadiometricMatrix;concentration_covariance:{order:['K','eU','eTh'];units:['%','ppm','ppm'];values:GeophysicsRadiometricMatrix};covariance_factorisation:{aircraft:GeophysicsRadiometricCovarianceAudit;radon:GeophysicsRadiometricCovarianceAudit};metadata:Record<string,unknown>;
+}
+/** Conditional counting covariance with fixed calibration/live times/heights; no confidence/posterior or cross-record covariance claim. */
+export interface GeophysicsRawRadiometricsReport {
+ schema:'baselode.geophysics.raw_radiometrics_validation'|'baselode.geophysics.raw_radiometrics_result';version:1;state:'ok'|'needs_input'|'rejected'|'failed';issues:Array<{code:'context'|'resource'|'contract'|'numerical';message:string}>;request:GeophysicsRawRadiometricsRequest|null;records:GeophysicsProcessedRadiometricRecord[];correction_recipe:Array<{operation:string;version:1}>;
+ processing_state:{kind:'corrected_concentrations';applied_corrections:string[];calibration_id:string;calibration_version:string}|null;diagnostics:Record<string,unknown>;producer:{library:'baselode';version:string;algorithm_version:1};
+}
+export function describeGeophysicsRawRadiometrics():Record<string,any>;
+export function validateGeophysicsRawRadiometrics(request:GeophysicsRawRadiometricsRequest):GeophysicsRawRadiometricsReport;
+export function processGeophysicsRawRadiometrics(request:GeophysicsRawRadiometricsRequest):GeophysicsRawRadiometricsReport;

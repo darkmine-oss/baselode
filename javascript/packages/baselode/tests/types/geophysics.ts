@@ -337,3 +337,8 @@ declare const processingEnsemble:GeophysicsProcessingEnsembleRequest;
 declare const modelEnsembleResult:GeophysicsPotentialFieldEnsembleReport;
 declare const processingEnsembleResult:GeophysicsProcessingEnsembleReport;
 void [describeGeophysicsPotentialFieldEnsemble(),validateGeophysicsPotentialFieldEnsemble(modelEnsemble),describeGeophysicsProcessingEnsemble(),validateGeophysicsProcessingEnsemble(processingEnsemble),modelEnsembleResult.statistics?.model[0]?.sample_standard_deviation,processingEnsembleResult.maps?.coverage_fraction_requested];
+
+import {describeGeophysicsRawRadiometrics,validateGeophysicsRawRadiometrics,processGeophysicsRawRadiometrics,GeophysicsRawRadiometricsRequest,GeophysicsRawRadiometricsReport} from '../../types/geophysics.js';
+declare const rawRadiometrics:GeophysicsRawRadiometricsRequest;
+declare const rawRadiometricsResult:GeophysicsRawRadiometricsReport;
+void [describeGeophysicsRawRadiometrics(),validateGeophysicsRawRadiometrics(rawRadiometrics),processGeophysicsRawRadiometrics(rawRadiometrics),rawRadiometricsResult.records[0]?.concentration_covariance.values[0][1],rawRadiometricsResult.processing_state?.calibration_id];
