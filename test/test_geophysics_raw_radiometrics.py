@@ -95,9 +95,10 @@ def simple(p):
     return p
 
 
-def test_negative_zero_low_counts_and_undefined_relative_uncertainty_are_kept():
+@pytest.mark.parametrize('small',[1e-150,1e-320])
+def test_negative_zero_low_counts_and_undefined_relative_uncertainty_are_kept(small):
     p=simple(request());p['calibration']['aircraft_background']['window_rates_cps'][0]=1;r=run(p);channels=r['records'][0]['channels'];assert [v['value'] for v in channels]==[-1,0,0];assert 'negative_concentration' in channels[0]['flags'];assert channels[1]['standard_uncertainty']==0 and channels[1]['relative_standard_uncertainty'] is None and 'zero_count_poisson_plugin_variance' in channels[1]['flags']
-    p['calibration']['aircraft_background'].update(window_rates_cps=[1e-320,0,0],covariance_cps2=np.eye(3).tolist());r=run(p);assert r['records'][0]['channels'][0]['value']<0 and r['records'][0]['channels'][0]['relative_standard_uncertainty'] is None and 'relative_uncertainty_overflow' in r['records'][0]['channels'][0]['flags']
+    p['calibration']['aircraft_background'].update(window_rates_cps=[small,0,0],covariance_cps2=np.eye(3).tolist());r=run(p);assert r['records'][0]['channels'][0]['value']<0 and r['records'][0]['channels'][0]['relative_standard_uncertainty'] is None and 'relative_uncertainty_outside_portable_range' in r['records'][0]['channels'][0]['flags']
 
 
 def bad_cases():
@@ -129,7 +130,10 @@ def native(requests,tmp_path):
 
 
 def test_native_scientific_contract_error_replay_and_descriptor_immutability(tmp_path):
-    p=request();requests=[p]+[change(request(),path,value) for path,value,_ in bad_cases()];js=native(requests,tmp_path);d=baselode.geophysics.describe_raw_radiometrics();assert js['descriptor']==d;jsonschema.validate(p,d['request_schema'])
+    p=request();weak=[]
+    for value in [1e-150,1e-320]:
+        tiny=simple(request());tiny['calibration']['aircraft_background'].update(window_rates_cps=[value,0,0],covariance_cps2=np.eye(3).tolist());weak.append(tiny)
+    requests=[p]+weak+[change(request(),path,value) for path,value,_ in bad_cases()];js=native(requests,tmp_path);d=baselode.geophysics.describe_raw_radiometrics();assert js['descriptor']==d;jsonschema.validate(p,d['request_schema'])
     for value,result,validation in zip(requests,js['reports'],js['validations']):
         py=baselode.geophysics.process_raw_radiometrics(value);assert py['state']==result['state']==validation['state'];assert [i['code'] for i in py['issues']]==[i['code'] for i in result['issues']]
         if py['state']=='ok':compare(py,result);jsonschema.validate(result,d['result_schema']);compare(baselode.geophysics.process_raw_radiometrics(result['request']),py)

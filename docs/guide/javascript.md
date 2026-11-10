@@ -1844,3 +1844,27 @@ statistics or raster stability maps. Inspect partial outcomes, valid-member
 denominators and replay records before presenting threshold persistence.
 These are empirical scenario comparisons, with no posterior or geological
 classification claim. See the Python guide for noise, lineage and work policies.
+
+## Calibrated raw radiometric counts
+
+Load a complete supplied-calibration request matching
+`test/data/raw_radiometrics_example.json`, then call:
+
+```javascript
+import {validateGeophysicsRawRadiometrics, processGeophysicsRawRadiometrics}
+  from 'baselode/geophysics';
+
+const validation = validateGeophysicsRawRadiometrics(request);
+if (validation.state === 'ok') {
+  const report = processGeophysicsRawRadiometrics(validation.request);
+  if (report.state === 'ok') {
+    console.log(report.records[0].channels);
+  }
+}
+```
+
+The native implementation preserves complete raw requests, signed K/eU/eTh
+results, conditional per-record covariance, flags and versioned stage history.
+The same request replays in core Python. The example is synthetic and cannot
+replace your detector calibration. See the Python guide for complete window,
+air-reference, independent-background, height-domain and uncertainty contracts.

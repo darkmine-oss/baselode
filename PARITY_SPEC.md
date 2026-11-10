@@ -554,3 +554,18 @@ boundary artefacts, mask coverage and replay regressions cover the science.
 A combined sixteen-member maximum manifest exercises all model aggregate caps.
 No JavaScript numerical meta-runner, member independence, posterior uncertainty,
 ore probability or geological classifier is claimed.
+
+## Calibrated raw radiometrics v1
+
+Python describe/validate/process_raw_radiometrics map to native JavaScript
+describe/validate/processGeophysicsRawRadiometrics. Shared self-contained
+schemas/types cover full integer spectra, explicit live/dead time, fixed energy
+windows, supplied aircraft/cosmic/radon backgrounds, height-adjusted stripping,
+reference-air/nominal-height attenuation, sensitivity and conditional covariance.
+Independent hand mixtures and analytic stripping, NumPy linear references,
+conditional Monte Carlo covariance, PSD zero/rank-one/tiny/ill-scaled cases,
+negative/zero flags, UTC acquisition replay and atomic domain failures validate
+the science. Both languages execute the combined 128×4096 maximum. No inferred
+calibration, spectral denoising/radon estimation, rugged-terrain/footprint
+inversion, calibration or cross-record covariance, posterior/confidence interval
+or secular-equilibrium/deep-geology guarantee is claimed.

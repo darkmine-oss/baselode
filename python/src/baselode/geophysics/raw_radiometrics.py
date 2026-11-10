@@ -246,7 +246,7 @@ def _record(record, p, windows, aircraft_factor, plan):
     channels = []
     for i,element in enumerate(_ORDER):
         quality = [];relative = standard[i]/abs(values[i]) if values[i] != 0 else None
-        if relative is not None and not math.isfinite(relative):relative = None;quality.append('relative_uncertainty_overflow')
+        if relative is not None and (not math.isfinite(relative) or relative > 1e100):relative = None;quality.append('relative_uncertainty_outside_portable_range')
         if counts[i] < p['options']['minimum_window_counts']:quality.append('low_counts')
         if counts[i] == 0:quality.append('zero_count_poisson_plugin_variance')
         for stage,value in [('background_corrected_rate',net[i]),('stripped_rate',stripped[i]),('concentration',values[i])]:

@@ -1262,6 +1262,29 @@
           "run_processing_ensemble"
         ]
       ]
+    },
+    {
+      "name": "geophysics_raw_radiometrics",
+      "description": "Native calibrated raw spectra/live/background/stripping/height/sensitivity corrections, conditional covariance, quality flags and portable replay.",
+      "jsExports": [
+        "describeGeophysicsRawRadiometrics",
+        "validateGeophysicsRawRadiometrics",
+        "processGeophysicsRawRadiometrics"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_raw_radiometrics"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_raw_radiometrics"
+        ],
+        [
+          "baselode.geophysics",
+          "process_raw_radiometrics"
+        ]
+      ]
     }
   ]
 }
