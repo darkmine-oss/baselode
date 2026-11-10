@@ -1,0 +1,143 @@
+{
+  "schema": "baselode.geophysics.sparse_potential_field_inversion_request",
+  "version": 1,
+  "operator_request": {
+    "schema": "baselode.geophysics.potential_field_operator_request",
+    "version": 1,
+    "model_kind": "density",
+    "parameter_units": "kg/m^3",
+    "field_type": "gravity_anomaly",
+    "coordinate_frame": {
+      "id": "synthetic-local-grid",
+      "kind": "local_cartesian",
+      "axes": "x_y_up",
+      "units": "m",
+      "height_datum": "local_zero"
+    },
+    "reference_id": "synthetic_zero_gravity",
+    "grid": {
+      "origin_m": [
+        -50,
+        -50,
+        -150
+      ],
+      "cell_size_m": [
+        100,
+        100,
+        100
+      ],
+      "shape": [
+        1,
+        1,
+        1
+      ],
+      "order": "i_fastest",
+      "cell_ids": [
+        "body"
+      ],
+      "active": [
+        true
+      ],
+      "terrain_z_m": null,
+      "terrain_policy": "none"
+    },
+    "values": [
+      0
+    ],
+    "points": [
+      {
+        "id": "surface",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0
+      }
+    ],
+    "channels": [
+      "gravity_g_down"
+    ],
+    "background_nT": null,
+    "min_distance_m": null,
+    "max_response_to_background_ratio": null,
+    "execution": {
+      "max_operator_calls": 512,
+      "max_kernel_evaluations": 1000000000,
+      "workspace_budget_mib": 64
+    }
+  },
+  "observed": [
+    {
+      "context": {
+        "quantity": "gravity_g_down",
+        "units": "mGal",
+        "field_type": "gravity_anomaly",
+        "reference_id": "synthetic_zero_gravity",
+        "coordinate_frame": {
+          "id": "synthetic-local-grid",
+          "kind": "local_cartesian",
+          "axes": "x_y_up",
+          "units": "m",
+          "height_datum": "local_zero"
+        }
+      },
+      "records": [
+        {
+          "id": "surface",
+          "x_m": 0,
+          "y_m": 0,
+          "z_m": 0,
+          "value": 0.6293849964203642,
+          "standard_deviation": 0.01,
+          "group_id": null
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "cell_id": "body",
+      "parameter": "density_contrast_kg_m3",
+      "lower": -3000,
+      "upper": 3000,
+      "reference": 0,
+      "scale": 1000
+    }
+  ],
+  "regularization": {
+    "reference_weight": 10,
+    "smoothness_weight": 0,
+    "edges": []
+  },
+  "solver": {
+    "method": "irls_trf_lsmr",
+    "tolerance": 1e-10,
+    "max_iterations": 100,
+    "lsmr_tolerance": 1e-12,
+    "max_inner_iterations": 100,
+    "condition_limit": 1000000000000.0,
+    "outer_tolerance": 1e-06,
+    "max_outer_iterations": 50,
+    "max_polish_iterations": 64,
+    "max_backtracking_steps": 16
+  },
+  "initial_values": [
+    0
+  ],
+  "execution": {
+    "max_operator_calls": 8192,
+    "max_kernel_evaluations": 1000000000
+  },
+  "penalty": {
+    "model_p": 0,
+    "gradient_p": 1,
+    "stages": [
+      {
+        "model_epsilon": 1,
+        "gradient_epsilon": 1
+      },
+      {
+        "model_epsilon": 0.1,
+        "gradient_epsilon": 0.1
+      }
+    ]
+  }
+}

@@ -3333,3 +3333,14 @@ and `invert_exact_tmi(request)` fit that objective with explicit starts, L2 prio
 analytic matrix-free Jacobian and guarded bounded TRF. Numerical execution needs
 Python3.12+ `scalable`; see the guide for single-parameter solver policy, local
 GaussNewton conditioning, zero-field rejection and stationarity limitations.
+
+### Sparse/compact IRLS grid inversion
+
+`describe_sparse_potential_field_inversion()`,
+`validate_sparse_potential_field_inversion(request)` and
+`invert_sparse_potential_field(request)` expose explicit smoothed-Lp/log penalties,
+initial models and epsilon stages. Numerical Python3.12+ `scalable` execution
+retains matrix-free products, shared total work limits, bounded inner/polish/
+backtracking loops and actual-objective/true-gradient evidence. See the complete
+example and guide for normalization, separate forward-replay budgets, component
+bias and local/nonunique interpretation limits.

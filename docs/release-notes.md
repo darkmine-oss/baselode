@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add bounded smoothed-Lp/logarithmic compact IRLS potential-field inversion with explicit starting models/epsilon paths, actual objective history, certified inner/outer gradients, bounded polishing/backtracking, native contracts/types and independent signed/compact/contact/multichannel regressions. Preserve portable diagnostics for exact-zero operators.
+
 - Add exact total-field magnitude forward modelling and bounded nonlinear susceptibility/Cartesian-J inversion, analytic matrix-free Jacobians, explicit starts/zero-field guards, exact-versus-linear residuals, native portable schemas/types and scientific recovery/stationary-start tests.
 
 - Add terrain-aware regular-grid matrix-free gravity/magnetics operators and bounded L2 TRF/LSMR inversion through Python3.12+ `scalable` extra, with native Python/JS schemas/validation, explicit terrain exclusion, shared work budgets, adjoint/convergence evidence and independent scientific regressions.

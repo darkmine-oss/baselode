@@ -16,8 +16,10 @@ def _arrays(p, template, diag):
     n = len(parameters)
     reference = np.array([row['reference'] for row in parameters], dtype=float)
     scale = np.array([row['scale'] for row in parameters], dtype=float)
-    lower = (np.array([row['lower'] for row in parameters])-reference)/scale
-    upper = (np.array([row['upper'] for row in parameters])-reference)/scale
+    physical_lower = np.array([row['lower'] for row in parameters], dtype=float)
+    lower = (physical_lower-reference)/scale
+    physical_upper = np.array([row['upper'] for row in parameters], dtype=float)
+    upper = (physical_upper-reference)/scale
     lookup = {point['id']: i for i, point in enumerate(template['points'])}
     order, data, sigma = [], [], []
     for j, dataset in enumerate(p['observed']):
@@ -38,7 +40,7 @@ def _arrays(p, template, diag):
             count += 1
     difference = _sparse.csr_matrix((values, (ri, ci)), shape=(count, n))
     return {'reference': reference, 'scale': scale, 'lower': lower, 'upper': upper,
-            'order': order, 'inverse_order': np.argsort(order), 'data': np.array(data),
+            'physical_lower': physical_lower, 'physical_upper': physical_upper, 'order': order, 'inverse_order': np.argsort(order), 'data': np.array(data),
             'sigma': np.array(sigma), 'difference': difference}
 
 

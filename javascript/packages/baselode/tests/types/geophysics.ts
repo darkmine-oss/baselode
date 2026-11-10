@@ -325,3 +325,8 @@ declare const exactForward:GeophysicsExactTmiOperatorRequest;
 declare const exactInverse:GeophysicsExactTmiInversionRequest;
 declare const exactReport:GeophysicsExactTmiInversionReport;
 void [describeGeophysicsExactTmiOperator(),validateGeophysicsExactTmiOperator(exactForward),describeGeophysicsExactTmiInversion(),validateGeophysicsExactTmiInversion(exactInverse),exactReport.fitted_forward_request];
+
+import {describeGeophysicsSparsePotentialFieldInversion,validateGeophysicsSparsePotentialFieldInversion,GeophysicsSparsePotentialFieldInversionRequest,GeophysicsSparsePotentialFieldInversionReport} from '../../types/geophysics.js';
+declare const sparseRequest:GeophysicsSparsePotentialFieldInversionRequest;
+declare const sparseReport:GeophysicsSparsePotentialFieldInversionReport;
+void [describeGeophysicsSparsePotentialFieldInversion(),validateGeophysicsSparsePotentialFieldInversion(sparseRequest),sparseReport.history[0]?.accepted_fraction,sparseReport.path[0]?.values];

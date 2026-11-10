@@ -1204,6 +1204,28 @@
           "invert_exact_tmi"
         ]
       ]
+    },
+    {
+      "name": "geophysics_sparse_potential_field_inversion",
+      "description": "Smoothed-Lp/log compact IRLS contracts, native validation and Python3.12+ numerical stages, explicit actual objectives/work and fitted replay.",
+      "jsExports": [
+        "describeGeophysicsSparsePotentialFieldInversion",
+        "validateGeophysicsSparsePotentialFieldInversion"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_sparse_potential_field_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_sparse_potential_field_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "invert_sparse_potential_field"
+        ]
+      ]
     }
   ]
 }

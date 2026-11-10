@@ -526,3 +526,17 @@ stationary-start nonuniqueness have scientific regressions. One-parameter fits u
 one explicit Jacobian column; larger fits are matrix-free TRF/LSMR. No numerical
 JS parity, local/global minimum guarantee, exact-Hessian conditioning, posterior
 uncertainty, induced/remanent split or geological uniqueness is claimed.
+
+## Sparse/compact potential-field inversion v1
+
+Python describe/validate_sparse_potential_field_inversion map to native
+ describe/validateGeophysicsSparsePotentialFieldInversion with shared schemas,
+types, native negative replay and explicit p/epsilon/starting-model/work controls.
+Python invert_sparse_potential_field uses the pinned scalable linear grid operator.
+Independent signed scalar stationary roots, stable penalty finite differences,
+p2=L2 and weighted multichannel dense references, compact nonunique bodies and
+contact regularisation tests validate the objective. Inner certificates, bounded
+polishing/backtracking, true accepted-model gradients, fixed-stage actual objective
+history and path remain visible. Exact-zero operator diagnostics are portable
+JSON floats. No numerical JS solver, exact-TMI+sparse combination, automatic
+geological/depth/vector-group prior, unique geology or posterior guarantee is claimed.
