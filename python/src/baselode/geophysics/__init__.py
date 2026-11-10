@@ -315,3 +315,4 @@ import baselode.geophysics.raw_radiometrics as geophysics_raw_radiometrics
 describe_raw_radiometrics = geophysics_raw_radiometrics.describe_raw_radiometrics
 validate_raw_radiometrics = geophysics_raw_radiometrics.validate_raw_radiometrics
 process_raw_radiometrics = geophysics_raw_radiometrics.process_raw_radiometrics
+__all__ += ['describe_raw_radiometrics', 'validate_raw_radiometrics', 'process_raw_radiometrics']

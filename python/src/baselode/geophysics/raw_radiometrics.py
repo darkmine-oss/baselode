@@ -90,8 +90,10 @@ def _inverse(matrix, limit):
             if i != k:
                 scale = a[i][k];a[i] = [x-scale*y for x, y in zip(a[i], a[k])]
     inverse = [row[3:] for row in a]
-    condition = max(3., math.sqrt(_sum([v*v for row in matrix for v in row]))*math.sqrt(_sum([v*v for row in inverse for v in row])))
+    if any(not math.isfinite(v) for row in inverse for v in row):raise baselode.geophysics.corrections._NeedsInput('supplied stripping response exceeds condition bound limit')
+    condition = math.hypot(*(v for row in matrix for v in row))*math.hypot(*(v for row in inverse for v in row))
     if not math.isfinite(condition) or condition > limit:raise baselode.geophysics.corrections._NeedsInput('supplied stripping response exceeds condition bound limit')
+    condition = max(3., condition)
     residual = max(abs(v-float(i == j)) for i, row in enumerate(_product(matrix, inverse)) for j, v in enumerate(row))
     if residual > 256*_EPS*condition:raise RuntimeError('stripping inverse residual exceeds numerical tolerance')
     return inverse, condition, residual
