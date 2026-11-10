@@ -1477,12 +1477,16 @@ is charged to the same work budget. If a proposal increases the actual objective
 Exhaustion returns failure; no worsening fit is silently accepted. The rounding
 allowance is64 binary64 eps times max(1, old objective, new objective).
 
-A separate top-level `execution` declares total calls4..16384 and kernel terms
-1..1e9 across all stages, inner solves, polishing and backtracking. The nested
+A separate top-level `execution` declares total calls10..16384 and kernel terms
+10..1e9 across all stages, inner solves, polishing and backtracking. The nested
 operator execution remains its standalone forward-replay budget; validation
 checks it covers known forward adjoint/prediction/full-vector work. Workspace
 estimates and the physical/terrain tile domain remain those of the grid operator.
-Budgets can stop execution before convergence and withhold every fitted product.
+Validation rejects totals below known setup/minimum-stage work: five setup
+products plus at least five per stage, with additional full-vector TMI work.
+This is a lower bound, not a convergence guarantee; nonzero targets, bounds,
+polishing and backtracking can require substantially more. Budgets can stop
+execution before convergence and withhold every fitted product.
 
 `history` records accepted actual objectives and epsilon, steps, true-penalty
 projected gradients, matrix normalization, proposal inner certificates, polishing,

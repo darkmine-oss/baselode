@@ -121,7 +121,7 @@ def test_schema_immutable_replay_and_atomic_execution_failures(monkeypatch):
     validation = baselode.geophysics.validate_sparse_potential_field_inversion(p);assert validation['state'] == 'ok';jsonschema.validate(validation, descriptor['result_schema'])
     if not supported():return
     r = run(p);assert p == before;jsonschema.validate(r, descriptor['result_schema']);assert_history(r)
-    for path, value in [(['solver', 'max_outer_iterations'], 1), (['execution', 'max_operator_calls'], 4), (['solver', 'condition_limit'], 100)]:
+    for path, value in [(['solver', 'max_outer_iterations'], 1), (['execution', 'max_operator_calls'], 15), (['solver', 'condition_limit'], 100)]:
         q = copy.deepcopy(p);target = q
         for key in path[:-1]:target = target[key]
         target[path[-1]] = value
@@ -144,7 +144,7 @@ def test_real_fixed_epsilon_cost_increase_is_not_accepted(monkeypatch):
 
 def cases():
     out = []
-    for path, value in [(['version'], True), (['penalty', 'model_p'], -1), (['penalty', 'gradient_p'], 3), (['penalty', 'stages'], []), (['penalty', 'stages', 0, 'model_epsilon'], 0), (['penalty', 'stages', 1, 'model_epsilon'], 2), (['solver', 'method'], 'trf_lsmr_exact_tmi'), (['solver', 'max_outer_iterations'], 1.5), (['initial_values'], []), (['initial_values', 0], 1e8), (['operator_request', 'max_response_to_background_ratio'], .1)]:
+    for path, value in [(['execution','max_operator_calls'],14), (['execution','max_kernel_evaluations'],14), (['version'], True), (['penalty', 'model_p'], -1), (['penalty', 'gradient_p'], 3), (['penalty', 'stages'], []), (['penalty', 'stages', 0, 'model_epsilon'], 0), (['penalty', 'stages', 1, 'model_epsilon'], 2), (['solver', 'method'], 'trf_lsmr_exact_tmi'), (['solver', 'max_outer_iterations'], 1.5), (['initial_values'], []), (['initial_values', 0], 1e8), (['operator_request', 'max_response_to_background_ratio'], .1)]:
         p = request();target = p
         for key in path[:-1]:target = target[key]
         target[path[-1]] = value;out.append(p)
@@ -195,3 +195,11 @@ def test_increasing_proposal_is_backtracked_and_true_gradient_checked(monkeypatc
         return predicted,residual,edges,objective
     monkeypatch.setattr(baselode.geophysics.sparse_inversion,'_evaluate',one_bad_proposal)
     r=run(request());assert r['convergence']['backtracking_steps']>0 and any(row['accepted_fraction'] is not None and row['accepted_fraction']<1 for row in r['history']);assert_history(r)
+
+def test_known_minimum_setup_stage_budget_is_checked_and_can_succeed():
+    p=request();p['penalty']['stages']=p['penalty']['stages'][:1];p['operator_request']['points'][0]['z_m']=-100;p['observed'][0]['records'][0].update(z_m=-100,value=0);p['parameters'][0]['reference']=500;p['initial_values']=[500];p['execution'].update(max_operator_calls=10,max_kernel_evaluations=10)
+    assert baselode.geophysics.validate_sparse_potential_field_inversion(p)['state']=='ok'
+    for key in ['max_operator_calls','max_kernel_evaluations']:
+        bad=copy.deepcopy(p);bad['execution'][key]=9;v=baselode.geophysics.validate_sparse_potential_field_inversion(bad);assert v['state']=='rejected' and v['request'] is None
+    if not supported():return
+    r=run(p);assert r['diagnostics']['operator_calls']==10 and r['diagnostics']['kernel_evaluations']==10

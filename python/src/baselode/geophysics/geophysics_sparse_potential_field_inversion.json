@@ -676,12 +676,12 @@
         "properties": {
           "max_operator_calls": {
             "type": "integer",
-            "minimum": 4,
+            "minimum": 10,
             "maximum": 16384
           },
           "max_kernel_evaluations": {
             "type": "integer",
-            "minimum": 1,
+            "minimum": 10,
             "maximum": 1000000000
           }
         },
@@ -1479,12 +1479,12 @@
                 "properties": {
                   "max_operator_calls": {
                     "type": "integer",
-                    "minimum": 4,
+                    "minimum": 10,
                     "maximum": 16384
                   },
                   "max_kernel_evaluations": {
                     "type": "integer",
-                    "minimum": 1,
+                    "minimum": 10,
                     "maximum": 1000000000
                   }
                 },
@@ -3512,6 +3512,7 @@
     "polish": "bounded clipped unit gradient on normalized quadratic; Hessian norm<=1; shared work counter",
     "backtracking": "halve from previous model toward certified polished proposal; accepted actual objective must not increase beyond rounding allowance",
     "history_inner_certificate": "belongs to proposal; outer certificate and objective belong to accepted possibly backtracked model",
-    "active_bound": "exact physical lower/upper bound after polishing/clipping"
+    "active_bound": "exact physical lower/upper bound after polishing/clipping",
+    "minimum_work": "5 setup products + at least 5 per stage, plus 3 vector-check calls/9 scalar-equivalent products for linear TMI. Preflight checks calls and geometry-scaled kernel terms; convergence may require more."
   }
 }

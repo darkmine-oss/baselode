@@ -30,7 +30,7 @@ def _prepare(request):
     execution = p['execution']
     baselode.geophysics.potential_field_operator._keys(execution, ('max_operator_calls', 'max_kernel_evaluations'))
     for key, upper_limit in [('max_operator_calls', 16384), ('max_kernel_evaluations', 1000000000)]:
-        baselode.geophysics.forward_common._number(execution[key], 4 if key == 'max_operator_calls' else 1, upper_limit)
+        baselode.geophysics.forward_common._number(execution[key], 10, upper_limit)
         if int(execution[key]) != execution[key]:raise ValueError('total execution budgets must be integers')
     controls = p['solver']
     baselode.geophysics.potential_field_operator._keys(controls, ('method', 'tolerance', 'max_iterations', 'lsmr_tolerance', 'max_inner_iterations', 'condition_limit', 'outer_tolerance', 'max_outer_iterations', 'max_polish_iterations', 'max_backtracking_steps'))
@@ -77,6 +77,14 @@ def _prepare(request):
         if previous is not None and (any(a > b for a, b in zip(current, previous)) or current == previous):
             raise ValueError('epsilon stages must be nonincreasing, with at least one strict decrease')
         previous = current
+    # Five fixed setup products and at least five per successful stage:
+    # baseline field, two zero-target solver checks, fitted field and gradient.
+    minimum_products = 5+5*len(stages)
+    minimum_calls = minimum_products+(3 if replay_calls == 6 else 0)
+    unit_terms = diag['active_cells']*diag['observations']*dimension
+    minimum_terms = (minimum_products+(9 if replay_calls == 6 else 0))*unit_terms
+    if execution['max_operator_calls'] < minimum_calls or execution['max_kernel_evaluations'] < minimum_terms:
+        raise baselode.geophysics.corrections._ResourceError('total budget cannot cover fixed setup and minimum stage work; need at least '+str(minimum_calls)+' calls and '+str(minimum_terms)+' kernel terms (convergence may require more)')
     return p, template, indices, excluded, diag
 
 
