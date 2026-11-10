@@ -1,0 +1,1303 @@
+{
+  "schema": "baselode.geophysics.processing_ensemble_capability",
+  "version": 1,
+  "request_schema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$ref": "#/$defs/ensemble_request",
+    "$defs": {
+      "workflow": {
+        "title": "Baselode geophysics workflow v1",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "version",
+          "steps",
+          "outputs"
+        ],
+        "properties": {
+          "schema": {
+            "const": "baselode.geophysics.workflow"
+          },
+          "version": {
+            "const": 1
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "operation",
+                "version",
+                "inputs",
+                "parameters"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                },
+                "operation": {
+                  "enum": [
+                    "low_pass",
+                    "high_pass",
+                    "band_pass",
+                    "upward_continuation",
+                    "reduce_to_pole",
+                    "microlevel_magnetic_grid"
+                  ]
+                },
+                "version": {
+                  "const": 1
+                },
+                "inputs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                  }
+                },
+                "parameters": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+            }
+          }
+        }
+      },
+      "raster_input": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": -100000000.0,
+                      "maximum": 100000000.0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minItems": 4,
+                "maxItems": 1024
+              },
+              "minItems": 4,
+              "maxItems": 1024
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "transform": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": -1000000000.0,
+              "maximum": 1000000000.0
+            },
+            "minItems": 6,
+            "maxItems": 6
+          },
+          "crs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nodata": {
+            "type": "null"
+          },
+          "bandNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "hasExplicitTransform": {
+            "const": true
+          }
+        },
+        "required": [
+          "data",
+          "transform",
+          "crs",
+          "nodata",
+          "bandNames",
+          "metadata"
+        ],
+        "additionalProperties": false
+      },
+      "raster_result": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": -1e+100,
+                      "maximum": 1e+100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minItems": 4,
+                "maxItems": 1024
+              },
+              "minItems": 4,
+              "maxItems": 1024
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "transform": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": -1000000000.0,
+              "maximum": 1000000000.0
+            },
+            "minItems": 6,
+            "maxItems": 6
+          },
+          "crs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nodata": {
+            "type": "null"
+          },
+          "bandNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "hasExplicitTransform": {
+            "const": true
+          }
+        },
+        "required": [
+          "data",
+          "transform",
+          "crs",
+          "nodata",
+          "bandNames",
+          "metadata"
+        ],
+        "additionalProperties": false
+      },
+      "ensemble_request": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "const": "baselode.geophysics.processing_ensemble_request"
+          },
+          "version": {
+            "const": 1
+          },
+          "raster": {
+            "$ref": "#/$defs/raster_input"
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "quantity": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "units": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "field_type": {
+                "enum": [
+                  "magnetic_anomaly",
+                  "gravity_anomaly",
+                  "gravity_disturbance",
+                  "radiometric",
+                  "other"
+                ]
+              },
+              "reference_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "height_datum": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "comparison_scope": {
+                "const": "registered_xy_processing_choices"
+              }
+            },
+            "required": [
+              "quantity",
+              "units",
+              "field_type",
+              "reference_id",
+              "height_datum",
+              "comparison_scope"
+            ],
+            "additionalProperties": false
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "workflow": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/workflow"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "output": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "noise": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "none",
+                        "independent_gaussian"
+                      ]
+                    },
+                    "seed": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "seed"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "workflow",
+                "output",
+                "noise"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 16
+          },
+          "noise_standard_deviation": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 1e-12,
+                "maximum": 100000000.0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "failure_policy": {
+                "enum": [
+                  "abort",
+                  "collect"
+                ]
+              },
+              "minimum_successful_members": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "minimum_cell_members": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "quantiles": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "minItems": 1,
+                "maxItems": 9
+              },
+              "threshold": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "units": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "direction": {
+                    "enum": [
+                      "absolute",
+                      "positive",
+                      "negative"
+                    ]
+                  },
+                  "threshold": {
+                    "type": "number",
+                    "minimum": 1e-12,
+                    "maximum": 100000000.0
+                  }
+                },
+                "required": [
+                  "quantity",
+                  "units",
+                  "direction",
+                  "threshold"
+                ],
+                "additionalProperties": false
+              },
+              "edge_margin_cells": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 512
+              }
+            },
+            "required": [
+              "failure_policy",
+              "minimum_successful_members",
+              "minimum_cell_members",
+              "quantiles",
+              "threshold",
+              "edge_margin_cells"
+            ],
+            "additionalProperties": false
+          },
+          "execution": {
+            "type": "object",
+            "properties": {
+              "max_retained_cell_values": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2097152
+              },
+              "max_fft_cell_work": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 67108864
+              }
+            },
+            "required": [
+              "max_retained_cell_values",
+              "max_fft_cell_work"
+            ],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema",
+          "version",
+          "raster",
+          "context",
+          "members",
+          "noise_standard_deviation",
+          "options",
+          "execution"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "result_schema": {
+    "type": "object",
+    "properties": {
+      "schema": {
+        "enum": [
+          "baselode.geophysics.processing_ensemble_validation",
+          "baselode.geophysics.processing_ensemble_result"
+        ]
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "partial",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 0,
+        "maxItems": 64
+      },
+      "request": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ensemble_request"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "members": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "state": {
+              "enum": [
+                "ok",
+                "needs_input",
+                "rejected",
+                "failed",
+                "not_run"
+              ]
+            },
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "state": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "code",
+                  "message"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0,
+              "maxItems": 64
+            },
+            "executed_input": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/raster_input"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "workflow": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/workflow"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "output": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "noise": {
+              "anyOf": [
+                {
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "selected_raster": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/raster_result"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "completed_steps": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "minItems": 0,
+              "maxItems": 64
+            },
+            "resource_estimate": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "id",
+            "state",
+            "issues",
+            "executed_input",
+            "workflow",
+            "output",
+            "noise",
+            "selected_raster",
+            "completed_steps",
+            "resource_estimate"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 0,
+        "maxItems": 16
+      },
+      "coverage": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "requested_members": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "successful_members": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16
+              },
+              "failed_members": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16
+              },
+              "not_run_members": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 16
+              },
+              "coverage_fraction": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "successful_member_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "minItems": 0,
+                "maxItems": 16
+              }
+            },
+            "required": [
+              "requested_members",
+              "successful_members",
+              "failed_members",
+              "not_run_members",
+              "coverage_fraction",
+              "successful_member_ids"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "maps": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "mean_raster": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/raster_result"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resource_estimate": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "producer": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "request",
+      "members",
+      "coverage",
+      "maps",
+      "mean_raster",
+      "resource_estimate",
+      "producer"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "workflow": {
+        "title": "Baselode geophysics workflow v1",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema",
+          "version",
+          "steps",
+          "outputs"
+        ],
+        "properties": {
+          "schema": {
+            "const": "baselode.geophysics.workflow"
+          },
+          "version": {
+            "const": 1
+          },
+          "steps": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "operation",
+                "version",
+                "inputs",
+                "parameters"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                },
+                "operation": {
+                  "enum": [
+                    "low_pass",
+                    "high_pass",
+                    "band_pass",
+                    "upward_continuation",
+                    "reduce_to_pole",
+                    "microlevel_magnetic_grid"
+                  ]
+                },
+                "version": {
+                  "const": 1
+                },
+                "inputs": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 2,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+                  }
+                },
+                "parameters": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$"
+            }
+          }
+        }
+      },
+      "raster_input": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": -100000000.0,
+                      "maximum": 100000000.0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minItems": 4,
+                "maxItems": 1024
+              },
+              "minItems": 4,
+              "maxItems": 1024
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "transform": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": -1000000000.0,
+              "maximum": 1000000000.0
+            },
+            "minItems": 6,
+            "maxItems": 6
+          },
+          "crs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nodata": {
+            "type": "null"
+          },
+          "bandNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "hasExplicitTransform": {
+            "const": true
+          }
+        },
+        "required": [
+          "data",
+          "transform",
+          "crs",
+          "nodata",
+          "bandNames",
+          "metadata"
+        ],
+        "additionalProperties": false
+      },
+      "raster_result": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "number",
+                      "minimum": -1e+100,
+                      "maximum": 1e+100
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minItems": 4,
+                "maxItems": 1024
+              },
+              "minItems": 4,
+              "maxItems": 1024
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "transform": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": -1000000000.0,
+              "maximum": 1000000000.0
+            },
+            "minItems": 6,
+            "maxItems": 6
+          },
+          "crs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nodata": {
+            "type": "null"
+          },
+          "bandNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "minItems": 1,
+            "maxItems": 1
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "hasExplicitTransform": {
+            "const": true
+          }
+        },
+        "required": [
+          "data",
+          "transform",
+          "crs",
+          "nodata",
+          "bandNames",
+          "metadata"
+        ],
+        "additionalProperties": false
+      },
+      "ensemble_request": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "const": "baselode.geophysics.processing_ensemble_request"
+          },
+          "version": {
+            "const": 1
+          },
+          "raster": {
+            "$ref": "#/$defs/raster_input"
+          },
+          "context": {
+            "type": "object",
+            "properties": {
+              "quantity": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "units": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "field_type": {
+                "enum": [
+                  "magnetic_anomaly",
+                  "gravity_anomaly",
+                  "gravity_disturbance",
+                  "radiometric",
+                  "other"
+                ]
+              },
+              "reference_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "height_datum": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "comparison_scope": {
+                "const": "registered_xy_processing_choices"
+              }
+            },
+            "required": [
+              "quantity",
+              "units",
+              "field_type",
+              "reference_id",
+              "height_datum",
+              "comparison_scope"
+            ],
+            "additionalProperties": false
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "workflow": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/workflow"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "output": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "noise": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "enum": [
+                        "none",
+                        "independent_gaussian"
+                      ]
+                    },
+                    "seed": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "seed"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "workflow",
+                "output",
+                "noise"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 16
+          },
+          "noise_standard_deviation": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 1e-12,
+                "maximum": 100000000.0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "failure_policy": {
+                "enum": [
+                  "abort",
+                  "collect"
+                ]
+              },
+              "minimum_successful_members": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "minimum_cell_members": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16
+              },
+              "quantiles": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "minItems": 1,
+                "maxItems": 9
+              },
+              "threshold": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "units": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "direction": {
+                    "enum": [
+                      "absolute",
+                      "positive",
+                      "negative"
+                    ]
+                  },
+                  "threshold": {
+                    "type": "number",
+                    "minimum": 1e-12,
+                    "maximum": 100000000.0
+                  }
+                },
+                "required": [
+                  "quantity",
+                  "units",
+                  "direction",
+                  "threshold"
+                ],
+                "additionalProperties": false
+              },
+              "edge_margin_cells": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 512
+              }
+            },
+            "required": [
+              "failure_policy",
+              "minimum_successful_members",
+              "minimum_cell_members",
+              "quantiles",
+              "threshold",
+              "edge_margin_cells"
+            ],
+            "additionalProperties": false
+          },
+          "execution": {
+            "type": "object",
+            "properties": {
+              "max_retained_cell_values": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2097152
+              },
+              "max_fft_cell_work": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 67108864
+              }
+            },
+            "required": [
+              "max_retained_cell_values",
+              "max_fft_cell_work"
+            ],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema",
+          "version",
+          "raster",
+          "context",
+          "members",
+          "noise_standard_deviation",
+          "options",
+          "execution"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "operations": [
+    "identity",
+    "low_pass",
+    "high_pass",
+    "band_pass",
+    "upward_continuation",
+    "reduce_to_pole",
+    "microlevel_magnetic_grid"
+  ],
+  "resources": {
+    "max_members": 16,
+    "max_source_cells": 8192,
+    "min_rows_columns": 4,
+    "max_rows_columns": 1024,
+    "max_total_steps": 128,
+    "max_retained_cell_values": 2097152,
+    "max_fft_cell_work": 67108864,
+    "max_metadata_bytes": 131072,
+    "max_input_nodes": 1000000,
+    "max_result_nodes": 5000000,
+    "max_input_bytes": 16777216,
+    "max_result_bytes": 67108864,
+    "max_input_depth": 32,
+    "max_result_depth": 40
+  },
+  "assumptions": [
+    "Explicit shared singleband north-up known metre grid/context; scalar field/units-preserving registered workflows only",
+    "Identity uses workflow=null/output=survey; all recipes/aggregate resource preflight before kernels",
+    "Registered XY comparison intentionally includes declared continuation heights; empirical processed responses are not a single-plane physical estimator",
+    "Caller Gaussian sigma/seeds only; canonical row-major saved actual inputs/draws, no inferred uncertainty",
+    "Coverage/masks and user minimum valid counts; missing is never zero, sample SD null for one value",
+    "Caller edge warnings flag boundary proximity, not geological/artifact classification",
+    "Mean raster field_type=other with flat member lineage, no inherited current correction/model states",
+    "Core Python NumPy execution; native Python/JS validation, not numerical meta-runner parity; not posterior or ore probability"
+  ]
+}

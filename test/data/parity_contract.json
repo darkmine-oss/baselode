@@ -1226,6 +1226,42 @@
           "invert_sparse_potential_field"
         ]
       ]
+    },
+    {
+      "name": "geophysics_ensembles",
+      "description": "Native model/raster ensemble contracts with registered Python execution, fixed quotas, saved perturbations and explicit empirical coverage/stability.",
+      "jsExports": [
+        "describeGeophysicsPotentialFieldEnsemble",
+        "validateGeophysicsPotentialFieldEnsemble",
+        "describeGeophysicsProcessingEnsemble",
+        "validateGeophysicsProcessingEnsemble"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_potential_field_ensemble"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_potential_field_ensemble"
+        ],
+        [
+          "baselode.geophysics",
+          "run_potential_field_ensemble"
+        ],
+        [
+          "baselode.geophysics",
+          "describe_processing_ensemble"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_processing_ensemble"
+        ],
+        [
+          "baselode.geophysics",
+          "run_processing_ensemble"
+        ]
+      ]
     }
   ]
 }

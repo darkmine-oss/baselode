@@ -540,3 +540,17 @@ polishing/backtracking, true accepted-model gradients, fixed-stage actual object
 history and path remain visible. Exact-zero operator diagnostics are portable
 JSON floats. No numerical JS solver, exact-TMI+sparse combination, automatic
 geological/depth/vector-group prior, unique geology or posterior guarantee is claimed.
+
+## Empirical reliability ensembles v1
+
+Python describe/validate_potential_field_ensemble and
+describe/validate_processing_ensemble map to native JavaScript descriptors and
+validators with shared schemas/types, fixed geometry, registered-operation and
+resource gates. Python executes model ensembles through pinned scalable kernels
+and raster ensembles through core registered workflows. Independent scalar
+noise/ridge statistics, paired/reordered seeds, exact partial failures, compact
+model ambiguity, vector direction ambiguity, genuine line-aligned geology,
+boundary artefacts, mask coverage and replay regressions cover the science.
+A combined sixteen-member maximum manifest exercises all model aggregate caps.
+No JavaScript numerical meta-runner, member independence, posterior uncertainty,
+ore probability or geological classifier is claimed.

@@ -2478,3 +2478,14 @@ and distinct exact-TMI precision diagnostics.
 `baselode/geophysics`. Native portable request validation and typed Python numerical
 reports include component parameters, amplitude/direction, channel QC, physical
 operator, nullity/conditioning, bounds and convergence. No JS solver stub.
+
+### Empirical reliability ensembles
+
+`describeGeophysicsPotentialFieldEnsemble()` /
+`validateGeophysicsPotentialFieldEnsemble(request)` and
+`describeGeophysicsProcessingEnsemble()` /
+`validateGeophysicsProcessingEnsemble(request)` export from root and
+`baselode/geophysics`. Native validation shares the complete schemas, geometry,
+unit, operation and resource gates with Python. Types include partial outcomes,
+member replay, model/vector statistics and masked raster stability maps. Python
+executes both runners; the processing runner needs no optional numerical extra.

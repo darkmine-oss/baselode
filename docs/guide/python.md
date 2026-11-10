@@ -1509,3 +1509,68 @@ shows opposite starts selecting different compact bodies with the same predicted
 field, while L2 spreads the model. Signed scalar references, weighted multichannel
 fits, contacts, zero sensitivity, bounds, finite-difference gradients and actual
 objective/backtracking failures have independent regressions.
+
+## Empirical model reliability and processing stability
+
+Start with the complete portable examples in
+`test/data/potential_field_ensemble_example.json` and
+`test/data/processing_ensemble_example.json`. Validate before executing:
+
+```python
+import json
+import baselode.geophysics
+
+with open("test/data/potential_field_ensemble_example.json") as stream:
+    request = json.load(stream)
+validation = baselode.geophysics.validate_potential_field_ensemble(request)
+if validation["state"] == "ok":
+    report = baselode.geophysics.run_potential_field_ensemble(request)
+```
+
+Model ensembles register one family per request: grid L2, exact TMI or sparse
+IRLS. Members share fixed cells, terrain, points, channels, reference, frame and
+background. Explicit starts, bounds, priors, regularisation and data may vary.
+At most16 members share equal, non-transferable operator-call/kernel reservations;
+known minimum work is checked before execution. Aggregate limits are12288
+parameters,8192 observations,8192 edges and8192 total grid cells. Numerical
+failures consume their full reserved quota conservatively; pre-execution
+validation failures consume no kernel work. The complete ledger remains visible.
+
+Noise is either explicitly absent or supplied-sigma independent Gaussian with
+an explicit PCG64 seed. Noise follows declared channel/point-ID order, irrespective
+of observed-record order. Repeated seeds pair scenarios; members are not assumed
+independent. Saved standard draws, intended/realised deltas, executed child
+requests and NumPy versions support replay without trusting a future generator
+version. Each successful model also saves the public fitted-forward replay.
+
+Summaries include physical model means, sample SD, declared linear-interpolated
+quantiles and sign counts, plus predicted-field summaries and caller-defined
+threshold persistence. Cartesian J also reports amplitude summaries and eligible
+mean unit vectors/resultant lengths; an explicit amplitude floor excludes
+undefined zero directions. One value has null sample SD. These describe the
+chosen scenarios; they do not estimate posterior uncertainty or ore probability.
+
+Processing ensembles accept a shared north-up single-band metre raster, up to
+8192 cells and16 members. Each member selects an identity control or an existing
+workflow composed of low/high/band-pass filtering, upward continuation, reduction
+to pole or controlled microlevelling. The workflow output must preserve grid,
+units and field type. Explicit optional Gaussian noise, full input/workflow
+replay, selected products and member outcomes are retained. Shared estimates
+cap128 steps,2097152 retained cell values and67108864 FFT-cell steps; these are
+work/storage proxies, not wall-time or exact-RSS guarantees.
+
+Inspect `state` and `coverage` before using statistics. Abort stops later members;
+collect permits `partial` only after the declared successful-member minimum.
+Raster maps additionally need the declared valid-member minimum at each cell.
+Missing values stay missing; failed/unknown members never become non-detections.
+Maps carry valid counts, requested-member coverage, threshold counts/fractions,
+mean/SD/quantiles and caller-margin edge warnings. Continuation variants compare
+processed responses at registered XY, not one physical observation height.
+Line-aligned geology can vary with the processing choices: persistence is not
+a geological classifier.
+
+The mean raster is a derived `field_type=other` product with full member lineage
+and no inherited current correction/model state. Its units remain explicit.
+UUID history identifiers can differ across replays; scientific arrays, saved
+inputs and workflow choices are the reproducible quantities. Input/output JSON
+bounds are16/64MiB; processing lineage permits result depth40 versus input32.
