@@ -205,9 +205,10 @@ def test_cycles_and_resource_preflight_never_execute_members(monkeypatch):
     p=request();p['metadata']={};p['metadata']['cycle']=p;assert baselode.geophysics.validate_potential_field_ensemble(p)['state']=='rejected'
 
 
-def test_malformed_processing_product_cannot_be_aggregated(monkeypatch):
+@pytest.mark.parametrize('artifacts',[{'filtered':0},{},[],None,{'different':0}])
+def test_malformed_processing_product_cannot_be_aggregated(monkeypatch,artifacts):
     p=request(True);p['members']=p['members'][1:2];p['options'].update(minimum_successful_members=1,minimum_cell_members=1)
-    monkeypatch.setattr(baselode.geophysics.workflows,'run_workflow',lambda *a,**k:{'state':'ok','issues':[],'completed_steps':[],'artifacts':{'filtered':0}})
+    monkeypatch.setattr(baselode.geophysics.workflows,'run_workflow',lambda *a,**k:{'state':'ok','issues':[],'completed_steps':[],'artifacts':artifacts})
     r=run(p,True,'failed');assert r['maps'] is None and r['members'][0]['selected_raster'] is None
 
 

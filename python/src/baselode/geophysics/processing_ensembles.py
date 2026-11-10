@@ -218,12 +218,13 @@ def run_processing_ensemble(request):
                 if member['workflow'] is None:product = raster
                 else:
                     result = baselode.geophysics.workflows.run_workflow(member['workflow'], {'survey': raster})
-                    if type(result) is not dict or not all(key in result for key in ('state','completed_steps','issues','artifacts')) or result['state'] not in ('ok','needs_input','rejected','failed'):raise RuntimeError('malformed registered workflow result')
+                    if type(result) is not dict or not all(key in result for key in ('state','completed_steps','issues','artifacts')) or result['state'] not in ('ok','needs_input','rejected','failed') or any(type(result[key]) is not list for key in ('completed_steps','issues')) or type(result['artifacts']) is not dict:raise RuntimeError('malformed registered workflow result')
                     row['completed_steps'] = copy.deepcopy(result['completed_steps'])
                     if result['state'] != 'ok':
                         row.update(state=result['state'], issues=copy.deepcopy(result['issues']))
                         if p['options']['failure_policy'] == 'abort':aborted = True
                         continue
+                    if member['output'] not in result['artifacts']:raise RuntimeError('registered workflow omitted selected output')
                     product = result['artifacts'][member['output']]
                 if not isinstance(product, baselode.geophysics.raster.GeophysicsRaster) or np.iscomplexobj(product.data) or np.any(np.isinf(product.data)):raise RuntimeError('malformed/nonfinite selected raster product')
                 if product.data.shape != source.data.shape or product.transform != source.transform or product.crs != source.crs or product.metadata.get('units') != [p['context']['units']] or product.metadata.get('field_type') != p['context']['field_type']:raise RuntimeError('selected product changed comparison geometry/units/field type')
