@@ -257,7 +257,7 @@ def _build(p,indices,diag,counter=None):
         diagonal=from_raw(diagonal)*factor
         if not np.all(np.isfinite(diagonal)) or np.any(diagonal<0):raise RuntimeError('invalid weighted sensitivity diagonal')
         return np.sqrt(diagonal)
-    x=np.sin(np.arange(count)+1.);y=np.cos(np.arange(rows)+1.);left=float(np.dot(operator@x,y));right=float(np.dot(x,operator.rmatvec(y)));relative=abs(left-right)/max(1.,abs(left),abs(right))
+    x=np.sin(np.arange(count)+1.);y=np.cos(np.arange(rows)+1.);ax=operator@x;aty=operator.rmatvec(y);left=float(np.dot(ax,y));right=float(np.dot(x,aty));denominator=float(np.linalg.norm(ax)*np.linalg.norm(y)+np.linalg.norm(x)*np.linalg.norm(aty));relative=abs(left-right)/max(np.finfo(float).tiny,denominator)
     if relative>1e-10:raise RuntimeError('operator transpose failed adjoint consistency check')
     return operator,column_norms,counter,relative
 

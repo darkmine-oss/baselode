@@ -132,3 +132,14 @@ def test_combined_maximum_vector_request_fits_schema_specific_node_budget(tmp_pa
     with pytest.raises(baselode.geophysics.corrections._ResourceError,match='node/depth'):baselode.geophysics.forward_common._bounded_json(p,8388608)
     r=baselode.geophysics.validate_potential_field_grid_inversion(p);assert r['state']=='ok',r['issues'];assert r['diagnostics']['parameters']==6144 and len(r['request']['regularization']['edges'])==4096
     a=tmp_path/'max.json';b=tmp_path/'out.json';a.write_text(json.dumps([p]));subprocess.run(['node',str(ROOT/'test/data/potential_field_operator_parity.mjs'),str(a),str(b),'inverse'],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True);native=json.loads(b.read_text())['reports'][0];assert native['state']=='ok',native['issues'];assert native['request']==r['request']
+
+def test_small_field_adjoint_gate_rejects_a_zero_transpose(monkeypatch):
+    if not supported():return
+    p=request();p['grid'].update(origin_m=[-.5,-.5,-.5],cell_size_m=[1,1,1]);p['points'][0]['z_m']=1000;p['values']=[1]
+    r=run(p);assert abs(r['predicted'][0]['records'][0]['value'])<1e-10 and r['diagnostics']['adjoint_relative_error']<1e-10
+    original=baselode.geophysics.potential_field_operator._gravity.Simulation3DIntegral.getJ
+    def broken(self,model):
+        actual=original(self,model)
+        return baselode.geophysics.potential_field_operator._spla.LinearOperator(actual.shape,matvec=actual.matvec,rmatvec=lambda y:np.zeros(actual.shape[1]),dtype=float)
+    monkeypatch.setattr(baselode.geophysics.potential_field_operator._gravity.Simulation3DIntegral,'getJ',broken)
+    result=baselode.geophysics.calculate_potential_field_operator(p);assert result['state']=='failed' and result['predicted'] is None;assert 'adjoint consistency' in result['issues'][0]['message']

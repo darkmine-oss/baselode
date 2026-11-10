@@ -1366,7 +1366,9 @@ or dense SVD is allocated. The reported augmented condition upper bound is the
 Frobenius norm divided by sqrt(reference_weight), a conservative prior-dependent
 bound. Data rank is explicitly unknown. Diagnostics include independent adjoint
 and projected-gradient checks, solver convergence, physical parameter bounds and
-weighted column norms. Active-bound flags follow the solver tolerance; a value
+weighted column norms. Adjoint error is scaled by
+||Ax||*||y|| + ||x||*||Aᵀy|| with only a binary64 tiny floor, so very small
+fields retain a relative check. Active-bound flags follow the solver tolerance; a value
 can be numerically close to a bound without a nonzero flag. The fitted request,
 predictions and residual QC replay the declared geometry and parameter order.
 Regularisation selects a model; convergence establishes no geological uniqueness,
