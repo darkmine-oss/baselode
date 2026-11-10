@@ -1397,7 +1397,10 @@ null weak-response cap. The uniform-cell fields are superposed before computing
 |B0+B|-|B0|. A rationalised difference preserves tiny anomalies. Component vectors,
 total norms, exact predictions and separately labelled linear predictions remain
 visible. The supplied norm floor applies at every forward/trial model; zero total
-field is nondifferentiable and no fitted products are returned when the guard fails.
+field is nondifferentiable. Any initial or trial model below the floor stops the
+fit with `needs_input` / `context` and no fitted products. Revise the start, bounds
+or floor; the solver does not replace the physical objective with a large
+artificial residual or silently continue through a forbidden trial.
 
 The inverse adds `initial_values` in effective cell/component parameter order,
 complete context-matched independent-sigma observations, physical parameter

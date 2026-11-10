@@ -153,3 +153,13 @@ def test_condition_and_malformed_backend_fail_atomically(monkeypatch):
     if not supported():return
     p=request(True);p['solver']['condition_limit']=100;r=baselode.geophysics.invert_exact_tmi(p);assert r['state']=='needs_input' and not r['parameters']
     monkeypatch.setattr(baselode.geophysics.exact_tmi._optimize,'least_squares',lambda *a,**k:types.SimpleNamespace());r=baselode.geophysics.invert_exact_tmi(request(True));assert r['state']=='failed' and r['fitted_forward_request'] is None and r['linear_misfit'] is None
+
+def test_trial_field_floor_preserves_context_classification(monkeypatch):
+    if not supported():return
+    p=request(True);p['field_norm_floor_nT']=1
+    def forbidden_trial(fun,*args,**kwargs):
+        fun(np.array([0.,0.,-1000/(10*1.25663706127e-6*1e9*factor())]))
+        raise AssertionError('the forbidden field trial must stop execution')
+    monkeypatch.setattr(baselode.geophysics.exact_tmi._optimize,'least_squares',forbidden_trial)
+    r=baselode.geophysics.invert_exact_tmi(p);assert r['state']=='needs_input' and r['issues'][0]['code']=='context'
+    assert r['request'] is None and not r['parameters'] and r['fitted_forward_request'] is None and r['predicted'] is None

@@ -288,6 +288,8 @@ def invert_exact_tmi(request):
                     ftol=controls['tolerance'], xtol=controls['tolerance'], gtol=controls['tolerance'],
                     max_nfev=int(controls['max_function_evaluations']), x_scale=1.,
                     tr_options={} if single else {'atol': controls['lsmr_tolerance'], 'btol': controls['lsmr_tolerance'], 'maxiter': int(controls['max_inner_iterations'])})
+            except baselode.geophysics.corrections._NeedsInput:
+                raise
             except (ValueError, TypeError, ArithmeticError, RuntimeError, IndexError, Warning) as error:
                 raise RuntimeError('exact-TMI solver execution failed: '+str(error)) from error
             if not all(hasattr(solution, key) for key in ('x', 'success', 'status', 'active_mask', 'nfev', 'njev', 'optimality')):
