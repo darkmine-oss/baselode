@@ -1833,3 +1833,14 @@ inner/outer/polish/backtracking controls and total execution budgets. Numerical
 reports retain actual objective history, stage model path and fitted forward replay;
 validation establishes neither convergence nor unique geology. See the Python guide
 for logarithmic compactness, componentwise bias and separate forward-run budgets.
+
+## Reliability ensemble requests
+
+Use `validateGeophysicsPotentialFieldEnsemble(request)` or
+`validateGeophysicsProcessingEnsemble(request)` before handing the returned
+portable request to the corresponding Python runner. Shared examples are in
+`test/data/`. JavaScript validates contracts and budgets; Python returns model
+statistics or raster stability maps. Inspect partial outcomes, valid-member
+denominators and replay records before presenting threshold persistence.
+These are empirical scenario comparisons, with no posterior or geological
+classification claim. See the Python guide for noise, lineage and work policies.

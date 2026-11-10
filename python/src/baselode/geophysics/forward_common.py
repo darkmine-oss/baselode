@@ -12,7 +12,7 @@ _LIMITS = {'max_json_nodes': 100000, 'max_result_json_nodes': 500000,
            'max_json_depth': 32, 'max_result_json_depth': 33}
 
 
-def _bounded_json(value, limit, result=False, max_nodes=None):
+def _bounded_json(value, limit, result=False, max_nodes=None, max_depth=None):
     """Validate scalar JSON before serialization, including cycles and huge ints."""
     active = set()
     count = 0
@@ -21,7 +21,7 @@ def _bounded_json(value, limit, result=False, max_nodes=None):
     def visit(item, depth):
         nonlocal count, text_bytes
         count += 1
-        if count > (max_nodes if max_nodes is not None else (_LIMITS['max_result_json_nodes'] if result else _LIMITS['max_json_nodes'])) or depth > (_LIMITS['max_result_json_depth'] if result else _LIMITS['max_json_depth']):
+        if count > (max_nodes if max_nodes is not None else (_LIMITS['max_result_json_nodes'] if result else _LIMITS['max_json_nodes'])) or depth > (max_depth if max_depth is not None else (_LIMITS['max_result_json_depth'] if result else _LIMITS['max_json_depth'])):
             raise baselode.geophysics.corrections._ResourceError('JSON node/depth budget exceeded')
         if item is None or type(item) is bool:
             return

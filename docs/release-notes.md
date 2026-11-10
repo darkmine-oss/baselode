@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add bounded model reliability and registered-raster processing ensembles with explicit seeded perturbations, saved member replay, partial-failure/coverage ledgers, empirical model/vector statistics and masked anomaly-stability maps. Include native contracts/types, scientific ambiguity/line-geology/edge tests and portable examples.
+
 - Add bounded smoothed-Lp/logarithmic compact IRLS potential-field inversion with explicit starting models/epsilon paths, actual objective history, certified inner/outer gradients, bounded polishing/backtracking, native contracts/types and independent signed/compact/contact/multichannel regressions. Preserve portable diagnostics for exact-zero operators.
 
 - Add exact total-field magnitude forward modelling and bounded nonlinear susceptibility/Cartesian-J inversion, analytic matrix-free Jacobians, explicit starts/zero-field guards, exact-versus-linear residuals, native portable schemas/types and scientific recovery/stationary-start tests.

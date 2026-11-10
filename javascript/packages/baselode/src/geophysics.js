@@ -109,3 +109,6 @@ export {describeGeophysicsPotentialFieldOperator,validateGeophysicsPotentialFiel
 export {describeGeophysicsExactTmiOperator,validateGeophysicsExactTmiOperator,describeGeophysicsExactTmiInversion,validateGeophysicsExactTmiInversion} from './data/geophysicsExactTmi.js';
 
 export {describeGeophysicsSparsePotentialFieldInversion,validateGeophysicsSparsePotentialFieldInversion} from './data/geophysicsSparseInversion.js';
+
+export {describeGeophysicsPotentialFieldEnsemble,validateGeophysicsPotentialFieldEnsemble} from './data/geophysicsModelEnsembles.js';
+export {describeGeophysicsProcessingEnsemble,validateGeophysicsProcessingEnsemble} from './data/geophysicsProcessingEnsembles.js';

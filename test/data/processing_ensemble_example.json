@@ -1,0 +1,421 @@
+{
+  "schema": "baselode.geophysics.processing_ensemble_request",
+  "version": 1,
+  "raster": {
+    "data": [
+      [
+        [
+          null,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ]
+      ]
+    ],
+    "transform": [
+      10,
+      0,
+      0,
+      0,
+      -10,
+      160
+    ],
+    "crs": null,
+    "nodata": null,
+    "bandNames": [
+      "synthetic_magnetic"
+    ],
+    "metadata": {
+      "field_type": "magnetic_anomaly",
+      "units": [
+        "nT"
+      ],
+      "crs_units": "metre",
+      "frame_id": "synthetic_local",
+      "grid_corrections": {
+        "magnetic_levelling": "applied",
+        "magnetic_microlevelling": "unapplied"
+      },
+      "source_note": "synthetic constant field, not survey calibration"
+    }
+  },
+  "context": {
+    "quantity": "magnetic_tmi_anomaly",
+    "units": "nT",
+    "field_type": "magnetic_anomaly",
+    "reference_id": "synthetic_zero",
+    "height_datum": "local_zero",
+    "comparison_scope": "registered_xy_processing_choices"
+  },
+  "members": [
+    {
+      "id": "identity",
+      "workflow": null,
+      "output": "survey",
+      "noise": {
+        "kind": "none",
+        "seed": null
+      }
+    },
+    {
+      "id": "lowpass",
+      "workflow": {
+        "schema": "baselode.geophysics.workflow",
+        "version": 1,
+        "steps": [
+          {
+            "id": "filtered",
+            "operation": "low_pass",
+            "version": 1,
+            "inputs": [
+              "survey"
+            ],
+            "parameters": {
+              "wavelength": 40
+            }
+          }
+        ],
+        "outputs": [
+          "filtered"
+        ]
+      },
+      "output": "filtered",
+      "noise": {
+        "kind": "none",
+        "seed": null
+      }
+    },
+    {
+      "id": "continued",
+      "workflow": {
+        "schema": "baselode.geophysics.workflow",
+        "version": 1,
+        "steps": [
+          {
+            "id": "continued",
+            "operation": "upward_continuation",
+            "version": 1,
+            "inputs": [
+              "survey"
+            ],
+            "parameters": {
+              "height": 20
+            }
+          }
+        ],
+        "outputs": [
+          "continued"
+        ]
+      },
+      "output": "continued",
+      "noise": {
+        "kind": "none",
+        "seed": null
+      }
+    }
+  ],
+  "noise_standard_deviation": null,
+  "options": {
+    "failure_policy": "collect",
+    "minimum_successful_members": 3,
+    "minimum_cell_members": 3,
+    "quantiles": [
+      0.05,
+      0.5,
+      0.95
+    ],
+    "threshold": {
+      "quantity": "magnetic_tmi_anomaly",
+      "units": "nT",
+      "direction": "absolute",
+      "threshold": 50
+    },
+    "edge_margin_cells": 2
+  },
+  "execution": {
+    "max_retained_cell_values": 2097152,
+    "max_fft_cell_work": 67108864
+  }
+}

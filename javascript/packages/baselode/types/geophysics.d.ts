@@ -1038,3 +1038,52 @@ export interface GeophysicsSparsePotentialFieldInversionReport extends Omit<Geop
 }
 export function describeGeophysicsSparsePotentialFieldInversion():Record<string,any>;
 export function validateGeophysicsSparsePotentialFieldInversion(request:GeophysicsSparsePotentialFieldInversionRequest):GeophysicsSparsePotentialFieldInversionReport;
+
+export type GeophysicsEnsembleNoise={kind:'none';seed:null}|{kind:'independent_gaussian';seed:number};
+export interface GeophysicsEnsembleThreshold {quantity:string;units:string;direction:'absolute'|'positive'|'negative';threshold:number}
+export interface GeophysicsEnsembleStatistics {count:number;mean:number|null;sample_standard_deviation:number|null;minimum:number|null;maximum:number|null;quantiles:Array<{fraction:number;value:number|null}>}
+export interface GeophysicsEnsembleCoverage {requested_members:number;successful_members:number;failed_members:number;not_run_members:number;coverage_fraction:number;successful_member_ids:string[]}
+export interface GeophysicsModelEnsembleOptions {failure_policy:'abort'|'collect';minimum_successful_members:number;quantiles:number[];model_sign_threshold:{units:'kg/m^3'|'dimensionless'|'A/m';value:number};magnetization_direction_min_amplitude_A_m:number|null;anomaly_thresholds:GeophysicsEnsembleThreshold[]}
+export interface GeophysicsEnsembleMember<T> {id:string;request:T;noise:GeophysicsEnsembleNoise}
+export type GeophysicsPotentialFieldEnsembleRequest={schema:'baselode.geophysics.potential_field_ensemble_request';version:1;options:GeophysicsModelEnsembleOptions;execution:{allocation_policy:'equal_reservations';max_operator_calls:number;max_kernel_evaluations:number};metadata?:Record<string,unknown>}&(
+ {operation:'potential_field_grid_inversion';members:Array<GeophysicsEnsembleMember<GeophysicsPotentialFieldGridInversionRequest>>}|
+ {operation:'exact_tmi_inversion';members:Array<GeophysicsEnsembleMember<GeophysicsExactTmiInversionRequest>>}|
+ {operation:'sparse_potential_field_inversion';members:Array<GeophysicsEnsembleMember<GeophysicsSparsePotentialFieldInversionRequest>>});
+export interface GeophysicsModelEnsembleMemberReport {
+ id:string;state:'ok'|'needs_input'|'rejected'|'failed'|'not_run';issues:Array<{code:string;message:string}>;
+ executed_request:GeophysicsPotentialFieldGridInversionRequest|GeophysicsExactTmiInversionRequest|GeophysicsSparsePotentialFieldInversionRequest|null;
+ noise:{kind:'none'|'independent_gaussian';seed:number|null;algorithm:string|null;numpy_version:string;draws:Array<{quantity:string;id:string;standard_normal:number;intended_delta:number;realized_delta:number}>;rounding_lost_perturbations:number}|null;
+ parameters:Array<GeophysicsPotentialFieldGridInversionReport['parameters'][number]|GeophysicsExactTmiInversionReport['parameters'][number]>;predicted:GeophysicsPotentialFieldOperatorReport['predicted'];
+ forward_replay:{method:'calculate_potential_field_operator'|'calculate_exact_tmi_operator';request:GeophysicsPotentialFieldOperatorRequest|GeophysicsExactTmiOperatorRequest}|null;
+ objective:GeophysicsPotentialFieldGridInversionReport['objective'];convergence:Record<string,unknown>|null;diagnostics:Record<string,unknown>;backend:Record<string,unknown>|null;producer:Record<string,unknown>|null;
+ budget:{reserved_operator_calls:number;reserved_kernel_evaluations:number;charged_operator_calls:number;charged_kernel_evaluations:number;usage_exact:boolean;execution_attempted:boolean};
+}
+/** Empirical sensitivity of chosen scenarios; failed runs are unknown and no posterior/ore probability is inferred. */
+export interface GeophysicsPotentialFieldEnsembleReport {
+ schema:string;version:1;state:'ok'|'partial'|'needs_input'|'rejected'|'failed';issues:Array<{code:string;message:string}>;request:GeophysicsPotentialFieldEnsembleRequest|null;members:GeophysicsModelEnsembleMemberReport[];coverage:GeophysicsEnsembleCoverage|null;budget:Record<string,unknown>|null;diagnostics:Record<string,unknown>;producer:Record<string,unknown>;
+ statistics:{model:Array<GeophysicsEnsembleStatistics&{cell_id:string;parameter:string;units:string;positive_count:number;negative_count:number;neutral_count:number;positive_fraction_successful:number;negative_fraction_successful:number}>;
+ fields:Array<{context:GeophysicsMisfitContext;threshold:GeophysicsEnsembleThreshold;records:Array<GeophysicsEnsembleStatistics&{id:string;x_m:number;y_m:number;z_m:number;detection_count:number;non_detection_count:number;unknown_members:number;detection_fraction_successful:number;coverage_fraction_requested:number}>}>;
+ magnetization:Array<{cell_id:string;amplitude_A_m:GeophysicsEnsembleStatistics;direction:{minimum_amplitude_A_m:number;eligible_members:number;excluded_low_amplitude_members:number;eligible_member_ids:string[];mean_unit_vector:{x:number;y:number;z_up:number}|null;resultant_length:number|null;resultant_rounding_clamped:boolean}}>|null;interpretation:string}|null;
+}
+export function describeGeophysicsPotentialFieldEnsemble():Record<string,any>;
+export function validateGeophysicsPotentialFieldEnsemble(request:GeophysicsPotentialFieldEnsembleRequest):GeophysicsPotentialFieldEnsembleReport;
+
+export interface GeophysicsEnsembleRasterPayload extends Omit<GeophysicsRasterPayload,'data'|'transform'|'crs'|'nodata'|'bandNames'|'metadata'|'hasExplicitTransform'> {
+ data:[GeophysicsBand];transform:GeophysicsTransform;crs:string|null;nodata:null;bandNames:[string];metadata:GeophysicsRasterMetadata&{field_type:'magnetic_anomaly'|'gravity_anomaly'|'gravity_disturbance'|'radiometric'|'other';units:[string]};hasExplicitTransform?:true;
+}
+export interface GeophysicsProcessingEnsembleContext {quantity:string;units:string;field_type:'magnetic_anomaly'|'gravity_anomaly'|'gravity_disturbance'|'radiometric'|'other';reference_id:string;height_datum:string;comparison_scope:'registered_xy_processing_choices'}
+export interface GeophysicsProcessingEnsembleRequest {
+ schema:'baselode.geophysics.processing_ensemble_request';version:1;raster:GeophysicsEnsembleRasterPayload;context:GeophysicsProcessingEnsembleContext;
+ members:Array<{id:string;workflow:GeophysicsWorkflow|null;output:string;noise:GeophysicsEnsembleNoise}>;noise_standard_deviation:number|null;
+ options:{failure_policy:'abort'|'collect';minimum_successful_members:number;minimum_cell_members:number;quantiles:number[];threshold:GeophysicsEnsembleThreshold;edge_margin_cells:number};execution:{max_retained_cell_values:number;max_fft_cell_work:number};metadata?:Record<string,unknown>;
+}
+export interface GeophysicsProcessingEnsembleMaps {
+ shape:[number,number];transform:GeophysicsTransform;crs:string|null;context:GeophysicsProcessingEnsembleContext;interpretation:string;
+ valid_member_count:number[][];coverage_fraction_requested:number[][];mean:GeophysicsBand;sample_standard_deviation:GeophysicsBand;minimum:GeophysicsBand;maximum:GeophysicsBand;detection_count:number[][];detection_fraction_valid:GeophysicsBand;edge_warning:boolean[][];quantiles:Array<{fraction:number;values:GeophysicsBand}>;
+}
+export interface GeophysicsProcessingEnsembleReport {
+ schema:string;version:1;state:'ok'|'partial'|'needs_input'|'rejected'|'failed';issues:Array<{code:string;message:string;state?:string;path?:string}>;request:GeophysicsProcessingEnsembleRequest|null;coverage:GeophysicsEnsembleCoverage|null;maps:GeophysicsProcessingEnsembleMaps|null;mean_raster:GeophysicsEnsembleRasterPayload|null;resource_estimate:Record<string,unknown>|null;producer:Record<string,unknown>;
+ members:Array<{id:string;state:'ok'|'needs_input'|'rejected'|'failed'|'not_run';issues:Array<{code:string;message:string;state?:string;path?:string}>;executed_input:GeophysicsEnsembleRasterPayload|null;workflow:GeophysicsWorkflow|null;output:string;noise:{kind:'none'|'independent_gaussian';seed:number|null;algorithm:string|null;numpy_version:string;standard_draws:GeophysicsBand|null;rounding_lost_perturbations:number}|null;selected_raster:GeophysicsEnsembleRasterPayload|null;completed_steps:string[];resource_estimate:Record<string,unknown>}>;
+}
+export function describeGeophysicsProcessingEnsemble():Record<string,any>;
+export function validateGeophysicsProcessingEnsemble(request:GeophysicsProcessingEnsembleRequest):GeophysicsProcessingEnsembleReport;

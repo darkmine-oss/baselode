@@ -3344,3 +3344,16 @@ retains matrix-free products, shared total work limits, bounded inner/polish/
 backtracking loops and actual-objective/true-gradient evidence. See the complete
 example and guide for normalization, separate forward-replay budgets, component
 bias and local/nonunique interpretation limits.
+
+### Empirical reliability ensembles
+
+`describe_potential_field_ensemble()`, `validate_potential_field_ensemble(request)`
+and `run_potential_field_ensemble(request)` compare complete registered grid-L2,
+exact-TMI or sparse-IRLS inversion requests with the same fixed geometry. Core
+validation; execution requires Python3.12+ `scalable`.
+`describe_processing_ensemble()`, `validate_processing_ensemble(request)` and
+`run_processing_ensemble(request)` compare registered scalar raster workflows
+and identity controls in core Python. See the guide, descriptor schemas and
+`test/data/{potential_field,processing}_ensemble_example.json`. Reports preserve
+all outcomes, executed inputs, replay requests, explicit coverage and empirical
+statistics; `partial` requires the caller's collect/minimum-success policy.
