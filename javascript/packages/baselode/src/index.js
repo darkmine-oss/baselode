@@ -725,3 +725,5 @@ export {describeGeophysicsSusceptibilityInversion,validateGeophysicsSusceptibili
 export {describeGeophysicsMagneticVectorInversion,validateGeophysicsMagneticVectorInversion} from './data/geophysicsInversion.js';
 
 export {describeGeophysicsPotentialFieldOperator,validateGeophysicsPotentialFieldOperator,describeGeophysicsPotentialFieldGridInversion,validateGeophysicsPotentialFieldGridInversion} from './data/geophysicsPotentialFieldOperator.js';
+
+export {describeGeophysicsExactTmiOperator,validateGeophysicsExactTmiOperator,describeGeophysicsExactTmiInversion,validateGeophysicsExactTmiInversion} from './data/geophysicsExactTmi.js';

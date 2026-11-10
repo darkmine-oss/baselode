@@ -998,3 +998,24 @@ export function describeGeophysicsPotentialFieldOperator():Record<string,any>;
 export function validateGeophysicsPotentialFieldOperator(request:GeophysicsPotentialFieldOperatorRequest):GeophysicsPotentialFieldOperatorReport;
 export function describeGeophysicsPotentialFieldGridInversion():Record<string,any>;
 export function validateGeophysicsPotentialFieldGridInversion(request:GeophysicsPotentialFieldGridInversionRequest):Omit<GeophysicsPotentialFieldOperatorReport,'request'> & {request:GeophysicsPotentialFieldGridInversionRequest|null};
+
+export interface GeophysicsExactTmiOperatorRequest {
+ schema:'baselode.geophysics.exact_tmi_operator_request';version:1;
+ operator_request:Omit<GeophysicsPotentialFieldOperatorRequest,'model_kind'|'parameter_units'|'field_type'|'channels'|'background_nT'|'max_response_to_background_ratio'>&{model_kind:'susceptibility'|'magnetic_vector';parameter_units:'dimensionless'|'A/m';field_type:'magnetic_anomaly';channels:['magnetic_tmi_anomaly'];background_nT:{x:number;y:number;z_up:number};max_response_to_background_ratio:null};
+ field_norm_floor_nT:number;metadata?:Record<string,unknown>;
+}
+export interface GeophysicsExactTmiInversionRequest extends Omit<GeophysicsPotentialFieldGridInversionRequest,'schema'|'operator_request'|'solver'> {
+ schema:'baselode.geophysics.exact_tmi_inversion_request';operator_request:GeophysicsExactTmiOperatorRequest['operator_request'];field_norm_floor_nT:number;initial_values:number[];
+ solver:Omit<GeophysicsPotentialFieldGridInversionRequest['solver'],'method'|'max_iterations'>&{method:'trf_lsmr_exact_tmi';max_function_evaluations:number};
+}
+export interface GeophysicsExactTmiOperatorReport extends Omit<GeophysicsPotentialFieldOperatorReport,'request'> {
+ request:GeophysicsExactTmiOperatorRequest|null;linear_predicted:GeophysicsPotentialFieldOperatorReport['predicted'];vector_fields:Array<{id:string;bx_nT:number;by_nT:number;bz_up_nT:number}>|null;total_field_norms_nT:number[]|null;
+}
+/** Python3.12+ numerical report. Stationarity implies neither a local/global minimum nor unique geology. */
+export interface GeophysicsExactTmiInversionReport extends Omit<GeophysicsExactTmiOperatorReport,'request'> {
+ request:GeophysicsExactTmiInversionRequest|null;parameters:Array<Omit<GeophysicsPotentialFieldGridInversionReport['parameters'][number],'weighted_column_norm'>&{weighted_column_norm_upper_bound:number}>;fitted_forward_request:GeophysicsExactTmiOperatorRequest|null;misfit:GeophysicsMisfitReport[]|null;linear_misfit:GeophysicsMisfitReport[]|null;initial_predicted:GeophysicsPotentialFieldOperatorReport['predicted'];objective:GeophysicsPotentialFieldGridInversionReport['objective'];convergence:Record<string,number|boolean|string>|null;
+}
+export function describeGeophysicsExactTmiOperator():Record<string,any>;
+export function validateGeophysicsExactTmiOperator(request:GeophysicsExactTmiOperatorRequest):GeophysicsExactTmiOperatorReport;
+export function describeGeophysicsExactTmiInversion():Record<string,any>;
+export function validateGeophysicsExactTmiInversion(request:GeophysicsExactTmiInversionRequest):GeophysicsExactTmiInversionReport;

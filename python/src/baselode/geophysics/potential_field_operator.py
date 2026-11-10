@@ -58,7 +58,7 @@ def _norm(values):
     return math.sqrt((x*x+y*y)+z*z)
 
 
-def _prepare(request):
+def _prepare(request, exact_tmi=False):
     p=baselode.geophysics.forward_common._bounded_json(request,8388608,max_nodes=300000)
     _keys(p,('schema','version','model_kind','parameter_units','field_type','coordinate_frame','reference_id','grid','values','points','channels','background_nT','min_distance_m','max_response_to_background_ratio','execution'),('metadata',),('background_nT','min_distance_m','max_response_to_background_ratio'))
     if p['schema']!='baselode.geophysics.potential_field_operator_request' or type(p['version']) not in (int,float) or p['version']!=1:raise ValueError('unsupported operator schema/version')
@@ -125,7 +125,10 @@ def _prepare(request):
             for value in bg.values():baselode.geophysics.forward_common._number(value,-1e6,1e6)
             if not 1<=_norm([bg[k] for k in ('x','y','z_up')])<=1e6:raise ValueError('background magnitude must be1..1000000nT')
         if (p['model_kind']=='susceptibility' or 'magnetic_tmi_anomaly' in channels) and bg is None:raise baselode.geophysics.corrections._NeedsInput('declared inducing/TMI background required')
-        if 'magnetic_tmi_anomaly' in channels:baselode.geophysics.forward_common._number(p['max_response_to_background_ratio'],1e-12,.05)
+        if 'magnetic_tmi_anomaly' in channels:
+            if exact_tmi:
+                if p['max_response_to_background_ratio'] is not None:raise ValueError('exact TMI requires explicit null weak-response cap')
+            else:baselode.geophysics.forward_common._number(p['max_response_to_background_ratio'],1e-12,.05)
         elif p['max_response_to_background_ratio'] is not None:raise ValueError('component objectives require explicit null weak-response cap')
     points=p['points']
     if type(points) is not list or not points:raise ValueError('points must be nonempty array')
@@ -321,10 +324,10 @@ def calculate_potential_field_operator(request):
     return report
 
 
-def _prepare_inverse(request):
+def _prepare_inverse(request, exact_tmi=False):
     p=baselode.geophysics.forward_common._bounded_json(request,8388608,max_nodes=300000);_keys(p,('schema','version','operator_request','observed','parameters','regularization','solver'),('metadata',))
     if p['schema']!='baselode.geophysics.potential_field_grid_inversion_request' or type(p['version']) not in (int,float) or p['version']!=1:raise ValueError('unsupported grid inversion schema/version')
-    operator,indices,excluded,diag=_prepare(p['operator_request']);names,bounds,scales,units=_config(operator['model_kind']);ids=[operator['grid']['cell_ids'][i] for i in indices];expected=[(identity,name) for identity in ids for name in names]
+    operator,indices,excluded,diag=_prepare(p['operator_request'],exact_tmi=exact_tmi);names,bounds,scales,units=_config(operator['model_kind']);ids=[operator['grid']['cell_ids'][i] for i in indices];expected=[(identity,name) for identity in ids for name in names]
     if any(v!=0 for v in _model(operator,indices)):raise ValueError('effective active template values must be zero')
     observed=p['observed']
     if type(observed) is not list or len(observed)!=len(operator['channels']):raise ValueError('one ordered observed dataset per channel required')
@@ -332,7 +335,7 @@ def _prepare_inverse(request):
         prediction={'context':_context(operator,quantity),'records':[{**point,'value':0.} for point in operator['points']]};baselode.geophysics.inversion._raise_validation(baselode.geophysics.misfit.calculate_misfit(baselode.geophysics.inversion._misfit_request(dataset,prediction)))
         for row in dataset['records']:
             baselode.geophysics.forward_common._number(row['value'],-1e8,1e8);baselode.geophysics.forward_common._number(row['standard_deviation'],1e-8,1e8)
-        if quantity=='magnetic_tmi_anomaly':
+        if quantity=='magnetic_tmi_anomaly' and not exact_tmi:
             magnitude=_norm([operator['background_nT'][k] for k in ('x','y','z_up')])
             if any(abs(row['value'])/magnitude>operator['max_response_to_background_ratio'] for row in dataset['records']):raise baselode.geophysics.corrections._NeedsInput('observed TMI exceeds selected weak-response policy')
     if type(p['parameters']) is not list or len(p['parameters'])!=len(expected):raise ValueError('declare every effective parameter in cell/component order')

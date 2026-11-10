@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add exact total-field magnitude forward modelling and bounded nonlinear susceptibility/Cartesian-J inversion, analytic matrix-free Jacobians, explicit starts/zero-field guards, exact-versus-linear residuals, native portable schemas/types and scientific recovery/stationary-start tests.
+
 - Add terrain-aware regular-grid matrix-free gravity/magnetics operators and bounded L2 TRF/LSMR inversion through Python3.12+ `scalable` extra, with native Python/JS schemas/validation, explicit terrain exclusion, shared work budgets, adjoint/convergence evidence and independent scientific regressions.
 
 - Add native Python/JS context- and ID-aligned residual/misfit QC, explicit coverage and supplied-sigma weighting, group summaries, scaled numerical statistics and atomic portable schemas/types/replay.
