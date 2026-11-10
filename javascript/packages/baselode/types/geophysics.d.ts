@@ -1019,3 +1019,22 @@ export function describeGeophysicsExactTmiOperator():Record<string,any>;
 export function validateGeophysicsExactTmiOperator(request:GeophysicsExactTmiOperatorRequest):GeophysicsExactTmiOperatorReport;
 export function describeGeophysicsExactTmiInversion():Record<string,any>;
 export function validateGeophysicsExactTmiInversion(request:GeophysicsExactTmiInversionRequest):GeophysicsExactTmiInversionReport;
+
+export interface GeophysicsSparsePotentialFieldInversionRequest extends Omit<GeophysicsPotentialFieldGridInversionRequest,'schema'|'solver'> {
+ schema:'baselode.geophysics.sparse_potential_field_inversion_request';initial_values:number[];
+ penalty:{model_p:number;gradient_p:number;stages:Array<{model_epsilon:number;gradient_epsilon:number}>};
+ execution:{max_operator_calls:number;max_kernel_evaluations:number};
+ solver:Omit<GeophysicsPotentialFieldGridInversionRequest['solver'],'method'>&{method:'irls_trf_lsmr';outer_tolerance:number;max_outer_iterations:number;max_polish_iterations:number;max_backtracking_steps:number};
+}
+export interface GeophysicsSparseInversionHistory {
+ stage:number;iteration:number;model_epsilon:number;gradient_epsilon:number;objective:NonNullable<GeophysicsPotentialFieldGridInversionReport['objective']>;
+ scaled_step_max:number|null;projected_gradient:number|null;projected_gradient_threshold:number|null;inner_projected_gradient:number|null;inner_projected_gradient_threshold:number|null;augmented_condition_upper_bound:number|null;matrix_normalization:number|null;inner_iterations:number|null;inner_polish_iterations:number|null;backtracking_steps:number|null;accepted_fraction:number|null;operator_calls:number;
+}
+/** Python numerical report. Componentwise compactness can favour axes/sensitivity; no geological uniqueness or posterior inference. */
+export interface GeophysicsSparsePotentialFieldInversionReport extends Omit<GeophysicsPotentialFieldGridInversionReport,'request'> {
+ request:GeophysicsSparsePotentialFieldInversionRequest|null;initial_predicted:GeophysicsPotentialFieldOperatorReport['predicted'];
+ penalty_weights:{model:number[];gradient:number[]}|null;history:GeophysicsSparseInversionHistory[];
+ path:Array<{stage:number;model_epsilon:number;gradient_epsilon:number;values:number[];objective:NonNullable<GeophysicsPotentialFieldGridInversionReport['objective']>;iterations:number}>;
+}
+export function describeGeophysicsSparsePotentialFieldInversion():Record<string,any>;
+export function validateGeophysicsSparsePotentialFieldInversion(request:GeophysicsSparsePotentialFieldInversionRequest):GeophysicsSparsePotentialFieldInversionReport;

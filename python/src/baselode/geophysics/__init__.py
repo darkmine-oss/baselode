@@ -294,3 +294,9 @@ describe_exact_tmi_inversion = geophysics_exact_tmi.describe_exact_tmi_inversion
 validate_exact_tmi_inversion = geophysics_exact_tmi.validate_exact_tmi_inversion
 invert_exact_tmi = geophysics_exact_tmi.invert_exact_tmi
 __all__ += ['describe_exact_tmi_operator', 'validate_exact_tmi_operator', 'calculate_exact_tmi_operator', 'describe_exact_tmi_inversion', 'validate_exact_tmi_inversion', 'invert_exact_tmi']
+
+import baselode.geophysics.sparse_inversion as geophysics_sparse_inversion
+describe_sparse_potential_field_inversion = geophysics_sparse_inversion.describe_sparse_potential_field_inversion
+validate_sparse_potential_field_inversion = geophysics_sparse_inversion.validate_sparse_potential_field_inversion
+invert_sparse_potential_field = geophysics_sparse_inversion.invert_sparse_potential_field
+__all__ += ['describe_sparse_potential_field_inversion', 'validate_sparse_potential_field_inversion', 'invert_sparse_potential_field']

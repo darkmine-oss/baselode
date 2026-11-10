@@ -1431,3 +1431,81 @@ strong/transverse recovery, scalar susceptibility, weak-limit agreement,
 Jacobian finite differences/adjoints, resource failures and native negative replay.
 No demagnetisation, induced/remanent split, posterior uncertainty or unique geology
 is inferred. The terrain selection and bounded tile domain match the operator API.
+
+### Sparse and compact potential-field inversion
+
+`describe_sparse_potential_field_inversion()`,
+`validate_sparse_potential_field_inversion(request)` (core) and
+`invert_sparse_potential_field(request)` (Python3.12+ `scalable`) add explicit
+componentwise IRLS to the linear density/susceptibility/J grid operator. The full
+request is `test/data/sparse_potential_field_inversion_example.json`. Exact-TMI
+with sparse penalties is not part of this API; linear TMI retains its supplied
+observed/full-vector weak-response guards.
+
+Declare initial physical values in parameter order, model/gradient p in[0,2] and
+one to eight epsilon stages. For scaled model z=(m-reference)/scale and weighted
+edge residual q=sqrt(edge.weight)*(z_a-z_b), each component contributes:
+
+- p>0: phi_p(r,e)=(2/p)*((r²+e²)^(p/2)-e^p).
+- p=0: phi_0(r,e)=log1p((r/e)²), a smooth logarithmic compactness penalty.
+- p=2: phi_2(r,e)=r², exactly the existing L2 objective.
+
+The objective is supplied-sigma data SSE + reference_weight*sum(phi_model(z)) +
+smoothness_weight*sum(phi_gradient(q)). The 2/p normalization retains the L2
+scale and continuous logarithmic limit; changing p changes penalty strength, so
+compare data fit and priors. Epsilon values are dimensionless in these scaled
+residuals, positive1e-6..10 and nonincreasing between stages, with at least one
+strict decrease. Model sparsity applies to deviations from the supplied reference.
+Weights, cell volumes, depth compensation and vector grouping are not inferred.
+Componentwise J penalties/scales/bounds can favour Cartesian axes.
+
+The local quadratic weight is (r²+e²)^(p/2-1). Positive reference weight keeps each
+inner augmented quadratic full column rank mathematically; it does not establish
+data rank or convexity of the actual p<1 objective. Bounded TRF/LSMR solves each
+quadratic without dense G. `tolerance`, `max_iterations`, `lsmr_tolerance`,
+`max_inner_iterations` and `condition_limit` retain the grid-inverse meanings.
+`outer_tolerance` is1e-8..1e-3 and `max_outer_iterations` is1..100 per stage.
+
+The independent inner projected-gradient target is
+min(sqrt(tolerance),0.1*outer_tolerance)*(1+normalized_target_gradient_max).
+SciPy uses a bound-distance-weighted stopping criterion; a successful proposal
+can need further work to meet this separate certificate. The explicitly bounded
+`max_polish_iterations` (0..64) permits clipped unit-gradient steps on the
+Frobenius-normalized quadratic, whose Hessian norm is at most one. Every product
+is charged to the same work budget. If a proposal increases the actual objective,
+`max_backtracking_steps` (0..16) permits halving toward the previous model.
+Exhaustion returns failure; no worsening fit is silently accepted. The rounding
+allowance is64 binary64 eps times max(1, old objective, new objective).
+
+A separate top-level `execution` declares total calls10..16384 and kernel terms
+10..1e9 across all stages, inner solves, polishing and backtracking. The nested
+operator execution remains its standalone forward-replay budget; validation
+checks it covers known forward adjoint/prediction/full-vector work. Workspace
+estimates and the physical/terrain tile domain remain those of the grid operator.
+Validation rejects totals below known setup/minimum-stage work: five setup
+products plus at least five per stage, with additional full-vector TMI work.
+This is a lower bound, not a convergence guarantee; nonzero targets, bounds,
+polishing and backtracking can require substantially more. Budgets can stop
+execution before convergence and withhold every fitted product.
+
+`history` records accepted actual objectives and epsilon, steps, true-penalty
+projected gradients, matrix normalization, proposal inner certificates, polishing,
+backtracking fractions, conditions and calls. The inner certificate belongs to the
+proposal; the outer certificate uses the accepted model after any backtracking.
+Both use half the corresponding objective divided by the local quadratic Frobenius
+norm squared. Outer convergence requires its true-penalty gradient and scaled step
+tests (the fixed quadratic p2 case can finish after one certified inner solve).
+Objective comparisons apply within each fixed-epsilon stage; stage changes reset
+the baseline. `path` retains up to eight physical models in parameter order.
+
+The final report includes actual objective terms, effective local model/edge
+weights including lambda, physical parameters, exact active-bound flags after
+polishing, sensitivity norms, residual QC and a fitted operator request for replay.
+The condition upper bound uses local quadratic weights and is not the Hessian of
+the nonlinear penalty. `data_rank` remains unknown. p<1 is nonconvex; local/global
+minimum guarantees remain false, including after stationarity. Compactness does
+not establish unique geology or posterior uncertainty. A symmetric two-body test
+shows opposite starts selecting different compact bodies with the same predicted
+field, while L2 spreads the model. Signed scalar references, weighted multichannel
+fits, contacts, zero sensitivity, bounds, finite-difference gradients and actual
+objective/backtracking failures have independent regressions.

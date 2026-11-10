@@ -107,3 +107,5 @@ export {describeGeophysicsMagneticVectorInversion,validateGeophysicsMagneticVect
 export {describeGeophysicsPotentialFieldOperator,validateGeophysicsPotentialFieldOperator,describeGeophysicsPotentialFieldGridInversion,validateGeophysicsPotentialFieldGridInversion} from './data/geophysicsPotentialFieldOperator.js';
 
 export {describeGeophysicsExactTmiOperator,validateGeophysicsExactTmiOperator,describeGeophysicsExactTmiInversion,validateGeophysicsExactTmiInversion} from './data/geophysicsExactTmi.js';
+
+export {describeGeophysicsSparsePotentialFieldInversion,validateGeophysicsSparsePotentialFieldInversion} from './data/geophysicsSparseInversion.js';

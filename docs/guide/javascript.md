@@ -1822,3 +1822,14 @@ scales/supplied sigma. Replay accepted requests into Python3.12+ `scalable` for
 execution. Validation cannot establish actual total-field norms, convergence or a
 minimum. Numerical reports distinguish exact/linear residuals and expose a fitted
 exact-forward request; inspect residuals and alternative starts after convergence.
+
+### Sparse/compact inversion requests
+
+`describeGeophysicsSparsePotentialFieldInversion()` and
+`validateGeophysicsSparsePotentialFieldInversion(request)` provide native contracts,
+TypeScript types and copied portable requests for Python3.12+ `scalable` execution.
+Declare p/epsilon stages, initial values, bounds/reference/scales, independent sigma,
+inner/outer/polish/backtracking controls and total execution budgets. Numerical
+reports retain actual objective history, stage model path and fitted forward replay;
+validation establishes neither convergence nor unique geology. See the Python guide
+for logarithmic compactness, componentwise bias and separate forward-run budgets.
