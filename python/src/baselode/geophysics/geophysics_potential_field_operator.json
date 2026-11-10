@@ -921,8 +921,8 @@
     "max_edges": 4096,
     "max_input_bytes": 8388608,
     "max_result_bytes": 16777216,
-    "max_json_nodes": 100000,
-    "max_result_json_nodes": 500000,
+    "max_json_nodes": 300000,
+    "max_result_json_nodes": 1000000,
     "max_point_offset_to_min_dimension": 1000,
     "max_aspect_ratio": 20,
     "min_cell_dimension_m": 1

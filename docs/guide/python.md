@@ -1341,7 +1341,9 @@ IDs and nominal excluded volumes are reported; no partial-cell fill is guessed.
 This conservative mask does not model subgrid topography or terrain uncertainty.
 
 V1 supports 4096 total cells, 2048 effective active cells, 2048 total channel data,
-6144 vector parameters and 4096 explicit smoothing edges. Minimum cell size is
+6144 vector parameters and 4096 explicit smoothing edges. These schemas allow
+300,000 input / 1,000,000 result JSON nodes, with 8MiB / 16MiB byte caps and the
+shared depth limits; other schemas retain their smaller node budgets. Minimum cell size is
 1m, aspect ratio at most20, combined span at most200km and observation offset /
 minimum cell dimension at most1000. Magnetic observations must be external by
 the supplied minimum distance. Complete supplied-sigma datasets must match IDs,

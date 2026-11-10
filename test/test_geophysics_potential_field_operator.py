@@ -122,3 +122,13 @@ def test_noninteger_spacing_kernel_mesh_uses_index_times_spacing_without_cumulat
         def __init__(self,*a,**k):
             super().__init__(*a,**k);captured.append(self)
     monkeypatch.setattr(baselode.geophysics.potential_field_operator._discretize,'TensorMesh',mesh);baselode.geophysics.potential_field_operator._build(prepare[0],prepare[1],prepare[3]);assert np.array_equal(captured[0].nodes_x,np.arange(65)*1.1)
+
+def test_combined_maximum_vector_request_fits_schema_specific_node_budget(tmp_path):
+    p=request(True);op=grid(magnetic(),[16,16,8],[25,25,25],[-200,-200,-250]);op['values']=[0]*6144;op['channels']=['magnetic_bx'];op['points']=[{'id':str(i),'x_m':i%32*10,'y_m':i//32*5,'z_m':0} for i in range(2048)];p['operator_request']=op
+    p['parameters']=[{'cell_id':identity,'parameter':name,'lower':-1000,'upper':1000,'reference':0,'scale':1} for identity in op['grid']['cell_ids'] for name in J]
+    p['regularization']['edges']=[{'cell_a':str(i),'cell_b':str((i+offset)%2048),'weight':1} for offset in (1,2) for i in range(2048)]
+    p['observed']=[{'context':baselode.geophysics.potential_field_operator._context(op,'magnetic_bx'),'records':[{**point,'value':0,'standard_deviation':1,'group_id':None} for point in op['points']]}]
+    # Prove the old global budget rejects this otherwise supported combination.
+    with pytest.raises(baselode.geophysics.corrections._ResourceError,match='node/depth'):baselode.geophysics.forward_common._bounded_json(p,8388608)
+    r=baselode.geophysics.validate_potential_field_grid_inversion(p);assert r['state']=='ok',r['issues'];assert r['diagnostics']['parameters']==6144 and len(r['request']['regularization']['edges'])==4096
+    a=tmp_path/'max.json';b=tmp_path/'out.json';a.write_text(json.dumps([p]));subprocess.run(['node',str(ROOT/'test/data/potential_field_operator_parity.mjs'),str(a),str(b),'inverse'],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True);native=json.loads(b.read_text())['reports'][0];assert native['state']=='ok',native['issues'];assert native['request']==r['request']

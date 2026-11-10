@@ -59,7 +59,7 @@ def _norm(values):
 
 
 def _prepare(request):
-    p=baselode.geophysics.forward_common._bounded_json(request,8388608)
+    p=baselode.geophysics.forward_common._bounded_json(request,8388608,max_nodes=300000)
     _keys(p,('schema','version','model_kind','parameter_units','field_type','coordinate_frame','reference_id','grid','values','points','channels','background_nT','min_distance_m','max_response_to_background_ratio','execution'),('metadata',),('background_nT','min_distance_m','max_response_to_background_ratio'))
     if p['schema']!='baselode.geophysics.potential_field_operator_request' or type(p['version']) not in (int,float) or p['version']!=1:raise ValueError('unsupported operator schema/version')
     names,bounds,_,units=_config(p['model_kind'])
@@ -200,7 +200,7 @@ def validate_potential_field_operator(request):
     report=_report('validation')
     try:
         p,indices,excluded,diag=_prepare(request);report.update(request=p,active_cell_ids=[p['grid']['cell_ids'][i] for i in indices],excluded=excluded,diagnostics=diag)
-        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True)
+        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True,max_nodes=1000000)
     except (ValueError,TypeError,RecursionError,ArithmeticError,RuntimeError) as error:_error(report,error)
     return report
 
@@ -314,7 +314,7 @@ def calculate_potential_field_operator(request):
             warnings.simplefilter('error');operator,_,counter,adjoint=_build(p,indices,diag);values=operator@_model(p,indices)
             ratio=_check_tmi(p,indices,diag,_model(p,indices),counter)
         report.update(request=p,active_cell_ids=[p['grid']['cell_ids'][i] for i in indices],excluded=excluded,predicted=_prediction(p,values),diagnostics={**diag,'adjoint_relative_error':adjoint,'operator_calls':counter.calls,'kernel_evaluations':counter.terms,'max_fitted_response_to_background_ratio':ratio},backend=_backend())
-        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True)
+        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True,max_nodes=1000000)
     except (ValueError,TypeError,RecursionError,ArithmeticError,RuntimeError,Warning) as error:
         if isinstance(error,Warning):error=RuntimeError('operator backend warning: '+str(error))
         _error(report,error)
@@ -322,7 +322,7 @@ def calculate_potential_field_operator(request):
 
 
 def _prepare_inverse(request):
-    p=baselode.geophysics.forward_common._bounded_json(request,8388608);_keys(p,('schema','version','operator_request','observed','parameters','regularization','solver'),('metadata',))
+    p=baselode.geophysics.forward_common._bounded_json(request,8388608,max_nodes=300000);_keys(p,('schema','version','operator_request','observed','parameters','regularization','solver'),('metadata',))
     if p['schema']!='baselode.geophysics.potential_field_grid_inversion_request' or type(p['version']) not in (int,float) or p['version']!=1:raise ValueError('unsupported grid inversion schema/version')
     operator,indices,excluded,diag=_prepare(p['operator_request']);names,bounds,scales,units=_config(operator['model_kind']);ids=[operator['grid']['cell_ids'][i] for i in indices];expected=[(identity,name) for identity in ids for name in names]
     if any(v!=0 for v in _model(operator,indices)):raise ValueError('effective active template values must be zero')
@@ -397,7 +397,7 @@ def validate_potential_field_grid_inversion(request):
     report=_report('validation');report['schema']='baselode.geophysics.potential_field_grid_inversion_validation'
     try:
         p,operator,indices,excluded,diag=_prepare_inverse(request);report.update(request=p,active_cell_ids=[operator['grid']['cell_ids'][i] for i in indices],excluded=excluded,diagnostics=diag)
-        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True)
+        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True,max_nodes=1000000)
     except (ValueError,TypeError,RecursionError,ArithmeticError,RuntimeError) as error:_error(report,error)
     return report
 
@@ -462,7 +462,7 @@ def invert_potential_field_grid(request):
             for j in range(components):fitted['values'][index*components+j]=float(values[position*components+j])
         objective={'weighted_data':math.fsum(qc['summary']['statistics']['chi_squared'] for qc in qcs),'reference':weight*float(np.dot(z,z)),'smoothness':smooth*float(np.dot(difference@z,difference@z))};objective['total']=math.fsum(objective.values())
         report.update(request=p,active_cell_ids=[template['grid']['cell_ids'][i] for i in indices],excluded=excluded,parameters=[{**param,'units':template['parameter_units'],'value':float(value),'active_bound':int(bound),'weighted_column_norm':float(norm)} for param,value,bound,norm in zip(params,values,solution.active_mask,column_norms)],fitted_operator_request=fitted,predicted=predictions,misfit=qcs,objective=objective,convergence={'success':True,'status':int(solution.status),'iterations':int(solution.nit),'optimality':float(solution.optimality),'projected_gradient':pg,'projected_gradient_threshold':threshold},diagnostics={**diag,'adjoint_relative_error':adjoint,'operator_calls':counter.calls,'kernel_evaluations':counter.terms,'augmented_condition_upper_bound':condition_bound,'condition_evidence':'Frobenius_norm_over_sqrt_reference_weight','data_rank':None,'max_fitted_response_to_background_ratio':ratio},backend=_backend())
-        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True)
+        baselode.geophysics.forward_common._bounded_json(report,16777216,result=True,max_nodes=1000000)
     except (ValueError,TypeError,RecursionError,ArithmeticError,RuntimeError,Warning) as error:
         if isinstance(error,Warning):error=RuntimeError('matrix-free backend warning: '+str(error))
         _error(report,error)
