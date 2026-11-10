@@ -310,3 +310,8 @@ describe_processing_ensemble = geophysics_processing_ensembles.describe_processi
 validate_processing_ensemble = geophysics_processing_ensembles.validate_processing_ensemble
 run_processing_ensemble = geophysics_processing_ensembles.run_processing_ensemble
 __all__ += ['describe_potential_field_ensemble','validate_potential_field_ensemble','run_potential_field_ensemble','describe_processing_ensemble','validate_processing_ensemble','run_processing_ensemble']
+
+import baselode.geophysics.raw_radiometrics as geophysics_raw_radiometrics
+describe_raw_radiometrics = geophysics_raw_radiometrics.describe_raw_radiometrics
+validate_raw_radiometrics = geophysics_raw_radiometrics.validate_raw_radiometrics
+process_raw_radiometrics = geophysics_raw_radiometrics.process_raw_radiometrics

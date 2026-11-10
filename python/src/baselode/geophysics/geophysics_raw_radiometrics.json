@@ -1,0 +1,1776 @@
+{
+  "schema": "baselode.geophysics.raw_radiometrics_capability",
+  "version": 1,
+  "order": [
+    "K",
+    "eU",
+    "eTh"
+  ],
+  "units": [
+    "%",
+    "ppm",
+    "ppm"
+  ],
+  "request_schema": {
+    "type": "object",
+    "properties": {
+      "schema": {
+        "const": "baselode.geophysics.raw_radiometrics_request"
+      },
+      "version": {
+        "const": 1
+      },
+      "reference_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      },
+      "calibration": {
+        "$ref": "#/$defs/calibration"
+      },
+      "records": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/record"
+        },
+        "minItems": 1,
+        "maxItems": 128
+      },
+      "processing_state": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "const": "raw_counts"
+          },
+          "applied_corrections": {
+            "type": "array",
+            "items": {},
+            "minItems": 0,
+            "maxItems": 0
+          }
+        },
+        "required": [
+          "kind",
+          "applied_corrections"
+        ],
+        "additionalProperties": false
+      },
+      "uncertainty_model": {
+        "const": "conditional_independent_poisson_fixed_live_times_and_calibration"
+      },
+      "options": {
+        "type": "object",
+        "properties": {
+          "minimum_window_counts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096000000000
+          },
+          "maximum_relative_standard_uncertainty": {
+            "type": "number",
+            "minimum": 1e-06,
+            "maximum": 1000000.0
+          },
+          "dead_time_warning_fraction": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "maximum_height_factor": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "maximum_response_condition": {
+            "type": "number",
+            "minimum": 3,
+            "maximum": 100000000.0
+          }
+        },
+        "required": [
+          "minimum_window_counts",
+          "maximum_relative_standard_uncertainty",
+          "dead_time_warning_fraction",
+          "maximum_height_factor",
+          "maximum_response_condition"
+        ],
+        "additionalProperties": false
+      },
+      "metadata": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "schema",
+      "version",
+      "reference_id",
+      "calibration",
+      "records",
+      "processing_state",
+      "uncertainty_model",
+      "options"
+    ],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "energy": {
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 4096
+          },
+          "offset_keV": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "gain_keV_per_channel": {
+            "type": "number",
+            "minimum": 1e-06,
+            "maximum": 10000
+          },
+          "channel_convention": {
+            "const": "zero_based_centres"
+          }
+        },
+        "required": [
+          "channels",
+          "offset_keV",
+          "gain_keV_per_channel",
+          "channel_convention"
+        ],
+        "additionalProperties": false
+      },
+      "window": {
+        "type": "object",
+        "properties": {
+          "element": {
+            "enum": [
+              "K",
+              "eU",
+              "eTh"
+            ]
+          },
+          "first_channel": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4095
+          },
+          "last_channel_exclusive": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          }
+        },
+        "required": [
+          "element",
+          "first_channel",
+          "last_channel_exclusive"
+        ],
+        "additionalProperties": false
+      },
+      "background": {
+        "type": "object",
+        "properties": {
+          "window_rates_cps": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000.0
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "covariance_cps2": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "const": 0
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 1e-200,
+                    "maximum": 1000000000000.0
+                  },
+                  {
+                    "type": "number",
+                    "minimum": -1000000000000.0,
+                    "maximum": -1e-200
+                  }
+                ]
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "minItems": 3,
+            "maxItems": 3
+          }
+        },
+        "required": [
+          "window_rates_cps",
+          "covariance_cps2"
+        ],
+        "additionalProperties": false
+      },
+      "calibration": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "detector_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "valid_from_utc": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "valid_to_utc": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "energy": {
+            "$ref": "#/$defs/energy"
+          },
+          "windows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/window"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "air_reference": {
+            "type": "object",
+            "properties": {
+              "pressure_Pa": {
+                "type": "number",
+                "minimum": 50000,
+                "maximum": 120000
+              },
+              "temperature_K": {
+                "type": "number",
+                "minimum": 200,
+                "maximum": 330
+              },
+              "model": {
+                "const": "ideal_dry_air_density_ratio"
+              }
+            },
+            "required": [
+              "pressure_Pa",
+              "temperature_K",
+              "model"
+            ],
+            "additionalProperties": false
+          },
+          "nominal_effective_height_m": {
+            "type": "number",
+            "minimum": 50,
+            "maximum": 250
+          },
+          "geometric_height_range_m": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 250
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "effective_height_range_m": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 250
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "response_matrix": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "response_height_slopes_per_m": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -0.1,
+                "maximum": 0.1
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "attenuation_per_m": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.1
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "sensitivity_cps_per_unit": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 1e-06,
+              "maximum": 1000000.0
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "aircraft_background": {
+            "$ref": "#/$defs/background"
+          },
+          "cosmic_leakage": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "source_id",
+          "detector_id",
+          "valid_from_utc",
+          "valid_to_utc",
+          "energy",
+          "windows",
+          "air_reference",
+          "nominal_effective_height_m",
+          "geometric_height_range_m",
+          "effective_height_range_m",
+          "response_matrix",
+          "response_height_slopes_per_m",
+          "attenuation_per_m",
+          "sensitivity_cps_per_unit",
+          "aircraft_background",
+          "cosmic_leakage"
+        ],
+        "additionalProperties": false
+      },
+      "record": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "detector_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "calibration_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "acquired_at_utc": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "spectrum_counts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "minItems": 4,
+            "maxItems": 4096
+          },
+          "live_time_s": {
+            "type": "number",
+            "minimum": 0.001,
+            "maximum": 3600
+          },
+          "real_time_s": {
+            "type": "number",
+            "minimum": 0.001,
+            "maximum": 3600
+          },
+          "height_agl_m": {
+            "type": "number",
+            "minimum": 50,
+            "maximum": 250
+          },
+          "pressure_Pa": {
+            "type": "number",
+            "minimum": 50000,
+            "maximum": 120000
+          },
+          "temperature_K": {
+            "type": "number",
+            "minimum": 200,
+            "maximum": 330
+          },
+          "cosmic_monitor": {
+            "type": "object",
+            "properties": {
+              "counts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "live_time_s": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 3600
+              },
+              "real_time_s": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 3600
+              },
+              "independent_of_spectrum": {
+                "const": true
+              }
+            },
+            "required": [
+              "counts",
+              "live_time_s",
+              "real_time_s",
+              "independent_of_spectrum"
+            ],
+            "additionalProperties": false
+          },
+          "radon_background": {
+            "type": "object",
+            "properties": {
+              "estimate_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "window_rates_cps": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -1000000.0,
+                  "maximum": 1000000.0
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "covariance_cps2": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "const": 0
+                      },
+                      {
+                        "type": "number",
+                        "minimum": 1e-200,
+                        "maximum": 1000000000000.0
+                      },
+                      {
+                        "type": "number",
+                        "minimum": -1000000000000.0,
+                        "maximum": -1e-200
+                      }
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "independent_of_main_and_cosmic": {
+                "const": true
+              }
+            },
+            "required": [
+              "estimate_id",
+              "window_rates_cps",
+              "covariance_cps2",
+              "independent_of_main_and_cosmic"
+            ],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "detector_id",
+          "calibration_id",
+          "acquired_at_utc",
+          "spectrum_counts",
+          "live_time_s",
+          "real_time_s",
+          "height_agl_m",
+          "pressure_Pa",
+          "temperature_K",
+          "cosmic_monitor",
+          "radon_background"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "result_schema": {
+    "type": "object",
+    "properties": {
+      "schema": {
+        "enum": [
+          "baselode.geophysics.raw_radiometrics_validation",
+          "baselode.geophysics.raw_radiometrics_result"
+        ]
+      },
+      "version": {
+        "const": 1
+      },
+      "state": {
+        "enum": [
+          "ok",
+          "needs_input",
+          "rejected",
+          "failed"
+        ]
+      },
+      "issues": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "enum": [
+                "context",
+                "resource",
+                "contract",
+                "numerical"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "request": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/request"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "records": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "calibration_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "detector_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "acquired_at_utc": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+            },
+            "channels": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "element": {
+                    "enum": [
+                      "K",
+                      "eU",
+                      "eTh"
+                    ]
+                  },
+                  "units": {
+                    "enum": [
+                      "%",
+                      "ppm"
+                    ]
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": -1e+100,
+                    "maximum": 1e+100
+                  },
+                  "standard_uncertainty": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1e+100
+                  },
+                  "relative_standard_uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1e+100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "flags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 0,
+                    "maxItems": 10
+                  }
+                },
+                "required": [
+                  "element",
+                  "units",
+                  "value",
+                  "standard_uncertainty",
+                  "relative_standard_uncertainty",
+                  "flags"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "flags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 0,
+              "maxItems": 10
+            },
+            "dead_time_fraction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "cosmic_dead_time_fraction": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "window_counts": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4096000000000
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "observed_rates_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "live_rates_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "aircraft_background_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "cosmic_monitor_rate_cps": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1e+100
+            },
+            "cosmic_background_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "radon_background_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "background_corrected_rates_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "stripped_rates_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "nominal_height_rates_cps": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -1e+100,
+                "maximum": 1e+100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "effective_height_m": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 250
+            },
+            "height_factors": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 100
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "response_matrix": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 10
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "inverse_response": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "response_condition_bound": {
+              "type": "number",
+              "minimum": 3,
+              "maximum": 100000000.0
+            },
+            "inverse_residual": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1e+100
+            },
+            "concentration_transform": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "count_rate_covariance_cps2": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "stripped_covariance_cps2": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -1e+100,
+                  "maximum": 1e+100
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "concentration_covariance": {
+              "type": "object",
+              "properties": {
+                "order": {
+                  "const": [
+                    "K",
+                    "eU",
+                    "eTh"
+                  ]
+                },
+                "units": {
+                  "const": [
+                    "%",
+                    "ppm",
+                    "ppm"
+                  ]
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "number",
+                      "minimum": -1e+100,
+                      "maximum": 1e+100
+                    },
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                }
+              },
+              "required": [
+                "order",
+                "units",
+                "values"
+              ],
+              "additionalProperties": false
+            },
+            "covariance_factorisation": {
+              "type": "object",
+              "properties": {
+                "aircraft": {
+                  "type": "object",
+                  "properties": {
+                    "rank": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 3
+                    },
+                    "maximum_adjustment_cps2": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "relative_adjustment": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    }
+                  },
+                  "required": [
+                    "rank",
+                    "maximum_adjustment_cps2",
+                    "relative_adjustment"
+                  ],
+                  "additionalProperties": false
+                },
+                "radon": {
+                  "type": "object",
+                  "properties": {
+                    "rank": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 3
+                    },
+                    "maximum_adjustment_cps2": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    },
+                    "relative_adjustment": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1e+100
+                    }
+                  },
+                  "required": [
+                    "rank",
+                    "maximum_adjustment_cps2",
+                    "relative_adjustment"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "aircraft",
+                "radon"
+              ],
+              "additionalProperties": false
+            },
+            "metadata": {
+              "type": "object"
+            }
+          },
+          "required": [
+            "id",
+            "calibration_id",
+            "detector_id",
+            "acquired_at_utc",
+            "channels",
+            "flags",
+            "dead_time_fraction",
+            "cosmic_dead_time_fraction",
+            "window_counts",
+            "observed_rates_cps",
+            "live_rates_cps",
+            "aircraft_background_cps",
+            "cosmic_monitor_rate_cps",
+            "cosmic_background_cps",
+            "radon_background_cps",
+            "background_corrected_rates_cps",
+            "stripped_rates_cps",
+            "nominal_height_rates_cps",
+            "effective_height_m",
+            "height_factors",
+            "response_matrix",
+            "inverse_response",
+            "response_condition_bound",
+            "inverse_residual",
+            "concentration_transform",
+            "count_rate_covariance_cps2",
+            "stripped_covariance_cps2",
+            "concentration_covariance",
+            "covariance_factorisation",
+            "metadata"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 0,
+        "maxItems": 128
+      },
+      "correction_recipe": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "operation": {
+              "enum": [
+                "live_time_normalization",
+                "calibrated_window_selection",
+                "reference_air_height",
+                "background_subtraction",
+                "height_adjusted_stripping",
+                "nominal_height_normalization",
+                "sensitivity_conversion",
+                "conditional_covariance_propagation"
+              ]
+            },
+            "version": {
+              "const": 1
+            }
+          },
+          "required": [
+            "operation",
+            "version"
+          ],
+          "additionalProperties": false
+        },
+        "minItems": 0,
+        "maxItems": 8
+      },
+      "processing_state": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "corrected_concentrations"
+              },
+              "applied_corrections": {
+                "const": [
+                  "live_time_normalization",
+                  "calibrated_window_selection",
+                  "reference_air_height",
+                  "background_subtraction",
+                  "height_adjusted_stripping",
+                  "nominal_height_normalization",
+                  "sensitivity_conversion",
+                  "conditional_covariance_propagation"
+                ]
+              },
+              "calibration_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "calibration_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "required": [
+              "kind",
+              "applied_corrections",
+              "calibration_id",
+              "calibration_version"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "diagnostics": {
+        "type": "object"
+      },
+      "producer": {
+        "type": "object",
+        "properties": {
+          "library": {
+            "const": "baselode"
+          },
+          "version": {
+            "type": "string"
+          },
+          "algorithm_version": {
+            "const": 1
+          }
+        },
+        "required": [
+          "library",
+          "version",
+          "algorithm_version"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "required": [
+      "schema",
+      "version",
+      "state",
+      "issues",
+      "request",
+      "records",
+      "correction_recipe",
+      "processing_state",
+      "diagnostics",
+      "producer"
+    ],
+    "additionalProperties": false,
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$defs": {
+      "energy": {
+        "type": "object",
+        "properties": {
+          "channels": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 4096
+          },
+          "offset_keV": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "gain_keV_per_channel": {
+            "type": "number",
+            "minimum": 1e-06,
+            "maximum": 10000
+          },
+          "channel_convention": {
+            "const": "zero_based_centres"
+          }
+        },
+        "required": [
+          "channels",
+          "offset_keV",
+          "gain_keV_per_channel",
+          "channel_convention"
+        ],
+        "additionalProperties": false
+      },
+      "window": {
+        "type": "object",
+        "properties": {
+          "element": {
+            "enum": [
+              "K",
+              "eU",
+              "eTh"
+            ]
+          },
+          "first_channel": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4095
+          },
+          "last_channel_exclusive": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          }
+        },
+        "required": [
+          "element",
+          "first_channel",
+          "last_channel_exclusive"
+        ],
+        "additionalProperties": false
+      },
+      "background": {
+        "type": "object",
+        "properties": {
+          "window_rates_cps": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1000000.0
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "covariance_cps2": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "const": 0
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 1e-200,
+                    "maximum": 1000000000000.0
+                  },
+                  {
+                    "type": "number",
+                    "minimum": -1000000000000.0,
+                    "maximum": -1e-200
+                  }
+                ]
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "minItems": 3,
+            "maxItems": 3
+          }
+        },
+        "required": [
+          "window_rates_cps",
+          "covariance_cps2"
+        ],
+        "additionalProperties": false
+      },
+      "calibration": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "detector_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "valid_from_utc": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "valid_to_utc": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "energy": {
+            "$ref": "#/$defs/energy"
+          },
+          "windows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/window"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "air_reference": {
+            "type": "object",
+            "properties": {
+              "pressure_Pa": {
+                "type": "number",
+                "minimum": 50000,
+                "maximum": 120000
+              },
+              "temperature_K": {
+                "type": "number",
+                "minimum": 200,
+                "maximum": 330
+              },
+              "model": {
+                "const": "ideal_dry_air_density_ratio"
+              }
+            },
+            "required": [
+              "pressure_Pa",
+              "temperature_K",
+              "model"
+            ],
+            "additionalProperties": false
+          },
+          "nominal_effective_height_m": {
+            "type": "number",
+            "minimum": 50,
+            "maximum": 250
+          },
+          "geometric_height_range_m": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 250
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "effective_height_range_m": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 50,
+              "maximum": 250
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "response_matrix": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "response_height_slopes_per_m": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "number",
+                "minimum": -0.1,
+                "maximum": 0.1
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "attenuation_per_m": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.1
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "sensitivity_cps_per_unit": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 1e-06,
+              "maximum": 1000000.0
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "aircraft_background": {
+            "$ref": "#/$defs/background"
+          },
+          "cosmic_leakage": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "source_id",
+          "detector_id",
+          "valid_from_utc",
+          "valid_to_utc",
+          "energy",
+          "windows",
+          "air_reference",
+          "nominal_effective_height_m",
+          "geometric_height_range_m",
+          "effective_height_range_m",
+          "response_matrix",
+          "response_height_slopes_per_m",
+          "attenuation_per_m",
+          "sensitivity_cps_per_unit",
+          "aircraft_background",
+          "cosmic_leakage"
+        ],
+        "additionalProperties": false
+      },
+      "record": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "detector_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "calibration_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "acquired_at_utc": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+          },
+          "spectrum_counts": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000000
+            },
+            "minItems": 4,
+            "maxItems": 4096
+          },
+          "live_time_s": {
+            "type": "number",
+            "minimum": 0.001,
+            "maximum": 3600
+          },
+          "real_time_s": {
+            "type": "number",
+            "minimum": 0.001,
+            "maximum": 3600
+          },
+          "height_agl_m": {
+            "type": "number",
+            "minimum": 50,
+            "maximum": 250
+          },
+          "pressure_Pa": {
+            "type": "number",
+            "minimum": 50000,
+            "maximum": 120000
+          },
+          "temperature_K": {
+            "type": "number",
+            "minimum": 200,
+            "maximum": 330
+          },
+          "cosmic_monitor": {
+            "type": "object",
+            "properties": {
+              "counts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "live_time_s": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 3600
+              },
+              "real_time_s": {
+                "type": "number",
+                "minimum": 0.001,
+                "maximum": 3600
+              },
+              "independent_of_spectrum": {
+                "const": true
+              }
+            },
+            "required": [
+              "counts",
+              "live_time_s",
+              "real_time_s",
+              "independent_of_spectrum"
+            ],
+            "additionalProperties": false
+          },
+          "radon_background": {
+            "type": "object",
+            "properties": {
+              "estimate_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "window_rates_cps": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": -1000000.0,
+                  "maximum": 1000000.0
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "covariance_cps2": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "const": 0
+                      },
+                      {
+                        "type": "number",
+                        "minimum": 1e-200,
+                        "maximum": 1000000000000.0
+                      },
+                      {
+                        "type": "number",
+                        "minimum": -1000000000000.0,
+                        "maximum": -1e-200
+                      }
+                    ]
+                  },
+                  "minItems": 3,
+                  "maxItems": 3
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "independent_of_main_and_cosmic": {
+                "const": true
+              }
+            },
+            "required": [
+              "estimate_id",
+              "window_rates_cps",
+              "covariance_cps2",
+              "independent_of_main_and_cosmic"
+            ],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "detector_id",
+          "calibration_id",
+          "acquired_at_utc",
+          "spectrum_counts",
+          "live_time_s",
+          "real_time_s",
+          "height_agl_m",
+          "pressure_Pa",
+          "temperature_K",
+          "cosmic_monitor",
+          "radon_background"
+        ],
+        "additionalProperties": false
+      },
+      "request": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "const": "baselode.geophysics.raw_radiometrics_request"
+          },
+          "version": {
+            "const": 1
+          },
+          "reference_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "calibration": {
+            "$ref": "#/$defs/calibration"
+          },
+          "records": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/record"
+            },
+            "minItems": 1,
+            "maxItems": 128
+          },
+          "processing_state": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "raw_counts"
+              },
+              "applied_corrections": {
+                "type": "array",
+                "items": {},
+                "minItems": 0,
+                "maxItems": 0
+              }
+            },
+            "required": [
+              "kind",
+              "applied_corrections"
+            ],
+            "additionalProperties": false
+          },
+          "uncertainty_model": {
+            "const": "conditional_independent_poisson_fixed_live_times_and_calibration"
+          },
+          "options": {
+            "type": "object",
+            "properties": {
+              "minimum_window_counts": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4096000000000
+              },
+              "maximum_relative_standard_uncertainty": {
+                "type": "number",
+                "minimum": 1e-06,
+                "maximum": 1000000.0
+              },
+              "dead_time_warning_fraction": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "maximum_height_factor": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100
+              },
+              "maximum_response_condition": {
+                "type": "number",
+                "minimum": 3,
+                "maximum": 100000000.0
+              }
+            },
+            "required": [
+              "minimum_window_counts",
+              "maximum_relative_standard_uncertainty",
+              "dead_time_warning_fraction",
+              "maximum_height_factor",
+              "maximum_response_condition"
+            ],
+            "additionalProperties": false
+          },
+          "metadata": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "schema",
+          "version",
+          "reference_id",
+          "calibration",
+          "records",
+          "processing_state",
+          "uncertainty_model",
+          "options"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "resources": {
+    "max_records": 128,
+    "max_channels": 4096,
+    "max_input_nodes": 1000000,
+    "max_result_nodes": 2000000,
+    "max_input_depth": 32,
+    "max_result_depth": 33,
+    "max_input_bytes": 16777216,
+    "max_result_bytes": 33554432,
+    "max_metadata_budget_units": 131072,
+    "metadata_numeric_scalar_units": 32,
+    "minimum_nonzero_covariance_entry_cps2": 1e-200,
+    "covariance_rounding_relative_tolerance": 1.1368683772161603e-13
+  },
+  "correction_order": [
+    "live_time_normalization",
+    "calibrated_window_selection",
+    "reference_air_height",
+    "background_subtraction",
+    "height_adjusted_stripping",
+    "nominal_height_normalization",
+    "sensitivity_conversion",
+    "conditional_covariance_propagation"
+  ],
+  "conventions": {
+    "energy": "E_keV=offset_keV+gain_keV_per_channel*zero_based_index; windows inclusive first, exclusive last, complete bins; reported edges at centre +/-half bin",
+    "equivalent_height": "h_eff=h_AGL*(P/P_ref)*(T_ref_K/T_K); all height-dependent calibration uses same reference dry air",
+    "response": "net_window_cps=S(h_eff)*stripped_cps; S=S0+(h_eff-h0)*slopes",
+    "concentration": "diag(exp(mu*(h_eff-h0))/sensitivity)*inverse(S)*net_window_cps",
+    "covariance": "positive factors for diag(window_counts/live^2), independent cosmic rank1, supplied aircraft/radon PSD covariance, propagated through same linear transform",
+    "PSD_rounding": "scale-normalised diagonal-pivoted Cholesky; preserve positive pivots, nonpositive residual block within64eps may be truncated; adjustments/rank retained, reconstruction <=512eps relative"
+  },
+  "assumptions": [
+    "Explicit raw state, calibration identities and UTC acquisition validity; no current-clock expiry or inferred detector constants",
+    "Supplied fixed energy calibration; no drift fitting, fractional rebinning, NASVD/MNF or radon estimator",
+    "Cosmic monitor and supplied radon noise independent of main spectrum and each other; aircraft/background estimates independent of counts",
+    "Conditional independent Poisson plug-in variance with fixed live times; no renewal dead-time variance model, confidence intervals or posterior claim",
+    "Calibration, energy/height/exposure uncertainty and cross-record covariance excluded; shared background calibration may correlate records",
+    "Calibrated flat infinite-source exponential height model, geometric/effective heights50..250m and declared subsets; not rugged-terrain or footprint inversion",
+    "Negative estimates retained with flags; zero-count plug-in variance is not evidence of certainty; eU/eTh do not establish secular equilibrium",
+    "Metadata structural units: UTF8 JSON strings/keys/punctuation and bool/null normally, fixed32 per numeric scalar; enclosing byte/node limits also apply"
+  ],
+  "references": [
+    {
+      "title": "IAEA-TECDOC-1363 (2003), sections5.5.3,5.5.5-9 and5.6",
+      "url": "https://www-pub.iaea.org/MTCD/Publications/PDF/te_1363_web.pdf"
+    }
+  ]
+}

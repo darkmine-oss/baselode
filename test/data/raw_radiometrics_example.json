@@ -1,0 +1,254 @@
+{
+  "schema": "baselode.geophysics.raw_radiometrics_request",
+  "version": 1,
+  "reference_id": "synthetic_airborne_survey",
+  "calibration": {
+    "id": "synthetic_calibration",
+    "version": "1",
+    "source_id": "synthetic_hand_mixture",
+    "detector_id": "synthetic_detector",
+    "valid_from_utc": "2026-01-01T00:00:00Z",
+    "valid_to_utc": "2026-12-31T23:59:59Z",
+    "energy": {
+      "channels": 8,
+      "offset_keV": 0,
+      "gain_keV_per_channel": 500,
+      "channel_convention": "zero_based_centres"
+    },
+    "windows": [
+      {
+        "element": "K",
+        "first_channel": 3,
+        "last_channel_exclusive": 4
+      },
+      {
+        "element": "eU",
+        "first_channel": 4,
+        "last_channel_exclusive": 5
+      },
+      {
+        "element": "eTh",
+        "first_channel": 5,
+        "last_channel_exclusive": 6
+      }
+    ],
+    "air_reference": {
+      "pressure_Pa": 101325,
+      "temperature_K": 273.15,
+      "model": "ideal_dry_air_density_ratio"
+    },
+    "nominal_effective_height_m": 100,
+    "geometric_height_range_m": [
+      50,
+      150
+    ],
+    "effective_height_range_m": [
+      50,
+      150
+    ],
+    "response_matrix": [
+      [
+        1,
+        0.2,
+        0.1
+      ],
+      [
+        0,
+        1,
+        0.3
+      ],
+      [
+        0,
+        0.1,
+        1
+      ]
+    ],
+    "response_height_slopes_per_m": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0
+      ]
+    ],
+    "attenuation_per_m": [
+      0.03465735902799726,
+      0.03465735902799726,
+      0.03465735902799726
+    ],
+    "sensitivity_cps_per_unit": [
+      10,
+      5,
+      2
+    ],
+    "aircraft_background": {
+      "window_rates_cps": [
+        1,
+        2,
+        3
+      ],
+      "covariance_cps2": [
+        [
+          1,
+          0.2,
+          0
+        ],
+        [
+          0.2,
+          2,
+          0.1
+        ],
+        [
+          0,
+          0.1,
+          1
+        ]
+      ]
+    },
+    "cosmic_leakage": [
+      0.1,
+      0.2,
+      0.3
+    ],
+    "metadata": {
+      "purpose": "Synthetic arithmetic fixture; not an instrument calibration"
+    }
+  },
+  "records": [
+    {
+      "id": "sample_0",
+      "detector_id": "synthetic_detector",
+      "calibration_id": "synthetic_calibration",
+      "acquired_at_utc": "2026-06-01T00:00:00Z",
+      "spectrum_counts": [
+        2,
+        4,
+        6,
+        236,
+        134,
+        102,
+        8,
+        10
+      ],
+      "live_time_s": 2,
+      "real_time_s": 2.5,
+      "height_agl_m": 100,
+      "pressure_Pa": 101325,
+      "temperature_K": 273.15,
+      "cosmic_monitor": {
+        "counts": 20,
+        "live_time_s": 2,
+        "real_time_s": 2.5,
+        "independent_of_spectrum": true
+      },
+      "radon_background": {
+        "estimate_id": "independent_radon_0",
+        "window_rates_cps": [
+          2,
+          1,
+          0
+        ],
+        "covariance_cps2": [
+          [
+            0.5,
+            0.1,
+            0.05
+          ],
+          [
+            0.1,
+            0.4,
+            0.02
+          ],
+          [
+            0.05,
+            0.02,
+            0.3
+          ]
+        ],
+        "independent_of_main_and_cosmic": true
+      },
+      "metadata": {
+        "x_m": 0,
+        "y_m": 0
+      }
+    },
+    {
+      "id": "sample_1",
+      "detector_id": "synthetic_detector",
+      "calibration_id": "synthetic_calibration",
+      "acquired_at_utc": "2026-06-01T00:00:01Z",
+      "spectrum_counts": [
+        2,
+        4,
+        6,
+        122,
+        72,
+        57,
+        8,
+        10
+      ],
+      "live_time_s": 2,
+      "real_time_s": 2.5,
+      "height_agl_m": 120,
+      "pressure_Pa": 101325,
+      "temperature_K": 273.15,
+      "cosmic_monitor": {
+        "counts": 20,
+        "live_time_s": 2,
+        "real_time_s": 2.5,
+        "independent_of_spectrum": true
+      },
+      "radon_background": {
+        "estimate_id": "independent_radon_1",
+        "window_rates_cps": [
+          2,
+          1,
+          0
+        ],
+        "covariance_cps2": [
+          [
+            0.5,
+            0.1,
+            0.05
+          ],
+          [
+            0.1,
+            0.4,
+            0.02
+          ],
+          [
+            0.05,
+            0.02,
+            0.3
+          ]
+        ],
+        "independent_of_main_and_cosmic": true
+      },
+      "metadata": {
+        "x_m": 10,
+        "y_m": 0
+      }
+    }
+  ],
+  "processing_state": {
+    "kind": "raw_counts",
+    "applied_corrections": []
+  },
+  "uncertainty_model": "conditional_independent_poisson_fixed_live_times_and_calibration",
+  "options": {
+    "minimum_window_counts": 25,
+    "maximum_relative_standard_uncertainty": 0.5,
+    "dead_time_warning_fraction": 0.3,
+    "maximum_height_factor": 100,
+    "maximum_response_condition": 100
+  }
+}

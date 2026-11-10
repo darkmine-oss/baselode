@@ -112,3 +112,5 @@ export {describeGeophysicsSparsePotentialFieldInversion,validateGeophysicsSparse
 
 export {describeGeophysicsPotentialFieldEnsemble,validateGeophysicsPotentialFieldEnsemble} from './data/geophysicsModelEnsembles.js';
 export {describeGeophysicsProcessingEnsemble,validateGeophysicsProcessingEnsemble} from './data/geophysicsProcessingEnsembles.js';
+
+export {describeGeophysicsRawRadiometrics,validateGeophysicsRawRadiometrics,processGeophysicsRawRadiometrics} from './data/geophysicsRawRadiometrics.js';
