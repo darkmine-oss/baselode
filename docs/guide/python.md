@@ -1381,3 +1381,53 @@ conservative numeric-buffer estimate, excluding interpreter/JIT memory; it is no
 an operating-system RSS cap. Caps target bounded larger tiles, not arbitrary
 survey scale. Independent cube, volume-quadrature, dense-small adjoint/norm and
 larger-grid subdivision tests cover signs, units, far offsets and ordering.
+
+### Exact total-field magnitude modelling and inversion
+
+Python3.12+ `baselode[scalable]` adds `calculate_exact_tmi_operator(request)`
+and `invert_exact_tmi(request)`. Each also has a core `describe_*` / `validate_*`
+API and complete shared `test/data/exact_tmi_*_example.json` requests. Native
+JavaScript validation and TypeScript types use the same versioned contracts.
+Existing linear-TMI APIs retain their weak-response guards.
+
+The exact forward wrapper contains `operator_request` and a positive
+`field_norm_floor_nT` (1e-8..1e6nT). Use susceptibility or Cartesian J, one
+`magnetic_tmi_anomaly` channel, a known fixed background vector and an explicitly
+null weak-response cap. The uniform-cell fields are superposed before computing
+|B0+B|-|B0|. A rationalised difference preserves tiny anomalies. Component vectors,
+total norms, exact predictions and separately labelled linear predictions remain
+visible. The supplied norm floor applies at every forward/trial model; zero total
+field is nondifferentiable. Any initial or trial model below the floor stops the
+fit with `needs_input` / `context` and no fitted products. Revise the start, bounds
+or floor; the solver does not replace the physical objective with a large
+artificial residual or silently continue through a forbidden trial.
+
+The inverse adds `initial_values` in effective cell/component parameter order,
+complete context-matched independent-sigma observations, physical parameter
+bounds/scales/reference and explicit positive L2 reference/optional edge terms.
+`solver.method="trf_lsmr_exact_tmi"` selects bounded TRF with analytic Jacobian
+u·G, where u=(B0+B)/|B0+B|; `max_function_evaluations` is1..200. Other tolerance,
+inner-iteration and condition controls follow the grid inverse. All kernel/call
+budgets remain shared across checks, initial/fitted fields and solver products.
+A one-parameter fit uses a single explicit Jacobian column and TRF's exact
+subproblem solver, avoiding the pinned SciPy LSMR two-dimensional-subspace edge
+case. Larger fits use a matrix-free Jacobian/LSMR. `convergence.solver_backend`
+records the chosen path; neither constructs dense sensitivity G.
+
+Results return a `fitted_forward_request` for the exact forward API, exact
+`misfit` and separate `linear_misfit`, initial predictions, objective terms,
+physical bounds and independent projected-gradient evidence. Per-parameter
+`weighted_column_norm_upper_bound` uses the full vector sensitivities. The
+reported augmented GaussNewton condition upper bound uses those vector norms
+and the positive reference penalty. It describes local GaussNewton conditioning,
+not the true nonlinear Hessian; data rank remains unknown.
+
+This objective is nonlinear. Solver success and stationarity establish neither
+a local nor global minimum: both guarantee flags are false. A transverse
+response can have a zero initial gradient while leaving substantial residuals.
+Inspect exact residuals, alternative starting models and prior sensitivity before
+accepting an interpretation. The tests include this stationary-start example,
+strong/transverse recovery, scalar susceptibility, weak-limit agreement,
+Jacobian finite differences/adjoints, resource failures and native negative replay.
+No demagnetisation, induced/remanent split, posterior uncertainty or unique geology
+is inferred. The terrain selection and bounded tile domain match the operator API.

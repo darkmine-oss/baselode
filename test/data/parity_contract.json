@@ -1168,6 +1168,42 @@
           "invert_potential_field_grid"
         ]
       ]
+    },
+    {
+      "name": "geophysics_exact_tmi",
+      "description": "Exact total-field magnitude forward/inversion contracts with native validation and Python3.12+ matrix-free numerical execution; explicit starts, field-zero guards and local stationarity.",
+      "jsExports": [
+        "describeGeophysicsExactTmiOperator",
+        "validateGeophysicsExactTmiOperator",
+        "describeGeophysicsExactTmiInversion",
+        "validateGeophysicsExactTmiInversion"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_exact_tmi_operator"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_exact_tmi_operator"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_exact_tmi_operator"
+        ],
+        [
+          "baselode.geophysics",
+          "describe_exact_tmi_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_exact_tmi_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "invert_exact_tmi"
+        ]
+      ]
     }
   ]
 }

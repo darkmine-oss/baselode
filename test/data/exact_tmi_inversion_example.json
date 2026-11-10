@@ -1,0 +1,251 @@
+{
+  "schema": "baselode.geophysics.exact_tmi_inversion_request",
+  "version": 1,
+  "operator_request": {
+    "schema": "baselode.geophysics.potential_field_operator_request",
+    "version": 1,
+    "model_kind": "magnetic_vector",
+    "parameter_units": "A/m",
+    "field_type": "magnetic_anomaly",
+    "coordinate_frame": {
+      "id": "synthetic-local-grid",
+      "kind": "local_cartesian",
+      "axes": "x_y_up",
+      "units": "m",
+      "height_datum": "local_zero"
+    },
+    "reference_id": "synthetic_fixed_B0",
+    "grid": {
+      "origin_m": [
+        -50,
+        -50,
+        -150
+      ],
+      "cell_size_m": [
+        100,
+        100,
+        100
+      ],
+      "shape": [
+        1,
+        1,
+        1
+      ],
+      "order": "i_fastest",
+      "cell_ids": [
+        "body"
+      ],
+      "active": [
+        true
+      ],
+      "terrain_z_m": null,
+      "terrain_policy": "none"
+    },
+    "values": [
+      0,
+      0,
+      0
+    ],
+    "points": [
+      {
+        "id": "0",
+        "x_m": -50,
+        "y_m": -50,
+        "z_m": 0
+      },
+      {
+        "id": "1",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0
+      },
+      {
+        "id": "2",
+        "x_m": 100,
+        "y_m": 0,
+        "z_m": 0
+      },
+      {
+        "id": "3",
+        "x_m": -50,
+        "y_m": 100,
+        "z_m": 0
+      },
+      {
+        "id": "4",
+        "x_m": 50,
+        "y_m": -75,
+        "z_m": 0
+      },
+      {
+        "id": "5",
+        "x_m": 100,
+        "y_m": 100,
+        "z_m": 0
+      },
+      {
+        "id": "6",
+        "x_m": -150,
+        "y_m": -80,
+        "z_m": 0
+      },
+      {
+        "id": "7",
+        "x_m": 75,
+        "y_m": 180,
+        "z_m": 0
+      }
+    ],
+    "channels": [
+      "magnetic_tmi_anomaly"
+    ],
+    "background_nT": {
+      "x": 0,
+      "y": 0,
+      "z_up": 1000
+    },
+    "min_distance_m": 1,
+    "max_response_to_background_ratio": null,
+    "execution": {
+      "max_operator_calls": 512,
+      "max_kernel_evaluations": 1000000000,
+      "workspace_budget_mib": 64
+    }
+  },
+  "observed": [
+    {
+      "context": {
+        "quantity": "magnetic_tmi_anomaly",
+        "units": "nT",
+        "field_type": "magnetic_anomaly",
+        "reference_id": "synthetic_fixed_B0",
+        "coordinate_frame": {
+          "id": "synthetic-local-grid",
+          "kind": "local_cartesian",
+          "axes": "x_y_up",
+          "units": "m",
+          "height_datum": "local_zero"
+        }
+      },
+      "records": [
+        {
+          "id": "7",
+          "x_m": 75,
+          "y_m": 180,
+          "z_m": 0,
+          "value": -39.03699266935486,
+          "standard_deviation": 0.017,
+          "group_id": null
+        },
+        {
+          "id": "6",
+          "x_m": -150,
+          "y_m": -80,
+          "z_m": 0,
+          "value": -72.24912970396781,
+          "standard_deviation": 0.016,
+          "group_id": null
+        },
+        {
+          "id": "5",
+          "x_m": 100,
+          "y_m": 100,
+          "z_m": 0,
+          "value": 88.7807141153517,
+          "standard_deviation": 0.015,
+          "group_id": null
+        },
+        {
+          "id": "4",
+          "x_m": 50,
+          "y_m": -75,
+          "z_m": 0,
+          "value": 773.8068493162804,
+          "standard_deviation": 0.013999999999999999,
+          "group_id": null
+        },
+        {
+          "id": "3",
+          "x_m": -50,
+          "y_m": 100,
+          "z_m": 0,
+          "value": -45.30008569331206,
+          "standard_deviation": 0.013000000000000001,
+          "group_id": null
+        },
+        {
+          "id": "2",
+          "x_m": 100,
+          "y_m": 0,
+          "z_m": 0,
+          "value": 575.722803883337,
+          "standard_deviation": 0.012,
+          "group_id": null
+        },
+        {
+          "id": "1",
+          "x_m": 0,
+          "y_m": 0,
+          "z_m": 0,
+          "value": 1738.6121699061773,
+          "standard_deviation": 0.011000000000000001,
+          "group_id": null
+        },
+        {
+          "id": "0",
+          "x_m": -50,
+          "y_m": -50,
+          "z_m": 0,
+          "value": 723.3057053484356,
+          "standard_deviation": 0.01,
+          "group_id": null
+        }
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "cell_id": "body",
+      "parameter": "magnetization_x_A_m",
+      "lower": -30,
+      "upper": 30,
+      "reference": 0,
+      "scale": 10
+    },
+    {
+      "cell_id": "body",
+      "parameter": "magnetization_y_A_m",
+      "lower": -30,
+      "upper": 30,
+      "reference": 0,
+      "scale": 10
+    },
+    {
+      "cell_id": "body",
+      "parameter": "magnetization_z_up_A_m",
+      "lower": -30,
+      "upper": 30,
+      "reference": 0,
+      "scale": 10
+    }
+  ],
+  "regularization": {
+    "reference_weight": 1e-06,
+    "smoothness_weight": 0,
+    "edges": []
+  },
+  "solver": {
+    "method": "trf_lsmr_exact_tmi",
+    "tolerance": 1e-10,
+    "lsmr_tolerance": 1e-12,
+    "max_inner_iterations": 100,
+    "condition_limit": 1000000000000.0,
+    "max_function_evaluations": 100
+  },
+  "field_norm_floor_nT": 1e-06,
+  "initial_values": [
+    0,
+    0,
+    0
+  ]
+}

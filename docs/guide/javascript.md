@@ -1811,3 +1811,14 @@ Validation does not establish numerical convergence or conditioning. Replay an
 accepted request into Python3.12+ `baselode[scalable]` for numerical evaluation or
 inversion; JavaScript does not expose a numerical solver. See the Python guide
 and shared operator/grid-inversion examples for the full contract.
+
+### Exact-TMI portable requests
+
+`describeGeophysicsExactTmiOperator()` / `validateGeophysicsExactTmiOperator()`
+and `describeGeophysicsExactTmiInversion()` / `validateGeophysicsExactTmiInversion()`
+validate shared exact-magnitude contracts natively. Supply fixed B0, null weak cap,
+positive total-field norm floor, and explicit inversion starts/bounds/reference/
+scales/supplied sigma. Replay accepted requests into Python3.12+ `scalable` for
+execution. Validation cannot establish actual total-field norms, convergence or a
+minimum. Numerical reports distinguish exact/linear residuals and expose a fitted
+exact-forward request; inspect residuals and alternative starts after convergence.

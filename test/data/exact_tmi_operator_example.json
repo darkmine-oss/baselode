@@ -1,0 +1,116 @@
+{
+  "schema": "baselode.geophysics.exact_tmi_operator_request",
+  "version": 1,
+  "operator_request": {
+    "schema": "baselode.geophysics.potential_field_operator_request",
+    "version": 1,
+    "model_kind": "magnetic_vector",
+    "parameter_units": "A/m",
+    "field_type": "magnetic_anomaly",
+    "coordinate_frame": {
+      "id": "synthetic-local-grid",
+      "kind": "local_cartesian",
+      "axes": "x_y_up",
+      "units": "m",
+      "height_datum": "local_zero"
+    },
+    "reference_id": "synthetic_fixed_B0",
+    "grid": {
+      "origin_m": [
+        -50,
+        -50,
+        -150
+      ],
+      "cell_size_m": [
+        100,
+        100,
+        100
+      ],
+      "shape": [
+        1,
+        1,
+        1
+      ],
+      "order": "i_fastest",
+      "cell_ids": [
+        "body"
+      ],
+      "active": [
+        true
+      ],
+      "terrain_z_m": null,
+      "terrain_policy": "none"
+    },
+    "values": [
+      5,
+      -3,
+      10
+    ],
+    "points": [
+      {
+        "id": "0",
+        "x_m": -50,
+        "y_m": -50,
+        "z_m": 0
+      },
+      {
+        "id": "1",
+        "x_m": 0,
+        "y_m": 0,
+        "z_m": 0
+      },
+      {
+        "id": "2",
+        "x_m": 100,
+        "y_m": 0,
+        "z_m": 0
+      },
+      {
+        "id": "3",
+        "x_m": -50,
+        "y_m": 100,
+        "z_m": 0
+      },
+      {
+        "id": "4",
+        "x_m": 50,
+        "y_m": -75,
+        "z_m": 0
+      },
+      {
+        "id": "5",
+        "x_m": 100,
+        "y_m": 100,
+        "z_m": 0
+      },
+      {
+        "id": "6",
+        "x_m": -150,
+        "y_m": -80,
+        "z_m": 0
+      },
+      {
+        "id": "7",
+        "x_m": 75,
+        "y_m": 180,
+        "z_m": 0
+      }
+    ],
+    "channels": [
+      "magnetic_tmi_anomaly"
+    ],
+    "background_nT": {
+      "x": 0,
+      "y": 0,
+      "z_up": 1000
+    },
+    "min_distance_m": 1,
+    "max_response_to_background_ratio": null,
+    "execution": {
+      "max_operator_calls": 512,
+      "max_kernel_evaluations": 1000000000,
+      "workspace_budget_mib": 64
+    }
+  },
+  "field_norm_floor_nT": 1e-06
+}

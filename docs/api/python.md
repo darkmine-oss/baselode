@@ -3323,3 +3323,13 @@ products. `describe_potential_field_grid_inversion()`,
 fits. Numerical execution requires Python3.12+ and `baselode[scalable]`; descriptors
 and validation work in core Python. Consult the guide and complete shared examples
 for physical ordering, budgets, conditional rank/conditioning and failure semantics.
+
+### Exact TMI forward and nonlinear inversion
+
+`describe_exact_tmi_operator()`, `validate_exact_tmi_operator(request)` and
+`calculate_exact_tmi_operator(request)` expose the stable exact field-magnitude
+wrapper. `describe_exact_tmi_inversion()`, `validate_exact_tmi_inversion(request)`
+and `invert_exact_tmi(request)` fit that objective with explicit starts, L2 priors,
+analytic matrix-free Jacobian and guarded bounded TRF. Numerical execution needs
+Python3.12+ `scalable`; see the guide for single-parameter solver policy, local
+GaussNewton conditioning, zero-field rejection and stationarity limitations.

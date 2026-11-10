@@ -285,3 +285,12 @@ describe_potential_field_grid_inversion = geophysics_potential_field_operator.de
 validate_potential_field_grid_inversion = geophysics_potential_field_operator.validate_potential_field_grid_inversion
 invert_potential_field_grid = geophysics_potential_field_operator.invert_potential_field_grid
 __all__ += ['describe_potential_field_operator','validate_potential_field_operator','calculate_potential_field_operator','describe_potential_field_grid_inversion','validate_potential_field_grid_inversion','invert_potential_field_grid']
+
+import baselode.geophysics.exact_tmi as geophysics_exact_tmi
+describe_exact_tmi_operator = geophysics_exact_tmi.describe_exact_tmi_operator
+validate_exact_tmi_operator = geophysics_exact_tmi.validate_exact_tmi_operator
+calculate_exact_tmi_operator = geophysics_exact_tmi.calculate_exact_tmi_operator
+describe_exact_tmi_inversion = geophysics_exact_tmi.describe_exact_tmi_inversion
+validate_exact_tmi_inversion = geophysics_exact_tmi.validate_exact_tmi_inversion
+invert_exact_tmi = geophysics_exact_tmi.invert_exact_tmi
+__all__ += ['describe_exact_tmi_operator', 'validate_exact_tmi_operator', 'calculate_exact_tmi_operator', 'describe_exact_tmi_inversion', 'validate_exact_tmi_inversion', 'invert_exact_tmi']

@@ -511,3 +511,18 @@ physical conventions and matrix-free products. Bounded L2 TRF/LSMR reports a
 conservative augmented condition bound and independent projected-gradient gate;
 data rank remains unknown. No numerical JS parity, partial terrain volume,
 arbitrary survey scale, geological uniqueness or posterior uncertainty is claimed.
+
+## Exact total-field magnitude v1
+
+Python describe/validate_exact_tmi_operator and describe/validate_exact_tmi_inversion
+map to native describe/validateGeophysicsExactTmiOperator and
+ describe/validateGeophysicsExactTmiInversion. Schemas, types and negative replay
+cover fixed B0, null weak cap, norm floor, initial models, physical order/bounds,
+complete supplied-sigma context and shared terrain/resources. Python numerical
+calculate_exact_tmi_operator/invert_exact_tmi reuse the pinned scalable vector
+operator. Exact magnitude and separate linear QC, analytic Jacobian directional
+finite differences/adjoints, strong-field recovery, scalar/weak-limit cases and
+stationary-start nonuniqueness have scientific regressions. One-parameter fits use
+one explicit Jacobian column; larger fits are matrix-free TRF/LSMR. No numerical
+JS parity, local/global minimum guarantee, exact-Hessian conditioning, posterior
+uncertainty, induced/remanent split or geological uniqueness is claimed.
