@@ -5496,13 +5496,14 @@
     "max_total_observations": 8192,
     "max_total_edges": 8192,
     "max_total_grid_cells": 8192,
-    "max_metadata_bytes": 65536,
     "max_input_nodes": 1000000,
     "max_result_nodes": 3000000,
     "max_input_bytes": 16777216,
     "max_result_bytes": 67108864,
     "max_total_operator_calls": 262144,
-    "max_total_kernel_evaluations": 1000000000
+    "max_total_kernel_evaluations": 1000000000,
+    "max_metadata_budget_units": 65536,
+    "metadata_numeric_scalar_units": 32
   },
   "assumptions": [
     "One registered operation/fixed geometry per ensemble, no eval or generated code",
@@ -5511,6 +5512,7 @@
     "Statistics of successful declared scenarios with explicit requested/success/unknown denominators, not posterior or ore probability",
     "Sample SD null for one success; direction uses explicit amplitude floor and mean unit vectors/resultant without a preferred geographic angle",
     "Actual child requests replay full individual diagnostics omitted from summary; forward replay retained",
-    "Python3.12+ scalable numerical execution; native Python/JS validation only"
+    "Python3.12+ scalable numerical execution; native Python/JS validation only",
+    "Aggregate metadata structural units count UTF-8 JSON strings/keys, punctuation, booleans/null and fixed32 per numeric scalar, independent of host float formatting"
   ]
 }

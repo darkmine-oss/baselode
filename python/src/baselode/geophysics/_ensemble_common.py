@@ -19,6 +19,14 @@ def _keys(value, required, optional=(), nullable=()):
 
 
 def _metadata(value, maximum):
+    # Deterministic cross-language units: UTF-8 JSON text for strings/keys,
+    # punctuation, booleans/null; fixed 32 units per numeric scalar. This is a
+    # structural budget, not the host serializer's spelling of a float.
+    def cost(item):
+        if type(item) is dict:return 2+max(0, len(item)-1)+sum(cost(key)+1+cost(child) for key, child in item.items())
+        if type(item) is list:return 2+max(0, len(item)-1)+sum(cost(child) for child in item)
+        if type(item) in (int, float):return 32
+        return len(json.dumps(item, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
     total = 0
     def walk(item):
         nonlocal total
@@ -26,12 +34,12 @@ def _metadata(value, maximum):
             for key, child in item.items():
                 if key == 'metadata':
                     if type(child) is not dict:raise ValueError('metadata fields must be objects')
-                    total += len(json.dumps(child, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
+                    total += cost(child)
                 else:walk(child)
         elif type(item) is list:
             for child in item:walk(child)
     walk(value)
-    if total > maximum:raise baselode.geophysics.corrections._ResourceError('aggregate metadata byte budget exceeded')
+    if total > maximum:raise baselode.geophysics.corrections._ResourceError('aggregate metadata structural budget exceeded')
     return total
 
 

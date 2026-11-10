@@ -1282,13 +1282,14 @@
     "max_total_steps": 128,
     "max_retained_cell_values": 2097152,
     "max_fft_cell_work": 67108864,
-    "max_metadata_bytes": 131072,
     "max_input_nodes": 1000000,
     "max_result_nodes": 5000000,
     "max_input_bytes": 16777216,
     "max_result_bytes": 67108864,
     "max_input_depth": 32,
-    "max_result_depth": 40
+    "max_result_depth": 40,
+    "max_metadata_budget_units": 131072,
+    "metadata_numeric_scalar_units": 32
   },
   "assumptions": [
     "Explicit shared singleband north-up known metre grid/context; scalar field/units-preserving registered workflows only",
@@ -1298,6 +1299,7 @@
     "Coverage/masks and user minimum valid counts; missing is never zero, sample SD null for one value",
     "Caller edge warnings flag boundary proximity, not geological/artifact classification",
     "Mean raster field_type=other with flat member lineage, no inherited current correction/model states",
-    "Core Python NumPy execution; native Python/JS validation, not numerical meta-runner parity; not posterior or ore probability"
+    "Core Python NumPy execution; native Python/JS validation, not numerical meta-runner parity; not posterior or ore probability",
+    "Aggregate metadata structural units count UTF-8 JSON strings/keys, punctuation, booleans/null and fixed32 per numeric scalar, independent of host float formatting"
   ]
 }

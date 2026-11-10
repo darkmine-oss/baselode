@@ -1530,9 +1530,9 @@ if validation["state"] == "ok":
 Model ensembles register one family per request: grid L2, exact TMI or sparse
 IRLS. Members share fixed cells, terrain, points, channels, reference, frame and
 background. Explicit starts, bounds, priors, regularisation and data may vary.
-At most16 members share equal, non-transferable operator-call/kernel reservations;
-known minimum work is checked before execution. Aggregate limits are12288
-parameters,8192 observations,8192 edges and8192 total grid cells. Numerical
+At most 16 members share equal, non-transferable operator-call/kernel reservations;
+known minimum work is checked before execution. Aggregate limits are 12288
+parameters, 8192 observations, 8192 edges and 8192 total grid cells. Numerical
 failures consume their full reserved quota conservatively; pre-execution
 validation failures consume no kernel work. The complete ledger remains visible.
 
@@ -1551,12 +1551,12 @@ undefined zero directions. One value has null sample SD. These describe the
 chosen scenarios; they do not estimate posterior uncertainty or ore probability.
 
 Processing ensembles accept a shared north-up single-band metre raster, up to
-8192 cells and16 members. Each member selects an identity control or an existing
+8192 cells and 16 members. Each member selects an identity control or an existing
 workflow composed of low/high/band-pass filtering, upward continuation, reduction
 to pole or controlled microlevelling. The workflow output must preserve grid,
 units and field type. Explicit optional Gaussian noise, full input/workflow
 replay, selected products and member outcomes are retained. Shared estimates
-cap128 steps,2097152 retained cell values and67108864 FFT-cell steps; these are
+cap 128 steps, 2097152 retained cell values and 67108864 FFT-cell steps; these are
 work/storage proxies, not wall-time or exact-RSS guarantees.
 
 Inspect `state` and `coverage` before using statistics. Abort stops later members;
@@ -1573,4 +1573,9 @@ The mean raster is a derived `field_type=other` product with full member lineage
 and no inherited current correction/model state. Its units remain explicit.
 UUID history identifiers can differ across replays; scientific arrays, saved
 inputs and workflow choices are the reproducible quantities. Input/output JSON
-bounds are16/64MiB; processing lineage permits result depth40 versus input32.
+bounds are 16/64MiB; processing lineage permits result depth 40 versus input 32.
+
+Aggregate metadata has65536 model/131072 raster structural budget units: UTF-8
+JSON string/key bytes, punctuation and booleans/null count normally; every
+numeric scalar costs32 units. This explicit accounting avoids host-dependent
+float spellings. The enclosing JSON payload also has its own byte/node limits.

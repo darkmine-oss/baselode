@@ -209,3 +209,14 @@ def test_malformed_processing_product_cannot_be_aggregated(monkeypatch):
     p=request(True);p['members']=p['members'][1:2];p['options'].update(minimum_successful_members=1,minimum_cell_members=1)
     monkeypatch.setattr(baselode.geophysics.workflows,'run_workflow',lambda *a,**k:{'state':'ok','issues':[],'completed_steps':[],'artifacts':{'filtered':0}})
     r=run(p,True,'failed');assert r['maps'] is None and r['members'][0]['selected_raster'] is None
+
+
+@pytest.mark.parametrize('processing',[False,True])
+def test_numeric_metadata_budget_is_independent_of_host_float_spelling(tmp_path,processing):
+    values=[];validate=getattr(baselode.geophysics,'validate_'+('processing' if processing else 'potential_field')+'_ensemble')
+    for count,state in [(3900 if processing else 1900,'ok'),(4100 if processing else 2100,'rejected')]:
+        for number in [1.0,1e-7,1e16]:
+            p=request(processing);p['metadata']={'numbers':[number]*count};r=validate(p);assert r['state']==state,r['issues'];values.append(p)
+    a=tmp_path/'in.json';b=tmp_path/'out.json';a.write_text(json.dumps(values));subprocess.run(['node',str(ROOT/'test/data/ensembles_parity.mjs'),str(a),str(b),'processing' if processing else 'model'],cwd=ROOT/'javascript/packages/baselode',check=True,capture_output=True,text=True)
+    for p,native in zip(values,json.loads(b.read_text())['reports']):
+        py=validate(p);assert py['state']==native['state'];assert [i['code'] for i in py['issues']]==[i['code'] for i in native['issues']]
