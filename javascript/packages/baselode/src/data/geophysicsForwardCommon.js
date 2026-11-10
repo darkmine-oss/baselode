@@ -6,10 +6,10 @@ export class NeedsInput extends Error{}
 export class ResourceError extends Error{}
 export class BackendError extends Error{}
 const limits={max_json_nodes:100000,max_result_json_nodes:500000,max_json_depth:32,max_result_json_depth:33};
-export function boundedJSON(value,limit,result=false){
+export function boundedJSON(value,limit,result=false,maxNodes=null){
   const active=new Set();let count=0,textBytes=0;const encoder=new TextEncoder();
   function visit(v,depth){
-    if(++count>(result?limits.max_result_json_nodes:limits.max_json_nodes)||depth>(result?limits.max_result_json_depth:limits.max_json_depth))throw new ResourceError('JSON node/depth budget exceeded');
+    if(++count>(maxNodes??(result?limits.max_result_json_nodes:limits.max_json_nodes))||depth>(result?limits.max_result_json_depth:limits.max_json_depth))throw new ResourceError('JSON node/depth budget exceeded');
     if(v===null||typeof v==='boolean')return;
     if(typeof v==='number'){if(!Number.isFinite(v)||Math.abs(v)>1e100)throw Error('require finite portable binary64 JSON numbers within +/-1e100');return;}
     if(typeof v==='string'){unicodeStrings(v);textBytes+=encoder.encode(v).length;if(textBytes>limit)throw new ResourceError('JSON string byte budget exceeded');return;}

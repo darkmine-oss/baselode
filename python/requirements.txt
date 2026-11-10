@@ -23,3 +23,8 @@ mpmath==1.3.0
 # Optional bounded inversion solver (supports Python3.10)
 scipy==1.15.3; python_version < "3.11"
 scipy==1.17.1; python_version >= "3.11"
+
+# Optional matrix-free backend (numerical Python3.12+)
+simpeg==0.26.0; python_version >= "3.12"
+discretize==0.13.0; python_version >= "3.12"
+geoana==0.9.0; python_version >= "3.12"

@@ -1316,3 +1316,68 @@ model through the released forward adapter. Exact-TMI QC is null for component
 objectives and an array for linear TMI; it is diagnostic, not a nonlinear objective.
 A regularised fit selects a model under declared priors and geometry; it does not
 establish geological uniqueness, posterior uncertainty or an induced/remanent split.
+
+### Terrain-aware matrix-free potential fields
+
+Python 3.12+ `pip install 'baselode[scalable]'` adds the pinned SimPEG 0.26.0,
+discretize 0.13.0, geoana 0.9.0, Choclo 0.3.2 and SciPy 1.17.1 backend.
+Core Python 3.10+ and JavaScript can describe/validate the same portable requests.
+Existing small-prism and BVLS APIs retain their limits and Python support.
+
+`describe_potential_field_operator()`, `validate_potential_field_operator(request)`
+and `calculate_potential_field_operator(request)` describe, prepare and evaluate
+regular Cartesian density, induced susceptibility or uniform Cartesian-J models.
+Use `test/data/potential_field_operator_example.json` as a complete request.
+Grid origin, cell sizes, shape, unique IDs, active flags and all values are explicit.
+Cells use i-fastest order; J values are cell-major x/y/z_up. Coordinates are metres
+in a known local x/y/up frame. Gravity is downward mGal for kg/m³ contrast;
+magnetic components/linear TMI are nT for SI susceptibility or J in A/m.
+Reference IDs and field semantics must be known, never inferred from coordinates.
+
+Terrain is either explicitly null with policy `none`, or complete grid-node
+heights with policy `exclude_intersecting`. Only cells wholly beneath the minimum
+of their four supplied corner heights remain active. Intersecting/above/masked
+IDs and nominal excluded volumes are reported; no partial-cell fill is guessed.
+This conservative mask does not model subgrid topography or terrain uncertainty.
+
+V1 supports 4096 total cells, 2048 effective active cells, 2048 total channel data,
+6144 vector parameters and 4096 explicit smoothing edges. These schemas allow
+300,000 input / 1,000,000 result JSON nodes, with 8MiB / 16MiB byte caps and the
+shared depth limits; other schemas retain their smaller node budgets. Minimum cell size is
+1m, aspect ratio at most20, combined span at most200km and observation offset /
+minimum cell dimension at most1000. Magnetic observations must be external by
+the supplied minimum distance. Complete supplied-sigma datasets must match IDs,
+coordinates, units, quantity and reference. Distinct components may be combined;
+linear TMI is a separate channel and requires fixed B0 and a weak-response cap.
+The cap checks the full fitted vector, including transverse components.
+
+`describe_potential_field_grid_inversion()`,
+`validate_potential_field_grid_inversion(request)` and
+`invert_potential_field_grid(request)` fit the same grids with bounded TRF/LSMR.
+The complete example is `test/data/potential_field_grid_inversion_example.json`.
+Declare zero active template values and every effective parameter in cell/component
+order with physical lower/upper/reference/scale. For z=(m-reference)/scale the
+objective is supplied-sigma data SSE + reference_weight*sum(z²) +
+smoothness_weight*sum(weight_edge*(z_a-z_b)²), componentwise for J.
+Reference weight must be positive; smoothing requires explicit edges.
+
+Products, adjoints and weighted column norms use matrix-free kernels; no dense G
+or dense SVD is allocated. The reported augmented condition upper bound is the
+Frobenius norm divided by sqrt(reference_weight), a conservative prior-dependent
+bound. Data rank is explicitly unknown. Diagnostics include independent adjoint
+and projected-gradient checks, solver convergence, physical parameter bounds and
+weighted column norms. Adjoint error is scaled by
+||Ax||*||y|| + ||x||*||Aᵀy|| with only a binary64 tiny floor, so very small
+fields retain a relative check. Active-bound flags follow the solver tolerance; a value
+can be numerically close to a bound without a nonzero flag. The fitted request,
+predictions and residual QC replay the declared geometry and parameter order.
+Regularisation selects a model; convergence establishes no geological uniqueness,
+posterior uncertainty, induced/remanent split or demagnetisation correction.
+
+Explicit call/kernel-term budgets are shared across adjoint checks, norm estimation,
+solver products and full-vector applicability checks. Exhaustion or numerical
+failure withholds fitted values and predictions atomically. Workspace budget is a
+conservative numeric-buffer estimate, excluding interpreter/JIT memory; it is not
+an operating-system RSS cap. Caps target bounded larger tiles, not arbitrary
+survey scale. Independent cube, volume-quadrature, dense-small adjoint/norm and
+larger-grid subdivision tests cover signs, units, far offsets and ordering.

@@ -3311,3 +3311,15 @@ independently bounded Jx/Jy/Jz (A/m), explicit vector-channel or linear-TMI obje
 componentwise L2 priors/edges, amplitude/frame direction and per-channel residuals.
 Numerical execution uses `inversion`; see shared analytic example and guide for
 rank/nonuniqueness, weak-response and independent-error policies.
+
+### Matrix-free terrain-aware potential fields
+
+`describe_potential_field_operator()`, `validate_potential_field_operator(request)`
+and `calculate_potential_field_operator(request)` expose bounded regular grids,
+conservative full-cell terrain masks and explicit density/susceptibility/J
+products. `describe_potential_field_grid_inversion()`,
+`validate_potential_field_grid_inversion(request)` and
+`invert_potential_field_grid(request)` add supplied-sigma bounded L2 TRF/LSMR
+fits. Numerical execution requires Python3.12+ and `baselode[scalable]`; descriptors
+and validation work in core Python. Consult the guide and complete shared examples
+for physical ordering, budgets, conditional rank/conditioning and failure semantics.

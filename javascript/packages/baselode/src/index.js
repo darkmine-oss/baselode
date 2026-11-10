@@ -723,3 +723,5 @@ export {describeGeophysicsDensityInversion,validateGeophysicsDensityInversion} f
 export {describeGeophysicsSusceptibilityInversion,validateGeophysicsSusceptibilityInversion} from './data/geophysicsInversion.js';
 
 export {describeGeophysicsMagneticVectorInversion,validateGeophysicsMagneticVectorInversion} from './data/geophysicsInversion.js';
+
+export {describeGeophysicsPotentialFieldOperator,validateGeophysicsPotentialFieldOperator,describeGeophysicsPotentialFieldGridInversion,validateGeophysicsPotentialFieldGridInversion} from './data/geophysicsPotentialFieldOperator.js';
