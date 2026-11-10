@@ -1,0 +1,63 @@
+{
+  "schema": "baselode.geophysics.potential_field_operator_request",
+  "version": 1,
+  "model_kind": "density",
+  "parameter_units": "kg/m^3",
+  "field_type": "gravity_anomaly",
+  "coordinate_frame": {
+    "id": "synthetic-local-grid",
+    "kind": "local_cartesian",
+    "axes": "x_y_up",
+    "units": "m",
+    "height_datum": "local_zero"
+  },
+  "reference_id": "synthetic_zero_gravity",
+  "grid": {
+    "origin_m": [
+      -50,
+      -50,
+      -150
+    ],
+    "cell_size_m": [
+      100,
+      100,
+      100
+    ],
+    "shape": [
+      1,
+      1,
+      1
+    ],
+    "order": "i_fastest",
+    "cell_ids": [
+      "body"
+    ],
+    "active": [
+      true
+    ],
+    "terrain_z_m": null,
+    "terrain_policy": "none"
+  },
+  "values": [
+    1000
+  ],
+  "points": [
+    {
+      "id": "surface",
+      "x_m": 0,
+      "y_m": 0,
+      "z_m": 0
+    }
+  ],
+  "channels": [
+    "gravity_g_down"
+  ],
+  "background_nT": null,
+  "min_distance_m": null,
+  "max_response_to_background_ratio": null,
+  "execution": {
+    "max_operator_calls": 512,
+    "max_kernel_evaluations": 1000000000,
+    "workspace_budget_mib": 64
+  }
+}

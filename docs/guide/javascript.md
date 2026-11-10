@@ -1797,3 +1797,17 @@ The shared analytic cube example and Python guide describe ordered J bounds,
 componentwise L2 edges, weak-TMI applicability and16-cell/48-parameter/128-total-data
 limits. TypeScript defines amplitude/frame direction (null at zero), channel QC,
 point-plus-quantity operator rows, exact-TMI diagnostics and convergence results.
+
+### Terrain-aware matrix-free requests
+
+`describeGeophysicsPotentialFieldOperator()` /
+`validateGeophysicsPotentialFieldOperator(request)` and
+`describeGeophysicsPotentialFieldGridInversion()` /
+`validateGeophysicsPotentialFieldGridInversion(request)` are native portable
+contracts with shared schemas and TypeScript types. They enforce explicit grid
+order, conservative terrain selection, IDs, units/reference, supported physical
+assumptions, supplied-sigma observations, parameter bounds and work estimates.
+Validation does not establish numerical convergence or conditioning. Replay an
+accepted request into Python3.12+ `baselode[scalable]` for numerical evaluation or
+inversion; JavaScript does not expose a numerical solver. See the Python guide
+and shared operator/grid-inversion examples for the full contract.

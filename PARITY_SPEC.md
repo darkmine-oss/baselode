@@ -495,3 +495,19 @@ are linear without weak approximation; linear TMI requires a fixed field/cap and
 exposes separate exact magnitude QC. No numerical JS solver parity, nonlinear exact
 objective, geographic angle, geological uniqueness, uncertainty or induced/remanent
 split is claimed. Raw forward constants/units and fitted replay requests are retained.
+
+## Terrain-aware matrix-free potential fields v1
+
+Python describe/validate_potential_field_operator and
+describe/validate_potential_field_grid_inversion map to native JavaScript
+describe/validateGeophysicsPotentialFieldOperator and
+describe/validateGeophysicsPotentialFieldGridInversion. Shared schemas, exact
+terrain-ID/volume selection, geometry/work budgets, explicit physical assumptions,
+parameter order and complete context/sigma validation have native replay tests.
+Numerical calculate_potential_field_operator/invert_potential_field_grid require
+the Python3.12+ pinned scalable extra. Analytic cube, independent volume quadrature,
+weighted dense-small/adjoint, subdivision and conservative-terrain tests validate
+physical conventions and matrix-free products. Bounded L2 TRF/LSMR reports a
+conservative augmented condition bound and independent projected-gradient gate;
+data rank remains unknown. No numerical JS parity, partial terrain volume,
+arbitrary survey scale, geological uniqueness or posterior uncertainty is claimed.

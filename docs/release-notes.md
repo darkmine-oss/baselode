@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add terrain-aware regular-grid matrix-free gravity/magnetics operators and bounded L2 TRF/LSMR inversion through Python3.12+ `scalable` extra, with native Python/JS schemas/validation, explicit terrain exclusion, shared work budgets, adjoint/convergence evidence and independent scientific regressions.
+
 - Add native Python/JS context- and ID-aligned residual/misfit QC, explicit coverage and supplied-sigma weighting, group summaries, scaled numerical statistics and atomic portable schemas/types/replay.
 
 - Add external magnetic rectangular-prism vectors, stable linear/exact total-field anomalies and magnetisation sensitivities through the pinned Python backend. Include native Python/JS validation, shared prism geometry, explicit permeability normalization, portable schemas/types/examples and independent magnetic-volume references.

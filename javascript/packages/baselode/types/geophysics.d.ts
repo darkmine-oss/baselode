@@ -976,3 +976,25 @@ export interface GeophysicsMagneticVectorInversionReport extends Omit<Geophysics
 }
 export function describeGeophysicsMagneticVectorInversion():Record<string,any>;
 export function validateGeophysicsMagneticVectorInversion(request:GeophysicsMagneticVectorInversionRequest):GeophysicsMagneticVectorInversionValidation;
+
+export interface GeophysicsPotentialFieldOperatorRequest {
+ schema:'baselode.geophysics.potential_field_operator_request';version:1;model_kind:'density'|'susceptibility'|'magnetic_vector';parameter_units:'kg/m^3'|'dimensionless'|'A/m';field_type:'gravity_anomaly'|'gravity_disturbance'|'magnetic_anomaly';coordinate_frame:GeophysicsGravityPrismsRequest['coordinate_frame'];reference_id:string;
+ grid:{origin_m:[number,number,number];cell_size_m:[number,number,number];shape:[number,number,number];order:'i_fastest';cell_ids:string[];active:boolean[];terrain_z_m:number[]|null;terrain_policy:'none'|'exclude_intersecting'};
+ values:Array<number|null>;points:GeophysicsGravityPrismsRequest['points'];channels:Array<GeophysicsMisfitContext['quantity']>;background_nT:GeophysicsMagneticPrismsRequest['background_nT'];min_distance_m:number|null;max_response_to_background_ratio:number|null;
+ execution:{max_operator_calls:number;max_kernel_evaluations:number;workspace_budget_mib:number};metadata?:Record<string,unknown>;
+}
+export interface GeophysicsPotentialFieldOperatorReport {
+ schema:string;version:1;state:'ok'|'needs_input'|'rejected'|'failed';issues:Array<{code:string;message:string}>;request:GeophysicsPotentialFieldOperatorRequest|null;active_cell_ids:string[];excluded:Partial<{masked_ids:string[];above_ids:string[];intersecting_ids:string[]}>;diagnostics:Record<string,string|number|boolean|null>;predicted:Array<GeophysicsMisfitRequest['predicted']>|null;backend:Record<string,string|number>|null;producer:Record<string,string|number>;
+}
+export interface GeophysicsPotentialFieldGridInversionRequest {
+ schema:'baselode.geophysics.potential_field_grid_inversion_request';version:1;operator_request:GeophysicsPotentialFieldOperatorRequest;observed:Array<GeophysicsMisfitRequest['observed']>;parameters:Array<Omit<GeophysicsInversionParameter,'parameter'>&{parameter:string}>;regularization:GeophysicsInversionRegularization;
+ solver:{method:'trf_lsmr';tolerance:number;max_iterations:number;lsmr_tolerance:number;max_inner_iterations:number;condition_limit:number};metadata?:Record<string,unknown>;
+}
+/** Python3.12+ scalable extra executes products/iterative fits without dense G. */
+export interface GeophysicsPotentialFieldGridInversionReport extends Omit<GeophysicsPotentialFieldOperatorReport,'request'> {
+ request:GeophysicsPotentialFieldGridInversionRequest|null;parameters:Array<Omit<GeophysicsInversionParameter,'parameter'>&{parameter:string;units:string;value:number;active_bound:-1|0|1;weighted_column_norm:number}>;fitted_operator_request:GeophysicsPotentialFieldOperatorRequest|null;misfit:GeophysicsMisfitReport[]|null;objective:{weighted_data:number;reference:number;smoothness:number;total:number}|null;convergence:Record<string,number|boolean>|null;
+}
+export function describeGeophysicsPotentialFieldOperator():Record<string,any>;
+export function validateGeophysicsPotentialFieldOperator(request:GeophysicsPotentialFieldOperatorRequest):GeophysicsPotentialFieldOperatorReport;
+export function describeGeophysicsPotentialFieldGridInversion():Record<string,any>;
+export function validateGeophysicsPotentialFieldGridInversion(request:GeophysicsPotentialFieldGridInversionRequest):Omit<GeophysicsPotentialFieldOperatorReport,'request'> & {request:GeophysicsPotentialFieldGridInversionRequest|null};

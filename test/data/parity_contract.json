@@ -1132,6 +1132,42 @@
           "invert_magnetic_vector"
         ]
       ]
+    },
+    {
+      "name": "geophysics_matrix_free_potential_fields",
+      "description": "Native explicit regular-grid/terrain/operator/inverse contracts; pinned Python3.12+ SimPEG Choclo matrix-free products, physical unit/order mapping and bounded L2 iterative fits.",
+      "jsExports": [
+        "describeGeophysicsPotentialFieldOperator",
+        "validateGeophysicsPotentialFieldOperator",
+        "describeGeophysicsPotentialFieldGridInversion",
+        "validateGeophysicsPotentialFieldGridInversion"
+      ],
+      "pythonSymbols": [
+        [
+          "baselode.geophysics",
+          "describe_potential_field_operator"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_potential_field_operator"
+        ],
+        [
+          "baselode.geophysics",
+          "calculate_potential_field_operator"
+        ],
+        [
+          "baselode.geophysics",
+          "describe_potential_field_grid_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "validate_potential_field_grid_inversion"
+        ],
+        [
+          "baselode.geophysics",
+          "invert_potential_field_grid"
+        ]
+      ]
     }
   ]
 }
