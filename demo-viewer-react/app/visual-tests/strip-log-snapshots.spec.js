@@ -114,3 +114,25 @@ test('strip-log snapshots match committed baselines @snapshot', async ({ page })
     await expect(frame).toHaveScreenshot(entry.file);
   }
 });
+
+test('strip-log figure follows its card through layout changes @smoke', async ({ page }) => {
+  await openReadyGallery(page);
+  const frame = page.locator('[data-snapshot-key="standard-numeric-line"]');
+
+  // Exercise a narrow intermediate layout, then expansion and shrinking,
+  // without a window resize (as when an embedding app changes its grid).
+  for (const width of [100, 550, 320]) {
+    await frame.evaluate((element, size) => { element.style.width = `${size}px`; }, width);
+    await expect.poll(() => frame.evaluate((element) => {
+      const body = element.querySelector('.plot-card__body');
+      const plot = element.querySelector('.js-plotly-plot');
+      const svg = plot?.querySelector('.svg-container > svg.main-svg');
+      return {
+        frameWidth: element.clientWidth,
+        hasBodyWidth: body.clientWidth > 0,
+        layoutMatchesBody: plot?._fullLayout?.width === body.clientWidth,
+        svgMatchesBody: Number(svg?.getAttribute('width')) === body.clientWidth,
+      };
+    })).toEqual({ frameWidth: width, hasBodyWidth: true, layoutMatchesBody: true, svgMatchesBody: true });
+  }
+});

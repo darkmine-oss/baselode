@@ -465,25 +465,20 @@ function TracePlot({
 
   useEffect(() => {
     const target = containerRef.current;
-    if (!target || typeof ResizeObserver === 'undefined') return undefined;
-    const resizeObserver = new ResizeObserver(() => {
-      try {
-        if (target && target.data) {
-          const width = Math.max(0, Math.floor(target.clientWidth));
-          const height = Math.max(0, Math.floor(target.clientHeight));
-          if (width > 0 && height > 0) {
-            plotLifecycleRef.current.track(
-              Plotly.relayout(target, { width, height, autosize: false })
-            );
-          }
-        }
-      } catch (err) {
-        console.warn('Plot resize error', err);
-      }
-    });
-    resizeObserver.observe(target);
-    return () => resizeObserver.disconnect();
-  }, [bodyState.kind]);
+    if (bodyState.kind !== 'chart' || !hasPlotSize || !target?.data) return;
+    // Measure the surrounding body, not the div managed by Plotly. Positive
+    // sizes can change without hasPlotSize changing. Relayout also preserves
+    // the user's zoom instead of rebuilding the chart on every resize.
+    try {
+      plotLifecycleRef.current.track(Plotly.relayout(target, {
+        width: plotSize.width,
+        height: plotSize.height,
+        autosize: false,
+      }));
+    } catch (err) {
+      console.warn('Plot resize error', err);
+    }
+  }, [bodyState.kind, hasPlotSize, plotSize.width, plotSize.height]);
 
   // Resolve a `group+hole` selector once per render so the group
   // options + filtered hole list are computed identically by both
